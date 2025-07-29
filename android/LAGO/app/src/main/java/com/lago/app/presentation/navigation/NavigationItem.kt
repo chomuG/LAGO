@@ -21,6 +21,12 @@ sealed class NavigationItem(
         icon = Icons.Default.Share
     )
     
+    object Chart : NavigationItem(
+        route = "chart",
+        title = "차트",
+        icon = Icons.Default.DateRange
+    )
+    
     object Learn : NavigationItem(
         route = "learn",
         title = "학습",
@@ -43,7 +49,7 @@ sealed class NavigationItem(
 val bottomNavigationItems = listOf(
     NavigationItem.Home,
     NavigationItem.Investment,
-    NavigationItem.Learn,
+    NavigationItem.Chart,
     NavigationItem.News,
     NavigationItem.Portfolio
 )
