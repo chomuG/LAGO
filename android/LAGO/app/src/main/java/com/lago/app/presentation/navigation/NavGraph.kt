@@ -6,13 +6,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.lago.app.presentation.ui.*
 
+import androidx.compose.ui.Modifier
+
 @Composable
 fun NavGraph(
-    navController: NavHostController
+    navController: NavHostController,
+    modifier: Modifier = Modifier
 ) {
     NavHost(
         navController = navController,
-        startDestination = NavigationItem.Home.route
+        startDestination = NavigationItem.Home.route,
+        modifier = modifier
     ) {
         composable(NavigationItem.Home.route) {
             HomeScreen()

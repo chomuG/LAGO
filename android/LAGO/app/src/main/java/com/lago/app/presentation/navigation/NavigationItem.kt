@@ -18,25 +18,25 @@ sealed class NavigationItem(
     object Investment : NavigationItem(
         route = "investment",
         title = "투자",
-        icon = Icons.Default.TrendingUp
+        icon = Icons.Default.Share
     )
     
     object Learn : NavigationItem(
         route = "learn",
         title = "학습",
-        icon = Icons.Default.School
+        icon = Icons.Default.Edit
     )
     
     object News : NavigationItem(
         route = "news",
         title = "뉴스",
-        icon = Icons.Default.Newspaper
+        icon = Icons.Default.Build
     )
     
     object Portfolio : NavigationItem(
         route = "portfolio",
         title = "포트폴리오",
-        icon = Icons.Default.AccountBalanceWallet
+        icon = Icons.Default.AccountBox
     )
 }
 

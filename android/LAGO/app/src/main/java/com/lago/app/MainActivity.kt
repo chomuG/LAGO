@@ -40,9 +40,11 @@ fun LagoApp() {
             bottomBar = {
                 BottomNavigationBar(navController = navController)
             }
-        ) { innerPadding ->
+        )
+        { innerPadding ->
             NavGraph(
-                navController = navController
+                navController = navController,
+                modifier = Modifier.padding(innerPadding)
             )
         }
     }

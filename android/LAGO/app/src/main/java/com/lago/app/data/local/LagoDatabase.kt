@@ -6,10 +6,11 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import android.content.Context
 
+import com.lago.app.domain.entity.User
+
 @Database(
     entities = [
-        // TODO: Add your Room entities here
-        // UserEntity::class,
+        User::class
     ],
     version = 1,
     exportSchema = false
@@ -17,8 +18,7 @@ import android.content.Context
 @TypeConverters(Converters::class)
 abstract class LagoDatabase : RoomDatabase() {
     
-    // TODO: Add your DAOs here
-    // abstract fun userDao(): UserDao
+    abstract fun userDao(): UserDao
     
     companion object {
         const val DATABASE_NAME = "lago_database"
