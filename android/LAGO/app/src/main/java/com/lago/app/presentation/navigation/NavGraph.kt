@@ -5,6 +5,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.lago.app.presentation.ui.*
+import com.lago.app.presentation.ui.chart.ChartScreen
 
 import androidx.compose.ui.Modifier
 
@@ -23,7 +24,15 @@ fun NavGraph(
         }
         
         composable(NavigationItem.Investment.route) {
-            InvestmentScreen()
+            InvestmentScreen(
+                onNavigateToChart = {
+                    navController.navigate(NavigationItem.Chart.route)
+                }
+            )
+        }
+        
+        composable(NavigationItem.Chart.route) {
+            ChartScreen()
         }
         
         composable(NavigationItem.Learn.route) {
