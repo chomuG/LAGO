@@ -12,7 +12,7 @@ data class ChartUiState(
     ),
     val config: ChartConfig = ChartConfig(
         stockCode = "005930",
-        timeFrame = "D",
+        timeFrame = "10",
         indicators = ChartIndicators()
     ),
     val candlestickData: List<CandlestickData> = emptyList(),
