@@ -49,7 +49,7 @@ sealed class NavigationItem(
 val bottomNavigationItems = listOf(
     NavigationItem.Home,
     NavigationItem.Investment,
-    NavigationItem.Chart,
+    NavigationItem.Learn,
     NavigationItem.News,
     NavigationItem.Portfolio
 )
