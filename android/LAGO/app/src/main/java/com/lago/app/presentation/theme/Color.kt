@@ -29,6 +29,18 @@ val Gray700 = Color(0xFF5F6368)
 val Gray800 = Color(0xFF3C4043)
 val Gray900 = Color(0xFF202124)
 
+// Blue Scale
+val BlueLight = Color(0xFFECF6FF)
+val BlueLightHover = Color(0xFFE3F2FF)
+val BlueLightActive = Color(0xFFC4E3FF)
+val BlueNormal = Color(0xFF42A6FF)
+val BlueNormalHover = Color(0xFF3B95E6)
+val BlueNormalActive = Color(0xFF3585CC)
+val BlueDark = Color(0xFF327DBF)
+val BlueDarkHover = Color(0xFF286499)
+val BlueDarkActive = Color(0xFF1E4B73)
+val BlueDarker = Color(0xFF173A59)
+
 val LightColorScheme = lightColorScheme(
     primary = Purple40,
     secondary = PurpleGrey40,
