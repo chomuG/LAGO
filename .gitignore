@@ -1,11 +1,18 @@
+# Java/Spring Boot 빌드 파일
+/build/
+/BE/build/
+/BE/out/
+*.iml
+*.class
+*.log
 HELP.md
-.gradle
-build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
 
-### STS ###
+# Gradle
+.gradle/
+BE/.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# STS
 .apt_generated
 .classpath
 .factorypath
@@ -17,21 +24,46 @@ bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
-### IntelliJ IDEA ###
-.idea
+# IntelliJ IDEA
+.idea/
 *.iws
-*.iml
 *.ipr
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
-### NetBeans ###
+# NetBeans
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
 
-### VS Code ###
+# VS Code
 .vscode/
+
+# OS/에디터 불필요 파일
+Thumbs.db
+.DS_Store
+*.bak
+*.swp
+*.swo
+*~
+
+# 환경변수/시크릿
+.env
+.env.*
+
+# Docker/DB/Redis 볼륨(실제 데이터)
+dbdata/
+redisdata/
+BE/dbdata/
+BE/redisdata/
+
+# 기타 임시/캐시
+*.tmp
+*.temp
+*.cache
+
+# node, frontend 등 추가시
+node_modules/
