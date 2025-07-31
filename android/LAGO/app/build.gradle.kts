@@ -35,6 +35,7 @@ android {
     }
     kotlinOptions {
         jvmTarget = "11"
+        freeCompilerArgs += "-opt-in=androidx.constraintlayout.compose.ExperimentalMotionApi"
     }
     buildFeatures {
         compose = true
@@ -86,6 +87,12 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+    
+    // FlexibleBottomSheet Material3
+    implementation("com.github.skydoves:flexible-bottomsheet-material3:0.1.5")
+    
+    // MotionLayout for Compose
+    implementation("androidx.constraintlayout:constraintlayout-compose:1.0.1")
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
