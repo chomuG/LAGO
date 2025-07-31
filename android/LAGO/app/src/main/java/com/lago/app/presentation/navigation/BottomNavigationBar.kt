@@ -7,6 +7,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 
@@ -17,13 +19,17 @@ fun BottomNavigationBar(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    NavigationBar {
+    NavigationBar(
+        modifier = androidx.compose.ui.Modifier.semantics {
+            contentDescription = "하단 네비게이션 바"
+        }
+    ) {
         bottomNavigationItems.forEach { item ->
             NavigationBarItem(
                 icon = {
                     Icon(
                         imageVector = item.icon,
-                        contentDescription = item.title
+                        contentDescription = null // 접근성 개선: contentDescription은 NavigationBarItem에서 처리
                     )
                 },
                 label = {
@@ -37,6 +43,13 @@ fun BottomNavigationBar(
                         }
                         launchSingleTop = true
                         restoreState = true
+                    }
+                },
+                modifier = androidx.compose.ui.Modifier.semantics {
+                    contentDescription = if (currentRoute == item.route) {
+                        "${item.title} 탭, 현재 선택됨"
+                    } else {
+                        "${item.title} 탭으로 이동"
                     }
                 }
             )

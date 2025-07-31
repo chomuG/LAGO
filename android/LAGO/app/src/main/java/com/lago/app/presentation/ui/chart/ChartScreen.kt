@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -45,6 +46,11 @@ import androidx.compose.ui.unit.times
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.absoluteValue
+// Theme imports
+import com.lago.app.presentation.theme.*
+// Animation imports for smoothing
+import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lago.app.domain.entity.CandlestickData
 import com.lago.app.domain.entity.ChartConfig
@@ -91,8 +97,13 @@ private object ChartColorConstants {
 // 바텀시트 상태 열거형
 enum class BottomSheetState {
     COLLAPSED,     // 하단 (225dp)
-    HALF_EXPANDED, // 중단 (55%)
+    HALF_EXPANDED, // 중단 (40%)
     EXPANDED       // 상단 (85%)
+}
+
+// 커스텀 lerp 함수
+private fun lerp(start: Float, stop: Float, fraction: Float): Float {
+    return start + fraction * (stop - start)
 }
 
 @Composable
@@ -105,38 +116,50 @@ fun ChartScreen(
     val screenHeight = configuration.screenHeightDp.dp
     val coroutineScope = rememberCoroutineScope()
 
-    // 3단계 높이 정의
-    val collapsedHeight = 225.dp
-    val halfExpandedHeight = screenHeight * 0.55f
-    val expandedHeight = screenHeight * 0.85f
-    val buttonBarHeight = 76.dp
+    // 3단계 높이 정의 (메모이제이션으로 성능 최적화)
+    val bottomSheetHeights = remember(screenHeight) {
+        object {
+            val collapsed = 225.dp
+            val halfExpanded = screenHeight * 0.50f
+            val expanded = screenHeight * 0.85f
+            val buttonBar = 76.dp
+        }
+    }
 
-    // 바텀시트 상태와 현재 오프셋
-    var bottomSheetState by remember { mutableStateOf(BottomSheetState.COLLAPSED) }
+    // 바텀시트 상태와 현재 오프셋 (상태 보존 개선)
+    var bottomSheetState by rememberSaveable { mutableStateOf(BottomSheetState.COLLAPSED) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
     var isDragging by remember { mutableStateOf(false) }
 
     // Y 위치를 픽셀로 계산 (화면 상단에서부터의 거리)
     val screenHeightPx = with(density) { screenHeight.toPx() }
-    val buttonBarHeightPx = with(density) { buttonBarHeight.toPx() }
 
-    // 각 상태별 Y 위치 (화면 상단에서부터의 거리)
-    val collapsedY = screenHeightPx - with(density) { collapsedHeight.toPx() } - buttonBarHeightPx
-    val halfExpandedY = screenHeightPx - with(density) { halfExpandedHeight.toPx() } - buttonBarHeightPx
-    val expandedY = screenHeightPx - with(density) { expandedHeight.toPx() } - buttonBarHeightPx
-
-    // 현재 목표 Y 위치
-    val targetY = when (bottomSheetState) {
-        BottomSheetState.COLLAPSED -> collapsedY
-        BottomSheetState.HALF_EXPANDED -> halfExpandedY
-        BottomSheetState.EXPANDED -> expandedY
+    // 각 상태별 Y 위치 (화면 상단에서부터의 거리) - 메모이제이션 최적화
+    val sheetPositions = remember(screenHeightPx, density) {
+        val buttonBarHeightPx = with(density) { bottomSheetHeights.buttonBar.toPx() }
+        object {
+            val collapsed = screenHeightPx - with(density) { bottomSheetHeights.collapsed.toPx() } - buttonBarHeightPx
+            val halfExpanded = screenHeightPx - with(density) { bottomSheetHeights.halfExpanded.toPx() } - buttonBarHeightPx
+            val expanded = screenHeightPx - with(density) { bottomSheetHeights.expanded.toPx() } - buttonBarHeightPx
+        }
     }
 
-    // 실제 Y 위치 (드래그 적용)
-    val currentY = if (isDragging) {
-        (targetY + dragOffset).coerceIn(expandedY, collapsedY)
-    } else {
-        targetY
+    // 현재 목표 Y 위치 (성능 최적화된 계산)
+    val targetY = remember(bottomSheetState, sheetPositions) {
+        when (bottomSheetState) {
+            BottomSheetState.COLLAPSED -> sheetPositions.collapsed
+            BottomSheetState.HALF_EXPANDED -> sheetPositions.halfExpanded
+            BottomSheetState.EXPANDED -> sheetPositions.expanded
+        }
+    }
+
+    // 실제 Y 위치 (드래그 적용) - 계산 최적화
+    val currentY = remember(isDragging, targetY, dragOffset, sheetPositions) {
+        if (isDragging) {
+            (targetY + dragOffset).coerceIn(sheetPositions.expanded, sheetPositions.collapsed)
+        } else {
+            targetY
+        }
     }
 
     // 애니메이션된 Y 위치
@@ -153,12 +176,33 @@ fun ChartScreen(
         label = "bottom_sheet_y"
     )
 
-    // 진행도 계산 (0.0 = 하단, 1.0 = 상단)
-    val sheetProgress by remember {
+    // 진행도 계산 (0.0 = 하단, 1.0 = 상단) - 성능 최적화
+    val sheetProgress by remember(sheetPositions) {
         derivedStateOf {
-            val progress = (collapsedY - animatedY) / (collapsedY - expandedY)
+            val progress = (sheetPositions.collapsed - animatedY) / (sheetPositions.collapsed - sheetPositions.expanded)
             progress.coerceIn(0f, 1f)
         }
+    }
+
+    // 1) sheetProgress 스무딩 적용 - 드래그 상태에 따른 동적 스프링 조절
+    val smoothProgress = remember { Animatable(0f) }
+    LaunchedEffect(sheetProgress, isDragging) {
+        smoothProgress.animateTo(
+            targetValue = sheetProgress,
+            animationSpec = if (isDragging) {
+                // 드래그 중: 매우 빠르고 반응적인 스프링 (거의 즉시 반응)
+                spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessHigh * 3f // 3배 빠른 반응
+                )
+            } else {
+                // 평상시: 부드러운 스프링 (자연스러운 마무리)
+                spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            }
+        )
     }
 
     // 드래그 처리 함수
@@ -167,7 +211,7 @@ fun ChartScreen(
         val fastSwipeThreshold = 800f
 
         when {
-            // 빠른 아래 스와이프
+            // 빠른 아래 스와이프 (상태 전환 최적화)
             velocity > fastSwipeThreshold -> {
                 bottomSheetState = when (bottomSheetState) {
                     BottomSheetState.EXPANDED -> BottomSheetState.HALF_EXPANDED
@@ -183,21 +227,16 @@ fun ChartScreen(
                     BottomSheetState.EXPANDED -> BottomSheetState.EXPANDED
                 }
             }
-            // 느린 드래그 - 가장 가까운 상태로 스냅
+            // 느린 드래그 - 가장 가까운 상태로 스냅 (성능 최적화)
             else -> {
                 val currentPosition = targetY + dragOffset
-                val distanceToCollapsed = abs(currentPosition - collapsedY)
-                val distanceToHalfExpanded = abs(currentPosition - halfExpandedY)
-                val distanceToExpanded = abs(currentPosition - expandedY)
+                val distances = listOf(
+                    BottomSheetState.COLLAPSED to abs(currentPosition - sheetPositions.collapsed),
+                    BottomSheetState.HALF_EXPANDED to abs(currentPosition - sheetPositions.halfExpanded),
+                    BottomSheetState.EXPANDED to abs(currentPosition - sheetPositions.expanded)
+                )
 
-                bottomSheetState = when {
-                    distanceToCollapsed <= distanceToHalfExpanded && distanceToCollapsed <= distanceToExpanded ->
-                        BottomSheetState.COLLAPSED
-                    distanceToHalfExpanded <= distanceToExpanded ->
-                        BottomSheetState.HALF_EXPANDED
-                    else ->
-                        BottomSheetState.EXPANDED
-                }
+                bottomSheetState = distances.minByOrNull { it.second }?.first ?: BottomSheetState.COLLAPSED
             }
         }
 
@@ -205,62 +244,41 @@ fun ChartScreen(
         isDragging = false
     }
 
-    // 애니메이션 진행도 계산
-    val animationProgress = ((sheetProgress - 0.2f) / 0.3f).coerceIn(0f, 1f) // 20~50% 구간
+    // 애니메이션 진행도 계산 (20~50% 구간에서 헤더 변환)
+    val animationProgress = ((sheetProgress - 0.2f) / 0.3f).coerceIn(0f, 1f)
 
-    // 헤더 박스 애니메이션 값들
-    val boxTranslationY by animateFloatAsState(
-        targetValue = animationProgress * (-72f), // 헤더(72dp)에서 앱바(0dp)로 이동
-        animationSpec = tween(durationMillis = 250),
-        label = "box_translation_y"
-    )
+    // 중간 위치(50%)에서 완전히 앱바에 정렬되도록 조정 - smoothProgress 사용
+    val headerAlignmentProgress = when {
+        smoothProgress.value <= 0.3f -> 0f
+        smoothProgress.value >= 0.4f -> 1f
+        else -> (smoothProgress.value - 0.3f) / 0.1f // 30~40% 구간에서만 애니메이션
+    }
 
-    val boxHeight by animateFloatAsState(
-        targetValue = 120f - (animationProgress * 64f), // 120dp → 56dp
-        animationSpec = tween(durationMillis = 250),
-        label = "box_height"
-    )
+    // 2) 애니메이션 값들 - lerp 사용으로 더 부드럽게
+    val headerOffsetY = lerp(0f, -72f, headerAlignmentProgress)
+    val headerScale = lerp(1f, 0.75f, headerAlignmentProgress)
+    val chartScale = lerp(1f, 0.85f, smoothProgress.value) // 전체 진행도에 따른 차트 스케일
+    val chartTranslationY = lerp(0f, -30f, smoothProgress.value)
 
-    val boxCornerRadius by animateFloatAsState(
-        targetValue = 16f * (1f - animationProgress), // 16dp → 0dp
-        animationSpec = tween(durationMillis = 250),
-        label = "box_corner_radius"
-    )
+    // 헤더 박스 애니메이션 값들 - lerp 기반으로 더 부드럽게
+    val boxTranslationY = headerOffsetY
+    val boxHeight = lerp(120f, 56f, headerAlignmentProgress)
+    val boxCornerRadius = lerp(16f, 0f, headerAlignmentProgress)
+    val boxPadding = lerp(16f, 0f, headerAlignmentProgress)
+    val boxAlpha = lerp(0.95f, 1.0f, headerAlignmentProgress)
 
-    val boxPadding by animateFloatAsState(
-        targetValue = 16f * (1f - animationProgress), // 16dp → 0dp
-        animationSpec = tween(durationMillis = 250),
-        label = "box_padding"
-    )
+    // 텍스트 애니메이션 값들 - lerp 기반으로 부드럽게
+    val titleScale = lerp(1f, 0.67f, headerAlignmentProgress) // 1f - 0.33f
+    val priceScale = lerp(1f, 0.5f, headerAlignmentProgress)
+    val titleFontSize = lerp(24f, 18f, headerAlignmentProgress)
+    val priceFontSize = lerp(32f, 16f, headerAlignmentProgress)
+    val layoutTransition = headerAlignmentProgress
 
-    val boxAlpha by animateFloatAsState(
-        targetValue = 0.95f + (animationProgress * 0.05f), // 95% → 100% 불투명도
-        animationSpec = tween(durationMillis = 250),
-        label = "box_alpha"
-    )
-
-    // 텍스트 애니메이션 값들
-    val titleScale by animateFloatAsState(
-        targetValue = 1f - (animationProgress * 0.33f),
-        animationSpec = tween(durationMillis = 250),
-        label = "title_scale"
-    )
-
-    val priceScale by animateFloatAsState(
-        targetValue = 1f - (animationProgress * 0.5f),
-        animationSpec = tween(durationMillis = 250),
-        label = "price_scale"
-    )
-
-    val headerHeight by animateFloatAsState(
-        targetValue = when {
-            sheetProgress <= 0.2f -> 120f
-            sheetProgress <= 0.5f -> 120f - ((sheetProgress - 0.2f) / 0.3f) * 64f // 120 → 56
-            else -> 0f
-        },
-        animationSpec = tween(durationMillis = 150),
-        label = "header_height"
-    )
+    val headerHeight = when {
+        smoothProgress.value <= 0.2f -> 120f
+        smoothProgress.value <= 0.5f -> lerp(120f, 56f, (smoothProgress.value - 0.2f) / 0.3f)
+        else -> 56f
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // 배경 및 콘텐츠 영역
@@ -268,13 +286,13 @@ fun ChartScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White)
-                .padding(bottom = buttonBarHeight)
+                .padding(bottom = bottomSheetHeights.buttonBar)
         ) {
             // 헤더 영역 (빈 공간 - 실제 콘텐츠는 박스에 포함)
             Spacer(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height((176f - (animationProgress * 120f)).dp) // 176dp → 56dp
+                    .height((176f - (headerAlignmentProgress * 120f)).dp) // 176dp → 56dp
             )
 
             // 차트 + 시간 버튼 영역
@@ -284,21 +302,22 @@ fun ChartScreen(
                     .weight(1f)
                     .background(Color.White)
             ) {
-                // 차트 영역
-                val chartHeight by animateFloatAsState(
-                    targetValue = when {
-                        sheetProgress <= 0.2f -> 300f
-                        sheetProgress <= 0.5f -> 270f - ((sheetProgress - 0.2f) / 0.3f) * 30f
-                        else -> 240f - ((sheetProgress - 0.5f) / 0.5f) * 30f
-                    }.coerceAtLeast(210f),
-                    animationSpec = tween(durationMillis = 150),
-                    label = "chart_height"
-                )
+                // 차트 영역 - 4) 부드러운 차트 애니메이션
+                val chartHeight = when {
+                    smoothProgress.value <= 0.2f -> 300f
+                    smoothProgress.value <= 0.5f -> lerp(300f, 270f, (smoothProgress.value - 0.2f) / 0.3f)
+                    else -> lerp(270f, 240f, (smoothProgress.value - 0.5f) / 0.5f)
+                }.coerceAtLeast(210f)
 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(chartHeight.dp)
+                        .graphicsLayer {
+                            scaleX = chartScale
+                            scaleY = chartScale
+                            translationY = chartTranslationY.dp.toPx()
+                        }
                         .padding(horizontal = 16.dp)
                         .background(Color.White)
                         .padding(horizontal = 8.dp)
@@ -333,17 +352,17 @@ fun ChartScreen(
             }
         }
 
-        // 애니메이션되는 헤더 박스 (앱바 아이콘들 뒤에 위치)
+        // 애니메이션되는 헤더 박스 (앱바 아이콘들 뒤에 위치) - 3) 부드러운 헤더 애니메이션
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = boxPadding.dp)
-                .offset(y = (72f + boxTranslationY).dp) // 헤더 위치(72dp)에서 시작
+                .offset(y = (72f + boxTranslationY).dp)
                 .height(boxHeight.dp)
-                .shadow(
-                    elevation = (animationProgress * 4f).dp,
-                    shape = RoundedCornerShape(boxCornerRadius.dp)
-                )
+                .graphicsLayer {
+                    scaleX = headerScale
+                    scaleY = headerScale
+                }
                 .background(
                     color = Color.White.copy(alpha = boxAlpha),
                     shape = RoundedCornerShape(boxCornerRadius.dp)
@@ -354,13 +373,13 @@ fun ChartScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
-                        start = 16.dp + (animationProgress * 39.dp), // 16dp → 55dp (앱바 중앙으로 이동)
+                        start = 8.dp, // + (headerAlignmentProgress * 39.dp), // 16dp → 55dp (앱바 중앙으로 이동)
                         end = 16.dp
                     ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 왼쪽: 종목명과 가격
-                Column(
+                // 왼쪽: 종목명과 가격 - 부드러운 애니메이션 전환
+                Box(
                     modifier = Modifier
                         .weight(1f)
                         .graphicsLayer {
@@ -368,77 +387,105 @@ fun ChartScreen(
                             scaleY = titleScale
                         }
                 ) {
-                    if (animationProgress > 0.5f) {
-                        // 중단 이후: 가로 배치
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = uiState.currentStock.name,
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.Black
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "${String.format("%.0f", uiState.currentStock.currentPrice)}원",
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.Black,
-                                modifier = Modifier.graphicsLayer {
-                                    scaleX = priceScale / titleScale
-                                    scaleY = priceScale / titleScale
-                                }
-                            )
-                        }
-                    } else {
-                        // 초기~중단: 세로 배치
+                    // 초기 상태 (세로 배치) - 점진적으로 사라짐
+                    Column(
+                        modifier = Modifier
+                            .alpha(1f - layoutTransition)
+                            .graphicsLayer {
+                                // 레이아웃 전환 시 위치 조정
+                                translationY = -layoutTransition * 20f
+                            }
+                    ) {
                         Text(
                             text = uiState.currentStock.name,
-                            fontSize = 24.sp,
+                            fontSize = titleFontSize.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.Black
+                            color = Gray900
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height((8f * (1f - layoutTransition)).dp))
 
                         Text(
                             text = "${String.format("%.0f", uiState.currentStock.currentPrice)}원",
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.Black,
-                            lineHeight = 36.sp,
+                            fontSize = priceFontSize.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Gray900,
                             modifier = Modifier.graphicsLayer {
                                 scaleX = priceScale / titleScale
                                 scaleY = priceScale / titleScale
                             }
                         )
                     }
+
+                    // 최종 상태 (가로 배치) - 점진적으로 나타남
+                    Column(
+                        modifier = Modifier
+                            .alpha(layoutTransition)
+                            .graphicsLayer {
+                                // 레이아웃 전환 시 위치 조정
+                                translationY = (1f - layoutTransition) * 20f
+                            },
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Text(
+                            text = uiState.currentStock.name,
+                            fontSize = (18f + (1f - layoutTransition) * 6f).sp, // 24sp -> 18sp
+                            fontWeight = FontWeight.SemiBold,
+                            color = Gray900
+                        )
+
+                        Spacer(modifier = Modifier.height((4f * layoutTransition).dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${String.format("%.0f", uiState.currentStock.currentPrice)}원",
+                                fontSize = (16f + (1f - layoutTransition) * 16f).sp, // 32sp -> 16sp
+                                fontWeight = if (layoutTransition > 0.5f) FontWeight.Bold else FontWeight.ExtraBold,
+                                color = Gray900
+                            )
+
+                            Spacer(modifier = Modifier.width((4f * layoutTransition).dp))
+
+                            val isPositive = uiState.currentStock.priceChange >= 0
+                            Text(
+                                text = "${if (isPositive) "+" else ""}${String.format("%.2f", uiState.currentStock.priceChangePercent)}%",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isPositive) MainPink else MainBlue,
+                                modifier = Modifier.alpha(layoutTransition)
+                            )
+                        }
+                    }
                 }
 
-                // 오른쪽: 수익률 정보 (초기 상태에서만 표시)
-                if (animationProgress < 0.3f) {
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        modifier = Modifier.alpha(1f - (animationProgress * 3.33f))
-                    ) {
-                        val isPositive = uiState.currentStock.priceChange >= 0
-                        Text(
-                            text = "${if (isPositive) "▲" else "▼"}${String.format("%.0f", abs(uiState.currentStock.priceChange))}",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isPositive) Color(0xFFFF69B4) else Color(0xFF42A6FF)
-                        )
+                // 오른쪽: 수익률 정보 (초기 상태에서 점진적으로 사라짐)
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier
+                        .alpha(1f - layoutTransition)
+                        .graphicsLayer {
+                            // 페이드아웃과 함께 살짝 위로 이동
+                            translationY = -layoutTransition * 10f
+                            scaleX = 1f - (layoutTransition * 0.2f)
+                            scaleY = 1f - (layoutTransition * 0.2f)
+                        }
+                ) {
+                    val isPositive = uiState.currentStock.priceChange >= 0
+                    Text(
+                        text = "${if (isPositive) "▲" else "▼"}${String.format("%.0f", abs(uiState.currentStock.priceChange))}원",
+                        style = TitleB16,
+                        color = if (isPositive) MainPink else MainBlue
+                    )
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                        Text(
-                            text = "(${if (isPositive) "+" else ""}${String.format("%.2f", uiState.currentStock.priceChangePercent)}%)",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (isPositive) Color(0xFFFF69B4) else Color(0xFF42A6FF)
-                        )
-                    }
+                    Text(
+                        text = "(${if (isPositive) "+" else ""}${String.format("%.2f", uiState.currentStock.priceChangePercent)}%)",
+                        style = SubtitleSb14,
+                        color = if (isPositive) MainPink else MainBlue
+                    )
                 }
             }
         }
@@ -491,10 +538,10 @@ fun ChartScreen(
                     ) { _, dragAmount ->
                         totalDragAmount += dragAmount.y
 
-                        // 드래그 오프셋 업데이트 (범위 제한)
+                        // 드래그 오프셋 업데이트 (범위 제한) - 성능 최적화
                         val newDragOffset = dragOffset + dragAmount.y
-                        val minOffset = expandedY - targetY  // 위로 드래그 한계
-                        val maxOffset = collapsedY - targetY // 아래로 드래그 한계
+                        val minOffset = sheetPositions.expanded - targetY  // 위로 드래그 한계
+                        val maxOffset = sheetPositions.collapsed - targetY // 아래로 드래그 한계
 
                         dragOffset = newDragOffset.coerceIn(minOffset, maxOffset)
                     }
@@ -515,6 +562,9 @@ fun ChartScreen(
                                 color = Color(0xFFBDBDBD),
                                 shape = RoundedCornerShape(2.dp)
                             )
+                            .semantics {
+                                contentDescription = "바텀시트 드래그 핸들"
+                            }
                     )
                 }
 
@@ -555,9 +605,12 @@ fun ChartScreen(
                     onClick = { viewModel.onEvent(ChartUiEvent.SellClicked) },
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp),
+                        .height(48.dp)
+                        .semantics {
+                            contentDescription = "${uiState.currentStock.name} 판매하기 버튼"
+                        },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF42A6FF)
+                        containerColor = MainBlue
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -573,9 +626,12 @@ fun ChartScreen(
                     onClick = { viewModel.onEvent(ChartUiEvent.BuyClicked) },
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp),
+                        .height(48.dp)
+                        .semantics {
+                            contentDescription = "${uiState.currentStock.name} 구매하기 버튼"
+                        },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF69B4)
+                        containerColor = MainPink
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -626,7 +682,7 @@ private fun TopAppBar(
             Icon(
                 imageVector = Icons.Default.ArrowBack,
                 contentDescription = null,
-                tint = Color(0xFF404040)
+                tint = Gray700
             )
         }
 
@@ -641,7 +697,7 @@ private fun TopAppBar(
             Icon(
                 imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                 contentDescription = null,
-                tint = if (isFavorite) Color(0xFFFF69B4) else Color.Black
+                tint = if (isFavorite) MainPink else Gray900
             )
         }
 
@@ -670,7 +726,7 @@ private fun TopAppBar(
             Icon(
                 imageVector = Icons.Default.MoreVert,
                 contentDescription = "더보기",
-                tint = Color.Black
+                tint = Gray900
             )
         }
     }
@@ -737,6 +793,12 @@ private fun TimeFrameSelection(
         Box {
             FilterChip(
                 onClick = { showMinuteDropdown = !showMinuteDropdown },
+                modifier = Modifier
+                    .semantics {
+                        contentDescription = "분봉 선택: 현재 ${selectedMinute?.second ?: "10분"}"
+                    }
+                    .padding(horizontal = 6.dp)
+                    .height(36.dp),
                 label = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -744,24 +806,23 @@ private fun TimeFrameSelection(
                     ) {
                         Text(
                             selectedMinute?.second ?: "10분",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (isMinuteSelected) Color.White else Color.Black
+                            style = SubtitleSb14,
+                            color = if (isMinuteSelected) Color.White else Gray900
                         )
                         Icon(
                             imageVector = if (showMinuteDropdown) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                             contentDescription = "분봉 선택",
-                            tint = if (isMinuteSelected) Color.White else Color.Black,
+                            tint = if (isMinuteSelected) Color.White else Gray900,
                             modifier = Modifier.size(16.dp)
                         )
                     }
                 },
                 selected = isMinuteSelected,
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = Color(0xFFFF69B4),
+                    selectedContainerColor = MainPink,
                     selectedLabelColor = Color.White,
                     containerColor = Color.Transparent,
-                    labelColor = Color.Black
+                    labelColor = Gray900
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true,
@@ -769,9 +830,6 @@ private fun TimeFrameSelection(
                     borderColor = Color.Transparent,
                     selectedBorderColor = Color.Transparent
                 ),
-                modifier = Modifier
-                    .padding(horizontal = 6.dp)
-                    .height(36.dp)
             )
 
             DropdownMenu(
@@ -786,8 +844,8 @@ private fun TimeFrameSelection(
                         text = {
                             Text(
                                 name,
-                                color = Color.Black,
-                                fontSize = 14.sp
+                                style = BodyR14,
+                                color = Gray900
                             )
                         },
                         onClick = {
@@ -804,20 +862,25 @@ private fun TimeFrameSelection(
         timeFrames.forEach { (code, name) ->
             FilterChip(
                 onClick = { onTimeFrameChange(code) },
+                modifier = Modifier
+                    .semantics {
+                        contentDescription = "시간대 선택: ${name}${if (selectedTimeFrame == code) ", 선택됨" else ""}"
+                    }
+                    .padding(horizontal = 6.dp)
+                    .height(36.dp),
                 label = {
                     Text(
                         name,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (selectedTimeFrame == code) Color.White else Color.Black
+                        style = SubtitleSb14,
+                        color = if (selectedTimeFrame == code) Color.White else Gray900
                     )
                 },
                 selected = selectedTimeFrame == code,
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = Color(0xFFFF69B4),
+                    selectedContainerColor = MainPink,
                     selectedLabelColor = Color.White,
                     containerColor = Color.Transparent,
-                    labelColor = Color.Black
+                    labelColor = Gray900
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true,
@@ -825,10 +888,8 @@ private fun TimeFrameSelection(
                     borderColor = Color.Transparent,
                     selectedBorderColor = Color.Transparent
                 ),
-                modifier = Modifier
-                    .padding(horizontal = 6.dp)
-                    .height(36.dp)
-            )
+
+                )
         }
     }
 }
@@ -863,9 +924,8 @@ private fun BottomSheetContent(
                     text = {
                         Text(
                             title,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (selectedTabIndex == index) Color(0xFF08090E) else Color(0xFF747476)
+                            style = TitleB16,
+                            color = if (selectedTabIndex == index) Gray900 else Gray600
                         )
                     },
                     modifier = Modifier.height(44.dp)
@@ -961,12 +1021,15 @@ private fun HoldingItemRow(item: HoldingItem) {
             Text(
                 "${String.format("%,d", item.value)}원",
                 fontSize = 14.sp,
-                color = Color.Black
+                color = Color.Black,
+                fontWeight = FontWeight.Medium
             )
+            // 수익률 표시 (가격 밑에)
             Text(
-                "${if (item.change >= 0) "+" else ""}${String.format("%.1f", item.change)}%",
+                "${if (item.change >= 0) "+" else ""}${String.format("%.2f", item.change)}% (${String.format("%+,d", (item.value * item.change / 100).toInt())}원)",
                 fontSize = 12.sp,
-                color = if (item.change >= 0) Color(0xFFFF69B4) else Color(0xFF42A6FF)
+                color = if (item.change >= 0) Color(0xFFFF69B4) else Color(0xFF42A6FF),
+                fontWeight = FontWeight.Medium
             )
         }
     }
@@ -1035,11 +1098,19 @@ private fun TradingItemRow(item: TradingItem) {
             }
         }
 
-        Text(
-            "${String.format("%,d", item.amount)}원",
-            fontSize = 14.sp,
-            color = Color.Black
-        )
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                "${String.format("%,d", item.amount)}원",
+                fontSize = 14.sp,
+                color = Color.Black
+            )
+            val quantityNumber = item.quantity.replace("주", "").trim().toIntOrNull() ?: 1
+            Text(
+                "주당 ${String.format("%,d", item.amount / quantityNumber)}원",
+                fontSize = 12.sp,
+                color = Color(0xFF616161)
+            )
+        }
     }
 }
 
@@ -1055,80 +1126,91 @@ private fun PatternAnalysisContent(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // 설명 텍스트
         Text(
-            "차트에서 인식된 패턴을 분석해드려요.\n분석은 하루 최대 3회까지 가능합니다.",
+            "차트에서 인식된 패턴을\n분석해드려요.\n분석은 하루 최대 3회까지 가능합니다.",
             color = Color.Black,
-            fontSize = 14.sp,
+            fontSize = 16.sp,
             textAlign = TextAlign.Center,
-            lineHeight = 20.sp
+            lineHeight = 24.sp,
+            modifier = Modifier.padding(bottom = 32.dp)
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
-
+        // 분석 버튼
         Button(
             onClick = onAnalyzeClick,
+            enabled = patternAnalysisCount < maxPatternAnalysisCount,
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF4CAF50)
+                containerColor = Color(0xFF4CAF50),
+                disabledContainerColor = Color(0xFFE0E0E0)
             ),
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier.height(44.dp)
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .padding(horizontal = 24.dp)
+                .semantics {
+                    contentDescription = if (patternAnalysisCount < maxPatternAnalysisCount) {
+                        "차트 패턴 분석하기 버튼, 남은 횟수: ${maxPatternAnalysisCount - patternAnalysisCount}번"
+                    } else {
+                        "오늘 분석 횟수를 모두 사용하셨습니다"
+                    }
+                }
         ) {
             Text(
                 "차트 패턴 분석하기 ($patternAnalysisCount/$maxPatternAnalysisCount)",
-                color = Color.White,
+                color = if (patternAnalysisCount < maxPatternAnalysisCount) Color.White else Color(0xFF9E9E9E),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
-
+        // 최근 분석 결과가 있을 때만 표시
         lastPatternAnalysis?.let { analysis ->
+            Spacer(modifier = Modifier.height(32.dp))
+
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                shape = RoundedCornerShape(8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(20.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             "최근 분석 결과",
-                            fontSize = 14.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color.Black
                         )
                         Text(
-                            "($patternAnalysisCount/$maxPatternAnalysisCount)",
+                            analysis.analysisTime,
                             fontSize = 12.sp,
                             color = Color(0xFF616161)
                         )
                     }
 
-                    Text(
-                        analysis.analysisTime,
-                        fontSize = 12.sp,
-                        color = Color(0xFF616161),
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
                         analysis.patternName,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.Black
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4CAF50)
                     )
+
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         analysis.description,
                         fontSize = 14.sp,
-                        color = Color(0xFF616161),
-                        modifier = Modifier.padding(top = 4.dp),
+                        color = Color(0xFF424242),
                         lineHeight = 20.sp
                     )
                 }
