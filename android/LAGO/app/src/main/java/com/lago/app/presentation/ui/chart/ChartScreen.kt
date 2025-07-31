@@ -2,6 +2,9 @@ package com.lago.app.presentation.ui.chart
 
 import android.view.ViewGroup
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -32,14 +35,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.alpha
-import androidx.compose.animation.core.tween
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.unit.times
+import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.absoluteValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lago.app.domain.entity.CandlestickData
 import com.lago.app.domain.entity.ChartConfig
@@ -72,26 +77,6 @@ import com.tradingview.lightweightcharts.api.options.models.PriceScaleMargins
 import com.tradingview.lightweightcharts.api.series.models.PriceFormat
 import android.graphics.Color as AndroidColor
 
-// 애니메이션 상수들 - 반응성 향상
-private object ChartAnimationConstants {
-    const val ANIMATION_DURATION = 150  // 200 -> 150
-    const val SLOW_ANIMATION_DURATION = 200  // 250 -> 200
-    const val TITLE_TRANSLATION_X_MAX = -150f
-    const val TITLE_TRANSLATION_Y_MAX = -60f
-    const val STOCK_NAME_SIZE_MAX = 24f
-    const val STOCK_NAME_SIZE_MID = 20f
-    const val STOCK_NAME_SIZE_MIN = 16f
-    const val STOCK_PRICE_SIZE_MAX = 32f
-    const val STOCK_PRICE_SIZE_MID = 24f
-    const val STOCK_PRICE_SIZE_MIN = 16f
-    const val HEADER_HEIGHT_MAX = 120f
-    const val HEADER_HEIGHT_MID = 96f
-    const val HEADER_HEIGHT_MIN = 64f
-    const val PROGRESS_THRESHOLD_LOW = 0.3f
-    const val PROGRESS_THRESHOLD_MID = 0.6f
-    const val PROGRESS_THRESHOLD_HIGH = 0.7f
-}
-
 // 차트 색상 상수들
 private object ChartColorConstants {
     const val CHART_UP_COLOR = "#FF99C5"
@@ -103,347 +88,449 @@ private object ChartColorConstants {
     const val TEXT_COLOR = "#616161"
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+// 바텀시트 상태 열거형
+enum class BottomSheetState {
+    COLLAPSED,     // 하단 (225dp)
+    HALF_EXPANDED, // 중단 (55%)
+    EXPANDED       // 상단 (85%)
+}
+
 @Composable
 fun ChartScreen(
     viewModel: ChartViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
-    // 커스텀 바텀시트 상태 - 3단계 지원
-    val bottomSheetState = rememberBottomSheetScaffoldState(
-        bottomSheetState = rememberStandardBottomSheetState(
-            initialValue = SheetValue.PartiallyExpanded,
-            skipHiddenState = false
-        )
-    )
-
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp
+    val coroutineScope = rememberCoroutineScope()
 
-    // 바텀시트 3단계 높이 정의
-    val peekHeight = 150.dp
-    val midHeight = with(density) { (screenHeight.toPx() * 0.55f).toDp() }
-    val maxHeight = with(density) { (screenHeight.toPx() * 0.75f).toDp() }
+    // 3단계 높이 정의
+    val collapsedHeight = 225.dp
+    val halfExpandedHeight = screenHeight * 0.55f
+    val expandedHeight = screenHeight * 0.85f
+    val buttonBarHeight = 76.dp
 
-    // 바텀시트 드래그 제한을 위한 LaunchedEffect
-    LaunchedEffect(bottomSheetState.bottomSheetState) {
-        // 하단 제한: peekHeight 아래로 못 내려가게 함
-        try {
-            val currentOffset = bottomSheetState.bottomSheetState.requireOffset()
-            val peekOffsetPx = with(density) { (screenHeight - peekHeight).toPx() }
+    // 바텀시트 상태와 현재 오프셋
+    var bottomSheetState by remember { mutableStateOf(BottomSheetState.COLLAPSED) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    var isDragging by remember { mutableStateOf(false) }
 
-            if (currentOffset > peekOffsetPx) {
-                bottomSheetState.bottomSheetState.partialExpand()
-            }
-        } catch (e: Exception) {
-            // offset이 아직 초기화되지 않은 경우 무시
-        }
+    // Y 위치를 픽셀로 계산 (화면 상단에서부터의 거리)
+    val screenHeightPx = with(density) { screenHeight.toPx() }
+    val buttonBarHeightPx = with(density) { buttonBarHeight.toPx() }
+
+    // 각 상태별 Y 위치 (화면 상단에서부터의 거리)
+    val collapsedY = screenHeightPx - with(density) { collapsedHeight.toPx() } - buttonBarHeightPx
+    val halfExpandedY = screenHeightPx - with(density) { halfExpandedHeight.toPx() } - buttonBarHeightPx
+    val expandedY = screenHeightPx - with(density) { expandedHeight.toPx() } - buttonBarHeightPx
+
+    // 현재 목표 Y 위치
+    val targetY = when (bottomSheetState) {
+        BottomSheetState.COLLAPSED -> collapsedY
+        BottomSheetState.HALF_EXPANDED -> halfExpandedY
+        BottomSheetState.EXPANDED -> expandedY
     }
 
-    // offset 기반 실시간 진행도 계산 - 성능 최적화
-    val currentOffset = remember(bottomSheetState.bottomSheetState) {
+    // 실제 Y 위치 (드래그 적용)
+    val currentY = if (isDragging) {
+        (targetY + dragOffset).coerceIn(expandedY, collapsedY)
+    } else {
+        targetY
+    }
+
+    // 애니메이션된 Y 위치
+    val animatedY by animateFloatAsState(
+        targetValue = currentY,
+        animationSpec = if (isDragging) {
+            tween(durationMillis = 0)
+        } else {
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessLow
+            )
+        },
+        label = "bottom_sheet_y"
+    )
+
+    // 진행도 계산 (0.0 = 하단, 1.0 = 상단)
+    val sheetProgress by remember {
         derivedStateOf {
-            try {
-                bottomSheetState.bottomSheetState.requireOffset()
-            } catch (e: IllegalStateException) {
-                with(density) { (screenHeight - peekHeight).toPx() }
-            }
-        }
-    }.value
-
-    val peekOffsetPx = with(density) { (screenHeight - peekHeight).toPx() }
-    val midOffsetPx = with(density) { (screenHeight - midHeight).toPx() }
-    val maxOffsetPx = with(density) { (screenHeight - maxHeight).toPx() }
-
-    // 3단계 진행도 계산 수정 - 더 정확한 계산
-    val sheetProgress = when {
-        currentOffset >= peekOffsetPx -> 0f  // 하단 상태
-        currentOffset <= maxOffsetPx -> 1f   // 최상단 상태
-        currentOffset > midOffsetPx -> {
-            // 하단→중간: 0.0 → 0.5
-            val progress = (peekOffsetPx - currentOffset) / (peekOffsetPx - midOffsetPx)
-            (progress * 0.5f).coerceIn(0f, 0.5f)
-        }
-        else -> {
-            // 중간→상단: 0.5 → 1.0
-            val progress = (midOffsetPx - currentOffset) / (midOffsetPx - maxOffsetPx)
-            (0.5f + progress * 0.5f).coerceIn(0.5f, 1f)
+            val progress = (collapsedY - animatedY) / (collapsedY - expandedY)
+            progress.coerceIn(0f, 1f)
         }
     }
 
-    // 부드러운 애니메이션 진행도 - 즉각 반응으로 설정
-    val animatedProgress by animateFloatAsState(
-        targetValue = sheetProgress,
-        animationSpec = tween(durationMillis = 0), // 즉각 반응
-        label = "animated_progress"
+    // 드래그 처리 함수
+    fun handleDragEnd(totalDragAmount: Float, duration: Long) {
+        val velocity = if (duration > 0) totalDragAmount / duration * 1000 else 0f
+        val fastSwipeThreshold = 800f
+
+        when {
+            // 빠른 아래 스와이프
+            velocity > fastSwipeThreshold -> {
+                bottomSheetState = when (bottomSheetState) {
+                    BottomSheetState.EXPANDED -> BottomSheetState.HALF_EXPANDED
+                    BottomSheetState.HALF_EXPANDED -> BottomSheetState.COLLAPSED
+                    BottomSheetState.COLLAPSED -> BottomSheetState.COLLAPSED
+                }
+            }
+            // 빠른 위 스와이프
+            velocity < -fastSwipeThreshold -> {
+                bottomSheetState = when (bottomSheetState) {
+                    BottomSheetState.COLLAPSED -> BottomSheetState.HALF_EXPANDED
+                    BottomSheetState.HALF_EXPANDED -> BottomSheetState.EXPANDED
+                    BottomSheetState.EXPANDED -> BottomSheetState.EXPANDED
+                }
+            }
+            // 느린 드래그 - 가장 가까운 상태로 스냅
+            else -> {
+                val currentPosition = targetY + dragOffset
+                val distanceToCollapsed = abs(currentPosition - collapsedY)
+                val distanceToHalfExpanded = abs(currentPosition - halfExpandedY)
+                val distanceToExpanded = abs(currentPosition - expandedY)
+
+                bottomSheetState = when {
+                    distanceToCollapsed <= distanceToHalfExpanded && distanceToCollapsed <= distanceToExpanded ->
+                        BottomSheetState.COLLAPSED
+                    distanceToHalfExpanded <= distanceToExpanded ->
+                        BottomSheetState.HALF_EXPANDED
+                    else ->
+                        BottomSheetState.EXPANDED
+                }
+            }
+        }
+
+        dragOffset = 0f
+        isDragging = false
+    }
+
+    // 애니메이션 진행도 계산
+    val animationProgress = ((sheetProgress - 0.2f) / 0.3f).coerceIn(0f, 1f) // 20~50% 구간
+
+    // 헤더 박스 애니메이션 값들
+    val boxTranslationY by animateFloatAsState(
+        targetValue = animationProgress * (-72f), // 헤더(72dp)에서 앱바(0dp)로 이동
+        animationSpec = tween(durationMillis = 250),
+        label = "box_translation_y"
     )
 
-    // 주가 정보 애니메이션 값들 - 중단에서 완전히 올라가도록 조정
-    val titleTranslationX by animateFloatAsState(
-        targetValue = when {
-            animatedProgress <= 0.5f -> 0f  // 중단까지는 그대로
-            else -> ChartAnimationConstants.TITLE_TRANSLATION_X_MAX *
-                    ((animatedProgress - 0.5f) / 0.5f)  // 중단에서 완전히 올라감
-        },
-        animationSpec = tween(durationMillis = 0), // 즉각 반응
-        label = "title_translation_x"
+    val boxHeight by animateFloatAsState(
+        targetValue = 120f - (animationProgress * 64f), // 120dp → 56dp
+        animationSpec = tween(durationMillis = 250),
+        label = "box_height"
     )
 
-    val titleTranslationY by animateFloatAsState(
-        targetValue = when {
-            animatedProgress <= 0.5f -> 0f  // 중단까지는 그대로
-            else -> ChartAnimationConstants.TITLE_TRANSLATION_Y_MAX *
-                    ((animatedProgress - 0.5f) / 0.5f)  // 중단에서 완전히 올라감
-        },
-        animationSpec = tween(durationMillis = 0), // 즉각 반응
-        label = "title_translation_y"
+    val boxCornerRadius by animateFloatAsState(
+        targetValue = 16f * (1f - animationProgress), // 16dp → 0dp
+        animationSpec = tween(durationMillis = 250),
+        label = "box_corner_radius"
     )
 
-    val stockNameSize by animateFloatAsState(
-        targetValue = when {
-            animatedProgress <= ChartAnimationConstants.PROGRESS_THRESHOLD_LOW ->
-                ChartAnimationConstants.STOCK_NAME_SIZE_MAX -
-                        (4f * animatedProgress / ChartAnimationConstants.PROGRESS_THRESHOLD_LOW)
-            animatedProgress <= ChartAnimationConstants.PROGRESS_THRESHOLD_HIGH ->
-                ChartAnimationConstants.STOCK_NAME_SIZE_MID -
-                        (4f * (animatedProgress - ChartAnimationConstants.PROGRESS_THRESHOLD_LOW) / 0.4f)
-            else -> ChartAnimationConstants.STOCK_NAME_SIZE_MIN
-        },
-        animationSpec = tween(durationMillis = 0), // 즉각 반응
-        label = "stock_name_size"
+    val boxPadding by animateFloatAsState(
+        targetValue = 16f * (1f - animationProgress), // 16dp → 0dp
+        animationSpec = tween(durationMillis = 250),
+        label = "box_padding"
     )
 
-    val stockPriceSize by animateFloatAsState(
+    val boxAlpha by animateFloatAsState(
+        targetValue = 0.95f + (animationProgress * 0.05f), // 95% → 100% 불투명도
+        animationSpec = tween(durationMillis = 250),
+        label = "box_alpha"
+    )
+
+    // 텍스트 애니메이션 값들
+    val titleScale by animateFloatAsState(
+        targetValue = 1f - (animationProgress * 0.33f),
+        animationSpec = tween(durationMillis = 250),
+        label = "title_scale"
+    )
+
+    val priceScale by animateFloatAsState(
+        targetValue = 1f - (animationProgress * 0.5f),
+        animationSpec = tween(durationMillis = 250),
+        label = "price_scale"
+    )
+
+    val headerHeight by animateFloatAsState(
         targetValue = when {
-            animatedProgress <= ChartAnimationConstants.PROGRESS_THRESHOLD_LOW ->
-                ChartAnimationConstants.STOCK_PRICE_SIZE_MAX -
-                        (8f * animatedProgress / ChartAnimationConstants.PROGRESS_THRESHOLD_LOW)
-            animatedProgress <= ChartAnimationConstants.PROGRESS_THRESHOLD_HIGH ->
-                ChartAnimationConstants.STOCK_PRICE_SIZE_MID -
-                        (8f * (animatedProgress - ChartAnimationConstants.PROGRESS_THRESHOLD_LOW) / 0.4f)
-            else -> ChartAnimationConstants.STOCK_PRICE_SIZE_MIN
+            sheetProgress <= 0.2f -> 120f
+            sheetProgress <= 0.5f -> 120f - ((sheetProgress - 0.2f) / 0.3f) * 64f // 120 → 56
+            else -> 0f
         },
-        animationSpec = tween(durationMillis = 0), // 즉각 반응
-        label = "stock_price_size"
+        animationSpec = tween(durationMillis = 150),
+        label = "header_height"
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        BottomSheetScaffold(
-            scaffoldState = bottomSheetState,
-            sheetContent = {
-                // 바텀시트 높이를 제한 - 하단/상단 브레이크
+        // 배경 및 콘텐츠 영역
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(bottom = buttonBarHeight)
+        ) {
+            // 헤더 영역 (빈 공간 - 실제 콘텐츠는 박스에 포함)
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height((176f - (animationProgress * 120f)).dp) // 176dp → 56dp
+            )
+
+            // 차트 + 시간 버튼 영역
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(Color.White)
+            ) {
+                // 차트 영역
+                val chartHeight by animateFloatAsState(
+                    targetValue = when {
+                        sheetProgress <= 0.2f -> 300f
+                        sheetProgress <= 0.5f -> 270f - ((sheetProgress - 0.2f) / 0.3f) * 30f
+                        else -> 240f - ((sheetProgress - 0.5f) / 0.5f) * 30f
+                    }.coerceAtLeast(210f),
+                    animationSpec = tween(durationMillis = 150),
+                    label = "chart_height"
+                )
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(
-                            min = peekHeight,  // 최소 높이 제한 (하단 제한)
-                            max = maxHeight    // 최대 높이 제한 (상단 제한)
-                        )
+                        .height(chartHeight.dp)
+                        .padding(horizontal = 16.dp)
+                        .background(Color.White)
+                        .padding(horizontal = 8.dp)
                 ) {
-                    BottomSheetContent(viewModel = viewModel)
+                    SingleChartView(
+                        candlestickData = uiState.candlestickData,
+                        volumeData = uiState.volumeData,
+                        sma5Data = uiState.sma5Data,
+                        sma20Data = uiState.sma20Data,
+                        config = uiState.config,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .semantics {
+                                contentDescription = "주식 차트: 현재 가격 ${uiState.currentStock.currentPrice}원"
+                            }
+                    )
                 }
-            },
-            sheetPeekHeight = 150.dp,
-            modifier = Modifier.padding(bottom = 76.dp),
-            sheetContainerColor = Color.White,
-            sheetContentColor = Color.Black,
-            sheetShape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
-            sheetDragHandle = {
+
+                // 시간대 선택
+                TimeFrameSelection(
+                    selectedTimeFrame = uiState.config.timeFrame,
+                    onTimeFrameChange = { timeFrame ->
+                        viewModel.onEvent(ChartUiEvent.ChangeTimeFrame(timeFrame))
+                    },
+                    modifier = Modifier
+                        .background(Color.White)
+                        .padding(
+                            horizontal = 16.dp,
+                            vertical = 12.dp
+                        )
+                )
+            }
+        }
+
+        // 애니메이션되는 헤더 박스 (앱바 아이콘들 뒤에 위치)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = boxPadding.dp)
+                .offset(y = (72f + boxTranslationY).dp) // 헤더 위치(72dp)에서 시작
+                .height(boxHeight.dp)
+                .shadow(
+                    elevation = (animationProgress * 4f).dp,
+                    shape = RoundedCornerShape(boxCornerRadius.dp)
+                )
+                .background(
+                    color = Color.White.copy(alpha = boxAlpha),
+                    shape = RoundedCornerShape(boxCornerRadius.dp)
+                )
+        ) {
+            // 박스 안의 콘텐츠
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        start = 16.dp + (animationProgress * 39.dp), // 16dp → 55dp (앱바 중앙으로 이동)
+                        end = 16.dp
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 왼쪽: 종목명과 가격
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .graphicsLayer {
+                            scaleX = titleScale
+                            scaleY = titleScale
+                        }
+                ) {
+                    if (animationProgress > 0.5f) {
+                        // 중단 이후: 가로 배치
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = uiState.currentStock.name,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.Black
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "${String.format("%.0f", uiState.currentStock.currentPrice)}원",
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.Black,
+                                modifier = Modifier.graphicsLayer {
+                                    scaleX = priceScale / titleScale
+                                    scaleY = priceScale / titleScale
+                                }
+                            )
+                        }
+                    } else {
+                        // 초기~중단: 세로 배치
+                        Text(
+                            text = uiState.currentStock.name,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Black
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "${String.format("%.0f", uiState.currentStock.currentPrice)}원",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Black,
+                            lineHeight = 36.sp,
+                            modifier = Modifier.graphicsLayer {
+                                scaleX = priceScale / titleScale
+                                scaleY = priceScale / titleScale
+                            }
+                        )
+                    }
+                }
+
+                // 오른쪽: 수익률 정보 (초기 상태에서만 표시)
+                if (animationProgress < 0.3f) {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        modifier = Modifier.alpha(1f - (animationProgress * 3.33f))
+                    ) {
+                        val isPositive = uiState.currentStock.priceChange >= 0
+                        Text(
+                            text = "${if (isPositive) "▲" else "▼"}${String.format("%.0f", abs(uiState.currentStock.priceChange))}",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isPositive) Color(0xFFFF69B4) else Color(0xFF42A6FF)
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = "(${if (isPositive) "+" else ""}${String.format("%.2f", uiState.currentStock.priceChangePercent)}%)",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isPositive) Color(0xFFFF69B4) else Color(0xFF42A6FF)
+                        )
+                    }
+                }
+            }
+        }
+
+        // 앱바 (박스 위에 표시)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+        ) {
+            TopAppBar(
+                onBackClick = { viewModel.onEvent(ChartUiEvent.BackPressed) },
+                isFavorite = uiState.isFavorite,
+                onFavoriteClick = { viewModel.onEvent(ChartUiEvent.ToggleFavorite) },
+                onNotificationClick = { viewModel.onEvent(ChartUiEvent.NotificationClicked) },
+                onSettingsClick = { viewModel.onEvent(ChartUiEvent.SettingsClicked) },
+                stockInfo = uiState.currentStock,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        // 3단계 바텀시트
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset(y = with(density) { animatedY.toDp() })
+                .shadow(
+                    elevation = 8.dp,
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+                    spotColor = Color(0x0F000000)
+                )
+                .background(
+                    color = Color.White,
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                )
+                .pointerInput(Unit) {
+                    var totalDragAmount = 0f
+                    var dragStartTime = 0L
+
+                    detectDragGestures(
+                        onDragStart = {
+                            isDragging = true
+                            totalDragAmount = 0f
+                            dragStartTime = System.currentTimeMillis()
+                        },
+                        onDragEnd = {
+                            val duration = System.currentTimeMillis() - dragStartTime
+                            handleDragEnd(totalDragAmount, duration)
+                        }
+                    ) { _, dragAmount ->
+                        totalDragAmount += dragAmount.y
+
+                        // 드래그 오프셋 업데이트 (범위 제한)
+                        val newDragOffset = dragOffset + dragAmount.y
+                        val minOffset = expandedY - targetY  // 위로 드래그 한계
+                        val maxOffset = collapsedY - targetY // 아래로 드래그 한계
+
+                        dragOffset = newDragOffset.coerceIn(minOffset, maxOffset)
+                    }
+                }
+        ) {
+            Column {
+                // 드래그 핸들
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
                         modifier = Modifier
-                            .padding(top = 8.dp, bottom = 4.dp)
-                            .width(32.dp)
-                            .height(5.dp)
-                            .shadow(
-                                elevation = 2.dp,
-                                shape = RoundedCornerShape(12.dp),
-                                spotColor = Color(0x1A000000)
-                            )
+                            .padding(top = 12.dp, bottom = 8.dp)
+                            .width(40.dp)
+                            .height(4.dp)
                             .background(
                                 color = Color(0xFFBDBDBD),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(2.dp)
                             )
                     )
                 }
-            },
-            containerColor = Color.White
-        ) { paddingValues ->
-            Box(modifier = Modifier.fillMaxSize()) {
-                Column(
+
+                // 바텀시트 콘텐츠
+                BottomSheetContent(
+                    viewModel = viewModel,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White)
-                        .padding(paddingValues)
-                ) {
-                    // 앱바
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp)
-                            .shadow(elevation = 4.dp, spotColor = Color(0x14000000))
-                            .background(Color.White)
-                    ) {
-                        TopAppBar(
-                            onBackClick = { viewModel.onEvent(ChartUiEvent.BackPressed) },
-                            isFavorite = uiState.isFavorite,
-                            onFavoriteClick = {
-                                viewModel.onEvent(ChartUiEvent.ToggleFavorite)
-                            },
-                            onNotificationClick = { viewModel.onEvent(ChartUiEvent.NotificationClicked) },
-                            onSettingsClick = { viewModel.onEvent(ChartUiEvent.SettingsClicked) },
-                            stockInfo = uiState.currentStock,
-                            animatedProgress = animatedProgress,
-                            modifier = Modifier.fillMaxSize()
-                        )
-
-                        // 주가 정보가 앱바로 이동하는 애니메이션 - 부드러운 페이드인
-                        if (animatedProgress > 0.5f) {  // 중단에서 앱바 표시 시작
-                            val appBarAlpha by animateFloatAsState(
-                                targetValue = ((animatedProgress - 0.5f) / 0.5f).coerceIn(0f, 1f),
-                                animationSpec = tween(durationMillis = 0), // 즉각 반응
-                                label = "appbar_alpha"
-                            )
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(start = 50.dp)
-                                    .alpha(appBarAlpha),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = uiState.currentStock.name,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.Black
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "${String.format("%.0f", uiState.currentStock.currentPrice)}원",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color.Black
-                                )
-
-                                if (animatedProgress > 0.8f) {
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    val isPositive = uiState.currentStock.priceChange >= 0
-                                    Text(
-                                        text = "${if (isPositive) "+" else ""}${String.format("%.0f", uiState.currentStock.priceChange)}",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = if (isPositive) Color(0xFFFF69B4) else Color(0xFF42A6FF)
-                                    )
-                                }
+                        .fillMaxWidth()
+                        .height(
+                            when (bottomSheetState) {
+                                BottomSheetState.COLLAPSED -> 185.dp
+                                BottomSheetState.HALF_EXPANDED -> 450.dp
+                                BottomSheetState.EXPANDED -> 600.dp
                             }
-                        }
-                    }
-
-                    // 주식 정보 헤더 (바텀시트 진행도에 따라 크기 변화)
-                    val headerHeight by animateFloatAsState(
-                        targetValue = when {
-                            animatedProgress <= ChartAnimationConstants.PROGRESS_THRESHOLD_LOW ->
-                                ChartAnimationConstants.HEADER_HEIGHT_MAX * (1f - animatedProgress * 0.2f)
-                            animatedProgress <= ChartAnimationConstants.PROGRESS_THRESHOLD_HIGH ->
-                                ChartAnimationConstants.HEADER_HEIGHT_MID * (1f - (animatedProgress - ChartAnimationConstants.PROGRESS_THRESHOLD_LOW) * 0.8f)
-                            else -> ChartAnimationConstants.HEADER_HEIGHT_MIN *
-                                    (1f - (animatedProgress - ChartAnimationConstants.PROGRESS_THRESHOLD_HIGH) * 2f).coerceAtLeast(0f)
-                        },
-                        animationSpec = tween(durationMillis = 0), // 즉각 반응
-                        label = "header_height"
-                    )
-
-                    if (headerHeight > 0f) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(headerHeight.dp)
-                                .graphicsLayer {
-                                    // 앱바로 이동하는 애니메이션
-                                    translationX = titleTranslationX
-                                    translationY = titleTranslationY
-                                    alpha = (1f - animatedProgress * 1.2f).coerceAtLeast(0f)
-                                }
-                        ) {
-                            StockInfoHeader(
-                                stockName = uiState.currentStock.name,
-                                stockCode = uiState.currentStock.code,
-                                currentPrice = uiState.currentStock.currentPrice,
-                                priceChange = uiState.currentStock.priceChange,
-                                priceChangePercent = uiState.currentStock.priceChangePercent,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(
-                                        start = 32.dp,
-                                        end = 32.dp,
-                                        top = 16.dp,
-                                        bottom = 8.dp
-                                    )
-                            )
-                        }
-                    }
-
-                    // 차트 + 시간 버튼을 하나의 박스로 감싸서 바텀시트가 침범하지 않도록 함
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color.White)
-                    ) {
-                        // 차트 영역 - 고정 높이로 설정
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(280.dp)
-                                .padding(horizontal = 16.dp)
-                                .background(Color.White)
-                                .padding(horizontal = 8.dp)
-                        ) {
-                            SingleChartView(
-                                candlestickData = uiState.candlestickData,
-                                volumeData = uiState.volumeData,
-                                sma5Data = uiState.sma5Data,
-                                sma20Data = uiState.sma20Data,
-                                config = uiState.config,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .semantics {
-                                        contentDescription = "주식 차트: 현재 가격 ${uiState.currentStock.currentPrice}원, " +
-                                                "변동량 ${uiState.currentStock.priceChange}원"
-                                    }
-                            )
-                        }
-
-                        // 시간대 선택 - 항상 보이도록 배치
-                        TimeFrameSelection(
-                            selectedTimeFrame = uiState.config.timeFrame,
-                            onTimeFrameChange = { timeFrame ->
-                                viewModel.onEvent(ChartUiEvent.ChangeTimeFrame(timeFrame))
-                            },
-                            modifier = Modifier
-                                .background(Color.White)
-                                .padding(
-                                    horizontal = 16.dp,
-                                    vertical = 16.dp
-                                )
                         )
-                    }
-                }
-
-                // 로딩 상태
-                if (uiState.isLoading) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = Color(0xFFFF69B4))
-                    }
-                }
+                )
             }
         }
 
@@ -501,6 +588,16 @@ fun ChartScreen(
                 }
             }
         }
+
+        // 로딩 상태
+        if (uiState.isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Color(0xFFFF69B4))
+            }
+        }
     }
 }
 
@@ -512,7 +609,6 @@ private fun TopAppBar(
     onNotificationClick: () -> Unit,
     onSettingsClick: () -> Unit,
     stockInfo: StockInfo,
-    animatedProgress: Float = 0f,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -529,7 +625,7 @@ private fun TopAppBar(
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowBack,
-                contentDescription = null, // semantics에서 처리
+                contentDescription = null,
                 tint = Color(0xFF404040)
             )
         }
@@ -544,7 +640,7 @@ private fun TopAppBar(
         ) {
             Icon(
                 imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                contentDescription = null, // semantics에서 처리
+                contentDescription = null,
                 tint = if (isFavorite) Color(0xFFFF69B4) else Color.Black
             )
         }
@@ -557,14 +653,12 @@ private fun TopAppBar(
         ) {
             Icon(
                 imageVector = Icons.Default.Notifications,
-                contentDescription = null, // semantics에서 처리
+                contentDescription = null,
                 tint = Color(0xFFFFE476),
                 modifier = Modifier
                     .size(25.dp)
                     .clip(CircleShape)
-                    .background(
-                        color = Color(0xFF69E1F6)
-                    )
+                    .background(color = Color(0xFF69E1F6))
                     .padding(4.dp)
             )
         }
@@ -577,75 +671,6 @@ private fun TopAppBar(
                 imageVector = Icons.Default.MoreVert,
                 contentDescription = "더보기",
                 tint = Color.Black
-            )
-        }
-    }
-}
-
-@Composable
-private fun StockInfoHeader(
-    stockName: String,
-    stockCode: String,
-    currentPrice: Float,
-    priceChange: Float,
-    priceChangePercent: Float,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
-    ) {
-        // 왼쪽: 종목명 + 가격 (세로 배치)
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(
-                text = stockName,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.Black
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "${String.format("%.0f", currentPrice)}원",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.Black,
-                lineHeight = 36.sp
-            )
-        }
-
-        // 오른쪽: 수익률 정보 (세로 배치, 우측 정렬)
-        Column(
-            horizontalAlignment = Alignment.End,
-            modifier = Modifier.padding(start = 16.dp)
-        ) {
-            val isPositive = priceChange >= 0
-            Text(
-                text = "${if (isPositive) "▲" else "▼"}${String.format("%.0f", abs(priceChange))}",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (isPositive) Color(0xFFFF69B4) else Color(0xFF42A6FF),
-                modifier = Modifier.semantics {
-                    contentDescription = if (isPositive) "상승 ${String.format("%.0f", priceChange)}원"
-                    else "하락 ${String.format("%.0f", abs(priceChange))}원"
-                }
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = "(${if (isPositive) "+" else ""}${String.format("%.2f", priceChangePercent)}%)",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (isPositive) Color(0xFFFF69B4) else Color(0xFF42A6FF),
-                modifier = Modifier.semantics {
-                    contentDescription = if (isPositive) "상승률 ${String.format("%.2f", priceChangePercent)}퍼센트"
-                    else "하락률 ${String.format("%.2f", abs(priceChangePercent))}퍼센트"
-                }
             )
         }
     }
@@ -667,7 +692,6 @@ private fun SingleChartView(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                contentDescription = "주식 가격 차트"
             }
         },
         modifier = modifier,
@@ -702,7 +726,6 @@ private fun TimeFrameSelection(
         "60" to "60분"
     )
 
-    // 현재 선택된 것이 분봉인지 확인
     val selectedMinute = minuteFrames.find { it.first == selectedTimeFrame }
     val isMinuteSelected = selectedMinute != null
 
@@ -748,15 +771,14 @@ private fun TimeFrameSelection(
                 ),
                 modifier = Modifier
                     .padding(horizontal = 6.dp)
-                    .height(30.dp)
+                    .height(36.dp)
             )
 
-            // 드롭다운 메뉴 - 흰색 배경으로 변경
             DropdownMenu(
                 expanded = showMinuteDropdown,
                 onDismissRequest = { showMinuteDropdown = false },
                 modifier = Modifier
-                    .background(Color.White)  // 흰색 배경
+                    .background(Color.White)
                     .width(120.dp)
             ) {
                 minuteFrames.forEach { (code, name) ->
@@ -764,7 +786,7 @@ private fun TimeFrameSelection(
                         text = {
                             Text(
                                 name,
-                                color = Color.Black,  // 검은색 텍스트
+                                color = Color.Black,
                                 fontSize = 14.sp
                             )
                         },
@@ -805,7 +827,7 @@ private fun TimeFrameSelection(
                 ),
                 modifier = Modifier
                     .padding(horizontal = 6.dp)
-                    .height(30.dp)
+                    .height(36.dp)
             )
         }
     }
@@ -813,26 +835,15 @@ private fun TimeFrameSelection(
 
 @Composable
 private fun BottomSheetContent(
-    viewModel: ChartViewModel
+    viewModel: ChartViewModel,
+    modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedTabIndex = uiState.selectedBottomTab
     val tabTitles = listOf("보유현황", "매매내역", "패턴분석")
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
-                spotColor = Color(0x0F000000)
-            )
-            .background(
-                color = Color.White,
-                shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-            )
-    ) {
-        // 탭 (항상 표시) - 레퍼런스에 맞게 크기 조정
+    Column(modifier = modifier) {
+        // 탭
         TabRow(
             selectedTabIndex = selectedTabIndex,
             containerColor = Color.White,
@@ -852,12 +863,12 @@ private fun BottomSheetContent(
                     text = {
                         Text(
                             title,
-                            fontSize = 16.sp, // 20sp -> 16sp로 축소
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
                             color = if (selectedTabIndex == index) Color(0xFF08090E) else Color(0xFF747476)
                         )
                     },
-                    modifier = Modifier.height(44.dp) // 탭 높이 고정
+                    modifier = Modifier.height(44.dp)
                 )
             }
         }
@@ -885,12 +896,26 @@ private fun BottomSheetContent(
 
 @Composable
 private fun HoldingsContent(holdings: List<HoldingItem>) {
-
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        items(holdings) { holding ->
-            HoldingItemRow(holding)
+    if (holdings.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "보유 중인 종목이 없습니다",
+                fontSize = 14.sp,
+                color = Color(0xFF616161)
+            )
+        }
+    } else {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(holdings) { holding ->
+                HoldingItemRow(holding)
+            }
         }
     }
 }
@@ -949,12 +974,26 @@ private fun HoldingItemRow(item: HoldingItem) {
 
 @Composable
 private fun TradingHistoryContent(history: List<TradingItem>) {
-
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        items(history) { tradingItem ->
-            TradingItemRow(tradingItem)
+    if (history.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "매매 내역이 없습니다",
+                fontSize = 14.sp,
+                color = Color(0xFF616161)
+            )
+        }
+    } else {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(history) { tradingItem ->
+                TradingItemRow(tradingItem)
+            }
         }
     }
 }
@@ -1026,7 +1065,6 @@ private fun PatternAnalysisContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 분석 버튼
         Button(
             onClick = onAnalyzeClick,
             colors = ButtonDefaults.buttonColors(
@@ -1045,7 +1083,6 @@ private fun PatternAnalysisContent(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // 최근 분석 결과
         lastPatternAnalysis?.let { analysis ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -1112,7 +1149,6 @@ private fun setupChart(
     chartsView.subscribeOnChartStateChange { state ->
         when (state) {
             is ChartsView.State.Ready -> {
-                // 차트 기본 옵션 설정
                 chartsView.api.applyOptions {
                     layout = layoutOptions {
                         background = SolidColor(AndroidColor.WHITE)
@@ -1130,7 +1166,6 @@ private fun setupChart(
                     }
                 }
 
-                // 캔들스틱 데이터 설정
                 if (candlestickData.isNotEmpty()) {
                     val chartData = candlestickData.map { data ->
                         TradingViewCandlestickData(
@@ -1155,7 +1190,6 @@ private fun setupChart(
                     }
                 }
 
-                // 이동평균선 추가
                 if (config.indicators.sma5 && sma5Data.isNotEmpty()) {
                     val sma5ChartData = sma5Data.map { data ->
                         TradingViewLineData(
@@ -1192,7 +1226,6 @@ private fun setupChart(
                     }
                 }
 
-                // 거래량 추가
                 if (config.indicators.volume && volumeData.isNotEmpty()) {
                     val volumeChartData = volumeData.map { data ->
                         HistogramData(
