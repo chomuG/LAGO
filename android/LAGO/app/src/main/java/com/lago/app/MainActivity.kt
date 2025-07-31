@@ -9,7 +9,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.lago.app.presentation.navigation.BottomNavigationBar
 import com.lago.app.presentation.navigation.NavGraph
@@ -31,6 +33,12 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun LagoApp() {
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    
+    // Routes where bottom navigation should be hidden
+    val hideBottomBarRoutes = listOf("pattern_study", "wordbook")
+    val shouldShowBottomBar = currentRoute !in hideBottomBarRoutes
     
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -38,13 +46,15 @@ fun LagoApp() {
     ) {
         Scaffold(
             bottomBar = {
-                BottomNavigationBar(navController = navController)
+                if (shouldShowBottomBar) {
+                    BottomNavigationBar(navController = navController)
+                }
             }
         )
         { innerPadding ->
             NavGraph(
                 navController = navController,
-                modifier = Modifier.padding(innerPadding)
+                modifier = if (shouldShowBottomBar) Modifier.padding(innerPadding) else Modifier
             )
         }
     }

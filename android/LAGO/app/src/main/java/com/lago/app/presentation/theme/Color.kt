@@ -16,7 +16,7 @@ val Pink40 = Color(0xFF7D5260)
 val MainBlue = Color(0xFF42A6FF)
 val MainPink = Color(0xFFFF99C5)
 val AppBackground = Color(0xFFF7FAFD)
-val ShadowColor = Color(0xFF738CD7)
+val ShadowColor = Color(0xFF738CD7).copy(alpha = 0.15f)
 
 // Gray Scale
 val Gray100 = Color(0xFFF7F8F9)

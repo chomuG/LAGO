@@ -5,6 +5,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.lago.app.presentation.ui.*
+import com.lago.app.presentation.ui.study.PatternStudyScreen
+import com.lago.app.presentation.ui.study.WordbookScreen
 
 import androidx.compose.ui.Modifier
 
@@ -27,7 +29,14 @@ fun NavGraph(
         }
         
         composable(NavigationItem.Learn.route) {
-            LearnScreen()
+            LearnScreen(
+                onPatternStudyClick = {
+                    navController.navigate("pattern_study")
+                },
+                onWordBookClick = {
+                    navController.navigate("wordbook")
+                }
+            )
         }
         
         composable(NavigationItem.News.route) {
@@ -36,6 +45,22 @@ fun NavGraph(
         
         composable(NavigationItem.Portfolio.route) {
             PortfolioScreen()
+        }
+        
+        composable("pattern_study") {
+            PatternStudyScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        
+        composable("wordbook") {
+            WordbookScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
         }
     }
 }
