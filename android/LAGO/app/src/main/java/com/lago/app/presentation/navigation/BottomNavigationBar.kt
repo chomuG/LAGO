@@ -18,8 +18,12 @@ fun BottomNavigationBar(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    
+    // 모든 페이지에서 네비게이션 바 표시
+    val hideBottomBar = false
 
-    NavigationBar(
+    if (!hideBottomBar) {
+        NavigationBar(
         modifier = androidx.compose.ui.Modifier.semantics {
             contentDescription = "하단 네비게이션 바"
         }
@@ -54,5 +58,6 @@ fun BottomNavigationBar(
                 }
             )
         }
+    }
     }
 }
