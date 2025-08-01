@@ -37,8 +37,8 @@ fun LagoApp() {
     val currentRoute = navBackStackEntry?.destination?.route
     
     // Routes where bottom navigation should be hidden
-    val hideBottomBarRoutes = listOf("pattern_study", "wordbook")
-    val shouldShowBottomBar = currentRoute !in hideBottomBarRoutes
+    val hideBottomBarRoutes = listOf("pattern_study", "wordbook", "random_quiz")
+    val shouldShowBottomBar = currentRoute !in hideBottomBarRoutes && currentRoute?.startsWith("news_detail") != true
     
     Surface(
         modifier = Modifier.fillMaxSize(),

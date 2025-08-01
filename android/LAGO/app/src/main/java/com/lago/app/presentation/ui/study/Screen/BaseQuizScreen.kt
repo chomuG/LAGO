@@ -1,4 +1,4 @@
-package com.lago.app.presentation.ui.study
+package com.lago.app.presentation.ui.study.Screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,42 +14,54 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
+
+enum class QuizType {
+    DAILY, RANDOM
+}
 
 data class QuizItem(
     val question: String,
     val correctAnswer: Boolean
 )
 
+data class QuizResult(
+    val isCorrect: Boolean,
+    val rank: Int? = null,
+    val reward: Int? = null
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QuizScreen(
+fun BaseQuizScreen(
+    title: String,
+    quizType: QuizType,
     onBackClick: () -> Unit = {},
-    onAnswerSelected: (Boolean) -> Unit = {}
+    onQuizResult: (QuizResult) -> Unit = {}
 ) {
-    var currentQuiz by remember { mutableStateOf(
-        QuizItem(
-            question = "주식의 PER이 높으면 기업의 성장 가능성이 높다?",
-            correctAnswer = true
-        )
-    )}
+    val quizList = listOf(
+        QuizItem("주식의 PER이 높으면 기업의 성장 가능성이 높다?", true),
+        QuizItem("채권의 금리가 상승하면 채권 가격은 하락한다?", true),
+        QuizItem("분산투자는 위험을 증가시킨다?", false),
+        QuizItem("배당수익률이 높을수록 항상 좋은 투자이다?", false),
+        QuizItem("인플레이션은 현금의 가치를 감소시킨다?", true)
+    )
+    
+    var currentQuiz by remember { mutableStateOf(quizList.random()) }
     
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(AppBackground)
     ) {
-        // Top App Bar
         CenterAlignedTopAppBar(
             title = {
                 Text(
-                    text = "랜덤 퀴즈",
+                    text = title,
                     style = SubtitleSb18,
                     color = Color.Black
                 )
@@ -69,7 +81,6 @@ fun QuizScreen(
             modifier = Modifier.align(Alignment.TopCenter)
         )
         
-        // Centered Content
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -77,12 +88,10 @@ fun QuizScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Question Section - Left aligned
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.Start
             ) {
-                // Q. label
                 Text(
                     text = "Q.",
                     style = HeadEb28,
@@ -90,7 +99,6 @@ fun QuizScreen(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 
-                // Question text
                 Text(
                     text = currentQuiz.question,
                     style = HeadEb28,
@@ -100,27 +108,58 @@ fun QuizScreen(
                 )
             }
             
-            // Answer Buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // No Button (X)
                 AnswerButton(
                     iconRes = R.drawable.no,
                     text = "아니다",
                     backgroundColor = Color(0xFFFFE3E3),
                     modifier = Modifier.weight(1f),
-                    onClick = { onAnswerSelected(false) }
+                    onClick = { 
+                        val isCorrect = currentQuiz.correctAnswer == false
+                        when (quizType) {
+                            QuizType.DAILY -> {
+                                val rank = (1..500).random()
+                                val reward = when {
+                                    rank == 1 -> 100000
+                                    rank <= 3 -> 50000
+                                    rank <= 10 -> 10000
+                                    else -> 2000
+                                }
+                                onQuizResult(QuizResult(isCorrect, rank, reward))
+                            }
+                            QuizType.RANDOM -> {
+                                onQuizResult(QuizResult(isCorrect))
+                            }
+                        }
+                    }
                 )
                 
-                // Yes Button (O)
                 AnswerButton(
                     iconRes = R.drawable.yes,
                     text = "그렇다",
                     backgroundColor = BlueLightHover,
                     modifier = Modifier.weight(1f),
-                    onClick = { onAnswerSelected(true) }
+                    onClick = { 
+                        val isCorrect = currentQuiz.correctAnswer == true
+                        when (quizType) {
+                            QuizType.DAILY -> {
+                                val rank = (1..500).random()
+                                val reward = when {
+                                    rank == 1 -> 100000
+                                    rank <= 3 -> 50000
+                                    rank <= 10 -> 10000
+                                    else -> 2000
+                                }
+                                onQuizResult(QuizResult(isCorrect, rank, reward))
+                            }
+                            QuizType.RANDOM -> {
+                                onQuizResult(QuizResult(isCorrect))
+                            }
+                        }
+                    }
                 )
             }
         }
@@ -173,13 +212,5 @@ fun AnswerButton(
                 textAlign = TextAlign.Center
             )
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun QuizScreenPreview() {
-    LagoTheme {
-        QuizScreen()
     }
 }

@@ -1,88 +1,218 @@
 package com.lago.app.presentation.ui
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.lago.app.presentation.theme.LagoTheme
+import androidx.compose.ui.unit.sp
+import com.lago.app.R
+import com.lago.app.presentation.theme.*
+
+data class NewsItem(
+    val id: String,
+    val category: String,
+    val title: String,
+    val timeAgo: String,
+    val imageRes: Int
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NewsScreen() {
+fun NewsScreen(
+    onNewsClick: (String) -> Unit = {}
+) {
+    val newsList = listOf(
+        NewsItem(
+            id = "1",
+            category = "악재",
+            title = "코스피 하락세 지속, 외국인 매도 물량 증가로 인한 시장 불안",
+            timeAgo = "2주전",
+            imageRes = R.drawable.chart_study_image
+        ),
+        NewsItem(
+            id = "2",
+            category = "호재",
+            title = "삼성전자 신제품 발표, 반도체 부문 실적 개선 전망으로 주가 상승 기대",
+            timeAgo = "3시간 전",
+            imageRes = R.drawable.megaphone_image
+        ),
+        NewsItem(
+            id = "3",
+            category = "중립",
+            title = "주식시장에 부는 훈풍에 2분기 증권 업계 실적 기대감 고조",
+            timeAgo = "3시간 전",
+            imageRes = R.drawable.double_top_chart
+        ),
+        NewsItem(
+            id = "4",
+            category = "호재",
+            title = "국제뱅, '하이브' 비정기 세무조사... 추가시장 '교량비' 일별 협업?",
+            timeAgo = "3시간 전",
+            imageRes = R.drawable.wordbook_image
+        )
+    )
+    
+    var selectedTab by remember { mutableStateOf("실시간 뉴스") }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .background(AppBackground)
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = "금융 뉴스",
-                    style = MaterialTheme.typography.headlineMedium
+        // Tab Row
+        TabRow(
+            modifier = Modifier.height(60.dp),
+            selectedTabIndex = if (selectedTab == "실시간 뉴스") 0 else 1,
+            containerColor = AppBackground,
+            indicator = { tabPositions ->
+                Box(
+                    modifier = Modifier
+                        .tabIndicatorOffset(tabPositions[if (selectedTab == "실시간 뉴스") 0 else 1])
+                        .height(2.dp)
+                        .background(MainBlue)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "최신 금융 시장 동향과 뉴스를 확인하세요",
-                    style = MaterialTheme.typography.bodyLarge
+            }
+        ) {
+            Tab(
+                selected = selectedTab == "실시간 뉴스",
+                onClick = { selectedTab = "실시간 뉴스" },
+                text = {
+                    Text(
+                        text = "실시간 뉴스",
+                        style = TitleB18,
+                        color = if (selectedTab == "실시간 뉴스") Color.Black else Gray600
+                    )
+                }
+            )
+            Tab(
+                selected = selectedTab == "관심 종목 뉴스",
+                onClick = { selectedTab = "관심 종목 뉴스" },
+                text = {
+                    Text(
+                        text = "관심 종목 뉴스",
+                        style = TitleB18,
+                        color = if (selectedTab == "관심 종목 뉴스") Color.Black else Gray600
+                    )
+                }
+            )
+        }
+        
+        // News List
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp)
+        ) {
+            items(newsList) { news ->
+                NewsCard(
+                    newsItem = news,
+                    onClick = { onNewsClick(news.id) }
                 )
             }
         }
-        
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxSize()
+    }
+}
+
+@Composable
+fun NewsCard(
+    newsItem: NewsItem,
+    onClick: () -> Unit = {}
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .shadow(
+                elevation = 4.dp,
+                shape = RoundedCornerShape(12.dp),
+                spotColor = ShadowColor,
+                ambientColor = ShadowColor
+            )
+            .height(128.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            items(8) { index ->
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = when(index % 4) {
-                                0 -> "코스피 상승세 지속, 외국인 매수 확대"
-                                1 -> "미국 연준 금리 인상 기대감 확산"
-                                2 -> "국내 IT 기업들의 실적 호조"
-                                else -> "원달러 환율 변동성 확대 전망"
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(16.dp)
+            ) {
+                // Category Badge
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = when (newsItem.category) {
+                                "호재" -> Color(0xFFFFE9F2)
+                                "악재" -> BlueLightHover
+                                else -> Gray100
                             },
-                            style = MaterialTheme.typography.titleMedium
+                            shape = RoundedCornerShape(4.dp)
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "${index + 1}시간 전 • 경제신문",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "금융 시장의 최신 동향과 분석을 제공하는 뉴스 기사입니다.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            TextButton(
-                                onClick = { /* TODO: Navigate to full article */ }
-                            ) {
-                                Text("더보기")
-                            }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = newsItem.category,
+                        style = TitleB14,
+                        color = when (newsItem.category) {
+                            "호재" -> Color(0xFFFF6DAC)
+                            "악재" -> BlueNormalHover
+                            else -> Gray600
                         }
-                    }
+                    )
                 }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Title
+                Text(
+                    text = newsItem.title,
+                    style = SubtitleSb14,
+                    color = Color.Black,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 18.sp
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Time
+                Text(
+                    text = newsItem.timeAgo,
+                    style = BodyR12,
+                    color = Gray700
+                )
             }
+            
+            // News Image
+            Image(
+                painter = painterResource(id = newsItem.imageRes),
+                contentDescription = "뉴스 이미지",
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(80.dp)
+            )
         }
     }
 }

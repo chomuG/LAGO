@@ -1,5 +1,6 @@
 package com.lago.app.presentation.ui
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -9,7 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -17,9 +18,11 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import com.lago.app.R
 import com.lago.app.presentation.theme.MainBlue
 import com.lago.app.presentation.theme.AppBackground
@@ -36,6 +39,8 @@ import com.lago.app.presentation.theme.SubtitleSb16
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LearnScreen(
+    onRandomQuizClick: () -> Unit = {},
+    onDailyQuizClick: () -> Unit = {},
     onPatternStudyClick: () -> Unit = {},
     onWordBookClick: () -> Unit = {}
 ) {
@@ -77,6 +82,7 @@ fun LearnScreen(
                         shape = RoundedCornerShape(16.dp)
                     )
                     .padding(20.dp)
+                    .clickable { onDailyQuizClick() }
             ) {
                 Column(
                     modifier = Modifier.align(Alignment.BottomStart)
@@ -129,13 +135,7 @@ fun LearnScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.calendar),
-                    contentDescription = "Calendar",
-                    modifier = Modifier
-                        .size(100.dp)
-                        .rotate(-12.11F)
-                )
+                AnimatedCalendarIcon()
                 Column (
                     horizontalAlignment = Alignment.End
                 ){
@@ -178,7 +178,8 @@ fun LearnScreen(
             StudyCategoryItem(
                 icon = R.drawable.random_quiz_image,
                 title = "랜덤퀴즈",
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = onRandomQuizClick
             )
             Spacer(modifier = Modifier.width(12.dp))
             StudyCategoryItem(
@@ -197,6 +198,34 @@ fun LearnScreen(
         }
 
     }
+}
+
+@Composable
+fun AnimatedCalendarIcon() {
+    // Infinite bounce animation
+    val infiniteTransition = rememberInfiniteTransition(label = "calendar_bounce")
+    
+    val bounceY by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = -8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 1500,
+                easing = EaseInOutBounce
+            ),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bounce_y"
+    )
+
+    Image(
+        painter = painterResource(id = R.drawable.calendar),
+        contentDescription = "Calendar",
+        modifier = Modifier
+            .size(100.dp)
+            .rotate(-12.11F)
+            .offset(y = bounceY.dp)
+    )
 }
 
 @Composable

@@ -1,4 +1,4 @@
-package com.lago.app.presentation.ui.study
+package com.lago.app.presentation.ui.study.Screen
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background

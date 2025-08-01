@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="3408dbfa-990b-4b59-a6b6-905416f82e1b" name="변경" comment="">
+      <change afterPath="$PROJECT_DIR$/../android/LAGO/app/src/main/res/drawable/first_place_medal.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../android/LAGO/app/src/main/res/drawable/second_place_medal.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../android/LAGO/app/src/main/res/drawable/third_place_medal.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../android/LAGO/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../android/LAGO/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/MainActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/MainActivity.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/presentation/navigation/NavGraph.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/presentation/navigation/NavGraph.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/presentation/ui/LearnScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/presentation/ui/LearnScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/presentation/ui/NewsScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/presentation/ui/NewsScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/presentation/ui/study/PatternStudyScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/presentation/ui/study/Screen/PatternStudyScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/presentation/ui/study/QuizScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/presentation/ui/study/Screen/RandomQuizScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/presentation/ui/study/WordbookScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../android/LAGO/app/src/main/java/com/lago/app/presentation/ui/study/Screen/WordbookScreen.kt" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Flask Main" />
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7
+}</component>
+  <component name="ProjectId" id="30XOgYyzAipDPZIqL6ereASUPXi" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Flask 서버.FlaskProject.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;ai-dev&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/SSAFY/S13P11D203/Finbert&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RunManager">
+    <configuration name="FlaskProject" type="Python.FlaskServer">
+      <module name="FlaskProject" />
+      <option name="target" value="$PROJECT_DIR$/app.py" />
+      <option name="targetType" value="PATH" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="launchJavascriptDebuger" value="false" />
+      <method v="2" />
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-09060db00ec0-JavaScript-PY-251.26927.90" />
+        <option value="bundled-python-sdk-41e8cd69c857-64d779b69b7a-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-251.26927.90" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="디폴트 작업">
+      <changelist id="3408dbfa-990b-4b59-a6b6-905416f82e1b" name="변경" comment="" />
+      <created>1753770563474</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1753770563474</updated>
+      <workItem from="1753770564355" duration="6936000" />
+      <workItem from="1753792598969" duration="8026000" />
+      <workItem from="1753833890027" duration="3672000" />
+      <workItem from="1753924060401" duration="5365000" />
+      <workItem from="1753980722078" duration="822000" />
+      <workItem from="1753982074235" duration="654000" />
+      <workItem from="1754009388468" duration="83000" />
+      <workItem from="1754009517744" duration="38000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/FlaskProject$FlaskProject.coverage" NAME="FlaskProject 커버리지 결과" MODIFIED="1753777925738" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+  </component>
+</project>
