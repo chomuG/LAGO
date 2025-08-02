@@ -74,10 +74,10 @@ val npmBuild by tasks.registering {
     }
 }
 
-// 빌드 시 npm이 실행되지 않도록 주석 처리 (필요시 활성화)
-// tasks.named("preBuild") {
-//     dependsOn(npmBuild)
-// }
+// 빌드 시 npm이 자동으로 실행되도록 활성화
+tasks.named("preBuild") {
+    dependsOn(npmBuild)
+}
 
 dependencies {
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))

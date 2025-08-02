@@ -10,8 +10,6 @@ sealed class ChartUiEvent {
     data class ChangeBottomTab(val tabIndex: Int) : ChartUiEvent()
     object AnalyzePattern : ChartUiEvent()
     object BackPressed : ChartUiEvent()
-    object NotificationClicked : ChartUiEvent()
-    object SettingsClicked : ChartUiEvent()
     object BuyClicked : ChartUiEvent()
     object SellClicked : ChartUiEvent()
 }

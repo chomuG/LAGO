@@ -85,16 +85,6 @@ import com.tradingview.lightweightcharts.api.series.models.PriceFormat
 import android.graphics.Color as AndroidColor
 import kotlin.math.absoluteValue
 
-// 차트 색상 상수들
-private object ChartColorConstants {
-    const val CHART_UP_COLOR = "#FF99C5"
-    const val CHART_DOWN_COLOR = "#42A6FF"
-    const val SMA5_COLOR = "#F5A623"
-    const val SMA20_COLOR = "#50E3C2"
-    const val VOLUME_COLOR = "#666666"
-    const val GRID_COLOR = "#E6E6E6"
-    const val TEXT_COLOR = "#616161"
-}
 
 // 바텀시트 상태 열거형
 enum class BottomSheetState {
@@ -106,7 +96,10 @@ enum class BottomSheetState {
 
 @Composable
 fun ChartScreen(
-    viewModel: ChartViewModel = hiltViewModel()
+    viewModel: ChartViewModel = hiltViewModel(),
+    onNavigateToStockPurchase: (String, String) -> Unit = { _, _ -> },
+    onNavigateToAIDialog: () -> Unit = {},
+    onNavigateBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val density = LocalDensity.current
@@ -233,7 +226,7 @@ fun ChartScreen(
     val nestedScrollConnection = remember(bottomSheetState, sheetAnimY, coroutineScope) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (bottomSheetState != BottomSheetState.EXPANDED && available.y < 0) {
+                if (bottomSheetState == BottomSheetState.COLLAPSED && available.y < 0) {
                     coroutineScope.launch {
                         val newY = (sheetAnimY.value + available.y).coerceIn(
                             sheetPositions.expanded,
@@ -321,11 +314,12 @@ fun ChartScreen(
                 .zIndex(1f)
         ) {
             TopAppBar(
-                onBackClick = { viewModel.onEvent(ChartUiEvent.BackPressed) },
+                onBackClick = { 
+                    viewModel.onEvent(ChartUiEvent.BackPressed)
+                    onNavigateBack()
+                },
                 isFavorite = uiState.isFavorite,
                 onFavoriteClick = { viewModel.onEvent(ChartUiEvent.ToggleFavorite) },
-                onNotificationClick = { viewModel.onEvent(ChartUiEvent.NotificationClicked) },
-                onSettingsClick = { viewModel.onEvent(ChartUiEvent.SettingsClicked) },
                 stockInfo = uiState.currentStock,
                 modifier = Modifier.fillMaxSize()
             )
@@ -413,10 +407,14 @@ fun ChartScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(
-                            when (bottomSheetState) {
-                                BottomSheetState.COLLAPSED -> 160.dp
-                                BottomSheetState.HALF_EXPANDED -> 400.dp
-                                BottomSheetState.EXPANDED -> 550.dp
+                            with(density) {
+                                val currentProgress = (sheetPositions.collapsed - sheetAnimY.value) / (sheetPositions.collapsed - sheetPositions.expanded)
+                                val progress = currentProgress.coerceIn(0f, 1f)
+                                
+                                // 160dp(collapsed) ~ 550dp(expanded) 사이에서 실시간 보간
+                                val minHeight = 160.dp
+                                val maxHeight = 550.dp
+                                minHeight + (maxHeight - minHeight) * progress
                             }
                         )
                 )
@@ -442,7 +440,10 @@ fun ChartScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Button(
-                    onClick = { viewModel.onEvent(ChartUiEvent.SellClicked) },
+                    onClick = { 
+                        viewModel.onEvent(ChartUiEvent.SellClicked)
+                        onNavigateToStockPurchase(uiState.currentStock.code, "sell")
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
@@ -463,7 +464,10 @@ fun ChartScreen(
                 }
 
                 Button(
-                    onClick = { viewModel.onEvent(ChartUiEvent.BuyClicked) },
+                    onClick = { 
+                        viewModel.onEvent(ChartUiEvent.BuyClicked)
+                        onNavigateToStockPurchase(uiState.currentStock.code, "buy")
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
@@ -502,8 +506,6 @@ private fun TopAppBar(
     onBackClick: () -> Unit,
     isFavorite: Boolean,
     onFavoriteClick: () -> Unit,
-    onNotificationClick: () -> Unit,
-    onSettingsClick: () -> Unit,
     stockInfo: StockInfo,
     modifier: Modifier = Modifier
 ) {
@@ -541,34 +543,6 @@ private fun TopAppBar(
             )
         }
 
-        IconButton(
-            onClick = onNotificationClick,
-            modifier = Modifier.semantics {
-                contentDescription = "주식 알림 설정"
-            }
-        ) {
-            Icon(
-                imageVector = Icons.Default.Notifications,
-                contentDescription = null,
-                tint = Color(0xFFFFE476),
-                modifier = Modifier
-                    .size(25.dp)
-                    .clip(CircleShape)
-                    .background(color = Color(0xFF69E1F6))
-                    .padding(4.dp)
-            )
-        }
-
-        IconButton(
-            onClick = onSettingsClick,
-            modifier = Modifier.padding(end = 12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.MoreVert,
-                contentDescription = "더보기",
-                tint = Gray900
-            )
-        }
     }
 }
 
@@ -785,6 +759,12 @@ private fun BottomSheetContent(
                 .fillMaxWidth()
                 .weight(1f)
                 .padding(horizontal = 27.dp, vertical = 16.dp)
+                .padding(
+                    bottom = when (bottomSheetState) {
+                        BottomSheetState.EXPANDED -> 0.dp // 전체 화면일 때는 패딩 없음
+                        else -> 40.dp // COLLAPSED, HALF_EXPANDED일 때만 패딩
+                    }
+                )
         ) {
             when (selectedTabIndex) {
                 0 -> HoldingsContent(
@@ -837,7 +817,7 @@ private fun HoldingsContent(
                 .fillMaxSize()
                 .nestedScroll(nestedScrollConnection),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            userScrollEnabled = bottomSheetState == BottomSheetState.EXPANDED
+            userScrollEnabled = bottomSheetState != BottomSheetState.COLLAPSED
         ) {
             items(holdings) { holding ->
                 HoldingItemRow(holding)
@@ -953,7 +933,7 @@ private fun TradingHistoryContent(
                 .fillMaxSize()
                 .nestedScroll(nestedScrollConnection),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            userScrollEnabled = bottomSheetState == BottomSheetState.EXPANDED
+            userScrollEnabled = bottomSheetState != BottomSheetState.COLLAPSED
         ) {
             items(history) { tradingItem ->
                 TradingItemRow(tradingItem)
@@ -1126,135 +1106,6 @@ private fun PatternAnalysisContent(
                     )
                 }
             }
-        }
-    }
-}
-
-// 차트 설정 함수
-private fun setupChart(
-    chartsView: ChartsView,
-    candlestickData: List<CandlestickData>,
-    volumeData: List<VolumeData>,
-    sma5Data: List<LineData>,
-    sma20Data: List<LineData>,
-    config: ChartConfig
-) {
-    chartsView.subscribeOnChartStateChange { state ->
-        when (state) {
-            is ChartsView.State.Ready -> {
-                chartsView.api.applyOptions {
-                    layout = layoutOptions {
-                        background = SolidColor(AndroidColor.WHITE)
-                        textColor = AndroidColor.parseColor(ChartColorConstants.TEXT_COLOR).toIntColor()
-                    }
-                    grid = gridOptions {
-                        vertLines = gridLineOptions {
-                            color = AndroidColor.parseColor(ChartColorConstants.GRID_COLOR).toIntColor()
-                            style = LineStyle.DASHED
-                        }
-                        horzLines = gridLineOptions {
-                            color = AndroidColor.parseColor(ChartColorConstants.GRID_COLOR).toIntColor()
-                            style = LineStyle.DASHED
-                        }
-                    }
-                }
-
-                if (candlestickData.isNotEmpty()) {
-                    val chartData = candlestickData.map { data ->
-                        TradingViewCandlestickData(
-                            time = ChartUtils.timestampToBusinessDay(data.time),
-                            open = data.open,
-                            high = data.high,
-                            low = data.low,
-                            close = data.close
-                        )
-                    }
-
-                    chartsView.api.addCandlestickSeries(
-                        options = CandlestickSeriesOptions(
-                            upColor = AndroidColor.parseColor(ChartColorConstants.CHART_UP_COLOR).toIntColor(),
-                            downColor = AndroidColor.parseColor(ChartColorConstants.CHART_DOWN_COLOR).toIntColor(),
-                            borderVisible = false,
-                            wickUpColor = AndroidColor.parseColor(ChartColorConstants.CHART_UP_COLOR).toIntColor(),
-                            wickDownColor = AndroidColor.parseColor(ChartColorConstants.CHART_DOWN_COLOR).toIntColor()
-                        )
-                    ) { api ->
-                        api.setData(chartData)
-                    }
-                }
-
-                if (config.indicators.sma5 && sma5Data.isNotEmpty()) {
-                    val sma5ChartData = sma5Data.map { data ->
-                        TradingViewLineData(
-                            time = ChartUtils.timestampToBusinessDay(data.time),
-                            value = data.value
-                        )
-                    }
-
-                    chartsView.api.addLineSeries(
-                        options = LineSeriesOptions(
-                            color = AndroidColor.parseColor(ChartColorConstants.SMA5_COLOR).toIntColor(),
-                            lineWidth = LineWidth.TWO
-                        )
-                    ) { api ->
-                        api.setData(sma5ChartData)
-                    }
-                }
-
-                if (config.indicators.sma20 && sma20Data.isNotEmpty()) {
-                    val sma20ChartData = sma20Data.map { data ->
-                        TradingViewLineData(
-                            time = ChartUtils.timestampToBusinessDay(data.time),
-                            value = data.value
-                        )
-                    }
-
-                    chartsView.api.addLineSeries(
-                        options = LineSeriesOptions(
-                            color = AndroidColor.parseColor(ChartColorConstants.SMA20_COLOR).toIntColor(),
-                            lineWidth = LineWidth.TWO
-                        )
-                    ) { api ->
-                        api.setData(sma20ChartData)
-                    }
-                }
-
-                if (config.indicators.volume && volumeData.isNotEmpty()) {
-                    val volumeChartData = volumeData.map { data ->
-                        HistogramData(
-                            time = ChartUtils.timestampToBusinessDay(data.time),
-                            value = data.value,
-                            color = if (data.value > 0)
-                                AndroidColor.parseColor(ChartColorConstants.CHART_UP_COLOR).toIntColor()
-                            else
-                                AndroidColor.parseColor(ChartColorConstants.CHART_DOWN_COLOR).toIntColor()
-                        )
-                    }
-
-                    chartsView.api.addHistogramSeries(
-                        options = HistogramSeriesOptions(
-                            priceScaleId = PriceScaleId("volume"),
-                            color = AndroidColor.parseColor(ChartColorConstants.VOLUME_COLOR).toIntColor(),
-                            priceFormat = PriceFormat.priceFormatBuiltIn(
-                                type = PriceFormat.Type.VOLUME,
-                                precision = 0,
-                                minMove = 1.0f
-                            )
-                        )
-                    ) { api ->
-                        api.setData(volumeChartData)
-                        api.priceScale().applyOptions(
-                            PriceScaleOptions(
-                                scaleMargins = PriceScaleMargins(
-                                    top = 0.8f,
-                                    bottom = 0.0f
-                                )
-                            )
-                        )
-                    }
-                }
-            }
-            else -> {}
         }
     }
 }

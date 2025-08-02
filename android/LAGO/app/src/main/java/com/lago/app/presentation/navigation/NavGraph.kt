@@ -4,9 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import androidx.navigation.NavType
 import com.lago.app.presentation.ui.*
 import com.lago.app.presentation.ui.chart.ChartScreen
-
+import com.lago.app.presentation.ui.purchase.StockPurchaseScreen
+import com.lago.app.presentation.ui.chart.AIDialog
 import androidx.compose.ui.Modifier
 
 @Composable
@@ -32,7 +35,17 @@ fun NavGraph(
         }
         
         composable(NavigationItem.Chart.route) {
-            ChartScreen()
+            ChartScreen(
+                onNavigateToStockPurchase = { stockCode, action ->
+                    navController.navigate("stock_purchase/$stockCode/$action")
+                },
+                onNavigateToAIDialog = {
+                    navController.navigate(NavigationItem.AIDialog.route)
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
         }
         
         composable(NavigationItem.Learn.route) {
@@ -45,6 +58,39 @@ fun NavGraph(
         
         composable(NavigationItem.Portfolio.route) {
             PortfolioScreen()
+        }
+        
+        // Stock Purchase Screen with arguments
+        composable(
+            route = "stock_purchase/{stockCode}/{action}",
+            arguments = listOf(
+                navArgument("stockCode") { type = NavType.StringType },
+                navArgument("action") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val stockCode = backStackEntry.arguments?.getString("stockCode") ?: ""
+            val action = backStackEntry.arguments?.getString("action") ?: "buy"
+            
+            StockPurchaseScreen(
+                stockCode = stockCode,
+                action = action,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onTransactionComplete = {
+                    // 거래 완료 후 차트 화면으로 돌아가기
+                    navController.popBackStack()
+                }
+            )
+        }
+        
+        // AI Chart Analysis Dialog
+        composable(NavigationItem.AIDialog.route) {
+            AIDialog(
+                onDismiss = {
+                    navController.popBackStack()
+                }
+            )
         }
     }
 }

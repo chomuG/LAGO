@@ -44,8 +44,6 @@ class ChartViewModel @Inject constructor(
             is ChartUiEvent.ChangeBottomTab -> changeBottomTab(event.tabIndex)
             is ChartUiEvent.AnalyzePattern -> analyzePattern()
             is ChartUiEvent.BackPressed -> handleBackPressed()
-            is ChartUiEvent.NotificationClicked -> handleNotificationClicked()
-            is ChartUiEvent.SettingsClicked -> handleSettingsClicked()
             is ChartUiEvent.BuyClicked -> handleBuyClicked()
             is ChartUiEvent.SellClicked -> handleSellClicked()
         }
@@ -297,13 +295,6 @@ class ChartViewModel @Inject constructor(
         // TODO: Navigation 처리
     }
     
-    private fun handleNotificationClicked() {
-        // TODO: 알림 화면 이동
-    }
-    
-    private fun handleSettingsClicked() {
-        // TODO: 설정 화면 이동
-    }
     
     private fun handleBuyClicked() {
         // TODO: 구매 화면 이동
