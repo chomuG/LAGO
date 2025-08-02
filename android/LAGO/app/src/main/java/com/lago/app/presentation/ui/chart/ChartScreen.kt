@@ -50,6 +50,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.draw.clipToBounds
 import kotlin.math.abs
 // Theme imports
 import com.lago.app.presentation.theme.*
@@ -68,6 +69,7 @@ import com.lago.app.presentation.viewmodel.chart.ChartUiEvent
 import com.lago.app.presentation.viewmodel.chart.HoldingItem
 import com.lago.app.presentation.viewmodel.chart.TradingItem
 import com.lago.app.presentation.viewmodel.chart.PatternAnalysisResult
+import com.skydoves.flexible.core.pxToDp
 // Chart imports
 import com.tradingview.lightweightcharts.view.ChartsView
 import com.tradingview.lightweightcharts.api.options.models.*
@@ -175,11 +177,10 @@ fun ChartScreen(
         (currentOffset * 0.3f).coerceAtLeast(maxOffset).toDp()
     }
     
-    // 차트와 시간버튼용 별도 오프셋 (더 많이 올라가게)
-    val chartOffsetY = with(density) {
-        val maxOffset = -120.dp.toPx()
+    // 시간버튼만 올라가도록 오프셋 설정
+    val timeButtonOffsetY = with(density) {
         val currentOffset = (sheetAnimY.value - sheetPositions.collapsed).coerceAtMost(0f)
-        (currentOffset * 0.7f).coerceAtLeast(maxOffset).toDp()
+        currentOffset.toDp()
     }
 
     // 드래그 제스처 처리 함수
@@ -276,33 +277,91 @@ fun ChartScreen(
         // 1. 메인 콘텐츠 (앱바 아래까지만 올라감) - 바텀시트 높이에 따른 패딩 조정
         // 시간 버튼이 바텀시트로 이동했으므로 기본 패딩만 사용
         
-        Column(
+        // 1. 배경 영역
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White)
-                .padding(bottom = buttonBarHeight)
-        ) {
-            // 헤더 영역 (빈 공간 - 실제 콘텐츠는 박스에 포함)
-            Spacer(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height((176f - (headerAlignmentProgress * 120f)).dp)
-            )
+        )
 
-            // 차트 + 시간 버튼 영역에만 chartOffsetY 적용
+        // 차트 + 시간버튼 분리된 구조 - 빈 공간 최소화
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = buttonBarHeight)
+                .offset(y = with(density) { 
+                    val maxUpwardOffset = -56.dp.toPx()
+                    val offset = sheetAnimY.value - sheetPositions.collapsed
+                    val halfExpandedOffset = sheetPositions.halfExpanded - sheetPositions.collapsed
+                    val initialDownwardOffset = 30.dp.toPx() // 초기 위치를 30dp 아래로
+                    
+                    // 중단까지만 움직이고, 중단->상단에서는 고정
+                    (offset.coerceIn(halfExpandedOffset, 0f).coerceAtLeast(maxUpwardOffset) + initialDownwardOffset).toDp()
+                })
+        ) {
+            // 앱바 영역 (고정)
+            Spacer(modifier = Modifier.height(56.dp))
+            
+            // 헤더 영역 (최소화)
+            Spacer(modifier = Modifier.height((80f - (headerAlignmentProgress * 40f)).dp))
+            
+            // 차트 영역
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .offset(y = chartOffsetY) // 차트와 시간버튼은 더 많이 올라감
+                    .fillMaxWidth()
+                    .height(
+                        with(density) {
+                            val baseHeight = 350.dp
+                            val maxUpwardOffset = -56.dp.toPx()
+                            val currentOffset = sheetAnimY.value - sheetPositions.collapsed
+                            val halfExpandedOffset = sheetPositions.halfExpanded - sheetPositions.collapsed
+                            
+                            when {
+                                // 중단->상단: 중단에서의 압축된 높이 유지
+                                currentOffset <= halfExpandedOffset -> {
+                                    val compressionAtHalf = -(halfExpandedOffset - maxUpwardOffset)
+                                    (baseHeight - compressionAtHalf.toDp()).coerceAtLeast(150.dp)
+                                }
+                                // 하단->중단: 앱바에 닿으면 압축 시작
+                                currentOffset <= maxUpwardOffset -> {
+                                    val compression = -(currentOffset - maxUpwardOffset)
+                                    (baseHeight - compression.toDp()).coerceAtLeast(150.dp)
+                                }
+                                // 하단: 기본 높이
+                                else -> baseHeight
+                            }
+                        }
+                    )
             ) {
-                ChartAndTimeFrameSelection(
-                    uiState = uiState,
-                    onTimeFrameChange = { timeFrame ->
-                        viewModel.onEvent(ChartUiEvent.ChangeTimeFrame(timeFrame))
-                    },
-                    modifier = Modifier.fillMaxSize()
+                SingleChartView(
+                    candlestickData = uiState.candlestickData,
+                    volumeData = uiState.volumeData,
+                    sma5Data = uiState.sma5Data,
+                    sma20Data = uiState.sma20Data,
+                    config = uiState.config,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
                 )
             }
+            
+            // 차트와 시간버튼 사이 간격 최소화
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // 시간버튼 영역
+            TimeFrameSelection(
+                selectedTimeFrame = uiState.config.timeFrame,
+                onTimeFrameChange = { viewModel.onEvent(ChartUiEvent.ChangeTimeFrame(it)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .background(Color.White)
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+            
+            // 시간버튼과 바텀시트 사이 간격 최소화
+            Spacer(modifier = Modifier.height(8.dp))
+
         }
 
         // 2. 앱바 (중간 레이어)
