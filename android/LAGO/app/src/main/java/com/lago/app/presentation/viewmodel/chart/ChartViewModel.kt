@@ -46,6 +46,10 @@ class ChartViewModel @Inject constructor(
             is ChartUiEvent.BackPressed -> handleBackPressed()
             is ChartUiEvent.BuyClicked -> handleBuyClicked()
             is ChartUiEvent.SellClicked -> handleSellClicked()
+            is ChartUiEvent.ShowIndicatorSettings -> showIndicatorSettings()
+            is ChartUiEvent.HideIndicatorSettings -> hideIndicatorSettings()
+            is ChartUiEvent.ToggleIndicatorSettings -> toggleIndicatorSettings()
+            // UpdatePanelSizes 이벤트 제거 - 단순화된 구조에서는 불필요
         }
     }
     
@@ -71,6 +75,8 @@ class ChartViewModel @Inject constructor(
     private fun toggleIndicator(indicatorType: String, enabled: Boolean) {
         val currentIndicators = _uiState.value.config.indicators
         val newIndicators = when (indicatorType) {
+            "sma5" -> currentIndicators.copy(sma5 = enabled)
+            "sma20" -> currentIndicators.copy(sma20 = enabled)
             "sma" -> currentIndicators.copy(
                 sma5 = enabled,
                 sma20 = enabled
@@ -86,9 +92,12 @@ class ChartViewModel @Inject constructor(
             config = _uiState.value.config.copy(indicators = newIndicators)
         )
         
-        // 필요한 경우 데이터 다시 로드
+        // 지표 상태 변경 시 항상 차트 새로고침 (켜거나 끌 때 모두)
         if (enabled) {
             loadIndicatorData(indicatorType)
+        } else {
+            // 지표를 끄는 경우에도 차트 새로고침
+            loadChartData()
         }
     }
     
@@ -167,48 +176,48 @@ class ChartViewModel @Inject constructor(
     }
     
     private suspend fun loadSmaData() {
-        // TODO: 실제 SMA 계산 로직 구현
-        val mockSma5 = generateMockLineData(50f)
-        val mockSma20 = generateMockLineData(100f)
+        val candlestickData = _uiState.value.candlestickData
+        if (candlestickData.isEmpty()) return
+        
+        val sma5Data = calculateSMA(candlestickData, 5)
+        val sma20Data = calculateSMA(candlestickData, 20)
         
         _uiState.value = _uiState.value.copy(
-            sma5Data = mockSma5,
-            sma20Data = mockSma20
+            sma5Data = sma5Data,
+            sma20Data = sma20Data
         )
     }
     
     private suspend fun loadRsiData() {
-        // TODO: 실제 RSI 계산 로직 구현
-        val mockRsi = generateMockRsiData()
+        val candlestickData = _uiState.value.candlestickData
+        if (candlestickData.isEmpty()) return
+        
+        val rsiData = calculateRSI(candlestickData, 14)
         
         _uiState.value = _uiState.value.copy(
-            rsiData = mockRsi
+            rsiData = rsiData
         )
     }
     
     private suspend fun loadMacdData() {
-        // TODO: 실제 MACD 계산 로직 구현
-        val mockMacd = MACDResult(
-            macdLine = generateMockLineData(0f),
-            signalLine = generateMockLineData(0f),
-            histogram = generateMockVolumeData()
-        )
+        val candlestickData = _uiState.value.candlestickData
+        if (candlestickData.isEmpty()) return
+        
+        val macdData = calculateMACD(candlestickData, 12, 26, 9)
         
         _uiState.value = _uiState.value.copy(
-            macdData = mockMacd
+            macdData = macdData
         )
     }
     
     private suspend fun loadBollingerBandsData() {
-        // TODO: 실제 볼린저 밴드 계산 로직 구현
-        val mockBollinger = BollingerBandsResult(
-            upperBand = generateMockLineData(200f),
-            middleBand = generateMockLineData(0f),
-            lowerBand = generateMockLineData(-200f)
-        )
+        val candlestickData = _uiState.value.candlestickData
+        if (candlestickData.isEmpty()) return
+        
+        val bollingerBands = calculateBollingerBands(candlestickData, 20, 2.0f)
         
         _uiState.value = _uiState.value.copy(
-            bollingerBands = mockBollinger
+            bollingerBands = bollingerBands
         )
     }
     
@@ -324,5 +333,164 @@ class ChartViewModel @Inject constructor(
             TradingItem("구매", "10주", 712000, "2025-07-28 오전10:48")
         )
         _uiState.value = _uiState.value.copy(tradingHistory = mockHistory)
+    }
+    
+    private fun showIndicatorSettings() {
+        _uiState.value = _uiState.value.copy(showIndicatorSettings = true)
+    }
+    
+    private fun hideIndicatorSettings() {
+        _uiState.value = _uiState.value.copy(showIndicatorSettings = false)
+    }
+    
+    private fun toggleIndicatorSettings() {
+        _uiState.value = _uiState.value.copy(
+            showIndicatorSettings = !_uiState.value.showIndicatorSettings
+        )
+    }
+    
+    // updatePanelSizes 함수 제거 - 단순화된 구조에서는 불필요
+    
+    // 기술적 지표 계산 함수들
+    
+    /**
+     * Simple Moving Average (단순이동평균) 계산
+     */
+    private fun calculateSMA(candlestickData: List<CandlestickData>, period: Int): List<LineData> {
+        if (candlestickData.size < period) return emptyList()
+        
+        val result = mutableListOf<LineData>()
+        
+        for (i in period - 1 until candlestickData.size) {
+            val sum = candlestickData.subList(i - period + 1, i + 1).sumOf { it.close.toDouble() }
+            val average = (sum / period).toFloat()
+            
+            result.add(LineData(candlestickData[i].time, average))
+        }
+        
+        return result
+    }
+    
+    /**
+     * RSI (Relative Strength Index) 계산
+     */
+    private fun calculateRSI(candlestickData: List<CandlestickData>, period: Int): List<LineData> {
+        if (candlestickData.size < period + 1) return emptyList()
+        
+        val result = mutableListOf<LineData>()
+        val gains = mutableListOf<Float>()
+        val losses = mutableListOf<Float>()
+        
+        // 첫 번째 기간의 gain/loss 계산
+        for (i in 1 until candlestickData.size) {
+            val change = candlestickData[i].close - candlestickData[i - 1].close
+            gains.add(if (change > 0) change else 0f)
+            losses.add(if (change < 0) -change else 0f)
+        }
+        
+        // RSI 계산
+        for (i in period - 1 until gains.size) {
+            val avgGain = gains.subList(i - period + 1, i + 1).average().toFloat()
+            val avgLoss = losses.subList(i - period + 1, i + 1).average().toFloat()
+            
+            val rs = if (avgLoss != 0f) avgGain / avgLoss else 100f
+            val rsi = 100f - (100f / (1f + rs))
+            
+            result.add(LineData(candlestickData[i + 1].time, rsi))
+        }
+        
+        return result
+    }
+    
+    /**
+     * MACD (Moving Average Convergence Divergence) 계산
+     */
+    private fun calculateMACD(candlestickData: List<CandlestickData>, fastPeriod: Int, slowPeriod: Int, signalPeriod: Int): MACDResult {
+        if (candlestickData.size < slowPeriod) return MACDResult(emptyList(), emptyList(), emptyList())
+        
+        // EMA 계산 함수
+        fun calculateEMA(data: List<Float>, period: Int): List<Float> {
+            if (data.size < period) return emptyList()
+            
+            val result = mutableListOf<Float>()
+            val multiplier = 2f / (period + 1f)
+            
+            // 첫 번째 EMA는 SMA로 시작
+            var ema = data.subList(0, period).average().toFloat()
+            result.add(ema)
+            
+            // 나머지 EMA 계산
+            for (i in period until data.size) {
+                ema = (data[i] * multiplier) + (ema * (1f - multiplier))
+                result.add(ema)
+            }
+            
+            return result
+        }
+        
+        val prices = candlestickData.map { it.close }
+        val fastEMA = calculateEMA(prices, fastPeriod)
+        val slowEMA = calculateEMA(prices, slowPeriod)
+        
+        // MACD 라인 계산 (Fast EMA - Slow EMA)
+        val macdLine = mutableListOf<LineData>()
+        val macdValues = mutableListOf<Float>()
+        
+        val startIndex = slowPeriod - 1
+        for (i in 0 until minOf(fastEMA.size, slowEMA.size)) {
+            val macdValue = fastEMA[i + (fastPeriod - slowPeriod)] - slowEMA[i]
+            macdValues.add(macdValue)
+            macdLine.add(LineData(candlestickData[startIndex + i].time, macdValue))
+        }
+        
+        // Signal 라인 계산 (MACD의 EMA)
+        val signalEMA = calculateEMA(macdValues, signalPeriod)
+        val signalLine = mutableListOf<LineData>()
+        
+        for (i in signalEMA.indices) {
+            signalLine.add(LineData(candlestickData[startIndex + signalPeriod - 1 + i].time, signalEMA[i]))
+        }
+        
+        // 히스토그램 계산 (MACD - Signal)
+        val histogram = mutableListOf<VolumeData>()
+        for (i in signalEMA.indices) {
+            val histValue = macdValues[signalPeriod - 1 + i] - signalEMA[i]
+            histogram.add(VolumeData(candlestickData[startIndex + signalPeriod - 1 + i].time, histValue))
+        }
+        
+        return MACDResult(macdLine, signalLine, histogram)
+    }
+    
+    /**
+     * Bollinger Bands (볼린저 밴드) 계산
+     */
+    private fun calculateBollingerBands(candlestickData: List<CandlestickData>, period: Int, multiplier: Float): BollingerBandsResult {
+        if (candlestickData.size < period) return BollingerBandsResult(emptyList(), emptyList(), emptyList())
+        
+        val upperBand = mutableListOf<LineData>()
+        val middleBand = mutableListOf<LineData>()
+        val lowerBand = mutableListOf<LineData>()
+        
+        for (i in period - 1 until candlestickData.size) {
+            val prices = candlestickData.subList(i - period + 1, i + 1).map { it.close }
+            
+            // SMA (중간선)
+            val sma = prices.average().toFloat()
+            
+            // 표준편차 계산
+            val variance = prices.map { (it - sma) * (it - sma) }.average()
+            val standardDeviation = kotlin.math.sqrt(variance).toFloat()
+            
+            // 밴드 계산
+            val upper = sma + (standardDeviation * multiplier)
+            val lower = sma - (standardDeviation * multiplier)
+            
+            val time = candlestickData[i].time
+            upperBand.add(LineData(time, upper))
+            middleBand.add(LineData(time, sma))
+            lowerBand.add(LineData(time, lower))
+        }
+        
+        return BollingerBandsResult(upperBand, middleBand, lowerBand)
     }
 }

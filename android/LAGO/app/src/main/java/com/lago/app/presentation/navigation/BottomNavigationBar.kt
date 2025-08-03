@@ -5,6 +5,9 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -22,12 +25,16 @@ fun BottomNavigationBar(
     // 모든 페이지에서 네비게이션 바 표시
     val hideBottomBar = false
 
-    if (!hideBottomBar) {
-        NavigationBar(
-        modifier = androidx.compose.ui.Modifier.semantics {
-            contentDescription = "하단 네비게이션 바"
-        }
+    AnimatedVisibility(
+        visible = !hideBottomBar,
+        enter = slideInVertically(initialOffsetY = { it }),
+        exit = slideOutVertically(targetOffsetY = { it })
     ) {
+        NavigationBar(
+            modifier = androidx.compose.ui.Modifier.semantics {
+                contentDescription = "하단 네비게이션 바"
+            }
+        ) {
         bottomNavigationItems.forEach { item ->
             NavigationBarItem(
                 icon = {
@@ -57,7 +64,7 @@ fun BottomNavigationBar(
                     }
                 }
             )
+            }
         }
-    }
     }
 }

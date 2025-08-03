@@ -17,15 +17,17 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lago.app.presentation.theme.*
 import com.lago.app.presentation.viewmodel.purchase.PurchaseViewModel
+import kotlin.math.abs
 
 @Composable
 fun StockPurchaseScreen(
     stockCode: String,
-    isPurchaseType: Boolean = true, // true: 구매, false: 판매
+    action: String = "buy", // "buy" or "sell"
     viewModel: PurchaseViewModel = hiltViewModel(),
-    onBackClick: () -> Unit,
-    onTransactionComplete: () -> Unit
+    onNavigateBack: () -> Unit = {},
+    onTransactionComplete: () -> Unit = {}
 ) {
+    val isPurchaseType = action == "buy"
     val uiState by viewModel.uiState.collectAsState()
     var showConfirmDialog by remember { mutableStateOf(false) }
 
@@ -33,15 +35,46 @@ fun StockPurchaseScreen(
         viewModel.loadStockInfo(stockCode, isPurchaseType)
     }
 
+    // 계산: 현재 가격 기준으로 몇 주인지
+    val currentPrice = uiState.currentPrice.takeIf { it > 0 } ?: 1 // 0 방지
+    val shareCount = if (uiState.purchaseAmount > 0) uiState.purchaseAmount / currentPrice else 0L
+
     Scaffold(
         topBar = {
             PurchaseTopBar(
                 stockName = uiState.stockName,
                 transactionType = if (isPurchaseType) "구매" else "판매",
-                onBackClick = onBackClick
+                onBackClick = onNavigateBack
             )
         },
-        containerColor = Color.White
+        containerColor = Color.White,
+        bottomBar = {
+            // 고정된 구매/판매 버튼
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(16.dp)
+            ) {
+                Button(
+                    onClick = { showConfirmDialog = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isPurchaseType) MainPink else MainBlue
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    enabled = true
+                ) {
+                    Text(
+                        if (isPurchaseType) "구매하기" else "판매하기",
+                        style = TitleB16,
+                        color = Color.White
+                    )
+                }
+            }
+        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -63,53 +96,33 @@ fun StockPurchaseScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 구매/판매 수량 입력
-            TransactionAmountInput(
-                amount = uiState.purchaseAmount,
-                totalPrice = uiState.totalPrice,
+            // 수정된 주 수 기반 입력
+            TransactionShareInput(
+                shareCount = shareCount,
                 percentage = uiState.percentage,
-                onAmountChange = { viewModel.onAmountChange(it) },
-                onPercentageClick = { viewModel.onPercentageClick(it) },
+                onShareChange = { newShareCount ->
+                    val newAmount = newShareCount * currentPrice
+                    viewModel.onAmountChange(newAmount)
+                },
                 isPurchaseType = isPurchaseType,
                 holdingQuantity = uiState.holdingQuantity,
-                currentPrice = uiState.currentPrice
+                currentPrice = currentPrice
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 구매/판매하기 버튼
-            Button(
-                onClick = { showConfirmDialog = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isPurchaseType) MainPink else MainBlue
-                ),
-                shape = RoundedCornerShape(8.dp),
-                enabled = true // 항상 활성화
-            ) {
-                Text(
-                    if (isPurchaseType) "구매하기" else "판매하기",
-                    style = TitleB16,
-                    color = Color.White
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(100.dp)) // bottom bar 여유
         }
     }
 
-    // 거래 확인 다이얼로그
     if (showConfirmDialog) {
         TransactionConfirmDialog(
             stockName = uiState.stockName,
-            quantity = uiState.purchaseQuantity,
-            totalPrice = uiState.totalPrice,
-            currentPrice = uiState.currentPrice,
+            quantity = shareCount.toInt(),
+            totalPrice = shareCount * currentPrice,
+            currentPrice = currentPrice,
             isPurchaseType = isPurchaseType,
             onConfirm = {
                 viewModel.purchaseStock()
+                showConfirmDialog = false
                 onTransactionComplete()
             },
             onDismiss = { showConfirmDialog = false }
@@ -146,8 +159,7 @@ private fun PurchaseTopBar(
             textAlign = TextAlign.Center
         )
 
-        // 뒤로가기 버튼과 동일한 크기의 여백
-        Box(modifier = Modifier.size(48.dp))
+        Box(modifier = Modifier.size(48.dp)) // 균형 맞추기
     }
 }
 
@@ -174,7 +186,6 @@ private fun StockInfoCard(
         )
 
         if (isPurchaseType) {
-            // 구매시 보유현금을 원화로 표시
             Text(
                 text = "보유 현금 : ${String.format("%,d", 2000000)}원",
                 style = BodyR14,
@@ -182,7 +193,6 @@ private fun StockInfoCard(
                 modifier = Modifier.padding(top = 8.dp)
             )
         } else {
-            // 판매시 보유주식을 주 단위와 원화로 표시
             Text(
                 text = "보유 주식 : ${holdingQuantity}주 (${String.format("%,d", holdingQuantity * currentPrice)}원)",
                 style = BodyR14,
@@ -194,116 +204,102 @@ private fun StockInfoCard(
 }
 
 @Composable
-private fun TransactionAmountInput(
-    amount: Long,
-    totalPrice: Long,
+private fun TransactionShareInput(
+    shareCount: Long,
     percentage: Float,
-    onAmountChange: (Long) -> Unit,
-    onPercentageClick: (Float) -> Unit,
+    onShareChange: (Long) -> Unit,
     isPurchaseType: Boolean,
     holdingQuantity: Int,
     currentPrice: Int
 ) {
     val pricePerShare = currentPrice.toLong()
-    val shares = if (amount > 0 && pricePerShare > 0) (amount / pricePerShare) else 0L
-    
-    // 구매시: 보유현금으로 살 수 있는 최대 주 수, 판매시: 보유 주식 수
-    val availableCash = 2000000L // 보유현금 200만원
+
+    val availableCash = 2000000L
     val maxShares = if (isPurchaseType) {
         if (pricePerShare > 0) {
-            (availableCash / pricePerShare).coerceAtLeast(1L) // 최소 1주는 보장
-        } else {
-            0L // 가격이 0이면 0주
-        }
+            (availableCash / pricePerShare).coerceAtLeast(1L)
+        } else 0L
     } else {
-        holdingQuantity.toLong().coerceAtLeast(0L) // 최소 0주
+        holdingQuantity.toLong().coerceAtLeast(0L)
     }
-    
-    Column {
-        // 금액 표시 (위쪽)
-        Text(
-            text = String.format("%,d", amount),
-            style = MaterialTheme.typography.headlineLarge.copy(
-                fontSize = 36.sp,
-                fontWeight = FontWeight.Bold
-            ),
-            color = Gray900,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 슬라이더와 주 수 표시
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp)
+    ) {
+        // 대표 영역: 몇 주 / 약 금액
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 슬라이더
-            Slider(
-                value = shares.toFloat(),
-                onValueChange = { newShares ->
-                    val newAmount = if (pricePerShare > 0) (newShares.toLong() * pricePerShare) else 0L
-                    onAmountChange(newAmount)
-                },
-                valueRange = 0f..maxShares.coerceAtLeast(1L).toFloat(),
-                steps = (maxShares.coerceAtLeast(1L).toInt() - 1).coerceAtLeast(0),
-                colors = SliderDefaults.colors(
-                    thumbColor = MainBlue,
-                    activeTrackColor = MainBlue,
-                    inactiveTrackColor = Gray300
+            Text(
+                text = "${shareCount}주",
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.Bold
                 ),
-                modifier = Modifier.weight(1f)
+                color = Gray900
             )
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            // 주 수 표시
-            Card(
-                modifier = Modifier.padding(start = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = Gray100),
-                shape = RoundedCornerShape(8.dp)
-            ) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "약 ${String.format("%,d", shareCount * pricePerShare)}원",
+                style = BodyR14,
+                color = Gray700
+            )
+        }
+
+        // 최대/보유 & 단가
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            if (isPurchaseType) {
                 Text(
-                    text = "${shares}주",
-                    style = TitleB16,
-                    color = Gray900,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    text = "최대 ${maxShares}주",
+                    style = BodyR14,
+                    color = Gray600
+                )
+            } else {
+                Text(
+                    text = "보유 ${holdingQuantity}주",
+                    style = BodyR14,
+                    color = Gray600
                 )
             }
+
+            Text(
+                text = "1주당 ${String.format("%,d", currentPrice)}원",
+                style = BodyR14,
+                color = Gray600
+            )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // 퍼센트 버튼들 (구매시: 보유현금 기준, 판매시: 보유주식 기준)
+        // 퍼센트 버튼 (주 기준)
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 20.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            listOf(10f, 25f, 50f, 100f).forEach { percent ->
+            listOf(10f, 25f, 50f, 100f).forEach { pct ->
                 FilterChip(
-                    selected = kotlin.math.abs(percentage - percent) < 1f,
-                    onClick = { 
-                        val targetShares = if (pricePerShare <= 0) {
-                            0L // 가격이 0이면 0주
-                        } else if (isPurchaseType) {
-                            // 구매시: 보유현금의 퍼센트로 계산하고 소수점 버림
-                            val availableCash = 2000000L // 임시로 200만원으로 설정
-                            val targetAmount = (availableCash * percent / 100).toLong()
-                            targetAmount / pricePerShare
+                    selected = abs(percentage - pct) < 1f,
+                    onClick = {
+                        val targetShares = if (isPurchaseType) {
+                            val targetAmount = (availableCash * pct / 100).toLong()
+                            if (pricePerShare > 0) targetAmount / pricePerShare else 0L
                         } else {
-                            // 판매시: 보유주식의 퍼센트로 계산하고 소수점 버림
-                            (holdingQuantity * percent / 100).toLong()
+                            (holdingQuantity * pct / 100).toLong()
                         }
-                        val cappedShares = targetShares.coerceAtMost(maxShares)
-                        val newAmount = cappedShares * pricePerShare
-                        onAmountChange(newAmount)
+                        onShareChange(targetShares.coerceAtMost(maxShares))
                     },
                     label = {
-                        Text(
-                            "${percent.toInt()}%",
-                            style = SubtitleSb14
-                        )
+                        Text("${pct.toInt()}%", style = SubtitleSb14)
                     },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Gray200,
@@ -313,16 +309,12 @@ private fun TransactionAmountInput(
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // 주 수 입력 키패드
+        // 숫자 키패드 (주 수 입력)
         NumberKeypad(
-            currentValue = shares.toString(),
+            currentValue = shareCount.toString(),
             onValueChange = { newSharesString ->
-                val newShares = newSharesString.toLongOrNull() ?: 0L
-                val cappedShares = newShares.coerceAtMost(maxShares)
-                val newAmount = if (pricePerShare > 0) cappedShares * pricePerShare else 0L
-                onAmountChange(newAmount)
+                val parsed = newSharesString.toLongOrNull() ?: 0L
+                onShareChange(parsed.coerceAtMost(maxShares))
             }
         )
     }
@@ -371,7 +363,7 @@ private fun NumberKeypad(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp),
+                            .height(56.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = when (key) {
                                 "C" -> Gray400

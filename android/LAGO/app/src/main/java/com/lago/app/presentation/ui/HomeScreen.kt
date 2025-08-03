@@ -55,12 +55,18 @@ fun HomeScreen() {
             ) {
                 Text(
                     text = "안녕하세요!",
-                    style = MaterialTheme.typography.headlineMedium
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.semantics {
+                        contentDescription = "LAGO 서비스 환영 메시지"
+                    }
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "LAGO에 오신 것을 환영합니다. 투자 학습과 실전 경험을 시작해보세요.",
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.semantics {
+                        contentDescription = "LAGO 서비스 소개 문구"
+                    }
                 )
             }
         }

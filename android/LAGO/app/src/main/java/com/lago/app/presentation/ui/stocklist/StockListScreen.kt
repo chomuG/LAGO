@@ -37,40 +37,91 @@ fun StockListScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // 상단 탭바
+        Column(modifier = Modifier.fillMaxSize()) {
             StockListTopBar(
                 selectedTab = uiState.selectedTab,
                 onTabChange = { viewModel.onTabChange(it) }
             )
-            // 검색바
-            SearchBar(
-                query = uiState.searchQuery,
-                onQueryChange = { viewModel.onSearchQueryChange(it) },
-                modifier = Modifier.padding(16.dp)
-            )
-
-            // 필터 칩들
-            FilterChips(
-                selectedFilters = uiState.selectedFilters,
-                onFilterChange = { viewModel.onFilterChange(it) },
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            // 주식 리스트
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(uiState.filteredStocks) { stock ->
-                    StockItemCard(
-                        stock = stock,
-                        onFavoriteClick = { viewModel.toggleFavorite(stock.code) },
-                        onClick = { onStockClick(stock.code) }
+            when (uiState.selectedTab) {
+                0 -> {
+                    // 모의 투자 화면 (기존 리스트)
+                    SearchBar(
+                        query = uiState.searchQuery,
+                        onQueryChange = { viewModel.onSearchQueryChange(it) },
+                        modifier = Modifier.padding(16.dp)
                     )
+                    FilterChips(
+                        selectedFilters = uiState.selectedFilters,
+                        onFilterChange = { viewModel.onFilterChange(it) },
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(uiState.filteredStocks) { stock ->
+                            StockItemCard(
+                                stock = stock,
+                                onFavoriteClick = { viewModel.toggleFavorite(stock.code) },
+                                onClick = { onStockClick(stock.code) }
+                            )
+                        }
+                    }
+                }
+                1 -> {
+                    // 역사 챌린지 화면: 예시로 종목 관련 뉴스 등
+                    // 필요하다면 viewModel에서 관련 뉴스 로딩 로직 추가
+                    Text(
+                        text = "관련 뉴스",
+                        style = TitleB20,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                    // 뉴스 카드 리스트 (가짜 데이터 예시)
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item {
+                            // 첫 번째 큰 뉴스 카드
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text("호재", style = SubtitleSb14, color = MainPink)
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        "서정진 “셀트리온, 관세 리스크 완전 해소…연 4.6조 매출 예상”",
+                                        style = TitleB16
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Text("27분전", style = BodyR12, color = Gray600)
+                                }
+                            }
+                        }
+                        // 나머지 뉴스들
+                        items(3) { idx ->
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(modifier = Modifier.padding(12.dp)) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("중립", style = SubtitleSb14, color = Gray900)
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            "코스피 하락세 지속, 외국인 매도물량 증가로 인한 시장 불안감 확산",
+                                            style = BodyR14
+                                        )
+                                        Spacer(Modifier.height(2.dp))
+                                        Text("27분전", style = BodyR12, color = Gray600)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -261,7 +312,7 @@ private fun StockItemCard(
             // 즐겨찾기 버튼
             IconButton(onClick = onFavoriteClick) {
                 Icon(
-                    imageVector = if (stock.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    imageVector = if (stock.isFavorite) Icons.Default.Favorite else Icons.Default.Star,
                     contentDescription = "관심종목",
                     tint = if (stock.isFavorite) MainPink else Gray600
                 )

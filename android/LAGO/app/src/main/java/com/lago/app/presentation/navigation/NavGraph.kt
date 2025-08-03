@@ -11,6 +11,7 @@ import com.lago.app.presentation.ui.chart.ChartScreen
 import com.lago.app.presentation.ui.purchase.StockPurchaseScreen
 import com.lago.app.presentation.ui.chart.AIDialog
 import androidx.compose.ui.Modifier
+import com.lago.app.presentation.ui.stocklist.StockListScreen
 
 @Composable
 fun NavGraph(
@@ -25,11 +26,11 @@ fun NavGraph(
         composable(NavigationItem.Home.route) {
             HomeScreen()
         }
-        
+
         composable(NavigationItem.Investment.route) {
-            InvestmentScreen(
-                onNavigateToChart = {
-                    navController.navigate(NavigationItem.Chart.route)
+            StockListScreen(
+                onStockClick = { stockCode ->
+                    navController.navigate("chart/$stockCode")
                 }
             )
         }

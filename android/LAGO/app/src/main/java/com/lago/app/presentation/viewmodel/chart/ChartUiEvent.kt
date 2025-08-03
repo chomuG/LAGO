@@ -12,4 +12,8 @@ sealed class ChartUiEvent {
     object BackPressed : ChartUiEvent()
     object BuyClicked : ChartUiEvent()
     object SellClicked : ChartUiEvent()
+    object ShowIndicatorSettings : ChartUiEvent()
+    object HideIndicatorSettings : ChartUiEvent()
+    object ToggleIndicatorSettings : ChartUiEvent()
+    // UpdatePanelSizes 이벤트 제거 - 단순화된 구조에서는 불필요
 }

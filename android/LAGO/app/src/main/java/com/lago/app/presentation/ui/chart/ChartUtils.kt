@@ -17,6 +17,17 @@ object ChartUtils {
         )
     }
     
+    fun timestampToDateString(timestamp: Long): String {
+        val calendar = Calendar.getInstance()
+        calendar.timeInMillis = timestamp
+        
+        val year = calendar.get(Calendar.YEAR)
+        val month = String.format("%02d", calendar.get(Calendar.MONTH) + 1)
+        val day = String.format("%02d", calendar.get(Calendar.DAY_OF_MONTH))
+        
+        return "$year-$month-$day"
+    }
+    
     fun generateDateSequence(count: Int = 30): List<Long> {
         val calendar = Calendar.getInstance()
         val timestamps = mutableListOf<Long>()

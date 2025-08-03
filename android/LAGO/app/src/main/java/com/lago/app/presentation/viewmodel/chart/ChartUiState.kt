@@ -32,7 +32,8 @@ data class ChartUiState(
     val selectedBottomTab: Int = 0,
     val patternAnalysisCount: Int = 1,
     val maxPatternAnalysisCount: Int = 3,
-    val lastPatternAnalysis: PatternAnalysisResult? = null
+    val lastPatternAnalysis: PatternAnalysisResult? = null,
+    val showIndicatorSettings: Boolean = false
 )
 
 data class HoldingItem(

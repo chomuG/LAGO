@@ -59,6 +59,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.8.2")
     implementation(libs.androidx.camera.core)
     implementation(libs.firebase.sessions)
+    implementation(libs.androidx.media3.common.ktx)
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     

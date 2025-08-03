@@ -33,6 +33,23 @@ export default class ChartRegistrationFunctionsController {
         this.functionManager.registerFunction("remove", (params, resolve) => {
             this.cache.clear()
             this.chart.remove()
+            // 패널 리사이저 정리
+            if (window.panelResizer) {
+                window.panelResizer.destroy();
+                window.panelResizer = null;
+            }
+        })
+
+        // 패널 크기 업데이트 함수 등록
+        this.functionManager.registerFunction("updatePanelSizes", (params, resolve) => {
+            console.log("Panel sizes received from JS:", params);
+            
+            // Android 네이티브로 패널 크기 전달
+            if (window.Android && window.Android.updatePanelSizes) {
+                window.Android.updatePanelSizes(JSON.stringify(params));
+            }
+            
+            resolve();
         })
 
         this.functionManager.registerFunction("chartOptions", (params, resolve) => {
@@ -56,6 +73,10 @@ export default class ChartRegistrationFunctionsController {
             resolve(options)
         })
         this.functionManager.registerFunction("chartApplyOptions", (input, resolve) => {
+            console.log("=== chartApplyOptions called ===");
+            console.log("Input:", input);
+            console.log("Options:", input.params.options);
+            
             new Promise((resolve) => {
                 if (!input.params.options.localization || !input.params.options.localization.priceFormatter) {
                     resolve()
@@ -93,8 +114,14 @@ export default class ChartRegistrationFunctionsController {
                     resolve()
                 })
             })).then(() => {
-                this.chart.applyOptions(input.params.options)
+                console.log("✅ Applying options to chart:", this.chart);
+                this.chart.applyOptions(input.params.options);
+                console.log("✅ Options applied successfully");
                 logger.d('apply options')
+                resolve();
+            }).catch((error) => {
+                console.error("❌ chartApplyOptions error:", error);
+                resolve();
             })
         })
 
