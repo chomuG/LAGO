@@ -63,6 +63,8 @@ import com.lago.app.domain.entity.ChartConfig
 import com.lago.app.domain.entity.LineData
 import com.lago.app.domain.entity.VolumeData
 import com.lago.app.domain.entity.StockInfo
+import com.lago.app.domain.entity.MACDResult
+import com.lago.app.domain.entity.BollingerBandsResult
 // ViewModel imports
 import com.lago.app.presentation.viewmodel.chart.ChartViewModel
 import com.lago.app.presentation.viewmodel.chart.ChartUiEvent
@@ -70,7 +72,7 @@ import com.lago.app.presentation.viewmodel.chart.HoldingItem
 import com.lago.app.presentation.viewmodel.chart.TradingItem
 import com.lago.app.presentation.viewmodel.chart.PatternAnalysisResult
 import com.skydoves.flexible.core.pxToDp
-// Chart imports
+// Chart imports - Improved panels
 import com.tradingview.lightweightcharts.view.ChartsView
 import com.tradingview.lightweightcharts.api.options.models.*
 import com.tradingview.lightweightcharts.api.series.enums.SeriesType
@@ -305,7 +307,7 @@ fun ChartScreen(
             // 헤더 영역 (최소화)
             Spacer(modifier = Modifier.height((80f - (headerAlignmentProgress * 40f)).dp))
             
-            // 차트 영역
+            // 차트 영역 (패널 디바이더 포함)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -333,12 +335,16 @@ fun ChartScreen(
                         }
                     )
             ) {
-                SingleChartView(
+                // 개선된 부드러운 드래그 시스템 (기존 PriceScale 방식 + 성능 최적화)
+                ImprovedSmoothDragChart(
                     candlestickData = uiState.candlestickData,
                     volumeData = uiState.volumeData,
                     sma5Data = uiState.sma5Data,
                     sma20Data = uiState.sma20Data,
                     config = uiState.config,
+                    rsiData = uiState.rsiData,
+                    macdData = uiState.macdData,
+                    bollingerBands = uiState.bollingerBands,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp)
@@ -380,6 +386,7 @@ fun ChartScreen(
                 isFavorite = uiState.isFavorite,
                 onFavoriteClick = { viewModel.onEvent(ChartUiEvent.ToggleFavorite) },
                 stockInfo = uiState.currentStock,
+                onSettingsClick = { viewModel.onEvent(ChartUiEvent.ToggleIndicatorSettings) },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -548,6 +555,19 @@ fun ChartScreen(
             }
         }
 
+        // 지표 설정 다이얼로그
+        if (uiState.showIndicatorSettings) {
+            IndicatorSettingsDialog(
+                config = uiState.config,
+                onIndicatorToggle = { indicatorType, enabled ->
+                    viewModel.onEvent(ChartUiEvent.ToggleIndicator(indicatorType, enabled))
+                },
+                onDismiss = {
+                    viewModel.onEvent(ChartUiEvent.HideIndicatorSettings)
+                }
+            )
+        }
+
         // 로딩 상태
         if (uiState.isLoading) {
             Box(
@@ -566,6 +586,7 @@ private fun TopAppBar(
     isFavorite: Boolean,
     onFavoriteClick: () -> Unit,
     stockInfo: StockInfo,
+    onSettingsClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -601,33 +622,71 @@ private fun TopAppBar(
                 tint = if (isFavorite) MainPink else Gray900
             )
         }
+        
+        IconButton(
+            onClick = onSettingsClick,
+            modifier = Modifier.semantics {
+                contentDescription = "지표 설정"
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = null,
+                tint = Gray900
+            )
+        }
 
     }
 }
 
 @Composable
-fun SingleChartView(
+fun OptimizedChartView(
     candlestickData: List<CandlestickData>,
     volumeData: List<VolumeData>,
     sma5Data: List<LineData>,
     sma20Data: List<LineData>,
     config: ChartConfig,
+    rsiData: List<LineData> = emptyList(),
+    macdData: MACDResult? = null,
+    bollingerBands: BollingerBandsResult? = null,
+    panelSizes: PanelSizes = PanelSizes(),
     modifier: Modifier = Modifier
 ) {
-    AndroidView(
-        factory = { context ->
-            ChartsView(context).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
+    // 지표 설정 변경 시만 차트 재생성 (성능 최적화)
+    key(
+        config.indicators.volume,
+        config.indicators.rsi,
+        config.indicators.macd,
+        config.indicators.sma5,
+        config.indicators.sma20,
+        config.indicators.bollingerBands
+    ) {
+        AndroidView(
+            factory = { context ->
+                ChartsView(context).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                }
+            },
+            modifier = modifier,
+            update = { chartsView ->
+                setupChart(
+                    chartsView, 
+                    candlestickData, 
+                    volumeData, 
+                    sma5Data, 
+                    sma20Data, 
+                    config,
+                    rsiData = rsiData,
+                    macdData = macdData,
+                    bollingerBands = bollingerBands,
+                    panelSizes = panelSizes
                 )
             }
-        },
-        modifier = modifier,
-        update = { chartsView ->
-            setupChart(chartsView, candlestickData, volumeData, sma5Data, sma20Data, config)
-        }
-    )
+        )
+    }
 }
 
 @Composable
@@ -1167,4 +1226,169 @@ private fun PatternAnalysisContent(
             }
         }
     }
+}
+
+@Composable
+private fun IndicatorSettingsDialog(
+    config: ChartConfig,
+    onIndicatorToggle: (String, Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "지표 설정",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Volume 지표
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "거래량 (Volume)",
+                        fontSize = 16.sp
+                    )
+                    Switch(
+                        checked = config.indicators.volume,
+                        onCheckedChange = { enabled ->
+                            onIndicatorToggle("volume", enabled)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MainPink,
+                            checkedTrackColor = MainPink.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+                
+                // RSI 지표
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "RSI",
+                        fontSize = 16.sp
+                    )
+                    Switch(
+                        checked = config.indicators.rsi,
+                        onCheckedChange = { enabled ->
+                            onIndicatorToggle("rsi", enabled)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MainPink,
+                            checkedTrackColor = MainPink.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+                
+                // MACD 지표
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "MACD",
+                        fontSize = 16.sp
+                    )
+                    Switch(
+                        checked = config.indicators.macd,
+                        onCheckedChange = { enabled ->
+                            onIndicatorToggle("macd", enabled)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MainPink,
+                            checkedTrackColor = MainPink.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+                
+                // SMA5 지표
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "SMA5",
+                        fontSize = 16.sp
+                    )
+                    Switch(
+                        checked = config.indicators.sma5,
+                        onCheckedChange = { enabled ->
+                            onIndicatorToggle("sma5", enabled)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MainPink,
+                            checkedTrackColor = MainPink.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+                
+                // SMA20 지표
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "SMA20",
+                        fontSize = 16.sp
+                    )
+                    Switch(
+                        checked = config.indicators.sma20,
+                        onCheckedChange = { enabled ->
+                            onIndicatorToggle("sma20", enabled)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MainPink,
+                            checkedTrackColor = MainPink.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+                
+                // Bollinger Bands 지표
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "볼린저 밴드",
+                        fontSize = 16.sp
+                    )
+                    Switch(
+                        checked = config.indicators.bollingerBands,
+                        onCheckedChange = { enabled ->
+                            onIndicatorToggle("bollinger", enabled)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MainPink,
+                            checkedTrackColor = MainPink.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    text = "확인",
+                    color = MainPink,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    )
 }
