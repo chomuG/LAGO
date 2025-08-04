@@ -23,17 +23,38 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lago.app.R
+import com.lago.app.domain.entity.ChartPattern
 import com.lago.app.presentation.theme.*
 import com.lago.app.presentation.ui.components.CommonTopAppBar
+import com.lago.app.presentation.viewmodel.ChartPatternsUiState
+import com.lago.app.presentation.viewmodel.PatternStudyViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PatternStudyScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    viewModel: PatternStudyViewModel = hiltViewModel()
 ) {
-    var selectedTab by remember { mutableStateOf(1) } // 선택된 상태
-    val tabItems = listOf("헤드 & 숄더", "더블탑", "더블 바텀", "삼각 수렴", "웨지 패턴", "채널 패턴")
+    var selectedTab by remember { mutableStateOf(0) } // 선택된 상태
+    val patternsState by viewModel.patternsState.collectAsStateWithLifecycle()
+    
+    // 더미 데이터
+    val dummyPatterns = listOf(
+        ChartPattern(1, "헤드 & 숄더", "헤드&숄더 패턴은 3개의 고점을 기준으로 하는 차트 형태로, 바깥쪽 두 봉우리는 높이가 비슷하고 가운데가 가장 높다.", "head_and_shoulder.jpg"),
+        ChartPattern(2, "더블탑", "더블탑 패턴은 두 개의 유사한 고점이 형성되는 차트 패턴입니다.", "double_top.jpg"),
+        ChartPattern(3, "더블 바텀", "더블 바텀 패턴은 두 개의 유사한 저점이 형성되는 차트 패턴입니다.", "double_bottom.jpg"),
+        ChartPattern(4, "삼각 수렴", "삼각 수렴 패턴은 가격이 점차 좁아지는 범위를 보여주는 패턴입니다.", "triangle.jpg"),
+        ChartPattern(5, "웨지 패턴", "웨지 패턴은 가격이 반대 방향으로 기울어진 두 선 사이에서 움직이는 패턴입니다.", "wedge.jpg"),
+        ChartPattern(6, "채널 패턴", "채널 패턴은 가격이 두 평행선 사이에서 움직이는 패턴입니다.", "channel.jpg")
+    )
+    
+    LaunchedEffect(Unit) {
+        viewModel.loadChartPatterns()
+    }
 
     Column(
         modifier = Modifier
@@ -47,6 +68,76 @@ fun PatternStudyScreen(
         )
 
 
+        // Content based on API state
+        when (patternsState) {
+            is ChartPatternsUiState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MainBlue)
+                }
+            }
+            is ChartPatternsUiState.Success -> {
+                val patterns = (patternsState as ChartPatternsUiState.Success).patterns
+                PatternContent(
+                    patterns = patterns,
+                    selectedTab = selectedTab,
+                    onTabSelected = { selectedTab = it }
+                )
+            }
+            is ChartPatternsUiState.Error -> {
+                Column {
+                    // Error notice
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "⚠️ 데이터 로드 실패",
+                                style = TitleB16,
+                                color = Color.Red
+                            )
+                            Text(
+                                text = "아래는 레이아웃 확인용 더미 데이터입니다",
+                                style = BodyR12,
+                                color = Gray600
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = { viewModel.loadChartPatterns() },
+                                colors = ButtonDefaults.buttonColors(containerColor = MainBlue)
+                            ) {
+                                Text("다시 시도", color = Color.White)
+                            }
+                        }
+                    }
+                    
+                    // Dummy data
+                    PatternContent(
+                        patterns = dummyPatterns,
+                        selectedTab = selectedTab,
+                        onTabSelected = { selectedTab = it }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PatternContent(
+    patterns: List<ChartPattern>,
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    Column {
         // Fixed Tab Row
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -62,27 +153,29 @@ fun PatternStudyScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
-                itemsIndexed(tabItems) { index, item ->
+                itemsIndexed(patterns) { index, pattern ->
                     TabButton(
-                        text = item,
+                        text = pattern.name,
                         isSelected = selectedTab == index,
-                        onClick = { selectedTab = index }
+                        onClick = { onTabSelected(index) }
                     )
                 }
             }
         }
         
         // Scrollable Content
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp)
-        ) {
-            // Pattern Title
-            Text(
-                text = "${tabItems[selectedTab]} 패턴",
-                style = HeadEb24,
+        if (patterns.isNotEmpty() && selectedTab < patterns.size) {
+            val currentPattern = patterns[selectedTab]
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+            ) {
+                // Pattern Title
+                Text(
+                    text = "${currentPattern.name} 패턴",
+                    style = HeadEb24,
                 color = Color.Black,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
@@ -109,63 +202,18 @@ fun PatternStudyScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // Information Cards
-            InfoCard(
-                number = "1",
-                description = "**더블 탑**은 강저히 비슷한 두 꼭대기를 만들고 내려가는 **하락 반전 신호**에요."
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Divider Line
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = Gray300
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            InfoCard(
-                number = "2",
-                description = "**목선(바닥선)**을 아래로 뚫으면 더 하락할 수 있으니 **매도 시점**으로 봐요."
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Divider Line
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = Gray300
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            InfoCard(
-                number = "3",
-                description = "목표 가격은 꼭대기와 목선 사이 거리만큼 더 떨어질 수 있어요."
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = Gray300
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "차트 설명은 TradingView 공식 자료를 참고하여 작성하였습니다. " +
-                        "\n © TradingView, Inc.",
-                style = BodyR12,
-                color = Gray400,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-            )
-
-            // Add bottom spacing for better scrolling experience
-            Spacer(modifier = Modifier.height(100.dp))
+                // Pattern Description
+                Text(
+                    text = currentPattern.description,
+                    style = BodyR16,
+                    color = Color.Black,
+                    lineHeight = 24.sp,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                // Add bottom spacing for better scrolling experience
+                Spacer(modifier = Modifier.height(32.dp))
+            }
         }
     }
 }
@@ -197,81 +245,6 @@ fun TabButton(
     }
 }
 
-@Composable
-fun InfoCard(
-    number: String,
-    description: String
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = AppBackground
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Number Circle
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .background(
-                        color = MainBlue,
-                        shape = RoundedCornerShape(12.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = number,
-                    style = BodyR12,
-                    color = Color.White
-                )
-            }
-            
-            // Text Content
-            Column {
-                Text(
-                    text = parseStyledText(description),
-                    style = BodyR16
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun parseStyledText(text: String) = buildAnnotatedString {
-    val parts = text.split("**")
-    var isHighlight = false
-    
-    for (part in parts) {
-        if (isHighlight) {
-            withStyle(
-                style = SpanStyle(
-                    color = MainBlue,
-                    fontWeight = TitleB16.fontWeight
-                )
-            ) {
-                append(part)
-            }
-        } else {
-            withStyle(
-                style = SpanStyle(
-                    color = Color.Black,
-                    fontWeight = BodyR16.fontWeight
-                )
-            ) {
-                append(part)
-            }
-        }
-        isHighlight = !isHighlight
-    }
-}
 
 @Preview(showBackground = true)
 @Composable
