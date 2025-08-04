@@ -24,7 +24,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
 import com.lago.app.R
+import com.lago.app.domain.entity.Term
 import com.lago.app.presentation.theme.*
+import com.lago.app.presentation.viewmodel.TermsUiState
+import com.lago.app.presentation.viewmodel.WordbookViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 enum class StudyStatus {
     CORRECT,    // 정답
@@ -38,12 +43,30 @@ data class WordItem(
     val studyStatus: StudyStatus? = null // null일 수도 있음
 )
 
+// Term을 WordItem으로 변환하는 확장 함수
+fun Term.toWordItem(): WordItem {
+    val status = when (know) {
+        true -> StudyStatus.CORRECT
+        false -> StudyStatus.WRONG
+        null -> null
+    }
+    return WordItem(
+        word = term,
+        description = description,
+        studyStatus = status
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WordbookScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    viewModel: WordbookViewModel = hiltViewModel()
 ) {
-    val sampleWords = listOf(
+    val termsState by viewModel.termsState.collectAsStateWithLifecycle()
+    
+    // 더미 데이터
+    val dummyWords = listOf(
         WordItem("주식", "회사의 소유권을 나타내는 증권", StudyStatus.CORRECT),
         WordItem("채권", "정부나 기업이 발행하는 부채증서", StudyStatus.WRONG),
         WordItem("배당", "주주에게 지급하는 이익의 일부", null),
@@ -51,6 +74,10 @@ fun WordbookScreen(
         WordItem("ETF", "상장지수펀드, 지수를 추종하는 펀드", StudyStatus.CORRECT),
         WordItem("포트폴리오", "투자자가 보유한 다양한 자산의 조합", null)
     )
+    
+    LaunchedEffect(Unit) {
+        viewModel.loadTerms()
+    }
     
     var sortOrder by remember { mutableStateOf("이름순") }
     var searchText by remember { mutableStateOf("") }
@@ -207,16 +234,73 @@ fun WordbookScreen(
                 }
             }
             
-            // Word List
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(bottom = 16.dp)
-            ) {
-                items(getFilteredAndSortedWords(sampleWords, searchText, sortOrder)) { word ->
-                    WordCard(wordItem = word)
+            // Word List based on API state
+            when (termsState) {
+                is TermsUiState.Loading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = MainBlue)
+                    }
+                }
+                is TermsUiState.Success -> {
+                    val words = (termsState as TermsUiState.Success).terms.map { it.toWordItem() }
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                        items(getFilteredAndSortedWords(words, searchText, sortOrder)) { word ->
+                            WordCard(wordItem = word)
+                        }
+                    }
+                }
+                is TermsUiState.Error -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "⚠️ 데이터 로드 실패",
+                                        style = TitleB16,
+                                        color = Color.Red
+                                    )
+                                    Text(
+                                        text = "아래는 레이아웃 확인용 더미 데이터입니다",
+                                        style = BodyR12,
+                                        color = Gray600
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Button(
+                                        onClick = { viewModel.loadTerms() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MainBlue)
+                                    ) {
+                                        Text("다시 시도", color = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                        items(getFilteredAndSortedWords(dummyWords, searchText, sortOrder)) { word ->
+                            WordCard(wordItem = word)
+                        }
+                    }
                 }
             }
         }
@@ -325,18 +409,10 @@ fun WordCard(
                         modifier = Modifier
                             .size(32.dp)
                             .background(
-                                color = Color.Gray,
+                                color = Color.Transparent,
                                 shape = RoundedCornerShape(16.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "?",
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                            )
+                    )
                 }
                 null -> {
                     // 상태가 없는 경우 - 빈 공간 또는 기본 표시

@@ -2,6 +2,7 @@ package com.lago.app.di
 
 import com.lago.app.data.remote.ApiService
 import com.lago.app.data.remote.NewsApiService
+import com.lago.app.data.remote.StudyApiService
 import com.lago.app.util.Constants
 import dagger.Module
 import dagger.Provides
@@ -53,5 +54,11 @@ object NetworkModule {
     @Singleton
     fun provideNewsApiService(retrofit: Retrofit): NewsApiService {
         return retrofit.create(NewsApiService::class.java)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideStudyApiService(retrofit: Retrofit): StudyApiService {
+        return retrofit.create(StudyApiService::class.java)
     }
 }
