@@ -49,6 +49,29 @@ fun NavGraph(
             )
         }
         
+        // Chart Screen with stock code parameter
+        composable(
+            route = "chart/{stockCode}",
+            arguments = listOf(
+                navArgument("stockCode") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val stockCode = backStackEntry.arguments?.getString("stockCode") ?: "005930"
+            
+            ChartScreen(
+                stockCode = stockCode,
+                onNavigateToStockPurchase = { stockCode, action ->
+                    navController.navigate("stock_purchase/$stockCode/$action")
+                },
+                onNavigateToAIDialog = {
+                    navController.navigate(NavigationItem.AIDialog.route)
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        
         composable(NavigationItem.Learn.route) {
             LearnScreen()
         }

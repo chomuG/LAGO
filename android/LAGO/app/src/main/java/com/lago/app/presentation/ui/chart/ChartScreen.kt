@@ -9,12 +9,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.ui.res.painterResource
+import com.lago.app.R
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.LaunchedEffect
@@ -72,21 +70,10 @@ import com.lago.app.presentation.viewmodel.chart.HoldingItem
 import com.lago.app.presentation.viewmodel.chart.TradingItem
 import com.lago.app.presentation.viewmodel.chart.PatternAnalysisResult
 import com.skydoves.flexible.core.pxToDp
-// Chart imports - Improved panels
-import com.tradingview.lightweightcharts.view.ChartsView
-import com.tradingview.lightweightcharts.api.options.models.*
-import com.tradingview.lightweightcharts.api.series.enums.SeriesType
-import com.tradingview.lightweightcharts.api.series.models.CandlestickData as TradingViewCandlestickData
-import com.tradingview.lightweightcharts.api.series.models.Time
-import com.tradingview.lightweightcharts.api.series.models.LineData as TradingViewLineData
-import com.tradingview.lightweightcharts.api.series.enums.LineWidth
-import com.tradingview.lightweightcharts.api.chart.models.color.surface.SolidColor
-import com.tradingview.lightweightcharts.api.chart.models.color.toIntColor
-import com.tradingview.lightweightcharts.api.series.enums.LineStyle
-import com.tradingview.lightweightcharts.api.series.models.HistogramData
-import com.tradingview.lightweightcharts.api.series.models.PriceScaleId
-import com.tradingview.lightweightcharts.api.series.models.PriceFormat
-import android.graphics.Color as AndroidColor
+// Chart imports - v5 Multi-Panel Chart
+import com.lago.app.presentation.ui.chart.v5.MultiPanelChart
+import com.lago.app.presentation.ui.chart.v5.DataConverter
+import com.lago.app.presentation.ui.chart.v5.toEnabledIndicators
 import kotlin.math.absoluteValue
 
 
@@ -100,6 +87,7 @@ enum class BottomSheetState {
 
 @Composable
 fun ChartScreen(
+    stockCode: String? = null,
     viewModel: ChartViewModel = hiltViewModel(),
     onNavigateToStockPurchase: (String, String) -> Unit = { _, _ -> },
     onNavigateToAIDialog: () -> Unit = {},
@@ -110,6 +98,13 @@ fun ChartScreen(
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp
     val coroutineScope = rememberCoroutineScope()
+    
+    // 투자 탭에서 선택된 주식 코드로 차트 데이터 로드
+    LaunchedEffect(stockCode) {
+        stockCode?.let { code ->
+            viewModel.onEvent(ChartUiEvent.ChangeStock(code))
+        }
+    }
 
     // 3단계 높이 정의 (원래 ChartSample.kt 참고)
     val collapsedHeight = 225.dp
@@ -335,19 +330,34 @@ fun ChartScreen(
                         }
                     )
             ) {
-                // 개선된 부드러운 드래그 시스템 (기존 PriceScale 방식 + 성능 최적화)
-                ImprovedSmoothDragChart(
+                // TradingView v5 Multi-Panel Chart with Native API
+                val multiPanelData = DataConverter.createMultiPanelData(
                     candlestickData = uiState.candlestickData,
                     volumeData = uiState.volumeData,
                     sma5Data = uiState.sma5Data,
                     sma20Data = uiState.sma20Data,
-                    config = uiState.config,
                     rsiData = uiState.rsiData,
                     macdData = uiState.macdData,
                     bollingerBands = uiState.bollingerBands,
+                    enabledIndicators = uiState.config.indicators.toEnabledIndicators(),
+                    timeFrame = uiState.config.timeFrame
+                )
+                
+                MultiPanelChart(
+                    data = multiPanelData,
+                    timeFrame = uiState.config.timeFrame,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = 16.dp),
+                    onChartReady = {
+                        // Chart ready callback
+                    },
+                    onDataPointClick = { time, value, panelId ->
+                        // Handle data point click
+                    },
+                    onCrosshairMove = { time, value, panelId ->
+                        // Handle crosshair move
+                    }
                 )
             }
             
@@ -387,6 +397,7 @@ fun ChartScreen(
                 onFavoriteClick = { viewModel.onEvent(ChartUiEvent.ToggleFavorite) },
                 stockInfo = uiState.currentStock,
                 onSettingsClick = { viewModel.onEvent(ChartUiEvent.ToggleIndicatorSettings) },
+                onNavigateToAIDialog = onNavigateToAIDialog,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -587,6 +598,7 @@ private fun TopAppBar(
     onFavoriteClick: () -> Unit,
     stockInfo: StockInfo,
     onSettingsClick: () -> Unit = {},
+    onNavigateToAIDialog: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -617,9 +629,24 @@ private fun TopAppBar(
             }
         ) {
             Icon(
-                imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                painter = if (isFavorite) painterResource(R.drawable.mdi_heart) else painterResource(R.drawable.heart),
                 contentDescription = null,
-                tint = if (isFavorite) MainPink else Gray900
+                tint = if (isFavorite) MainPink else Gray900,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        
+        IconButton(
+            onClick = { onNavigateToAIDialog() },
+            modifier = Modifier.semantics {
+                contentDescription = "AI 차트 분석"
+            }
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ai_button),
+                contentDescription = null,
+                tint = Gray900,
+                modifier = Modifier.size(24.dp)
             )
         }
         
@@ -630,64 +657,17 @@ private fun TopAppBar(
             }
         ) {
             Icon(
-                imageVector = Icons.Default.MoreVert,
+                painter = painterResource(R.drawable.setting),
                 contentDescription = null,
-                tint = Gray900
+                tint = Gray900,
+                modifier = Modifier.size(24.dp)
             )
         }
 
     }
 }
 
-@Composable
-fun OptimizedChartView(
-    candlestickData: List<CandlestickData>,
-    volumeData: List<VolumeData>,
-    sma5Data: List<LineData>,
-    sma20Data: List<LineData>,
-    config: ChartConfig,
-    rsiData: List<LineData> = emptyList(),
-    macdData: MACDResult? = null,
-    bollingerBands: BollingerBandsResult? = null,
-    panelSizes: PanelSizes = PanelSizes(),
-    modifier: Modifier = Modifier
-) {
-    // 지표 설정 변경 시만 차트 재생성 (성능 최적화)
-    key(
-        config.indicators.volume,
-        config.indicators.rsi,
-        config.indicators.macd,
-        config.indicators.sma5,
-        config.indicators.sma20,
-        config.indicators.bollingerBands
-    ) {
-        AndroidView(
-            factory = { context ->
-                ChartsView(context).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                }
-            },
-            modifier = modifier,
-            update = { chartsView ->
-                setupChart(
-                    chartsView, 
-                    candlestickData, 
-                    volumeData, 
-                    sma5Data, 
-                    sma20Data, 
-                    config,
-                    rsiData = rsiData,
-                    macdData = macdData,
-                    bollingerBands = bollingerBands,
-                    panelSizes = panelSizes
-                )
-            }
-        )
-    }
-}
+// Legacy v4 OptimizedChartView removed - replaced with v5 MultiPanelChart
 
 @Composable
 fun TimeFrameSelection(
@@ -837,7 +817,7 @@ private fun BottomSheetContent(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedTabIndex = uiState.selectedBottomTab
-    val tabTitles = listOf("보유현황", "매매내역", "패턴분석")
+    val tabTitles = listOf("보유현황", "매매내역", "차트패턴")
 
     Column(modifier = modifier) {
         // 탭
@@ -893,6 +873,7 @@ private fun BottomSheetContent(
                 )
                 1 -> TradingHistoryContent(
                     history = uiState.tradingHistory,
+                    currentStockCode = uiState.currentStock.code,
                     listState = tradingHistoryListState,
                     nestedScrollConnection = nestedScrollConnection,
                     bottomSheetState = bottomSheetState
@@ -923,7 +904,7 @@ private fun HoldingsContent(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                "보유 중인 종목이 없습니다",
+                "보유 주식이 없어요!",
                 fontSize = 14.sp,
                 color = Gray600
             )
@@ -1027,11 +1008,17 @@ private fun HoldingItemRow(item: HoldingItem) {
 @Composable
 private fun TradingHistoryContent(
     history: List<TradingItem>,
+    currentStockCode: String,
     listState: LazyListState,
     nestedScrollConnection: NestedScrollConnection,
     bottomSheetState: BottomSheetState
 ) {
-    if (history.isEmpty()) {
+    // 현재 주식 코드와 일치하는 매매내역만 필터링
+    val filteredHistory = history.filter { tradingItem ->
+        tradingItem.stockCode == currentStockCode
+    }
+    
+    if (filteredHistory.isEmpty()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1039,7 +1026,7 @@ private fun TradingHistoryContent(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                "매매 내역이 없습니다",
+                "매매 내역이 없어요",
                 fontSize = 14.sp,
                 color = Gray600
             )
@@ -1053,7 +1040,7 @@ private fun TradingHistoryContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             userScrollEnabled = bottomSheetState != BottomSheetState.COLLAPSED
         ) {
-            items(history) { tradingItem ->
+            items(filteredHistory) { tradingItem ->
                 TradingItemRow(tradingItem)
             }
         }
@@ -1135,49 +1122,9 @@ private fun PatternAnalysisContent(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 설명 텍스트
-        Text(
-            "차트에서 인식된 패턴을\n분석해드려요.\n분석은 하루 최대 3회까지 가능합니다.",
-            color = Color.Black,
-            fontSize = 16.sp,
-            textAlign = TextAlign.Center,
-            lineHeight = 24.sp,
-            modifier = Modifier.padding(bottom = 32.dp)
-        )
-
-        // 분석 버튼
-        Button(
-            onClick = onAnalyzeClick,
-            enabled = patternAnalysisCount < maxPatternAnalysisCount,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF4CAF50),
-                disabledContainerColor = Color(0xFFE0E0E0)
-            ),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .padding(horizontal = 24.dp)
-                .semantics {
-                    contentDescription = if (patternAnalysisCount < maxPatternAnalysisCount) {
-                        "차트 패턴 분석하기 버튼, 남은 횟수: ${maxPatternAnalysisCount - patternAnalysisCount}번"
-                    } else {
-                        "오늘 분석 횟수를 모두 사용하셨습니다"
-                    }
-                }
-        ) {
-            Text(
-                "차트 패턴 분석하기 ($patternAnalysisCount/$maxPatternAnalysisCount)",
-                color = if (patternAnalysisCount < maxPatternAnalysisCount) Color.White else Color(0xFF9E9E9E),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-
-        // 최근 분석 결과가 있을 때만 표시
-        lastPatternAnalysis?.let { analysis ->
-            Spacer(modifier = Modifier.height(32.dp))
-
+        // 분석 결과 표시 - 결과가 있으면 표시, 없으면 "분석 결과가 없어요" 표시
+        if (lastPatternAnalysis != null || patternAnalysisCount > 0) {
+            // 분석 결과가 있는 경우
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1199,7 +1146,7 @@ private fun PatternAnalysisContent(
                             color = Color.Black
                         )
                         Text(
-                            analysis.analysisTime,
+                            "2025-07-28 오후 1시 35분",
                             fontSize = 12.sp,
                             color = Color(0xFF616161)
                         )
@@ -1208,22 +1155,62 @@ private fun PatternAnalysisContent(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        analysis.patternName,
+                        "상승 삼각형, 헤드앤숄더",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF4CAF50)
+                        color = Color.Black
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        analysis.description,
+                        "지향선을 여러 차례 돌파 시도했지 때문에 상승 가능성이 높습니다.",
                         fontSize = 14.sp,
                         color = Color(0xFF424242),
                         lineHeight = 20.sp
                     )
                 }
             }
+        } else {
+            // 분석 결과가 없는 경우
+            Text(
+                "최근 분석 결과가 없어요.",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = Gray600,
+                modifier = Modifier.padding(vertical = 32.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // 분석 버튼
+        Button(
+            onClick = onAnalyzeClick,
+            enabled = patternAnalysisCount < maxPatternAnalysisCount,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF2196F3), // 파란색으로 변경
+                disabledContainerColor = Color(0xFFE0E0E0)
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .padding(horizontal = 24.dp)
+                .semantics {
+                    contentDescription = if (patternAnalysisCount < maxPatternAnalysisCount) {
+                        "다시 분석하기 버튼, 남은 횟수: ${maxPatternAnalysisCount - patternAnalysisCount}번"
+                    } else {
+                        "오늘 분석 횟수를 모두 사용하셨습니다"
+                    }
+                }
+        ) {
+            Text(
+                "다시 분석하기 ($patternAnalysisCount/$maxPatternAnalysisCount)",
+                color = if (patternAnalysisCount < maxPatternAnalysisCount) Color.White else Color(0xFF9E9E9E),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
@@ -1371,7 +1358,7 @@ private fun IndicatorSettingsDialog(
                     Switch(
                         checked = config.indicators.bollingerBands,
                         onCheckedChange = { enabled ->
-                            onIndicatorToggle("bollinger", enabled)
+                            onIndicatorToggle("bollingerBands", enabled)
                         },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = MainPink,

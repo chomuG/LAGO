@@ -47,7 +47,8 @@ data class TradingItem(
     val type: String,
     val quantity: String,
     val amount: Int,
-    val date: String
+    val date: String,
+    val stockCode: String = "005930" // 기본값으로 삼성전자 추가
 )
 
 data class PatternAnalysisResult(

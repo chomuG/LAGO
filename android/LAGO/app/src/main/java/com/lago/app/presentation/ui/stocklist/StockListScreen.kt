@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.res.painterResource
+import com.lago.app.R
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -312,9 +314,10 @@ private fun StockItemCard(
             // 즐겨찾기 버튼
             IconButton(onClick = onFavoriteClick) {
                 Icon(
-                    imageVector = if (stock.isFavorite) Icons.Default.Favorite else Icons.Default.Star,
+                    painter = if (stock.isFavorite) painterResource(R.drawable.mdi_heart) else painterResource(R.drawable.heart),
                     contentDescription = "관심종목",
-                    tint = if (stock.isFavorite) MainPink else Gray600
+                    tint = if (stock.isFavorite) MainPink else Gray600,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }

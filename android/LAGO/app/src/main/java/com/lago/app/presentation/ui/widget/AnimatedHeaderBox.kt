@@ -37,8 +37,8 @@ fun AnimatedHeaderBox(
     val priceScale = 1f - (headerAlignmentProgress * 0.4f) // 1f -> 0.6f
     val layoutTransition = headerAlignmentProgress // 레이아웃 전환 진행도
     
-    // 폰트 사이즈 계산
-    val titleFontSize = 24f - (headerAlignmentProgress * 6f) // 24 -> 18
+    // 폰트 사이즈 계산 - 57px에 가깝게 조정
+    val titleFontSize = 40f - (headerAlignmentProgress * 22f) // 40 -> 18 (57px에 가까운 크기)
     val priceFontSize = 32f - (headerAlignmentProgress * 16f) // 32 -> 16
     
     // 부드러운 전환을 위한 easing 함수
@@ -114,7 +114,7 @@ fun AnimatedHeaderBox(
                     Spacer(modifier = Modifier.width(4.dp))
                     
                     Text(
-                        text = "(${if (isPositive) "+" else ""}${String.format("%.2f", stockInfo.priceChangePercent)}%)",
+                        text = "${if (isPositive) "+" else "-"}${String.format("%.2f", stockInfo.priceChangePercent)}%",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         color = if (isPositive) MainPink else MainBlue
@@ -157,7 +157,7 @@ fun AnimatedHeaderBox(
 
                     val isPositive = stockInfo.priceChange >= 0
                     Text(
-                        text = "${if (isPositive) "+" else ""}${String.format("%.2f", stockInfo.priceChangePercent)}%",
+                        text = "${if (isPositive) "▲+" else "▼"}${String.format("%.2f", stockInfo.priceChangePercent)}%",
                         fontSize = 12.sp, // 더 작은 크기
                         fontWeight = FontWeight.Medium,
                         color = if (isPositive) MainPink else MainBlue
