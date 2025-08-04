@@ -27,7 +27,8 @@ public class SwaggerConfig {
                                 .name("D203팀")
                                 .email("ssafy@example.com")))
                 .servers(List.of(
-                        new Server().url("http://localhost:8080").description("로컬 서버"),
+                        new Server().url("http://localhost:8081").description("로컬 서버"),
+                        new Server().url("http://i13d203.p.ssafy.io:8081").description("EC2 개발 서버"),
                         new Server().url("https://api.lago.com").description("운영 서버")
                 ));
     }
