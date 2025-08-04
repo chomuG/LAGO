@@ -37,7 +37,7 @@ pipeline {
                 always {
                     dir('BE') {
                         // JUnit 테스트 결과 수집
-                        junit testResultsPattern: 'build/test-results/test/*.xml', allowEmptyResults: true
+                        junit testResults: 'build/test-results/test/*.xml', allowEmptyResults: true
                         // HTML 테스트 리포트 수집
                         publishHTML([
                             allowMissing: true,
