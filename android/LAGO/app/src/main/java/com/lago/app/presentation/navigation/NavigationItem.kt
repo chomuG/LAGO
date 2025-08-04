@@ -37,7 +37,7 @@ sealed class NavigationItem(
     
     object Portfolio : NavigationItem(
         route = "portfolio",
-        title = "포트폴리오",
+        title = "마이",
         iconRes = R.drawable.my
     )
 }
