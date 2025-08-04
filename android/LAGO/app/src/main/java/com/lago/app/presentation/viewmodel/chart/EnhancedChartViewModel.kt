@@ -38,6 +38,7 @@ class EnhancedChartViewModel @Inject constructor(
             is ChartUiEvent.SellClicked -> handleSellClicked()
             is ChartUiEvent.ShowIndicatorSettings -> showIndicatorSettings()
             is ChartUiEvent.HideIndicatorSettings -> hideIndicatorSettings()
+            is ChartUiEvent.ToggleIndicatorSettings -> toggleIndicatorSettings()
             is ChartUiEvent.ClearError -> clearErrorMessage()
         }
     }
@@ -332,6 +333,12 @@ class EnhancedChartViewModel @Inject constructor(
     private fun hideIndicatorSettings() {
         _uiState.update { 
             it.copy(showIndicatorSettings = false)
+        }
+    }
+    
+    private fun toggleIndicatorSettings() {
+        _uiState.update { 
+            it.copy(showIndicatorSettings = !it.showIndicatorSettings)
         }
     }
     

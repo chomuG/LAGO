@@ -27,12 +27,12 @@ data class ChartUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val isFavorite: Boolean = false,
-    val holdings: List<HoldingItem> = emptyList(),
+    val holdingItems: List<HoldingItem> = emptyList(),
     val tradingHistory: List<TradingItem> = emptyList(),
     val selectedBottomTab: Int = 0,
     val patternAnalysisCount: Int = 1,
     val maxPatternAnalysisCount: Int = 3,
-    val lastPatternAnalysis: PatternAnalysisResult? = null,
+    val patternAnalysis: PatternAnalysisResult? = null,
     val showIndicatorSettings: Boolean = false
 )
 

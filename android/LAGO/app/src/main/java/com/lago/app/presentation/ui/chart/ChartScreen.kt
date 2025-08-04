@@ -886,7 +886,7 @@ private fun BottomSheetContent(
         ) {
             when (selectedTabIndex) {
                 0 -> HoldingsContent(
-                    holdings = uiState.holdings,
+                    holdings = uiState.holdingItems,
                     listState = holdingsListState,
                     nestedScrollConnection = nestedScrollConnection,
                     bottomSheetState = bottomSheetState
@@ -900,7 +900,7 @@ private fun BottomSheetContent(
                 2 -> PatternAnalysisContent(
                     patternAnalysisCount = uiState.patternAnalysisCount,
                     maxPatternAnalysisCount = uiState.maxPatternAnalysisCount,
-                    lastPatternAnalysis = uiState.lastPatternAnalysis,
+                    lastPatternAnalysis = uiState.patternAnalysis,
                     onAnalyzeClick = { viewModel.onEvent(ChartUiEvent.AnalyzePattern) }
                 )
             }

@@ -1,6 +1,5 @@
 package com.lago.app.di
 
-import com.lago.app.BuildConfig
 import com.lago.app.data.remote.api.ChartApiService
 import dagger.Module
 import dagger.Provides
@@ -21,11 +20,8 @@ object NetworkModule {
     @Singleton
     fun provideHttpLoggingInterceptor(): HttpLoggingInterceptor {
         return HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.BODY
-            } else {
-                HttpLoggingInterceptor.Level.NONE
-            }
+            // Always use BODY level for development, NONE for production
+            level = HttpLoggingInterceptor.Level.BODY
         }
     }
 
