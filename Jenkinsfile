@@ -3,7 +3,15 @@ pipeline {
     
     environment {
         BACKEND_SERVICE = 'backend'
-        SWAGGER_URL = 'http://i13d203.p.ssafy.io:8081/swagger-ui/index.html'
+        SWAGGER_URL = 'http://i1                        message: """
+❌ **배포 실패!** 🚨
+
+**빌드:** #${BUILD_NUMBER} | **브랜치:** ${env.BRANCH_NAME ?: 'backend-dev'}
+**실패 시간:** ${new Date().format('MM-dd HH:mm')}
+
+🔧 **Jenkins 로그:** ${BUILD_URL}console
+📥 **수동 복구:** `docker-compose down && docker-compose up -d`
+                        """.stripIndent()safy.io:8081/swagger-ui/index.html'
         HEALTH_URL = 'http://localhost:8081/actuator/health'
     }
     
