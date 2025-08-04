@@ -144,20 +144,32 @@ pipeline {
         }
         success {
             echo 'Deployment completed successfully!'
-            // 성공 알림 (기본 Jenkins 이메일 사용)
-            emailext (
-                subject: "✅ LAGO Backend deployment successful! Build #${BUILD_NUMBER}",
-                body: "LAGO Backend has been successfully deployed to EC2 server.\nBuild Number: ${BUILD_NUMBER}\nBranch: ${BRANCH_NAME}",
-                to: "dev-team@lago.com"
+            // Mattermost 성공 알림
+            mattermostSend (
+                endpoint: 'https://meeting.ssafy.com/hooks/YOUR_WEBHOOK_ID', // Mattermost Webhook URL
+                channel: '#lago-deployment', // 알림받을 채널
+                color: 'good',
+                message: "✅ **LAGO Backend 배포 성공!** 🎉\n" +
+                        "**빌드 번호:** #${BUILD_NUMBER}\n" +
+                        "**브랜치:** ${BRANCH_NAME}\n" +
+                        "**배포 시간:** ${new Date()}\n" +
+                        "**Swagger UI:** http://i13d203.p.ssafy.io:8081/swagger-ui/index.html\n" +
+                        "**AI 매매봇 API:** http://i13d203.p.ssafy.io:8081/api/ai-bots/{aiId}/account"
             )
         }
         failure {
             echo 'Deployment failed!'
-            // 실패 알림 (기본 Jenkins 이메일 사용)
-            emailext (
-                subject: "❌ LAGO Backend deployment failed! Build #${BUILD_NUMBER}",
-                body: "LAGO Backend deployment has failed.\nBuild Number: ${BUILD_NUMBER}\nBranch: ${BRANCH_NAME}\n\nPlease check the Jenkins console for details.",
-                to: "dev-team@lago.com"
+            // Mattermost 실패 알림
+            mattermostSend (
+                endpoint: 'https://meeting.ssafy.com/hooks/YOUR_WEBHOOK_ID', // Mattermost Webhook URL
+                channel: '#lago-deployment', // 알림받을 채널
+                color: 'danger',
+                message: "❌ **LAGO Backend 배포 실패!** 😱\n" +
+                        "**빌드 번호:** #${BUILD_NUMBER}\n" +
+                        "**브랜치:** ${BRANCH_NAME}\n" +
+                        "**실패 시간:** ${new Date()}\n" +
+                        "**Jenkins 콘솔:** ${BUILD_URL}console\n" +
+                        "**문제 확인 필요:** 로그를 확인해주세요!"
             )
         }
     }
