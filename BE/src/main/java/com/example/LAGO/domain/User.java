@@ -12,9 +12,10 @@ import java.time.LocalDateTime;
 /**
  * 사용자 엔티티
  * 지침서 명세 USER 테이블과 완전 일치
+ * H2 데이터베이스 호환성을 위해 테이블명 USERS 사용
  */
 @Entity
-@Table(name = "USER")
+@Table(name = "USERS")
 @Getter 
 @Setter
 @NoArgsConstructor
