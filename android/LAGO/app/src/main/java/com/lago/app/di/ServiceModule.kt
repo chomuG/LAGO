@@ -1,7 +1,7 @@
 package com.lago.app.di
 
-import com.lago.app.data.repository.NewsRepositoryImpl
-import com.lago.app.domain.repository.NewsRepository
+import com.lago.app.data.service.NewsServiceImpl
+import com.lago.app.domain.service.NewsService
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -10,11 +10,11 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class RepositoryModule {
+abstract class ServiceModule {
 
     @Binds
     @Singleton
-    abstract fun bindNewsRepository(
-        newsRepositoryImpl: NewsRepositoryImpl
-    ): NewsRepository
+    abstract fun bindNewsService(
+        newsServiceImpl: NewsServiceImpl
+    ): NewsService
 }

@@ -25,6 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
+import com.lago.app.presentation.ui.components.CommonTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,26 +40,10 @@ fun PatternStudyScreen(
             .fillMaxSize()
             .background(AppBackground)
     ) {
-        CenterAlignedTopAppBar(
-            title = {
-                Text(
-                    text = "차트 패턴 학습",
-                    style = HeadEb20,
-                    color = Color.Black
-                )
-            },
-            navigationIcon = {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.Black
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                containerColor = Color.White
-            )
+        CommonTopAppBar(
+            title = "차트 패턴 학습",
+            onBackClick = onBackClick,
+            backgroundColor = Color.White
         )
 
 

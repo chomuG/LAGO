@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
+import com.lago.app.presentation.ui.components.CommonTopAppBar
 
 enum class QuizType {
     DAILY, RANDOM
@@ -53,40 +54,21 @@ fun BaseQuizScreen(
     
     var currentQuiz by remember { mutableStateOf(quizList.random()) }
     
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(AppBackground)
     ) {
-        CenterAlignedTopAppBar(
-            title = {
-                Text(
-                    text = title,
-                    style = SubtitleSb18,
-                    color = Color.Black
-                )
-            },
-            navigationIcon = {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "뒤로가기",
-                        tint = Color.Black
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                containerColor = AppBackground
-            ),
-            modifier = Modifier.align(Alignment.TopCenter)
+        CommonTopAppBar(
+            title = title,
+            onBackClick = onBackClick
         )
         
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            contentAlignment = Alignment.Center
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),

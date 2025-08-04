@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
+import com.lago.app.presentation.ui.components.CommonTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,26 +40,9 @@ fun NewsDetailScreen(
             .background(AppBackground)
     ) {
         // Top App Bar
-        CenterAlignedTopAppBar(
-            title = {
-                Text(
-                    text = "실시간 뉴스",
-                    style = SubtitleSb18,
-                    color = Color.Black
-                )
-            },
-            navigationIcon = {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "뒤로가기",
-                        tint = Color.Black
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                containerColor = AppBackground
-            )
+        CommonTopAppBar(
+            title = "실시간 뉴스",
+            onBackClick = onBackClick
         )
         
         // Scrollable Content
@@ -210,14 +194,13 @@ fun AiSummaryItem(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top
     ) {
-        Box(
+        Icon(
+            painter = painterResource(id = R.drawable.news_sum_icon),
+            contentDescription = "AI 요약 아이콘",
+            tint = MainBlue,
             modifier = Modifier
-                .size(4.dp)
-                .background(
-                    color = MainBlue,
-                    shape = RoundedCornerShape(2.dp)
-                )
-                .offset(y = 8.dp)
+                .size(16.dp)
+                .offset(y = 2.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
