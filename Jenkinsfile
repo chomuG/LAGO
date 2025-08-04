@@ -7,6 +7,7 @@ pipeline {
         SWAGGER_URL = 'http://i13d203.p.ssafy.io:8081/swagger-ui/index.html'
         MATTERMOST_ENDPOINT = 'https://meeting.ssafy.com/hooks/uj7g5ou6wfgzdjb6pt3pcebrfe'
         MATTERMOST_CHANNEL = '#team-carrot'
+        BUILD_VERSION = "${BUILD_NUMBER}-${GIT_COMMIT.take(7)}"
     }
     
     stages {
