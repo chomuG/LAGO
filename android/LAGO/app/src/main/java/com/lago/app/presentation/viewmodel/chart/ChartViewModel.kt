@@ -3,22 +3,24 @@ package com.lago.app.presentation.viewmodel.chart
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lago.app.domain.entity.*
+import com.lago.app.domain.repository.ChartRepository
+import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.util.Calendar
 import javax.inject.Inject
 
 @HiltViewModel
 class ChartViewModel @Inject constructor(
-    // TODO: Repository 주입
+    private val chartRepository: ChartRepository
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ChartUiState())
     val uiState: StateFlow<ChartUiState> = _uiState.asStateFlow()
     
+    private val _uiEvent = MutableSharedFlow<ChartUiEvent>()
+    
+    // Mock 데이터 (서버 연결 전 임시 사용)
     private val stockInfoMap = mapOf(
         "005930" to StockInfo("005930", "삼성전자", 74200f, 800f, 1.09f),
         "000660" to StockInfo("000660", "SK하이닉스", 135000f, -2000f, -1.46f),
@@ -29,8 +31,6 @@ class ChartViewModel @Inject constructor(
     
     init {
         loadInitialData()
-        loadMockHoldings()
-        loadMockTradingHistory()
     }
     
     fun onEvent(event: ChartUiEvent) {
@@ -39,7 +39,6 @@ class ChartViewModel @Inject constructor(
             is ChartUiEvent.ChangeTimeFrame -> changeTimeFrame(event.timeFrame)
             is ChartUiEvent.ToggleIndicator -> toggleIndicator(event.indicatorType, event.enabled)
             is ChartUiEvent.RefreshData -> refreshData()
-            is ChartUiEvent.ClearError -> clearErrorMessage()
             is ChartUiEvent.ToggleFavorite -> toggleFavorite()
             is ChartUiEvent.ChangeBottomTab -> changeBottomTab(event.tabIndex)
             is ChartUiEvent.AnalyzePattern -> analyzePattern()
@@ -49,443 +48,589 @@ class ChartViewModel @Inject constructor(
             is ChartUiEvent.ShowIndicatorSettings -> showIndicatorSettings()
             is ChartUiEvent.HideIndicatorSettings -> hideIndicatorSettings()
             is ChartUiEvent.ToggleIndicatorSettings -> toggleIndicatorSettings()
-            // UpdatePanelSizes 이벤트 제거 - 단순화된 구조에서는 불필요
+            is ChartUiEvent.ClearError -> clearErrorMessage()
         }
+    }
+    
+    private fun loadInitialData() {
+        val defaultStockCode = "005930" // Samsung Electronics
+        changeStock(defaultStockCode)
+        loadUserHoldings()
+        loadTradingHistory()
+        loadMockData()
     }
     
     private fun changeStock(stockCode: String) {
-        val stockInfo = stockInfoMap[stockCode] ?: return
-        
-        _uiState.value = _uiState.value.copy(
-            currentStock = stockInfo,
-            config = _uiState.value.config.copy(stockCode = stockCode)
-        )
-        
-        loadChartData()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            
+            // 서버 연결 시도, 실패하면 Mock 데이터 사용
+            try {
+                chartRepository.getStockInfo(stockCode).collect { resource ->
+                    when (resource) {
+                        is Resource.Success -> {
+                            _uiState.update { 
+                                it.copy(
+                                    currentStock = resource.data ?: StockInfo("", "", 0f, 0f, 0f),
+                                    config = it.config.copy(stockCode = stockCode)
+                                )
+                            }
+                            
+                            // Load chart data after stock info is loaded
+                            loadChartData(stockCode, _uiState.value.config.timeFrame)
+                            checkFavoriteStatus(stockCode)
+                        }
+                        is Resource.Error -> {
+                            // Fallback to mock data
+                            useMockStockData(stockCode)
+                        }
+                        is Resource.Loading -> {
+                            _uiState.update { it.copy(isLoading = true) }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Fallback to mock data
+                useMockStockData(stockCode)
+            }
+        }
+    }
+    
+    private fun useMockStockData(stockCode: String) {
+        val stockInfo = stockInfoMap[stockCode] ?: stockInfoMap["005930"]!!
+        _uiState.update { 
+            it.copy(
+                currentStock = stockInfo,
+                config = it.config.copy(stockCode = stockCode),
+                isLoading = false
+            )
+        }
+        loadMockData()
+    }
+    
+    private fun loadChartData(stockCode: String, timeFrame: String) {
+        viewModelScope.launch {
+            try {
+                // Load candlestick data
+                launch {
+                    chartRepository.getCandlestickData(stockCode, timeFrame).collect { resource ->
+                        when (resource) {
+                            is Resource.Success -> {
+                                _uiState.update { 
+                                    it.copy(candlestickData = resource.data ?: emptyList())
+                                }
+                            }
+                            is Resource.Error -> {
+                                // Fallback to mock data
+                                loadMockData()
+                            }
+                            is Resource.Loading -> {}
+                        }
+                    }
+                }
+                
+                // Load volume data
+                launch {
+                    chartRepository.getVolumeData(stockCode, timeFrame).collect { resource ->
+                        when (resource) {
+                            is Resource.Success -> {
+                                _uiState.update { 
+                                    it.copy(volumeData = resource.data ?: emptyList())
+                                }
+                            }
+                            is Resource.Error -> {}
+                            is Resource.Loading -> {}
+                        }
+                    }
+                }
+                
+                // Load indicators
+                loadIndicators(stockCode, timeFrame)
+                
+            } catch (e: Exception) {
+                loadMockData()
+            }
+            
+            _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+    
+    private fun loadIndicators(stockCode: String, timeFrame: String) {
+        viewModelScope.launch {
+            try {
+                val enabledIndicators = mutableListOf<String>()
+                val currentConfig = _uiState.value.config.indicators
+                
+                if (currentConfig.sma5) enabledIndicators.add("sma5")
+                if (currentConfig.sma20) enabledIndicators.add("sma20")
+                if (currentConfig.sma60) enabledIndicators.add("sma60")
+                if (currentConfig.sma120) enabledIndicators.add("sma120")
+                if (currentConfig.rsi) enabledIndicators.add("rsi")
+                if (currentConfig.macd) enabledIndicators.add("macd")
+                if (currentConfig.bollingerBands) enabledIndicators.add("bollinger_bands")
+                
+                if (enabledIndicators.isNotEmpty()) {
+                    chartRepository.getIndicators(stockCode, enabledIndicators, timeFrame).collect { resource ->
+                        when (resource) {
+                            is Resource.Success -> {
+                                val data = resource.data
+                                if (data != null) {
+                                    _uiState.update { 
+                                        it.copy(
+                                            sma5Data = data.sma5,
+                                            sma20Data = data.sma20,
+                                            rsiData = data.rsi,
+                                            macdData = data.macd,
+                                            bollingerBands = data.bollingerBands
+                                        )
+                                    }
+                                }
+                            }
+                            is Resource.Error -> {
+                                // Fallback to mock calculation
+                                calculateMockIndicators()
+                            }
+                            is Resource.Loading -> {}
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                calculateMockIndicators()
+            }
+        }
     }
     
     private fun changeTimeFrame(timeFrame: String) {
-        _uiState.value = _uiState.value.copy(
-            config = _uiState.value.config.copy(timeFrame = timeFrame)
-        )
+        _uiState.update { 
+            it.copy(
+                config = it.config.copy(timeFrame = timeFrame)
+            )
+        }
         
-        loadChartData()
+        // Reload chart data with new timeframe
+        loadChartData(_uiState.value.currentStock.code, timeFrame)
     }
     
     private fun toggleIndicator(indicatorType: String, enabled: Boolean) {
-        val currentIndicators = _uiState.value.config.indicators
-        val newIndicators = when (indicatorType) {
-            "sma5" -> currentIndicators.copy(sma5 = enabled)
-            "sma20" -> currentIndicators.copy(sma20 = enabled)
-            "sma" -> currentIndicators.copy(
-                sma5 = enabled,
-                sma20 = enabled
-            )
-            "bollinger" -> currentIndicators.copy(bollingerBands = enabled)
-            "volume" -> currentIndicators.copy(volume = enabled)
-            "macd" -> currentIndicators.copy(macd = enabled)
-            "rsi" -> currentIndicators.copy(rsi = enabled)
-            else -> currentIndicators
+        val currentConfig = _uiState.value.config
+        val updatedIndicators = when (indicatorType) {
+            "sma5" -> currentConfig.indicators.copy(sma5 = enabled)
+            "sma20" -> currentConfig.indicators.copy(sma20 = enabled)
+            "sma60" -> currentConfig.indicators.copy(sma60 = enabled)
+            "sma120" -> currentConfig.indicators.copy(sma120 = enabled)
+            "rsi" -> currentConfig.indicators.copy(rsi = enabled)
+            "macd" -> currentConfig.indicators.copy(macd = enabled)
+            "bollingerBands" -> currentConfig.indicators.copy(bollingerBands = enabled)
+            "volume" -> currentConfig.indicators.copy(volume = enabled)
+            else -> currentConfig.indicators
         }
         
-        _uiState.value = _uiState.value.copy(
-            config = _uiState.value.config.copy(indicators = newIndicators)
-        )
+        _uiState.update { 
+            it.copy(
+                config = currentConfig.copy(indicators = updatedIndicators)
+            )
+        }
         
-        // 지표 상태 변경 시 항상 차트 새로고침 (켜거나 끌 때 모두)
-        if (enabled) {
-            loadIndicatorData(indicatorType)
-        } else {
-            // 지표를 끄는 경우에도 차트 새로고침
-            loadChartData()
+        // Reload indicators with updated configuration
+        loadIndicators(_uiState.value.currentStock.code, _uiState.value.config.timeFrame)
+    }
+    
+    private fun loadUserHoldings() {
+        viewModelScope.launch {
+            try {
+                chartRepository.getUserHoldings().collect { resource ->
+                    when (resource) {
+                        is Resource.Success -> {
+                            // Convert Domain HoldingItem to UI HoldingItem
+                            val uiHoldings = resource.data?.map { domainItem ->
+                                HoldingItem(
+                                    name = domainItem.stockName,
+                                    quantity = "${domainItem.quantity}주",
+                                    value = domainItem.totalValue.toInt(),
+                                    change = domainItem.profitLossPercent
+                                )
+                            } ?: emptyList()
+                            
+                            _uiState.update { 
+                                it.copy(holdingItems = uiHoldings)
+                            }
+                        }
+                        is Resource.Error -> {
+                            // Use mock data
+                            loadMockHoldings()
+                        }
+                        is Resource.Loading -> {}
+                    }
+                }
+            } catch (e: Exception) {
+                loadMockHoldings()
+            }
+        }
+    }
+    
+    private fun loadTradingHistory() {
+        viewModelScope.launch {
+            try {
+                chartRepository.getTradingHistory().collect { resource ->
+                    when (resource) {
+                        is Resource.Success -> {
+                            // Convert Domain TradingItem to UI TradingItem
+                            val uiTradings = resource.data?.content?.map { domainItem ->
+                                TradingItem(
+                                    type = if (domainItem.actionType == "BUY") "구매" else "판매",
+                                    quantity = "${domainItem.quantity}주",
+                                    amount = domainItem.totalAmount.toInt(),
+                                    date = domainItem.createdAt
+                                )
+                            } ?: emptyList()
+                            
+                            _uiState.update { 
+                                it.copy(tradingHistory = uiTradings)
+                            }
+                        }
+                        is Resource.Error -> {
+                            // Use mock data
+                            loadMockTradingHistory()
+                        }
+                        is Resource.Loading -> {}
+                    }
+                }
+            } catch (e: Exception) {
+                loadMockTradingHistory()
+            }
+        }
+    }
+    
+    private fun toggleFavorite() {
+        val stockCode = _uiState.value.currentStock.code
+        val isFavorite = _uiState.value.isFavorite
+        
+        viewModelScope.launch {
+            try {
+                val resource = if (isFavorite) {
+                    chartRepository.removeFromFavorites(stockCode)
+                } else {
+                    chartRepository.addToFavorites(stockCode)
+                }
+                
+                resource.collect { result ->
+                    when (result) {
+                        is Resource.Success -> {
+                            _uiState.update { 
+                                it.copy(isFavorite = !isFavorite)
+                            }
+                        }
+                        is Resource.Error -> {
+                            _uiState.update { 
+                                it.copy(errorMessage = result.message)
+                            }
+                        }
+                        is Resource.Loading -> {}
+                    }
+                }
+            } catch (e: Exception) {
+                // Toggle locally as fallback
+                _uiState.update { 
+                    it.copy(isFavorite = !isFavorite)
+                }
+            }
+        }
+    }
+    
+    private fun checkFavoriteStatus(stockCode: String) {
+        viewModelScope.launch {
+            try {
+                chartRepository.isFavorite(stockCode).collect { resource ->
+                    when (resource) {
+                        is Resource.Success -> {
+                            _uiState.update { 
+                                it.copy(isFavorite = resource.data == true)
+                            }
+                        }
+                        is Resource.Error -> {}
+                        is Resource.Loading -> {}
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore error for non-critical feature
+            }
         }
     }
     
     private fun refreshData() {
-        loadChartData()
-    }
-    
-    private fun loadInitialData() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            try {
-                loadChartData()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = "데이터 로딩 실패: ${e.message}",
-                    isLoading = false
-                )
-            }
-        }
-    }
-    
-    private fun loadChartData() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-            
-            try {
-                // TODO: 실제 API 호출로 대체
-                val mockCandlestickData = generateMockCandlestickData()
-                val mockVolumeData = generateMockVolumeData()
-                
-                _uiState.value = _uiState.value.copy(
-                    candlestickData = mockCandlestickData,
-                    volumeData = mockVolumeData,
-                    isLoading = false
-                )
-                
-                // 활성화된 지표들 로드
-                val indicators = _uiState.value.config.indicators
-                if (indicators.sma5 || indicators.sma20) {
-                    loadSmaData()
-                }
-                if (indicators.rsi) {
-                    loadRsiData()
-                }
-                if (indicators.macd) {
-                    loadMacdData()
-                }
-                if (indicators.bollingerBands) {
-                    loadBollingerBandsData()
-                }
-                
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = "차트 데이터 로딩 실패: ${e.message}",
-                    isLoading = false
-                )
-            }
-        }
-    }
-    
-    private fun loadIndicatorData(indicatorType: String) {
-        viewModelScope.launch {
-            try {
-                when (indicatorType) {
-                    "sma" -> loadSmaData()
-                    "rsi" -> loadRsiData()
-                    "macd" -> loadMacdData()
-                    "bollinger" -> loadBollingerBandsData()
-                }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = "지표 데이터 로딩 실패: ${e.message}"
-                )
-            }
-        }
-    }
-    
-    private suspend fun loadSmaData() {
-        val candlestickData = _uiState.value.candlestickData
-        if (candlestickData.isEmpty()) return
+        val currentStock = _uiState.value.currentStock.code
+        val currentTimeFrame = _uiState.value.config.timeFrame
         
-        val sma5Data = calculateSMA(candlestickData, 5)
-        val sma20Data = calculateSMA(candlestickData, 20)
-        
-        _uiState.value = _uiState.value.copy(
-            sma5Data = sma5Data,
-            sma20Data = sma20Data
-        )
-    }
-    
-    private suspend fun loadRsiData() {
-        val candlestickData = _uiState.value.candlestickData
-        if (candlestickData.isEmpty()) return
-        
-        val rsiData = calculateRSI(candlestickData, 14)
-        
-        _uiState.value = _uiState.value.copy(
-            rsiData = rsiData
-        )
-    }
-    
-    private suspend fun loadMacdData() {
-        val candlestickData = _uiState.value.candlestickData
-        if (candlestickData.isEmpty()) return
-        
-        val macdData = calculateMACD(candlestickData, 12, 26, 9)
-        
-        _uiState.value = _uiState.value.copy(
-            macdData = macdData
-        )
-    }
-    
-    private suspend fun loadBollingerBandsData() {
-        val candlestickData = _uiState.value.candlestickData
-        if (candlestickData.isEmpty()) return
-        
-        val bollingerBands = calculateBollingerBands(candlestickData, 20, 2.0f)
-        
-        _uiState.value = _uiState.value.copy(
-            bollingerBands = bollingerBands
-        )
-    }
-    
-    private fun generateMockCandlestickData(): List<CandlestickData> {
-        val basePrice = _uiState.value.currentStock.currentPrice
-        val calendar = Calendar.getInstance()
-        
-        return (0..29).map { i ->
-            val tempCalendar = Calendar.getInstance()
-            tempCalendar.add(Calendar.DAY_OF_MONTH, -(29 - i))
-            val time = tempCalendar.timeInMillis
-            
-            val open = (basePrice + (Math.random() - 0.5) * 1000).toFloat()
-            val close = (open + (Math.random() - 0.5) * 500).toFloat()
-            val high = (maxOf(open, close) + Math.random() * 300).toFloat()
-            val low = (minOf(open, close) - Math.random() * 300).toFloat()
-            val volume = (Math.random() * 1000000).toLong()
-            
-            CandlestickData(time, open, high, low, close, volume)
-        }
-    }
-    
-    private fun generateMockVolumeData(): List<VolumeData> {
-        return (0..29).map { i ->
-            val tempCalendar = Calendar.getInstance()
-            tempCalendar.add(Calendar.DAY_OF_MONTH, -(29 - i))
-            val time = tempCalendar.timeInMillis
-            val value = (Math.random() * 1000000).toFloat()
-            VolumeData(time, value)
-        }
-    }
-    
-    private fun generateMockLineData(offset: Float): List<LineData> {
-        val basePrice = _uiState.value.currentStock.currentPrice
-        return (0..29).map { i ->
-            val tempCalendar = Calendar.getInstance()
-            tempCalendar.add(Calendar.DAY_OF_MONTH, -(29 - i))
-            val time = tempCalendar.timeInMillis
-            val value = (basePrice + offset + (Math.random() - 0.5) * 200).toFloat()
-            LineData(time, value)
-        }
-    }
-    
-    private fun generateMockRsiData(): List<LineData> {
-        return (0..29).map { i ->
-            val tempCalendar = Calendar.getInstance()
-            tempCalendar.add(Calendar.DAY_OF_MONTH, -(29 - i))
-            val time = tempCalendar.timeInMillis
-            val value = (30 + Math.random() * 40).toFloat() // RSI는 보통 30-70 범위
-            LineData(time, value)
-        }
-    }
-    
-    private fun clearErrorMessage() {
-        _uiState.value = _uiState.value.copy(errorMessage = null)
-    }
-    
-    private fun toggleFavorite() {
-        _uiState.value = _uiState.value.copy(
-            isFavorite = !_uiState.value.isFavorite
-        )
+        loadChartData(currentStock, currentTimeFrame)
+        loadUserHoldings()
+        loadTradingHistory()
     }
     
     private fun changeBottomTab(tabIndex: Int) {
-        _uiState.value = _uiState.value.copy(
-            selectedBottomTab = tabIndex
-        )
+        _uiState.update { 
+            it.copy(selectedBottomTab = tabIndex)
+        }
     }
     
     private fun analyzePattern() {
-        if (_uiState.value.patternAnalysisCount < _uiState.value.maxPatternAnalysisCount) {
-            _uiState.value = _uiState.value.copy(
-                patternAnalysisCount = _uiState.value.patternAnalysisCount + 1,
-                lastPatternAnalysis = PatternAnalysisResult(
-                    patternName = "상승 삼각형",
-                    description = "저항선을 여러 차례 돌파 시도했지만\n매번에 상승 가능성이 높습니다.",
-                    analysisTime = "2025-07-28 오후 1시 35분"
+        _uiState.update { 
+            it.copy(
+                patternAnalysis = PatternAnalysisResult(
+                    patternName = "상승 플래그",
+                    description = "상승 플래그 패턴이 감지되었습니다.",
+                    analysisTime = "2024-01-15 14:30"
                 )
             )
         }
     }
     
     private fun handleBackPressed() {
-        // TODO: Navigation 처리
+        // Handle back navigation logic
     }
     
-    
     private fun handleBuyClicked() {
-        // TODO: 구매 화면 이동
+        // Handle buy button click - navigate to purchase screen
     }
     
     private fun handleSellClicked() {
-        // TODO: 판매 화면 이동
+        // Handle sell button click - navigate to purchase screen
+    }
+    
+    private fun showIndicatorSettings() {
+        _uiState.update { 
+            it.copy(showIndicatorSettings = true)
+        }
+    }
+    
+    private fun hideIndicatorSettings() {
+        _uiState.update { 
+            it.copy(showIndicatorSettings = false)
+        }
+    }
+    
+    private fun toggleIndicatorSettings() {
+        _uiState.update { 
+            it.copy(showIndicatorSettings = !it.showIndicatorSettings)
+        }
+    }
+    
+    private fun clearErrorMessage() {
+        _uiState.update { 
+            it.copy(errorMessage = null)
+        }
+    }
+    
+    // ===== MOCK DATA METHODS (Fallback) =====
+    
+    private fun loadMockData() {
+        loadMockCandlestickData()
+        loadMockVolumeData()
+        calculateMockIndicators()
+        loadMockHoldings()
+        loadMockTradingHistory()
+    }
+    
+    private fun loadMockCandlestickData() {
+        val mockData = generateMockCandlestickData()
+        _uiState.update { 
+            it.copy(candlestickData = mockData)
+        }
+    }
+    
+    private fun loadMockVolumeData() {
+        val mockData = generateMockVolumeData()
+        _uiState.update { 
+            it.copy(volumeData = mockData)
+        }
+    }
+    
+    private fun calculateMockIndicators() {
+        val candlestickData = _uiState.value.candlestickData
+        if (candlestickData.isEmpty()) return
+        
+        val config = _uiState.value.config.indicators
+        
+        _uiState.update { state ->
+            state.copy(
+                sma5Data = if (config.sma5) calculateSMA(candlestickData, 5) else emptyList(),
+                sma20Data = if (config.sma20) calculateSMA(candlestickData, 20) else emptyList(),
+                rsiData = if (config.rsi) calculateRSI(candlestickData) else emptyList(),
+                macdData = if (config.macd) calculateMACD(candlestickData) else null,
+                bollingerBands = if (config.bollingerBands) calculateBollingerBands(candlestickData) else null
+            )
+        }
     }
     
     private fun loadMockHoldings() {
         val mockHoldings = listOf(
-            HoldingItem("삼성전자", "10주", 1000400, 5.2f),
-            HoldingItem("GS리테일", "10주", 1000400, 2.1f),
-            HoldingItem("한화생명", "10주", 1000400, -1.5f),
-            HoldingItem("LG전자", "10주", 1000400, 0.8f),
-            HoldingItem("삼성전자", "10주", 1000400, 3.2f)
+            HoldingItem("삼성전자", "10주", 742000, 1.09f),
+            HoldingItem("SK하이닉스", "5주", 675000, -1.46f),
+            HoldingItem("NAVER", "3주", 555000, 0.82f)
         )
-        _uiState.value = _uiState.value.copy(holdings = mockHoldings)
+        _uiState.update { 
+            it.copy(holdingItems = mockHoldings)
+        }
     }
     
     private fun loadMockTradingHistory() {
         val mockHistory = listOf(
-            TradingItem("구매", "10주", 712000, "2025-07-28 오전10:48"),
-            TradingItem("구매", "10주", 712000, "2025-07-28 오전10:48"),
-            TradingItem("구매", "10주", 712000, "2025-07-28 오전10:48"),
-            TradingItem("구매", "10주", 712000, "2025-07-28 오전10:48"),
-            TradingItem("구매", "10주", 712000, "2025-07-28 오전10:48")
+            TradingItem("구매", "10주", 742000, "2024-01-15"),
+            TradingItem("판매", "5주", 371000, "2024-01-14"),
+            TradingItem("구매", "15주", 1113000, "2024-01-13")
         )
-        _uiState.value = _uiState.value.copy(tradingHistory = mockHistory)
+        _uiState.update { 
+            it.copy(tradingHistory = mockHistory)
+        }
     }
     
-    private fun showIndicatorSettings() {
-        _uiState.value = _uiState.value.copy(showIndicatorSettings = true)
-    }
-    
-    private fun hideIndicatorSettings() {
-        _uiState.value = _uiState.value.copy(showIndicatorSettings = false)
-    }
-    
-    private fun toggleIndicatorSettings() {
-        _uiState.value = _uiState.value.copy(
-            showIndicatorSettings = !_uiState.value.showIndicatorSettings
-        )
-    }
-    
-    // updatePanelSizes 함수 제거 - 단순화된 구조에서는 불필요
-    
-    // 기술적 지표 계산 함수들
-    
-    /**
-     * Simple Moving Average (단순이동평균) 계산
-     */
-    private fun calculateSMA(candlestickData: List<CandlestickData>, period: Int): List<LineData> {
-        if (candlestickData.size < period) return emptyList()
+    private fun generateMockCandlestickData(): List<CandlestickData> {
+        // Generate 100 days of mock data
+        val data = mutableListOf<CandlestickData>()
+        var currentPrice = 74200f
+        val startTime = System.currentTimeMillis() - (100 * 24 * 60 * 60 * 1000L)
         
-        val result = mutableListOf<LineData>()
-        
-        for (i in period - 1 until candlestickData.size) {
-            val sum = candlestickData.subList(i - period + 1, i + 1).sumOf { it.close.toDouble() }
-            val average = (sum / period).toFloat()
+        for (i in 0 until 100) {
+            val time = startTime + (i * 24 * 60 * 60 * 1000L)
+            val change = (Math.random() * 0.1 - 0.05).toFloat()
+            val open = currentPrice
+            val close = currentPrice * (1 + change)
+            val high = maxOf(open, close) * (1 + Math.random().toFloat() * 0.02f)
+            val low = minOf(open, close) * (1 - Math.random().toFloat() * 0.02f)
+            val volume = (1000000 + Math.random() * 2000000).toLong()
             
-            result.add(LineData(candlestickData[i].time, average))
+            data.add(CandlestickData(time, open, high, low, close, volume))
+            currentPrice = close
         }
         
-        return result
+        return data
     }
     
-    /**
-     * RSI (Relative Strength Index) 계산
-     */
-    private fun calculateRSI(candlestickData: List<CandlestickData>, period: Int): List<LineData> {
-        if (candlestickData.size < period + 1) return emptyList()
+    private fun generateMockVolumeData(): List<VolumeData> {
+        return _uiState.value.candlestickData.map { candle ->
+            VolumeData(
+                time = candle.time,
+                value = candle.volume.toFloat(),
+                color = if (candle.close >= candle.open) "#ef5350" else "#26a69a"
+            )
+        }
+    }
+    
+    private fun calculateSMA(data: List<CandlestickData>, period: Int): List<LineData> {
+        if (data.size < period) return emptyList()
         
-        val result = mutableListOf<LineData>()
+        val smaData = mutableListOf<LineData>()
+        for (i in period - 1 until data.size) {
+            val sum = (i - period + 1..i).sumOf { data[it].close.toDouble() }
+            val average = (sum / period).toFloat()
+            smaData.add(LineData(data[i].time, average))
+        }
+        return smaData
+    }
+    
+    private fun calculateRSI(data: List<CandlestickData>, period: Int = 14): List<LineData> {
+        if (data.size < period + 1) return emptyList()
+        
+        val rsiData = mutableListOf<LineData>()
         val gains = mutableListOf<Float>()
         val losses = mutableListOf<Float>()
         
-        // 첫 번째 기간의 gain/loss 계산
-        for (i in 1 until candlestickData.size) {
-            val change = candlestickData[i].close - candlestickData[i - 1].close
-            gains.add(if (change > 0) change else 0f)
-            losses.add(if (change < 0) -change else 0f)
+        // Calculate initial gains and losses
+        for (i in 1 until data.size) {
+            val change = data[i].close - data[i - 1].close
+            gains.add(maxOf(change, 0f))
+            losses.add(maxOf(-change, 0f))
         }
         
-        // RSI 계산
+        // Calculate RSI
         for (i in period - 1 until gains.size) {
             val avgGain = gains.subList(i - period + 1, i + 1).average().toFloat()
             val avgLoss = losses.subList(i - period + 1, i + 1).average().toFloat()
             
-            val rs = if (avgLoss != 0f) avgGain / avgLoss else 100f
+            val rs = if (avgLoss != 0f) avgGain / avgLoss else 0f
             val rsi = 100f - (100f / (1f + rs))
             
-            result.add(LineData(candlestickData[i + 1].time, rsi))
+            rsiData.add(LineData(data[i + 1].time, rsi))
         }
         
-        return result
+        return rsiData
     }
     
-    /**
-     * MACD (Moving Average Convergence Divergence) 계산
-     */
-    private fun calculateMACD(candlestickData: List<CandlestickData>, fastPeriod: Int, slowPeriod: Int, signalPeriod: Int): MACDResult {
-        if (candlestickData.size < slowPeriod) return MACDResult(emptyList(), emptyList(), emptyList())
+    private fun calculateMACD(data: List<CandlestickData>): MACDResult? {
+        if (data.size < 26) return null
         
-        // EMA 계산 함수
-        fun calculateEMA(data: List<Float>, period: Int): List<Float> {
-            if (data.size < period) return emptyList()
-            
-            val result = mutableListOf<Float>()
-            val multiplier = 2f / (period + 1f)
-            
-            // 첫 번째 EMA는 SMA로 시작
-            var ema = data.subList(0, period).average().toFloat()
-            result.add(ema)
-            
-            // 나머지 EMA 계산
-            for (i in period until data.size) {
-                ema = (data[i] * multiplier) + (ema * (1f - multiplier))
-                result.add(ema)
-            }
-            
-            return result
-        }
+        val ema12 = calculateEMA(data, 12)
+        val ema26 = calculateEMA(data, 26)
         
-        val prices = candlestickData.map { it.close }
-        val fastEMA = calculateEMA(prices, fastPeriod)
-        val slowEMA = calculateEMA(prices, slowPeriod)
+        if (ema12.size != ema26.size) return null
         
-        // MACD 라인 계산 (Fast EMA - Slow EMA)
         val macdLine = mutableListOf<LineData>()
-        val macdValues = mutableListOf<Float>()
-        
-        val startIndex = slowPeriod - 1
-        for (i in 0 until minOf(fastEMA.size, slowEMA.size)) {
-            val macdValue = fastEMA[i + (fastPeriod - slowPeriod)] - slowEMA[i]
-            macdValues.add(macdValue)
-            macdLine.add(LineData(candlestickData[startIndex + i].time, macdValue))
+        for (i in ema12.indices) {
+            macdLine.add(LineData(ema12[i].time, ema12[i].value - ema26[i].value))
         }
         
-        // Signal 라인 계산 (MACD의 EMA)
-        val signalEMA = calculateEMA(macdValues, signalPeriod)
-        val signalLine = mutableListOf<LineData>()
+        val signalLine = calculateEMAFromLineData(macdLine, 9)
         
-        for (i in signalEMA.indices) {
-            signalLine.add(LineData(candlestickData[startIndex + signalPeriod - 1 + i].time, signalEMA[i]))
-        }
-        
-        // 히스토그램 계산 (MACD - Signal)
         val histogram = mutableListOf<VolumeData>()
-        for (i in signalEMA.indices) {
-            val histValue = macdValues[signalPeriod - 1 + i] - signalEMA[i]
-            histogram.add(VolumeData(candlestickData[startIndex + signalPeriod - 1 + i].time, histValue))
+        for (i in signalLine.indices) {
+            val histValue = macdLine[i + (macdLine.size - signalLine.size)].value - signalLine[i].value
+            histogram.add(VolumeData(signalLine[i].time, histValue))
         }
         
         return MACDResult(macdLine, signalLine, histogram)
     }
     
-    /**
-     * Bollinger Bands (볼린저 밴드) 계산
-     */
-    private fun calculateBollingerBands(candlestickData: List<CandlestickData>, period: Int, multiplier: Float): BollingerBandsResult {
-        if (candlestickData.size < period) return BollingerBandsResult(emptyList(), emptyList(), emptyList())
+    private fun calculateEMA(data: List<CandlestickData>, period: Int): List<LineData> {
+        if (data.isEmpty()) return emptyList()
+        
+        val emaData = mutableListOf<LineData>()
+        val multiplier = 2.0 / (period + 1)
+        var ema = data[0].close.toDouble()
+        
+        emaData.add(LineData(data[0].time, ema.toFloat()))
+        
+        for (i in 1 until data.size) {
+            ema = (data[i].close * multiplier) + (ema * (1 - multiplier))
+            emaData.add(LineData(data[i].time, ema.toFloat()))
+        }
+        
+        return emaData.drop(period - 1)
+    }
+    
+    private fun calculateEMAFromLineData(data: List<LineData>, period: Int): List<LineData> {
+        if (data.isEmpty()) return emptyList()
+        
+        val emaData = mutableListOf<LineData>()
+        val multiplier = 2.0 / (period + 1)
+        var ema = data[0].value.toDouble()
+        
+        emaData.add(LineData(data[0].time, ema.toFloat()))
+        
+        for (i in 1 until data.size) {
+            ema = (data[i].value * multiplier) + (ema * (1 - multiplier))
+            emaData.add(LineData(data[i].time, ema.toFloat()))
+        }
+        
+        return emaData.drop(period - 1)
+    }
+    
+    private fun calculateBollingerBands(data: List<CandlestickData>, period: Int = 20, multiplier: Float = 2.0f): BollingerBandsResult? {
+        if (data.size < period) return null
         
         val upperBand = mutableListOf<LineData>()
         val middleBand = mutableListOf<LineData>()
         val lowerBand = mutableListOf<LineData>()
         
-        for (i in period - 1 until candlestickData.size) {
-            val prices = candlestickData.subList(i - period + 1, i + 1).map { it.close }
-            
-            // SMA (중간선)
+        for (i in period - 1 until data.size) {
+            val prices = (i - period + 1..i).map { data[it].close }
             val sma = prices.average().toFloat()
             
-            // 표준편차 계산
             val variance = prices.map { (it - sma) * (it - sma) }.average()
             val standardDeviation = kotlin.math.sqrt(variance).toFloat()
             
-            // 밴드 계산
             val upper = sma + (standardDeviation * multiplier)
             val lower = sma - (standardDeviation * multiplier)
             
-            val time = candlestickData[i].time
+            val time = data[i].time
             upperBand.add(LineData(time, upper))
             middleBand.add(LineData(time, sma))
             lowerBand.add(LineData(time, lower))
