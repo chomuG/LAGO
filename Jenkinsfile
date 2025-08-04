@@ -45,47 +45,55 @@ pipeline {
             }
         }
         
-        stage('Docker Build') {
+        stage('Package') {
             steps {
-                echo 'Building Docker image...'
+                echo 'Packaging application...'
                 script {
-                    try {
-                        // Docker 접근 가능성 확인
-                        sh 'docker --version'
+                    // JAR 빌드 및 아카이브
+                    dir('BE') {
+                        sh './gradlew bootJar'
+                        archiveArtifacts artifacts: 'build/libs/*.jar', fingerprint: true
                         
-                        // Docker Compose로 빌드
-                        sh 'docker-compose build backend'
-                        
-                        echo 'Docker image built successfully'
-                    } catch (Exception e) {
-                        echo "Docker build failed: ${e.getMessage()}"
-                        echo "Falling back to JAR deployment"
-                        
-                        // Docker 실패 시 JAR 빌드로 대체
-                        dir('BE') {
-                            sh './gradlew bootJar'
-                            archiveArtifacts artifacts: 'build/libs/*.jar', fingerprint: true
-                        }
+                        // JAR 파일 정보 확인
+                        sh '''
+                            echo "=== JAR Information ==="
+                            ls -la build/libs/
+                            echo "JAR file ready for deployment"
+                        '''
                     }
+                    
+                    echo 'Application packaged successfully'
                 }
             }
         }
         
-        stage('Deploy') {
+        stage('Direct Deploy') {
             steps {
-                echo 'Deploying application...'
+                echo 'Deploying JAR directly...'
                 script {
                     try {
-                        // Docker Compose로 배포 시도
-                        sh 'docker-compose down || true'
-                        sh 'docker-compose up -d backend'
+                        // 기존 프로세스 종료
+                        sh '''
+                            echo "Stopping existing application..."
+                            pkill -f "LAGO-0.0.1-SNAPSHOT.jar" || echo "No existing process found"
+                            sleep 5
+                        '''
                         
-                        // 컨테이너 상태 확인
-                        sh 'docker-compose ps'
+                        // JAR 실행
+                        sh '''
+                            echo "Starting new application..."
+                            cd BE/build/libs
+                            nohup java -jar LAGO-0.0.1-SNAPSHOT.jar \\
+                                --server.port=8081 \\
+                                --spring.profiles.active=docker \\
+                                > /var/jenkins_home/workspace/lago-backend/app.log 2>&1 &
+                            echo $! > /var/jenkins_home/workspace/lago-backend/app.pid
+                            echo "Application started with PID: $(cat /var/jenkins_home/workspace/lago-backend/app.pid)"
+                        '''
                         
-                        echo 'Docker deployment successful'
+                        echo 'Direct JAR deployment successful'
                     } catch (Exception e) {
-                        echo "Docker deployment failed: ${e.getMessage()}"
+                        echo "Direct deployment failed: ${e.getMessage()}"
                         echo "Manual deployment required"
                         
                         // 배포 실패 시 정보 제공
@@ -94,7 +102,7 @@ pipeline {
                             echo "JAR Location: BE/build/libs/"
                             echo "Manual deployment steps:"
                             echo "1. Copy JAR to EC2"
-                            echo "2. Run: java -jar LAGO-0.0.1-SNAPSHOT.jar"
+                            echo "2. Run: java -jar LAGO-0.0.1-SNAPSHOT.jar --server.port=8081"
                             echo "3. Check: http://i13d203.p.ssafy.io:8081"
                         '''
                     }
@@ -108,27 +116,39 @@ pipeline {
                 script {
                     try {
                         // 애플리케이션 시작 대기
-                        sh 'sleep 30'
+                        sh 'sleep 45'
+                        
+                        // 프로세스 확인
+                        sh '''
+                            if [ -f /var/jenkins_home/workspace/lago-backend/app.pid ]; then
+                                PID=$(cat /var/jenkins_home/workspace/lago-backend/app.pid)
+                                if ps -p $PID > /dev/null; then
+                                    echo "✅ Application process is running (PID: $PID)"
+                                else
+                                    echo "❌ Application process not found"
+                                fi
+                            fi
+                        '''
                         
                         // 헬스체크 시도
                         sh '''
-                            for i in {1..10}; do
+                            echo "Testing application endpoints..."
+                            for i in $(seq 1 15); do
                                 if curl -f http://localhost:8081/actuator/health 2>/dev/null; then
-                                    echo "✅ Application is healthy!"
-                                    exit 0
-                                elif curl -f http://localhost:8080/actuator/health 2>/dev/null; then
-                                    echo "✅ Application is healthy on port 8080!"
+                                    echo "✅ Application is healthy on port 8081!"
+                                    curl -s http://localhost:8081/actuator/health | head -5
                                     exit 0
                                 else
-                                    echo "Attempt $i: Application not ready yet..."
+                                    echo "Attempt $i/15: Application not ready yet..."
                                     sleep 10
                                 fi
                             done
-                            echo "⚠️ Health check completed with warnings"
+                            echo "⚠️ Health check completed with warnings - application may still be starting"
                         '''
                     } catch (Exception e) {
                         echo "Health check failed: ${e.getMessage()}"
-                        echo "Application may still be starting..."
+                        echo "Application logs:"
+                        sh 'tail -20 /var/jenkins_home/workspace/lago-backend/app.log || echo "No log file found"'
                     }
                 }
             }
@@ -159,33 +179,49 @@ pipeline {
         success {
             echo 'Deployment completed successfully!'
             // Mattermost 성공 알림
-            mattermostSend (
-                endpoint: 'https://meeting.ssafy.com/hooks/YOUR_WEBHOOK_ID',
-                channel: '#team-carrot',
-                color: 'good',
-                message: "✅ **LAGO Backend 배포 성공!** 🎉\n" +
-                        "**빌드 번호:** #${BUILD_NUMBER}\n" +
-                        "**브랜치:** ${env.BRANCH_NAME ?: 'backend-dev'}\n" +
-                        "**배포 시간:** ${new Date()}\n" +
-                        "**배포 방식:** Docker Compose\n" +
-                        "**Swagger UI:** http://i13d203.p.ssafy.io:8081/swagger-ui/index.html\n" +
-                        "**AI 매매봇 API:** http://i13d203.p.ssafy.io:8081/api/ai-bots/{aiId}/account"
-            )
+            script {
+                try {
+                    mattermostSend (
+                        endpoint: 'https://meeting.ssafy.com/hooks/uj7g5ou6wfgzdjb6pt3pcebrfe',
+                        channel: '#team-carrot',
+                        color: 'good',
+                        message: "✅ **LAGO Backend 배포 성공!** 🎉\n" +
+                                "**빌드 번호:** #${BUILD_NUMBER}\n" +
+                                "**브랜치:** ${env.BRANCH_NAME ?: 'backend-dev'}\n" +
+                                "**배포 시간:** ${new Date()}\n" +
+                                "**배포 방식:** Docker Compose (fallback: JAR)\n" +
+                                "**Swagger UI:** http://i13d203.p.ssafy.io:8081/swagger-ui/index.html\n" +
+                                "**AI 매매봇 API:** http://i13d203.p.ssafy.io:8081/api/ai-bots/{aiId}/account"
+                    )
+                    echo 'Mattermost notification sent successfully'
+                } catch (Exception e) {
+                    echo "Mattermost notification failed: ${e.getMessage()}"
+                    echo 'Build succeeded but notification failed'
+                }
+            }
         }
         failure {
             echo 'Build failed!'
             // Mattermost 실패 알림
-            mattermostSend (
-                endpoint: 'https://meeting.ssafy.com/hooks/YOUR_WEBHOOK_ID',
-                channel: '#team-carrot',
-                color: 'danger',
-                message: "❌ **LAGO Backend 빌드 실패!** 😱\n" +
-                        "**빌드 번호:** #${BUILD_NUMBER}\n" +
-                        "**브랜치:** ${env.BRANCH_NAME ?: 'backend-dev'}\n" +
-                        "**실패 시간:** ${new Date()}\n" +
-                        "**Jenkins 콘솔:** ${BUILD_URL}console\n" +
-                        "**문제 확인 필요:** 로그를 확인해주세요!"
-            )
+            script {
+                try {
+                    mattermostSend (
+                        endpoint: 'https://meeting.ssafy.com/hooks/uj7g5ou6wfgzdjb6pt3pcebrfe',
+                        channel: '#team-carrot',
+                        color: 'danger',
+                        message: "❌ **LAGO Backend 빌드 실패!** 😱\n" +
+                                "**빌드 번호:** #${BUILD_NUMBER}\n" +
+                                "**브랜치:** ${env.BRANCH_NAME ?: 'backend-dev'}\n" +
+                                "**실패 시간:** ${new Date()}\n" +
+                                "**Jenkins 콘솔:** ${BUILD_URL}console\n" +
+                                "**문제 확인 필요:** 로그를 확인해주세요!"
+                    )
+                    echo 'Mattermost notification sent successfully'
+                } catch (Exception e) {
+                    echo "Mattermost notification failed: ${e.getMessage()}"
+                    echo 'Build failed and notification also failed'
+                }
+            }
         }
     }
 }
