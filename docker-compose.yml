@@ -29,7 +29,7 @@ services:
       dockerfile: Dockerfile
     container_name: spring-backend
     ports:
-      - "8080:8080"  # EC2에서는 8080 포트로 접근
+      - "8081:8080"  # EC2에서는 8081 포트로 접근 (Jenkins는 8080 사용)
     env_file:
       - .env
     environment:

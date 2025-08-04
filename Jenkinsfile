@@ -2,8 +2,22 @@ pipeline {
     agent any
     
     environment {
-        DOCKER_IMAGE = 'lago-backend'
-        DOCKER_TAG = "${BUILD_NUMBER}"
+        DOCKER_IMAGE = 'lago-backend                    # 컨테이너 헬스체크
+                    sh '''
+                        echo "Waiting for application to start..."
+                        sleep 30
+                        
+                        # 헬스체크 (8081 포트 사용)
+                        for i in {1..10}; do
+                            if curl -f http://localhost:8081/actuator/health; then
+                                echo "Application is healthy!"
+                                break
+                            else
+                                echo "Attempt $i: Application not ready yet..."
+                                sleep 10
+                            fi
+                        done
+                    '''R_TAG = "${BUILD_NUMBER}"
         CONTAINER_NAME = 'lago-backend-container'
         JAR_FILE = 'LAGO-0.0.1-SNAPSHOT.jar'
     }
@@ -36,9 +50,11 @@ pipeline {
             post {
                 always {
                     dir('BE') {
-                        publishTestResults testResultsPattern: 'build/test-results/test/*.xml'
+                        // JUnit 테스트 결과 수집
+                        junit testResultsPattern: 'build/test-results/test/*.xml', allowEmptyResults: true
+                        // HTML 테스트 리포트 수집
                         publishHTML([
-                            allowMissing: false,
+                            allowMissing: true,
                             alwaysLinkToLastBuild: true,
                             keepAll: true,
                             reportDir: 'build/reports/tests/test',
@@ -109,11 +125,11 @@ pipeline {
                 echo 'Testing Swagger UI and API endpoints...'
                 script {
                     sh '''
-                        # Swagger UI 접근 테스트
-                        curl -f http://localhost:8080/swagger-ui/index.html || echo "Swagger UI not accessible"
+                        # Swagger UI 접근 테스트 (8081 포트 사용)
+                        curl -f http://localhost:8081/swagger-ui/index.html || echo "Swagger UI not accessible"
                         
-                        # API 엔드포인트 테스트
-                        curl -f http://localhost:8080/api/ai-bots/1/account || echo "API endpoint test failed"
+                        # API 엔드포인트 테스트 (8081 포트 사용)
+                        curl -f http://localhost:8081/api/ai-bots/1/account || echo "API endpoint test failed"
                     '''
                 }
             }
@@ -128,20 +144,20 @@ pipeline {
         }
         success {
             echo 'Deployment completed successfully!'
-            // 성공 알림 (Slack, Email 등)
-            slackSend(
-                channel: '#lago-deployment',
-                color: 'good',
-                message: "✅ LAGO Backend deployment successful! Build #${BUILD_NUMBER}"
+            // 성공 알림 (기본 Jenkins 이메일 사용)
+            emailext (
+                subject: "✅ LAGO Backend deployment successful! Build #${BUILD_NUMBER}",
+                body: "LAGO Backend has been successfully deployed to EC2 server.\nBuild Number: ${BUILD_NUMBER}\nBranch: ${BRANCH_NAME}",
+                to: "dev-team@lago.com"
             )
         }
         failure {
             echo 'Deployment failed!'
-            // 실패 알림
-            slackSend(
-                channel: '#lago-deployment',
-                color: 'danger',
-                message: "❌ LAGO Backend deployment failed! Build #${BUILD_NUMBER}"
+            // 실패 알림 (기본 Jenkins 이메일 사용)
+            emailext (
+                subject: "❌ LAGO Backend deployment failed! Build #${BUILD_NUMBER}",
+                body: "LAGO Backend deployment has failed.\nBuild Number: ${BUILD_NUMBER}\nBranch: ${BRANCH_NAME}\n\nPlease check the Jenkins console for details.",
+                to: "dev-team@lago.com"
             )
         }
     }

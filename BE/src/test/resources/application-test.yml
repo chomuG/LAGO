@@ -28,6 +28,12 @@ spring:
     host: localhost
     port: 6370
     timeout: 2000ms
+    
+  # 테스트용 보안 설정
+  security:
+    user:
+      name: test
+      password: test123
 
 # Swagger 설정 (테스트에서는 비활성화)
 springdoc:
@@ -47,10 +53,3 @@ logging:
 # 서버 포트 (테스트용 랜덤)
 server:
   port: 0
-
-# 테스트용 보안 설정
-spring:
-  security:
-    user:
-      name: test
-      password: test123
