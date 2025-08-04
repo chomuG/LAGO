@@ -7,6 +7,7 @@ pipeline {
         HEALTH_URL = 'http://localhost:8081/actuator/health'
         MATTERMOST_ENDPOINT = 'https://meeting.ssafy.com/hooks/uj7g5ou6wfgzdjb6pt3pcebrfe'
         MATTERMOST_CHANNEL = '#team-carrot'
+        COMPOSE_CMD = 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd):$(pwd) -w $(pwd) docker/compose:latest'
     }
     
     stages {
@@ -51,11 +52,11 @@ pipeline {
                 echo '🐳 Docker Compose 배포 중...'
                 sh '''
                     echo "기존 컨테이너 중지..."
-                    docker-compose down || true
+                    ${COMPOSE_CMD} down || true
                     
                     echo "서비스 빌드 및 시작..."
-                    docker-compose build --no-cache ${BACKEND_SERVICE}
-                    docker-compose up -d
+                    ${COMPOSE_CMD} build --no-cache ${BACKEND_SERVICE}
+                    ${COMPOSE_CMD} up -d
                     
                     echo "서비스 시작 대기..."
                     sleep 45
@@ -82,7 +83,7 @@ pipeline {
                     
                     if (!healthCheckPassed) {
                         echo "⚠️ 상태 확인 경고 - 컨테이너 상태 점검..."
-                        sh 'docker-compose ps'
+                        sh '${COMPOSE_CMD} ps'
                         sh 'docker logs spring-backend --tail 30 || true'
                     }
                 }
@@ -132,7 +133,7 @@ pipeline {
 **실패 시간:** ${currentTime}
 
 🔧 **Jenkins 로그:** ${BUILD_URL}console
-📥 **수동 복구:** docker-compose down && docker-compose up -d"""
+� **수동 복구:** docker-compose down && docker-compose up -d"""
                     )
                 } catch (Exception e) {
                     echo "⚠️ Mattermost 알림 전송 실패: ${e.getMessage()}"
@@ -141,7 +142,7 @@ pipeline {
         }
         always {
             echo '🎯 파이프라인 완료!'
-            sh 'docker system prune -f --volumes || true'
+            sh '${COMPOSE_CMD} system prune -f --volumes || true'
         }
     }
 }
