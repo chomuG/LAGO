@@ -147,7 +147,7 @@ pipeline {
             // Mattermost 성공 알림
             mattermostSend (
                 endpoint: 'https://meeting.ssafy.com/hooks/YOUR_WEBHOOK_ID', // Mattermost Webhook URL
-                channel: '#lago-deployment', // 알림받을 채널
+                channel: '#team-carrot', // 알림받을 채널
                 color: 'good',
                 message: "✅ **LAGO Backend 배포 성공!** 🎉\n" +
                         "**빌드 번호:** #${BUILD_NUMBER}\n" +
@@ -162,7 +162,7 @@ pipeline {
             // Mattermost 실패 알림
             mattermostSend (
                 endpoint: 'https://meeting.ssafy.com/hooks/YOUR_WEBHOOK_ID', // Mattermost Webhook URL
-                channel: '#lago-deployment', // 알림받을 채널
+                channel: '#team-carrot', // 알림받을 채널
                 color: 'danger',
                 message: "❌ **LAGO Backend 배포 실패!** 😱\n" +
                         "**빌드 번호:** #${BUILD_NUMBER}\n" +
