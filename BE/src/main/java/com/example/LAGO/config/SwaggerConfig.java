@@ -21,9 +21,9 @@ public class SwaggerConfig {
     public OpenAPI lagoOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("라고할때 API")
-                        .description("라고할때 투자 시뮬레이션 앱 백엔드 API")
-                        .version("v1.0")
+                        .title("라고할때 API - 라고할때 투자 시뮬레이션")
+                        .description("라고할때 투자 시뮬레이션 앱 백엔드 API - D203팀 개발")
+                        .version("v1.1")
                         .contact(new Contact()
                                 .name("D203팀")
                                 .email("ssafy@example.com")))
