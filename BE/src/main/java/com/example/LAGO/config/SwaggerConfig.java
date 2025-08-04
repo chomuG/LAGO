@@ -12,6 +12,7 @@ import java.util.List;
 /**
  * Swagger/OpenAPI 설정
  * 라고할때 프로젝트 API 문서화
+ * Mattermost 알림 테스트: 2025-08-04
  */
 @Configuration
 public class SwaggerConfig {
