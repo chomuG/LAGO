@@ -3,6 +3,7 @@ package com.example.LAGO.service;
 import com.example.LAGO.domain.User;
 import com.example.LAGO.domain.Account;
 import com.example.LAGO.dto.AiBotAccountResponse;
+import com.example.LAGO.dto.AiBotListResponse;
 import com.example.LAGO.repository.UserRepository;
 import com.example.LAGO.repository.AccountRepository;
 import com.example.LAGO.repository.MockTradeRepository;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * AI 매매봇 서비스
@@ -123,5 +125,38 @@ public class AiBotService {
         result.put("avgTradeValue", avgTradeValue);
 
         return result;
+    }
+
+    /**
+     * 모든 AI 봇 목록 조회
+     * @return AI 봇 목록
+     */
+    public List<AiBotListResponse> getAllAiBots() {
+        log.info("모든 AI 봇 목록 조회 시작");
+
+        List<User> aiBots = userRepository.findByIsAiTrueOrderByAiIdAsc();
+        
+        return aiBots.stream()
+                .map(aiBot -> {
+                    // 각 AI 봇의 계좌 정보 조회 (계좌는 무조건 존재)
+                    Account account = accountRepository.findByUserIdAndType(
+                            aiBot.getUserId(), "현시점"
+                    ).orElseThrow(() -> new RuntimeException("AI 봇 계좌를 찾을 수 없습니다: " + aiBot.getUserId()));
+                    
+                    log.info("AI 봇 조회: userId={}, aiId={}, nickname={}, personality={}, totalAsset={}, profit={}, profitRate={}%", 
+                            aiBot.getUserId(), aiBot.getAiId(), aiBot.getNickname(), aiBot.getPersonality(),
+                            account.getTotalAsset(), account.getProfit(), account.getProfitRate());
+                    
+                    return AiBotListResponse.builder()
+                            .userId(aiBot.getUserId())
+                            .aiId(aiBot.getAiId())
+                            .nickname(aiBot.getNickname())
+                            .personality(aiBot.getPersonality())
+                            .totalAsset(account.getTotalAsset())
+                            .profit(account.getProfit())
+                            .profitRate(account.getProfitRate())
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 }

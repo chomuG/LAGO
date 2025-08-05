@@ -6,8 +6,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface MockTradeRepository extends JpaRepository<MockTrade, Long> {
-    Long countByAccountId(Long accountId);
+    Long countByAccountId(Integer accountId);
 
     @Query("SELECT AVG(mt.price * mt.quantity) FROM MockTrade mt WHERE mt.account.accountId = :accountId")
-    Double findAvgTradeValue(@Param("accountId") Long accountId);
+    Double findAvgTradeValue(@Param("accountId") Integer accountId);
 }
