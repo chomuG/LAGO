@@ -80,6 +80,9 @@ fun NavGraph(
             RandomQuizScreen(
                 onBackClick = {
                     navController.popBackStack()
+                },
+                onBackToLearn = {
+                    navController.popBackStack()
                 }
             )
         }

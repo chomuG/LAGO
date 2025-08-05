@@ -210,8 +210,8 @@ fun AnimatedCalendarIcon() {
         targetValue = -8f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = 1500,
-                easing = EaseInOutBounce
+                durationMillis = 2000,
+                easing = EaseInOutSine
             ),
             repeatMode = RepeatMode.Reverse
         ),

@@ -22,6 +22,7 @@ import com.lago.app.presentation.theme.*
 @Composable
 fun RandomQuizResultDialog(
     isCorrect: Boolean,
+    explanation: String? = null,
     onDismiss: () -> Unit = {},
     onMoreQuiz: () -> Unit = {}
 ) {
@@ -97,29 +98,33 @@ fun RandomQuizResultDialog(
                 Spacer(modifier = Modifier.height(48.dp))
                 
                 // 설명 텍스트
-                Text(
-                    text = "PERO이 늘어날 기업의 성장 가능성이 높아요.",
-                    style = TitleB20,
-                    color = Color.Black,
-                    textAlign = TextAlign.Left,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                HorizontalDivider(
-                    thickness = 2.dp,
-                    color = Color(0xFFF2F2F2),
-                    modifier = Modifier
-                        .padding(bottom = 12.dp)
-                )
-                
-                Text(
-                    text = "PERO이 늘어나는 것은 주가가 주당순이익 대비 높게 형성되어 있다는 의미입니다. 이는 투자자들이 미래 성장을 기대하고 있음을 나타내지만, 동시에 주가가 과대 평가되었을 가능성도 있습니다.",
-                    style = BodyR14,
-                    color = Gray700,
-                    lineHeight = 20.sp,
-                    textAlign = TextAlign.Left,
-                    modifier = Modifier.padding(bottom = 32.dp)
-                )
+                explanation?.let { exp ->
+                    HorizontalDivider(
+                        thickness = 2.dp,
+                        color = Color(0xFFF2F2F2),
+                        modifier = Modifier
+                            .padding(bottom = 12.dp)
+                    )
+                    
+                    Text(
+                        text = "해설",
+                        style = TitleB16,
+                        color = Color.Black,
+                        textAlign = TextAlign.Left,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    
+                    Text(
+                        text = exp,
+                        style = BodyR14,
+                        color = Gray700,
+                        lineHeight = 20.sp,
+                        textAlign = TextAlign.Left,
+                        modifier = Modifier.padding(bottom = 32.dp)
+                    )
+                } ?: run {
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
                 
                 // Bottom Buttons
                 Row(

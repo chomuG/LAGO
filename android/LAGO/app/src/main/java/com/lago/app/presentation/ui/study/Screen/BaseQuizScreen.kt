@@ -41,10 +41,11 @@ data class QuizResult(
 fun BaseQuizScreen(
     title: String,
     quizType: QuizType,
+    currentQuiz: QuizItem? = null,
     onBackClick: () -> Unit = {},
     onQuizResult: (QuizResult) -> Unit = {}
 ) {
-    val quizList = listOf(
+    val defaultQuizList = listOf(
         QuizItem("주식의 PER이 높으면 기업의 성장 가능성이 높다?", true),
         QuizItem("채권의 금리가 상승하면 채권 가격은 하락한다?", true),
         QuizItem("분산투자는 위험을 증가시킨다?", false),
@@ -52,9 +53,14 @@ fun BaseQuizScreen(
         QuizItem("인플레이션은 현금의 가치를 감소시킨다?", true)
     )
     
-    var currentQuiz by remember { mutableStateOf(quizList.random()) }
+    var quiz by remember { mutableStateOf(currentQuiz ?: defaultQuizList.random()) }
     
-    Column(
+    // currentQuiz가 변경되면 업데이트
+    LaunchedEffect(currentQuiz) {
+        currentQuiz?.let { quiz = it }
+    }
+    
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(AppBackground)
@@ -82,28 +88,27 @@ fun BaseQuizScreen(
                 )
                 
                 Text(
-                    text = currentQuiz.question,
+                    text = quiz.question,
                     style = HeadEb28,
                     color = Color.Black,
                     lineHeight = 32.sp,
                     modifier = Modifier.padding(bottom = 48.dp)
                 )
-            }
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
                 AnswerButton(
                     iconRes = R.drawable.no,
                     text = "아니다",
                     backgroundColor = Color(0xFFFFE3E3),
                     modifier = Modifier.weight(1f),
                     onClick = { 
-                        val isCorrect = currentQuiz.correctAnswer == false
+                        val isCorrect = quiz.correctAnswer == false
                         when (quizType) {
                             QuizType.DAILY -> {
-                                val rank = (1..500).random()
+                                val rank = (1..12).random()
                                 val reward = when {
                                     rank == 1 -> 100000
                                     rank <= 3 -> 50000
@@ -125,10 +130,10 @@ fun BaseQuizScreen(
                     backgroundColor = BlueLightHover,
                     modifier = Modifier.weight(1f),
                     onClick = { 
-                        val isCorrect = currentQuiz.correctAnswer == true
+                        val isCorrect = quiz.correctAnswer == true
                         when (quizType) {
                             QuizType.DAILY -> {
-                                val rank = (1..500).random()
+                                val rank = (1..12).random()
                                 val reward = when {
                                     rank == 1 -> 100000
                                     rank <= 3 -> 50000
@@ -143,6 +148,7 @@ fun BaseQuizScreen(
                         }
                     }
                 )
+                }
             }
         }
     }

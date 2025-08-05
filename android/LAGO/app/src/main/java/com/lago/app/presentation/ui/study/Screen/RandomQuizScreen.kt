@@ -2,20 +2,62 @@ package com.lago.app.presentation.ui.study.Screen
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lago.app.domain.entity.Quiz
 import com.lago.app.presentation.theme.LagoTheme
 import com.lago.app.presentation.ui.study.Dialog.RandomQuizResultDialog
+import com.lago.app.presentation.viewmodel.RandomQuizUiState
+import com.lago.app.presentation.viewmodel.RandomQuizViewModel
 
 @Composable
 fun RandomQuizScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onBackToLearn: () -> Unit = {},
+    viewModel: RandomQuizViewModel = hiltViewModel()
 ) {
+    val quizState by viewModel.quizState.collectAsStateWithLifecycle()
     var showResult by remember { mutableStateOf(false) }
     var quizResult by remember { mutableStateOf<QuizResult?>(null) }
-    var currentQuizList by remember { mutableStateOf(getRandomQuizList()) }
+    var explanation by remember { mutableStateOf<String?>(null) }
     
+    // 기본 퀴즈 아이템을 미리 설정하여 화면 깜빡임 방지
+    var currentQuizItem by remember { 
+        mutableStateOf(
+            QuizItem(
+                "주식의 PER이 높다는 것은 그 기업의 성장 가능성을 높게 본다는 뜻이다?", 
+                true
+            )
+        ) 
+    }
+    
+    LaunchedEffect(Unit) {
+        viewModel.loadRandomQuiz()
+    }
+    
+    // API 데이터가 성공적으로 로드되면 QuizItem으로 변환
+    LaunchedEffect(quizState) {
+        when (quizState) {
+            is RandomQuizUiState.Success -> {
+                val quiz = (quizState as RandomQuizUiState.Success).quiz
+                currentQuizItem = QuizItem(quiz.question, quiz.answer)
+                explanation = quiz.explanation
+            }
+            is RandomQuizUiState.Error -> {
+                // Mock data fallback (기본값과 동일하게 유지)
+                explanation = "PER이 높다는 것은 주가가 주당순이익 대비 높게 형성되어 있다는 의미입니다. 이는 투자자들이 미래 성장을 기대하고 있음을 나타내지만, 동시에 주가가 과대평가되었을 가능성도 있습니다."
+            }
+            is RandomQuizUiState.Loading -> {
+                // Loading 상태에서는 기존 퀴즈 유지 (깜빡임 방지)
+            }
+        }
+    }
+    
+    // BaseQuizScreen 항상 표시 (null 체크 제거로 깜빡임 방지)
     BaseQuizScreen(
         title = "랜덤 퀴즈",
         quizType = QuizType.RANDOM,
+        currentQuiz = currentQuizItem,
         onBackClick = onBackClick,
         onQuizResult = { result ->
             quizResult = result
@@ -27,24 +69,18 @@ fun RandomQuizScreen(
         if (showResult) {
             RandomQuizResultDialog(
                 isCorrect = result.isCorrect,
-                onDismiss = { showResult = false },
+                explanation = explanation,
+                onDismiss = { 
+                    showResult = false
+                    onBackToLearn()
+                },
                 onMoreQuiz = { 
-                    currentQuizList = getRandomQuizList()
+                    viewModel.getNewQuiz()
                     showResult = false 
                 }
             )
         }
     }
-}
-
-private fun getRandomQuizList(): List<QuizItem> {
-    return listOf(
-        QuizItem("주식의 PER이 높으면 기업의 성장 가능성이 높다?", true),
-        QuizItem("채권의 금리가 상승하면 채권 가격은 하락한다?", true),
-        QuizItem("분산투자는 위험을 증가시킨다?", false),
-        QuizItem("배당수익률이 높을수록 항상 좋은 투자이다?", false),
-        QuizItem("인플레이션은 현금의 가치를 감소시킨다?", true)
-    )
 }
 
 @Preview(showBackground = true)

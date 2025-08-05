@@ -373,7 +373,7 @@ fun WordCard(
                         modifier = Modifier
                             .size(32.dp)
                             .background(
-                                color = Color(0xFF4CAF50),
+                                color = Color(0xFF74DC89),
                                 shape = RoundedCornerShape(16.dp)
                             ),
                         contentAlignment = Alignment.Center
@@ -391,7 +391,7 @@ fun WordCard(
                         modifier = Modifier
                             .size(32.dp)
                             .background(
-                                color = Color(0xFFF44336),
+                                color = Color(0xFFF16767),
                                 shape = RoundedCornerShape(16.dp)
                             ),
                         contentAlignment = Alignment.Center
