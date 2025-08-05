@@ -4,6 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import com.lago.app.R
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,9 +41,7 @@ fun AnimatedHeaderBox(
     val priceScale = 1f - (headerAlignmentProgress * 0.4f) // 1f -> 0.6f
     val layoutTransition = headerAlignmentProgress // 레이아웃 전환 진행도
     
-    // 폰트 사이즈 계산 - 57px에 가깝게 조정
-    val titleFontSize = 40f - (headerAlignmentProgress * 22f) // 40 -> 18 (57px에 가까운 크기)
-    val priceFontSize = 32f - (headerAlignmentProgress * 16f) // 32 -> 16
+    // Theme Typography 사용 - 정의된 스타일 사용
     
     // 부드러운 전환을 위한 easing 함수
     val easeInOut = { progress: Float ->
@@ -58,7 +60,7 @@ fun AnimatedHeaderBox(
             .offset(y = (72f + boxTranslationY + contentOffsetY).dp)
             .height(boxHeight.dp)
             .background(
-                color = Color.White.copy(alpha = boxAlpha),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = boxAlpha),
                 shape = RoundedCornerShape(boxCornerRadius.dp)
             )
             .zIndex(2f)
@@ -71,7 +73,7 @@ fun AnimatedHeaderBox(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
+                    .padding(Spacing.md)
                     .alpha((1f - easedTransition).coerceAtLeast(0f))
                     .graphicsLayer {
                         translationY = -easedTransition * 10f // 부드러운 이동
@@ -82,12 +84,11 @@ fun AnimatedHeaderBox(
             ) {
                 Text(
                     text = stockInfo.name,
-                    fontSize = titleFontSize.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Gray900
+                    style = SubtitleSb24,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Spacing.sm))
 
                 // 가격과 수익률을 한 줄에 배치
                 Row(
@@ -95,29 +96,36 @@ fun AnimatedHeaderBox(
                 ) {
                     Text(
                         text = "${String.format("%.0f", stockInfo.currentPrice)}원",
-                        fontSize = priceFontSize.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Gray900,
-                        lineHeight = 36.sp
+                        style = HeadEb32,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(Spacing.sm + Spacing.xs))
                     
                     val isPositive = stockInfo.priceChange >= 0
-                    Text(
-                        text = "${if (isPositive) "▲" else "▼"}${String.format("%.0f", abs(stockInfo.priceChange))}원",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isPositive) MainPink else MainBlue
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            painter = painterResource(if (isPositive) R.drawable.up_triangle else R.drawable.down_triangle),
+                            contentDescription = null,
+                            tint = if (isPositive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(Spacing.xs))
+                        Text(
+                            text = "${String.format("%.0f", abs(stockInfo.priceChange))}원",
+                            style = SubtitleSb14,
+                            color = if (isPositive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+                        )
+                    }
                     
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(Spacing.xs))
                     
                     Text(
                         text = "${if (isPositive) "+" else "-"}${String.format("%.2f", stockInfo.priceChangePercent)}%",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (isPositive) MainPink else MainBlue
+                        style = SubtitleSb14,
+                        color = if (isPositive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -126,7 +134,7 @@ fun AnimatedHeaderBox(
             Column(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .padding(start = 48.dp) // 뒤로가기 버튼(24dp) + 여백(24dp) = 48dp
+                    .padding(start = Spacing.xxxl - Spacing.md) // 뒤로가기 버튼 + 여백
                     .alpha(easedTransition.coerceAtLeast(0f))
                     .graphicsLayer {
                         translationY = (1f - easedTransition) * 10f // 부드러운 이동
@@ -135,9 +143,8 @@ fun AnimatedHeaderBox(
                 // 주가 타이틀
                 Text(
                     text = stockInfo.name,
-                    fontSize = (18f + (1f - easedTransition) * 6f).sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Gray900
+                    style = SubtitleSb16,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Spacer(modifier = Modifier.height(2.dp))
@@ -148,20 +155,29 @@ fun AnimatedHeaderBox(
                 ) {
                     Text(
                         text = "${String.format("%.0f", stockInfo.currentPrice)}원",
-                        fontSize = (14f + (1f - easedTransition) * 2f).sp, // 더 작은 크기
-                        fontWeight = FontWeight.Medium,
-                        color = Gray900
+                        style = BodyR14,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(Spacing.xs + 2.dp))
 
                     val isPositive = stockInfo.priceChange >= 0
-                    Text(
-                        text = "${if (isPositive) "▲+" else "▼"}${String.format("%.2f", stockInfo.priceChangePercent)}%",
-                        fontSize = 12.sp, // 더 작은 크기
-                        fontWeight = FontWeight.Medium,
-                        color = if (isPositive) MainPink else MainBlue
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            painter = painterResource(if (isPositive) R.drawable.up_triangle else R.drawable.down_triangle),
+                            contentDescription = null,
+                            tint = if (isPositive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(10.dp)
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(
+                            text = "${String.format("%.2f", stockInfo.priceChangePercent)}%",
+                            style = SubtitleSb14,
+                            color = if (isPositive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
         }

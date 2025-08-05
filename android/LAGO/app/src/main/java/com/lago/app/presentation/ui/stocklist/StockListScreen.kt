@@ -37,7 +37,7 @@ fun StockListScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             StockListTopBar(
@@ -50,17 +50,17 @@ fun StockListScreen(
                     SearchBar(
                         query = uiState.searchQuery,
                         onQueryChange = { viewModel.onSearchQueryChange(it) },
-                        modifier = Modifier.padding(16.dp)
+                        modifier = Modifier.padding(Spacing.md)
                     )
                     FilterChips(
                         selectedFilters = uiState.selectedFilters,
                         onFilterChange = { viewModel.onFilterChange(it) },
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                        modifier = Modifier.padding(horizontal = Spacing.md)
                     )
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        contentPadding = PaddingValues(Spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm + Spacing.xs)
                     ) {
                         items(uiState.filteredStocks) { stock ->
                             StockItemCard(
@@ -77,28 +77,28 @@ fun StockListScreen(
                     Text(
                         text = "관련 뉴스",
                         style = TitleB20,
-                        modifier = Modifier.padding(16.dp)
+                        modifier = Modifier.padding(Spacing.md)
                     )
                     // 뉴스 카드 리스트 (가짜 데이터 예시)
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        contentPadding = PaddingValues(Spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm + Spacing.xs)
                     ) {
                         item {
                             // 첫 번째 큰 뉴스 카드
                             Card(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
+                                Column(modifier = Modifier.padding(Spacing.md)) {
                                     Text("호재", style = SubtitleSb14, color = MainPink)
-                                    Spacer(Modifier.height(8.dp))
+                                    Spacer(Modifier.height(Spacing.sm))
                                     Text(
                                         "서정진 “셀트리온, 관세 리스크 완전 해소…연 4.6조 매출 예상”",
                                         style = TitleB16
                                     )
-                                    Spacer(Modifier.height(4.dp))
+                                    Spacer(Modifier.height(Spacing.xs))
                                     Text("27분전", style = BodyR12, color = Gray600)
                                 }
                             }
@@ -106,13 +106,13 @@ fun StockListScreen(
                         // 나머지 뉴스들
                         items(3) { idx ->
                             Card(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Row(modifier = Modifier.padding(12.dp)) {
+                                Row(modifier = Modifier.padding(Spacing.sm + Spacing.xs)) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text("중립", style = SubtitleSb14, color = Gray900)
-                                        Spacer(Modifier.height(4.dp))
+                                        Spacer(Modifier.height(Spacing.xs))
                                         Text(
                                             "코스피 하락세 지속, 외국인 매도물량 증가로 인한 시장 불안감 확산",
                                             style = BodyR14
@@ -138,12 +138,12 @@ private fun StockListTopBar(
     Column {
         TabRow(
             selectedTabIndex = selectedTab,
-            containerColor = Color.White,
-            contentColor = Gray900,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
                     modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = Gray900,
+                    color = MaterialTheme.colorScheme.onSurface,
                     height = 2.dp
                 )
             }
@@ -155,7 +155,7 @@ private fun StockListTopBar(
                     Text(
                         "모의 투자",
                         style = TitleB16,
-                        color = if (selectedTab == 0) Gray900 else Gray600
+                        color = if (selectedTab == 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             )
@@ -166,7 +166,7 @@ private fun StockListTopBar(
                     Text(
                         "역사 챌린지",
                         style = TitleB16,
-                        color = if (selectedTab == 1) Gray900 else Gray600
+                        color = if (selectedTab == 1) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             )
@@ -190,19 +190,19 @@ private fun SearchBar(
             Text(
                 "검색하기...",
                 style = BodyR14,
-                color = Gray600
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
         leadingIcon = {
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = "검색",
-                tint = Gray600
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            unfocusedBorderColor = Gray300,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
             focusedBorderColor = MainPink
         ),
         singleLine = true
@@ -219,7 +219,7 @@ private fun FilterChips(
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         filters.forEach { filter ->
             FilterChip(
@@ -233,7 +233,7 @@ private fun FilterChips(
                 },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MainPink,
-                    selectedLabelColor = Color.White
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
         }
@@ -250,14 +250,14 @@ private fun StockItemCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // 로고
@@ -265,30 +265,29 @@ private fun StockItemCard(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(MainBlue),
+                    .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = stock.name.take(2),
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    style = TitleB16
                 )
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(Spacing.sm + Spacing.xs))
 
             // 종목 정보
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stock.name,
                     style = TitleB16,
-                    color = Gray900
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "${String.format("%,d", stock.currentPrice)}원",
                     style = SubtitleSb14,
-                    color = Gray900
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -297,11 +296,22 @@ private fun StockItemCard(
                 val isPositive = stock.priceChangePercent >= 0
                 val changeColor = if (isPositive) MainPink else MainBlue
 
-                Text(
-                    text = "${if (isPositive) "▲" else "▼"}${String.format("%,d", kotlin.math.abs(stock.priceChange))}원",
-                    style = SubtitleSb14,
-                    color = changeColor
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(if (isPositive) R.drawable.up_triangle else R.drawable.down_triangle),
+                        contentDescription = null,
+                        tint = changeColor,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.xs))
+                    Text(
+                        text = "${String.format("%,d", kotlin.math.abs(stock.priceChange))}원",
+                        style = SubtitleSb14,
+                        color = changeColor
+                    )
+                }
                 Text(
                     text = "(${if (isPositive) "+" else ""}${String.format("%.2f", stock.priceChangePercent)}%)",
                     style = BodyR12,
@@ -309,14 +319,14 @@ private fun StockItemCard(
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(Spacing.sm))
 
             // 즐겨찾기 버튼
             IconButton(onClick = onFavoriteClick) {
                 Icon(
-                    painter = if (stock.isFavorite) painterResource(R.drawable.mdi_heart) else painterResource(R.drawable.heart),
+                    painter = if (stock.isFavorite) painterResource(R.drawable.pink_heart) else painterResource(R.drawable.blank_heart),
                     contentDescription = "관심종목",
-                    tint = if (stock.isFavorite) MainPink else Gray600,
+                    tint = if (stock.isFavorite) Color.Unspecified else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
             }

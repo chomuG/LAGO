@@ -3,6 +3,9 @@ package com.lago.app.presentation.ui.widget
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import com.lago.app.R
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -119,19 +122,30 @@ fun DockingHeader(
         )
         
         // 변동금액
-        Text(
-            text = "${if (isPositive) "▲" else "▼"}${String.format("%.0f", abs(stockInfo.priceChange))}원",
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .layoutId("change")
                 .graphicsLayer {
                     scaleX = changeScale
                     scaleY = changeScale
-                },
-            style = TitleB16.copy(
-                fontSize = (16f - progress * 2f).sp
-            ),
-            color = changeColor
-        )
+                }
+        ) {
+            Icon(
+                painter = painterResource(if (isPositive) R.drawable.up_triangle else R.drawable.down_triangle),
+                contentDescription = null,
+                tint = changeColor,
+                modifier = Modifier.size(12.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "${String.format("%.0f", abs(stockInfo.priceChange))}원",
+                style = TitleB16.copy(
+                    fontSize = (16f - progress * 2f).sp
+                ),
+                color = changeColor
+            )
+        }
         
         // 변동률
         Text(
