@@ -75,6 +75,9 @@ import com.lago.app.presentation.ui.chart.v5.MultiPanelChart
 import com.lago.app.presentation.ui.chart.v5.DataConverter
 import com.lago.app.presentation.ui.chart.v5.toEnabledIndicators
 import kotlin.math.absoluteValue
+// Character Dialog import
+import com.lago.app.presentation.components.CharacterSelectionDialog
+import com.lago.app.presentation.components.CharacterInfo
 
 
 // 바텀시트 상태 열거형
@@ -98,6 +101,9 @@ fun ChartScreen(
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp
     val coroutineScope = rememberCoroutineScope()
+    
+    // Character selection dialog state
+    var showCharacterDialog by remember { mutableStateOf(false) }
 
     // 투자 탭에서 선택된 주식 코드로 차트 데이터 로드
     LaunchedEffect(stockCode) {
@@ -397,7 +403,7 @@ fun ChartScreen(
                 onFavoriteClick = { viewModel.onEvent(ChartUiEvent.ToggleFavorite) },
                 stockInfo = uiState.currentStock,
                 onSettingsClick = { viewModel.onEvent(ChartUiEvent.ToggleIndicatorSettings) },
-                onNavigateToAIDialog = onNavigateToAIDialog,
+                onNavigateToAIDialog = { showCharacterDialog = true },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -585,6 +591,18 @@ fun ChartScreen(
             ) {
                 CircularProgressIndicator(color = Color(0xFFFF69B4))
             }
+        }
+        
+        // Character Selection Dialog
+        if (showCharacterDialog) {
+            CharacterSelectionDialog(
+                onDismiss = { showCharacterDialog = false },
+                onConfirm = { character ->
+                    // 선택한 캐릭터 처리
+                    println("선택된 캐릭터: ${character.name}")
+                    showCharacterDialog = false
+                }
+            )
         }
     }
 }
