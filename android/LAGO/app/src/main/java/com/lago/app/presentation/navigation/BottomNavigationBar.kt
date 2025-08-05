@@ -31,7 +31,7 @@ fun BottomNavigationBar(
 
     NavigationBar(
         modifier = Modifier
-            .height(72.dp)
+            .height(114.dp)
             .shadow(
                 elevation = 8.dp
             ),

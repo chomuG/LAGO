@@ -207,10 +207,10 @@ fun AnimatedCalendarIcon() {
     
     val bounceY by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = -8f,
+        targetValue = -12f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = 2000,
+                durationMillis = 1000,
                 easing = EaseInOutSine
             ),
             repeatMode = RepeatMode.Reverse
