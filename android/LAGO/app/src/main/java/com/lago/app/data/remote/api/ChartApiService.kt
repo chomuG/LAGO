@@ -85,4 +85,34 @@ interface ChartApiService {
     suspend fun getFavorites(
         @Header("Authorization") token: String
     ): FavoritesResponse
+
+    /**
+     * 주식 목록 조회 (카테고리별)
+     */
+    @GET("api/stocks")
+    suspend fun getStockList(
+        @Query("category") category: String? = null, // "kospi", "kosdaq", "favorites", "trending"
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+        @Query("sort") sort: String = "code", // "code", "name", "price", "changeRate"
+        @Query("search") search: String? = null
+    ): StockListResponse
+
+    /**
+     * 인기 주식 목록 조회
+     */
+    @GET("api/stocks/trending")
+    suspend fun getTrendingStocks(
+        @Query("limit") limit: Int = 20
+    ): StockListResponse
+
+    /**
+     * 주식 검색
+     */
+    @GET("api/stocks/search")
+    suspend fun searchStocks(
+        @Query("query") query: String,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20
+    ): StockListResponse
 }

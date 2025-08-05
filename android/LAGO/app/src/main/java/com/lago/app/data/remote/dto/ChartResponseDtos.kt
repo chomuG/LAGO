@@ -137,3 +137,31 @@ data class FavoritesResponse(
     @SerializedName("success") val success: Boolean,
     @SerializedName("data") val data: List<String> // Stock codes
 )
+
+// Stock List Response
+data class StockListResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("data") val data: StockListPageDto
+)
+
+data class StockListPageDto(
+    @SerializedName("content") val content: List<StockItemDto>,
+    @SerializedName("page") val page: Int,
+    @SerializedName("size") val size: Int,
+    @SerializedName("total_elements") val totalElements: Long,
+    @SerializedName("total_pages") val totalPages: Int
+)
+
+data class StockItemDto(
+    @SerializedName("code") val code: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("market") val market: String, // "KOSPI", "KOSDAQ"
+    @SerializedName("current_price") val currentPrice: Int,
+    @SerializedName("price_change") val priceChange: Int,
+    @SerializedName("price_change_percent") val priceChangePercent: Double,
+    @SerializedName("volume") val volume: Long,
+    @SerializedName("market_cap") val marketCap: Long?,
+    @SerializedName("sector") val sector: String?,
+    @SerializedName("is_favorite") val isFavorite: Boolean = false,
+    @SerializedName("updated_at") val updatedAt: String
+)

@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lago.app.presentation.theme.*
 import com.lago.app.presentation.viewmodel.stocklist.StockListViewModel
-import com.lago.app.presentation.viewmodel.stocklist.StockItem
+import com.lago.app.domain.entity.StockItem
 
 @Composable
 fun StockListScreen(
@@ -294,16 +294,16 @@ private fun StockItemCard(
 
             // 변동률
             Column(horizontalAlignment = Alignment.End) {
-                val isPositive = stock.changeRate >= 0
+                val isPositive = stock.priceChangePercent >= 0
                 val changeColor = if (isPositive) MainPink else MainBlue
 
                 Text(
-                    text = "${if (isPositive) "▲" else "▼"}${String.format("%,d", kotlin.math.abs(stock.change))}원",
+                    text = "${if (isPositive) "▲" else "▼"}${String.format("%,d", kotlin.math.abs(stock.priceChange))}원",
                     style = SubtitleSb14,
                     color = changeColor
                 )
                 Text(
-                    text = "(${if (isPositive) "+" else ""}${String.format("%.2f", stock.changeRate)}%)",
+                    text = "(${if (isPositive) "+" else ""}${String.format("%.2f", stock.priceChangePercent)}%)",
                     style = BodyR12,
                     color = changeColor
                 )

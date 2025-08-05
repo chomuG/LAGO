@@ -98,7 +98,7 @@ fun ChartScreen(
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp
     val coroutineScope = rememberCoroutineScope()
-    
+
     // 투자 탭에서 선택된 주식 코드로 차트 데이터 로드
     LaunchedEffect(stockCode) {
         stockCode?.let { code ->
@@ -173,7 +173,7 @@ fun ChartScreen(
         val currentOffset = (sheetAnimY.value - sheetPositions.collapsed).coerceAtMost(0f)
         (currentOffset * 0.3f).coerceAtLeast(maxOffset).toDp()
     }
-    
+
     // 시간버튼만 올라가도록 오프셋 설정
     val timeButtonOffsetY = with(density) {
         val currentOffset = (sheetAnimY.value - sheetPositions.collapsed).coerceAtMost(0f)
@@ -273,7 +273,7 @@ fun ChartScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         // 1. 메인 콘텐츠 (앱바 아래까지만 올라감) - 바텀시트 높이에 따른 패딩 조정
         // 시간 버튼이 바텀시트로 이동했으므로 기본 패딩만 사용
-        
+
         // 1. 배경 영역
         Box(
             modifier = Modifier
@@ -286,22 +286,22 @@ fun ChartScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = buttonBarHeight)
-                .offset(y = with(density) { 
+                .offset(y = with(density) {
                     val maxUpwardOffset = -56.dp.toPx()
                     val offset = sheetAnimY.value - sheetPositions.collapsed
                     val halfExpandedOffset = sheetPositions.halfExpanded - sheetPositions.collapsed
                     val initialDownwardOffset = 30.dp.toPx() // 초기 위치를 30dp 아래로
-                    
+
                     // 중단까지만 움직이고, 중단->상단에서는 고정
                     (offset.coerceIn(halfExpandedOffset, 0f).coerceAtLeast(maxUpwardOffset) + initialDownwardOffset).toDp()
                 })
         ) {
             // 앱바 영역 (고정)
             Spacer(modifier = Modifier.height(56.dp))
-            
+
             // 헤더 영역 (최소화)
             Spacer(modifier = Modifier.height((80f - (headerAlignmentProgress * 40f)).dp))
-            
+
             // 차트 영역 (패널 디바이더 포함)
             Box(
                 modifier = Modifier
@@ -312,7 +312,7 @@ fun ChartScreen(
                             val maxUpwardOffset = -56.dp.toPx()
                             val currentOffset = sheetAnimY.value - sheetPositions.collapsed
                             val halfExpandedOffset = sheetPositions.halfExpanded - sheetPositions.collapsed
-                            
+
                             when {
                                 // 중단->상단: 중단에서의 압축된 높이 유지
                                 currentOffset <= halfExpandedOffset -> {
@@ -342,7 +342,7 @@ fun ChartScreen(
                     enabledIndicators = uiState.config.indicators.toEnabledIndicators(),
                     timeFrame = uiState.config.timeFrame
                 )
-                
+
                 MultiPanelChart(
                     data = multiPanelData,
                     timeFrame = uiState.config.timeFrame,
@@ -360,10 +360,10 @@ fun ChartScreen(
                     }
                 )
             }
-            
+
             // 차트와 시간버튼 사이 간격 최소화
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // 시간버튼 영역
             TimeFrameSelection(
                 selectedTimeFrame = uiState.config.timeFrame,
@@ -374,7 +374,7 @@ fun ChartScreen(
                     .background(Color.White)
                     .padding(horizontal = 16.dp, vertical = 4.dp)
             )
-            
+
             // 시간버튼과 바텀시트 사이 간격 최소화
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -389,7 +389,7 @@ fun ChartScreen(
                 .zIndex(1f)
         ) {
             TopAppBar(
-                onBackClick = { 
+                onBackClick = {
                     viewModel.onEvent(ChartUiEvent.BackPressed)
                     onNavigateBack()
                 },
@@ -487,7 +487,7 @@ fun ChartScreen(
                             with(density) {
                                 val currentProgress = (sheetPositions.collapsed - sheetAnimY.value) / (sheetPositions.collapsed - sheetPositions.expanded)
                                 val progress = currentProgress.coerceIn(0f, 1f)
-                                
+
                                 // 160dp(collapsed) ~ 550dp(expanded) 사이에서 실시간 보간
                                 val minHeight = 160.dp
                                 val maxHeight = 550.dp
@@ -517,7 +517,7 @@ fun ChartScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Button(
-                    onClick = { 
+                    onClick = {
                         viewModel.onEvent(ChartUiEvent.SellClicked)
                         onNavigateToStockPurchase(uiState.currentStock.code, "sell")
                     },
@@ -541,7 +541,7 @@ fun ChartScreen(
                 }
 
                 Button(
-                    onClick = { 
+                    onClick = {
                         viewModel.onEvent(ChartUiEvent.BuyClicked)
                         onNavigateToStockPurchase(uiState.currentStock.code, "buy")
                     },
@@ -635,7 +635,7 @@ private fun TopAppBar(
                 modifier = Modifier.size(20.dp)
             )
         }
-        
+
         IconButton(
             onClick = { onNavigateToAIDialog() },
             modifier = Modifier.semantics {
@@ -649,7 +649,7 @@ private fun TopAppBar(
                 modifier = Modifier.size(24.dp)
             )
         }
-        
+
         IconButton(
             onClick = onSettingsClick,
             modifier = Modifier.semantics {
@@ -836,7 +836,7 @@ private fun BottomSheetContent(
             tabTitles.forEachIndexed { index, title ->
                 Tab(
                     selected = selectedTabIndex == index,
-                    onClick = { 
+                    onClick = {
                         viewModel.onEvent(ChartUiEvent.ChangeBottomTab(index))
                     },
                     text = {
@@ -944,7 +944,7 @@ private fun HoldingItemRow(item: HoldingItem) {
                 "하이트진로맥주" -> Color(0xFFED1C24)
                 else -> Color(0xFF666666)
             }
-            
+
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -990,11 +990,11 @@ private fun HoldingItemRow(item: HoldingItem) {
                 color = Gray900,
                 fontWeight = FontWeight.SemiBold
             )
-            
+
             val isPositive = item.change >= 0
             val changeColor = if (isPositive) MainPink else MainBlue
             val changeSymbol = if (isPositive) "▲" else "▼"
-            
+
             Text(
                 text = "$changeSymbol${String.format("%+,d", (item.value * item.change / 100).toInt())}원 (${String.format("%.2f", item.change.absoluteValue)}%)",
                 fontSize = 12.sp,
@@ -1017,7 +1017,7 @@ private fun TradingHistoryContent(
     val filteredHistory = history.filter { tradingItem ->
         tradingItem.stockCode == currentStockCode
     }
-    
+
     if (filteredHistory.isEmpty()) {
         Box(
             modifier = Modifier
@@ -1061,7 +1061,7 @@ private fun TradingItemRow(item: TradingItem) {
             val isBuy = item.type == "구매"
             val iconColor = if (isBuy) MainPink else MainBlue
             val iconText = if (isBuy) "구매" else "판매"
-            
+
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -1256,7 +1256,7 @@ private fun IndicatorSettingsDialog(
                         )
                     )
                 }
-                
+
                 // RSI 지표
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1278,7 +1278,7 @@ private fun IndicatorSettingsDialog(
                         )
                     )
                 }
-                
+
                 // MACD 지표
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1300,7 +1300,7 @@ private fun IndicatorSettingsDialog(
                         )
                     )
                 }
-                
+
                 // SMA5 지표
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1322,7 +1322,7 @@ private fun IndicatorSettingsDialog(
                         )
                     )
                 }
-                
+
                 // SMA20 지표
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1344,7 +1344,7 @@ private fun IndicatorSettingsDialog(
                         )
                     )
                 }
-                
+
                 // Bollinger Bands 지표
                 Row(
                     modifier = Modifier.fillMaxWidth(),

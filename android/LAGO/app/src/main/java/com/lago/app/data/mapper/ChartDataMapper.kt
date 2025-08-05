@@ -102,4 +102,35 @@ object ChartDataMapper {
     fun List<TradingDto>.toTradingItemList(): List<TradingItem> {
         return map { it.toDomain() }
     }
+
+    // StockList mappers
+    fun StockItemDto.toDomain(): StockItem {
+        return StockItem(
+            code = code,
+            name = name,
+            market = market,
+            currentPrice = currentPrice,
+            priceChange = priceChange,
+            priceChangePercent = priceChangePercent,
+            volume = volume,
+            marketCap = marketCap,
+            sector = sector,
+            isFavorite = isFavorite,
+            updatedAt = updatedAt
+        )
+    }
+
+    fun StockListPageDto.toDomain(): StockListPage {
+        return StockListPage(
+            content = content.map { it.toDomain() },
+            page = page,
+            size = size,
+            totalElements = totalElements,
+            totalPages = totalPages
+        )
+    }
+
+    fun List<StockItemDto>.toStockItemList(): List<StockItem> {
+        return map { it.toDomain() }
+    }
 }

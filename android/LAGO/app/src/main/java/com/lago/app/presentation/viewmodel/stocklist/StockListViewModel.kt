@@ -2,6 +2,9 @@ package com.lago.app.presentation.viewmodel.stocklist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lago.app.domain.entity.StockItem
+import com.lago.app.domain.repository.StockListRepository
+import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -9,27 +12,21 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class StockItem(
-    val code: String,
-    val name: String,
-    val currentPrice: Int,
-    val change: Int,
-    val changeRate: Double,
-    val isFavorite: Boolean = false
-)
-
 data class StockListUiState(
     val selectedTab: Int = 0,
     val searchQuery: String = "",
     val selectedFilters: List<String> = emptyList(),
     val stocks: List<StockItem> = emptyList(),
     val filteredStocks: List<StockItem> = emptyList(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+    val currentPage: Int = 0,
+    val hasMoreData: Boolean = true
 )
 
 @HiltViewModel
 class StockListViewModel @Inject constructor(
-    // repository 주입
+    private val stockListRepository: StockListRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StockListUiState())
@@ -39,39 +36,142 @@ class StockListViewModel @Inject constructor(
         loadStocks()
     }
 
-    private fun loadStocks() {
+    private fun loadStocks(isRefresh: Boolean = false) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            if (isRefresh) {
+                _uiState.update { it.copy(currentPage = 0, hasMoreData = true, stocks = emptyList()) }
+            }
+            
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            // API 호출 또는 로컬 데이터 로드
-            val stocks = listOf(
-                StockItem("005930", "삼성전자", 71500, 1500, 2.14, true),
-                StockItem("000660", "SK하이닉스", 125000, -1500, -1.19),
-                StockItem("035420", "NAVER", 180000, 2500, 1.41),
-                StockItem("051910", "LG화학", 445000, -5000, -1.11),
-                StockItem("006400", "삼성SDI", 750000, 15000, 2.04, true),
-                StockItem("035720", "카카오", 95000, -2000, -2.06),
-                StockItem("207940", "삼성바이오로직스", 820000, 10000, 1.23)
-            )
+            val currentState = _uiState.value
+            val category = when (currentState.selectedTab) {
+                0 -> null // 전체
+                1 -> "kospi"
+                2 -> "kosdaq"
+                3 -> "favorites"
+                else -> null
+            }
 
-            _uiState.update {
-                it.copy(
-                    stocks = stocks,
-                    filteredStocks = stocks,
-                    isLoading = false
-                )
+            stockListRepository.getStockList(
+                category = category,
+                page = currentState.currentPage,
+                size = 20,
+                sort = getSortType(),
+                search = if (currentState.searchQuery.isNotEmpty()) currentState.searchQuery else null
+            ).collect { resource ->
+                when (resource) {
+                    is Resource.Loading -> {
+                        _uiState.update { it.copy(isLoading = true) }
+                    }
+                    is Resource.Success -> {
+                        val stockListPage = resource.data!!
+                        val newStocks = if (isRefresh || currentState.currentPage == 0) {
+                            stockListPage.content
+                        } else {
+                            currentState.stocks + stockListPage.content
+                        }
+                        
+                        _uiState.update {
+                            it.copy(
+                                stocks = newStocks,
+                                filteredStocks = newStocks,
+                                isLoading = false,
+                                errorMessage = null,
+                                currentPage = stockListPage.page,
+                                hasMoreData = stockListPage.page < stockListPage.totalPages - 1
+                            )
+                        }
+                        filterStocks()
+                    }
+                    is Resource.Error -> {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = resource.message
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 
+    private fun getSortType(): String {
+        val filters = _uiState.value.selectedFilters
+        return when {
+            filters.contains("이름") -> "name"
+            filters.contains("현재가") -> "price"
+            filters.contains("등락률") -> "changeRate"
+            else -> "code"
+        }
+    }
+
+    fun loadMoreStocks() {
+        val currentState = _uiState.value
+        if (!currentState.isLoading && currentState.hasMoreData) {
+            _uiState.update { it.copy(currentPage = it.currentPage + 1) }
+            loadStocks()
+        }
+    }
+
+    fun refreshStocks() {
+        loadStocks(isRefresh = true)
+    }
+
     fun onTabChange(tabIndex: Int) {
         _uiState.update { it.copy(selectedTab = tabIndex) }
-        // 탭에 따라 다른 데이터 로드
+        refreshStocks() // 탭 변경 시 새로운 데이터 로드
     }
 
     fun onSearchQueryChange(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
-        filterStocks()
+        
+        if (query.isNotEmpty()) {
+            // 검색 API 호출
+            searchStocks(query)
+        } else {
+            // 검색어가 비어있으면 기본 목록으로 복원
+            refreshStocks()
+        }
+    }
+
+    private fun searchStocks(query: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+
+            stockListRepository.searchStocks(
+                query = query,
+                page = 0,
+                size = 50
+            ).collect { resource ->
+                when (resource) {
+                    is Resource.Loading -> {
+                        _uiState.update { it.copy(isLoading = true) }
+                    }
+                    is Resource.Success -> {
+                        val stockListPage = resource.data!!
+                        _uiState.update {
+                            it.copy(
+                                stocks = stockListPage.content,
+                                filteredStocks = stockListPage.content,
+                                isLoading = false,
+                                errorMessage = null
+                            )
+                        }
+                        filterStocks()
+                    }
+                    is Resource.Error -> {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = resource.message
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fun onFilterChange(filter: String) {
@@ -83,48 +183,100 @@ class StockListViewModel @Inject constructor(
             }
             state.copy(selectedFilters = newFilters)
         }
-        filterStocks()
+        
+        // 정렬 필터가 변경된 경우 새로운 데이터 로드
+        if (filter in listOf("이름", "현재가", "등락률")) {
+            refreshStocks()
+        } else {
+            filterStocks()
+        }
     }
 
     fun toggleFavorite(stockCode: String) {
-        _uiState.update { state ->
-            val updatedStocks = state.stocks.map { stock ->
-                if (stock.code == stockCode) {
-                    stock.copy(isFavorite = !stock.isFavorite)
-                } else {
-                    stock
+        viewModelScope.launch {
+            stockListRepository.toggleFavorite(stockCode).collect { resource ->
+                when (resource) {
+                    is Resource.Success -> {
+                        // 성공 시 UI 상태 업데이트
+                        _uiState.update { state ->
+                            val updatedStocks = state.stocks.map { stock ->
+                                if (stock.code == stockCode) {
+                                    stock.copy(isFavorite = !stock.isFavorite)
+                                } else {
+                                    stock
+                                }
+                            }
+                            state.copy(stocks = updatedStocks)
+                        }
+                        filterStocks()
+                    }
+                    is Resource.Error -> {
+                        // 에러 처리 (토스트 메시지 등)
+                        _uiState.update { it.copy(errorMessage = resource.message) }
+                    }
+                    is Resource.Loading -> {
+                        // 로딩 상태 처리 (필요시)
+                    }
                 }
             }
-            state.copy(stocks = updatedStocks)
         }
-        filterStocks()
     }
 
     private fun filterStocks() {
         _uiState.update { state ->
             var filtered = state.stocks
 
-            // 검색어 필터
-            if (state.searchQuery.isNotEmpty()) {
-                filtered = filtered.filter {
-                    it.name.contains(state.searchQuery, ignoreCase = true)
-                }
-            }
-
-            // 관심목록 필터
+            // 관심목록 필터 (검색은 이미 API에서 처리됨)
             if (state.selectedFilters.contains("관심목록")) {
                 filtered = filtered.filter { it.isFavorite }
             }
 
-            // 정렬
+            // 로컬 정렬 (API 정렬과 함께 사용)
             filtered = when {
                 state.selectedFilters.contains("이름") -> filtered.sortedBy { it.name }
                 state.selectedFilters.contains("현재가") -> filtered.sortedByDescending { it.currentPrice }
-                state.selectedFilters.contains("등락률") -> filtered.sortedByDescending { it.changeRate }
+                state.selectedFilters.contains("등락률") -> filtered.sortedByDescending { it.priceChangePercent }
                 else -> filtered
             }
 
             state.copy(filteredStocks = filtered)
+        }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    fun getTrendingStocks() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+
+            stockListRepository.getTrendingStocks(20).collect { resource ->
+                when (resource) {
+                    is Resource.Loading -> {
+                        _uiState.update { it.copy(isLoading = true) }
+                    }
+                    is Resource.Success -> {
+                        val trendingStocks = resource.data!!
+                        _uiState.update {
+                            it.copy(
+                                stocks = trendingStocks,
+                                filteredStocks = trendingStocks,
+                                isLoading = false,
+                                errorMessage = null
+                            )
+                        }
+                    }
+                    is Resource.Error -> {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = resource.message
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
