@@ -92,7 +92,11 @@ def find_pennant(ohlc: pd.DataFrame, lookback: int = 20, min_points: int = 3,
 
         
         # Check the correct number of pivot points have been found
-        if (xxmax.size < min_points and xxmin.size < min_points) or xxmax.size==0 or xxmin.size==0:
+        if xxmax.size < min_points or xxmin.size < min_points:
+            continue
+
+        # To prevent RuntimeWarning from linregress, check if all y-values are the same.
+        if len(np.unique(minim)) < 2 or len(np.unique(maxim)) < 2:
             continue
 
          # Run the regress to get the slope, intercepts and r-squared

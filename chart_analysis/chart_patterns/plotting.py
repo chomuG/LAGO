@@ -238,7 +238,6 @@ def _add_triangle_pattern_plot(row: Union[tuple, pd.DataFrame], fig: go.Candlest
     """
     
     if isinstance(row, pd.DataFrame):
-        print("dataframe")
         high_idx  = row["triangle_high_idx"].values[0]
         low_idx   = row["triangle_low_idx"].values[0]
         intercmin = row["triangle_intercmin"].values[0]
@@ -247,7 +246,6 @@ def _add_triangle_pattern_plot(row: Union[tuple, pd.DataFrame], fig: go.Candlest
         slmin     = row["triangle_slmin"].values[0]
         
     else:
-        print("else")
         high_idx  = row[1]["triangle_high_idx"].tolist()
         low_idx   = row[1]["triangle_low_idx"].tolist()
         intercmin = row[1]["triangle_intercmin"]
@@ -377,6 +375,17 @@ def save_chart_pattern(fig: go.Candlestick, pattern: str, row: Union[None,tuple]
          os.mkdir(os.path.join(os.path.realpath(''), "images", pattern))
     
     if row:        
+        # Get date and index from the row data
+        date_str = row[1]['date']
+        pattern_idx = row[0]
+
+        # Convert date string to a filename-friendly format
+        dt_obj = pd.to_datetime(date_str, format='%d.%m.%Y %H:%M:%S.%f')
+        date_for_filename = dt_obj.strftime('%Y-%m-%d_%H%M%S')
+        
+        # Create a unique filename
+        filename = f"{pattern}_{date_for_filename}_idx{pattern_idx}.png"
+        fig.write_image(os.path.join(os.path.realpath(''), "images", pattern, filename))
         fig.write_image(os.path.join(os.path.realpath(''), "images", pattern, f"fig{row[0]}.png"))
     else:
         fig.write_image(os.path.join(os.path.realpath(''), "images", pattern, f"fig-{pattern}.png"))
@@ -471,7 +480,7 @@ def display_chart_pattern(ohlc: pd.DataFrame, pattern: str = "flag",
             fig.show()
     elif len(pattern_points) > 1:
              
-      for row in tqdm(pattern_points.iterrows(), desc=f"Saving the {pattern} charts..."):
+        for row in tqdm(pattern_points.iterrows(), desc=f"Saving the {pattern} charts..."):
             # Get the row index
             pattern_point = row[0]
             

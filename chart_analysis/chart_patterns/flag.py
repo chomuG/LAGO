@@ -92,9 +92,13 @@ def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 
 
         
         # Check if the correct number of pivot points have been found
-        if (xxmax.size < min_points and xxmin.size < min_points) or xxmax.size==0 or xxmin.size==0:
+        if xxmax.size < min_points or xxmin.size < min_points:
             continue
         
+        # To prevent RuntimeWarning from linregress, check if all y-values are the same.
+        if len(np.unique(minim)) < 2 or len(np.unique(maxim)) < 2:
+            continue
+
         # Check the order condition of the pivot points is met
         if (np.any(np.diff(minim) < 0)) or (np.any(np.diff(maxim) < 0)):
                continue

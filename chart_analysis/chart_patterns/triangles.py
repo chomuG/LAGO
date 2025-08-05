@@ -83,8 +83,12 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
                 xxmax = np.append(xxmax, i)
 
        
-        if (xxmax.size < min_points and xxmin.size < min_points) or xxmax.size==0 or xxmin.size==0:
-               continue
+        if xxmax.size < min_points or xxmin.size < min_points:
+            continue
+
+        # To prevent RuntimeWarning from linregress, check if all y-values are the same.
+        if len(np.unique(minim)) < 2 or len(np.unique(maxim)) < 2:
+            continue
 
         slmin, intercmin, rmin, _, _ = linregress(xxmin, minim)
         slmax, intercmax, rmax, _, _ = linregress(xxmax, maxim)
