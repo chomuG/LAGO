@@ -1,5 +1,20 @@
 
 services:
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:-999}"  # Docker 그룹 ID
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=true
+
   db:
     image: mysql:8.0.43
     container_name: mysqldb
@@ -43,3 +58,6 @@ services:
       - db
       - redis
     restart: unless-stopped
+
+volumes:
+  jenkins_home:
