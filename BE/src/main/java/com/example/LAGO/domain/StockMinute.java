@@ -1,0 +1,41 @@
+package com.example.LAGO.entity;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "STOCK_MINUTE")
+@Getter
+@Setter
+@NoArgsConstructor
+public class StockMinute {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "stock_mid_id")
+    private Integer stockMidId;
+
+    // 외래키
+    @ManyToOne
+    @JoinColumn(name = "stock_info_id")
+    private StockInfo stockInfo;
+
+    @Column(name = "date", nullable = false)
+    private java.time.LocalDateTime date;
+
+    @Column(name = "open_price", nullable = false)
+    private Integer openPrice;
+
+    @Column(name = "high_price", nullable = false)
+    private Integer highPrice;
+
+    @Column(name = "low_price", nullable = false)
+    private Integer lowPrice;
+
+    @Column(name = "close_price", nullable = false)
+    private Integer closePrice;
+
+    @Column(name = "volume", nullable = false)
+    private Integer volume;
+}
