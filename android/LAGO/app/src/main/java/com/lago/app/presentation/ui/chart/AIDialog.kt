@@ -287,7 +287,7 @@ private fun MessageInputBar(
                     )
                 },
                 enabled = isEnabled,
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(8.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MainBlue,
                     unfocusedBorderColor = Gray300

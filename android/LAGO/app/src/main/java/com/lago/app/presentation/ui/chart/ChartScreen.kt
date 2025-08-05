@@ -278,7 +278,7 @@ fun ChartScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.background)
         )
 
         // 차트 + 시간버튼 분리된 구조 - 빈 공간 최소화
@@ -348,7 +348,7 @@ fun ChartScreen(
                     timeFrame = uiState.config.timeFrame,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = Spacing.md),
                     onChartReady = {
                         // Chart ready callback
                     },
@@ -362,7 +362,7 @@ fun ChartScreen(
             }
 
             // 차트와 시간버튼 사이 간격 최소화
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
 
             // 시간버튼 영역
             TimeFrameSelection(
@@ -371,12 +371,12 @@ fun ChartScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(44.dp)
-                    .background(Color.White)
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = Spacing.md, vertical = Spacing.xs)
             )
 
             // 시간버튼과 바텀시트 사이 간격 최소화
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
 
         }
 
@@ -385,7 +385,7 @@ fun ChartScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.surface)
                 .zIndex(1f)
         ) {
             TopAppBar(
@@ -513,8 +513,8 @@ fun ChartScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(horizontal = Spacing.md, vertical = Spacing.sm + Spacing.xs),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm + Spacing.xs)
             ) {
                 Button(
                     onClick = {
@@ -528,15 +528,14 @@ fun ChartScreen(
                             contentDescription = "${uiState.currentStock.name} 판매하기 버튼"
                         },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MainBlue
+                        containerColor = MaterialTheme.colorScheme.primary
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
                         "판매하기",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        style = TitleB16
                     )
                 }
 
@@ -552,15 +551,14 @@ fun ChartScreen(
                             contentDescription = "${uiState.currentStock.name} 구매하기 버튼"
                         },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MainPink
+                        containerColor = MaterialTheme.colorScheme.secondary
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
                         "구매하기",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        color = MaterialTheme.colorScheme.onSecondary,
+                        style = TitleB16
                     )
                 }
             }
@@ -608,7 +606,7 @@ private fun TopAppBar(
         IconButton(
             onClick = onBackClick,
             modifier = Modifier
-                .padding(start = 7.dp)
+                .padding(start = Spacing.xs + 3.dp)
                 .semantics {
                     contentDescription = "이전 화면으로 돌아가기"
                 }
@@ -616,7 +614,7 @@ private fun TopAppBar(
             Icon(
                 imageVector = Icons.Default.ArrowBack,
                 contentDescription = null,
-                tint = Gray700
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -629,9 +627,9 @@ private fun TopAppBar(
             }
         ) {
             Icon(
-                painter = if (isFavorite) painterResource(R.drawable.mdi_heart) else painterResource(R.drawable.heart),
+                painter = if (isFavorite) painterResource(R.drawable.pink_heart) else painterResource(R.drawable.blank_heart),
                 contentDescription = null,
-                tint = if (isFavorite) MainPink else Gray900,
+                tint = if (isFavorite) Color.Unspecified else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -645,7 +643,7 @@ private fun TopAppBar(
             Icon(
                 painter = painterResource(R.drawable.ai_button),
                 contentDescription = null,
-                tint = Gray900,
+                tint = Color.Unspecified,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -711,6 +709,7 @@ fun TimeFrameSelection(
                     }
                     .padding(horizontal = 6.dp)
                     .height(36.dp),
+                shape = RoundedCornerShape(8.dp),
                 label = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -780,6 +779,7 @@ fun TimeFrameSelection(
                     }
                     .padding(horizontal = 6.dp)
                     .height(36.dp),
+                shape = RoundedCornerShape(8.dp),
                 label = {
                     Text(
                         name,
@@ -971,14 +971,13 @@ private fun HoldingItemRow(item: HoldingItem) {
             Column {
                 Text(
                     text = item.name,
-                    fontSize = 14.sp,
-                    color = Gray900,
-                    fontWeight = FontWeight.Medium
+                    style = TitleB20,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = item.quantity,
-                    fontSize = 12.sp,
-                    color = Gray600
+                    text = "${item.quantity} · 주당 ${String.format("%,d", item.value / (item.quantity.replace("주", "").trim().toIntOrNull() ?: 1))}원",
+                    style = BodyR12,
+                    color = Gray500
                 )
             }
         }
@@ -986,21 +985,28 @@ private fun HoldingItemRow(item: HoldingItem) {
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = "${String.format("%,d", item.value)}원",
-                fontSize = 14.sp,
-                color = Gray900,
-                fontWeight = FontWeight.SemiBold
+                style = TitleB18,
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             val isPositive = item.change >= 0
-            val changeColor = if (isPositive) MainPink else MainBlue
-            val changeSymbol = if (isPositive) "▲" else "▼"
 
-            Text(
-                text = "$changeSymbol${String.format("%+,d", (item.value * item.change / 100).toInt())}원 (${String.format("%.2f", item.change.absoluteValue)}%)",
-                fontSize = 12.sp,
-                color = changeColor,
-                fontWeight = FontWeight.Medium
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(if (isPositive) R.drawable.up_triangle else R.drawable.down_triangle),
+                    contentDescription = null,
+                    tint = MainPink,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(Spacing.xs))
+                Text(
+                    text = "${String.format("%+,d", (item.value * item.change / 100).toInt())}원 (${String.format("%.2f", item.change.absoluteValue)}%)",
+                    style = BodyR14,
+                    color = MainPink
+                )
+            }
         }
     }
 }
@@ -1131,7 +1137,7 @@ private fun PatternAnalysisContent(
                     .padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(
@@ -1192,7 +1198,7 @@ private fun PatternAnalysisContent(
                 containerColor = Color(0xFF2196F3), // 파란색으로 변경
                 disabledContainerColor = Color(0xFFE0E0E0)
             ),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(8.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp)
