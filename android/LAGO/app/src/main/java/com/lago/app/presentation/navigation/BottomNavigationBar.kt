@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.lago.app.presentation.theme.MainBlue
 
 @Composable
 fun BottomNavigationBar(
@@ -78,7 +79,6 @@ fun BottomNavigationBar(
                     }
                 }
             )
-            }
         }
     }
 }

@@ -47,6 +47,12 @@ sealed class NavigationItem(
         iconRes = R.drawable.my
     )
 
+    object AIDialog : NavigationItem(
+        route = "ai_dialog",
+        title = "AI 차트 분석",
+        iconRes = R.drawable.my
+    )
+
 }
 
 val bottomNavigationItems = listOf(
