@@ -25,13 +25,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.max
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.tooling.preview.Devices
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 // 커스텀 바텀시트를 위한 imports
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -80,12 +87,50 @@ import com.lago.app.presentation.components.CharacterSelectionDialog
 import com.lago.app.presentation.components.CharacterInfo
 
 
+/**
+ * ChartScreen - Responsive trading chart screen with bottom sheet
+ * 
+ * Features:
+ * - Adaptive layout for different screen sizes (compact, standard, large, tablet)
+ * - 3-stage bottom sheet with smooth animations (collapsed, half-expanded, expanded)
+ * - Dynamic chart height based on bottom sheet state
+ * - Safe zones to prevent UI overlap
+ * - Synchronized animations with unified progress system
+ * - Minimum touch target sizes (44dp for compact, 48dp for standard)
+ * 
+ * Device Support:
+ * - Compact: <400dp width or <700dp height (small phones)
+ * - Standard: 400-600dp width (most phones)
+ * - Large: 600-700dp width (large phones, small tablets)
+ * - Tablet: >700dp width and >900dp height
+ */
+
 // 바텀시트 상태 열거형
 enum class BottomSheetState {
     COLLAPSED,     // 하단 (200dp)
     HALF_EXPANDED, // 중단 (45%)
     EXPANDED       // 상단 (75%)
 }
+
+// Screen configuration for different device types
+data class ScreenConfig(
+    val collapsedHeightRatio: Float,
+    val halfExpandedHeightRatio: Float,
+    val expandedHeightRatio: Float,
+    val buttonBarHeight: Dp,
+    val chartBaseHeightRatio: Float,
+    val minChartHeight: Dp,
+    val headerHeight: Dp,
+    val timeButtonHeight: Dp
+)
+
+// Safe zones to prevent UI overlap
+data class SafeZones(
+    val top: Dp,
+    val bottom: Dp,
+    val chartMin: Dp,
+    val bottomSheetMin: Dp
+)
 
 
 @Composable
@@ -100,7 +145,65 @@ fun ChartScreen(
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp
+    val screenWidth = configuration.screenWidthDp.dp
     val coroutineScope = rememberCoroutineScope()
+    
+    // Device classification
+    val isCompactScreen = screenWidth < 400.dp || screenHeight < 700.dp
+    val isLargeScreen = screenWidth > 600.dp
+    val isTablet = screenWidth > 700.dp && screenHeight > 900.dp
+    
+    // Screen configuration based on device type
+    val screenConfig = when {
+        isCompactScreen -> ScreenConfig(
+            collapsedHeightRatio = 0.28f,  // 원래대로 복구
+            halfExpandedHeightRatio = 0.45f,
+            expandedHeightRatio = 0.80f,
+            buttonBarHeight = 68.dp,
+            chartBaseHeightRatio = 0.30f,
+            minChartHeight = 180.dp,
+            headerHeight = 72.dp,
+            timeButtonHeight = 44.dp
+        )
+        isTablet -> ScreenConfig(
+            collapsedHeightRatio = 0.25f,
+            halfExpandedHeightRatio = 0.50f,
+            expandedHeightRatio = 0.85f,
+            buttonBarHeight = 80.dp,
+            chartBaseHeightRatio = 0.40f,
+            minChartHeight = 250.dp,
+            headerHeight = 90.dp,
+            timeButtonHeight = 56.dp
+        )
+        isLargeScreen -> ScreenConfig(
+            collapsedHeightRatio = 0.26f,
+            halfExpandedHeightRatio = 0.48f,
+            expandedHeightRatio = 0.83f,
+            buttonBarHeight = 76.dp,
+            chartBaseHeightRatio = 0.35f,
+            minChartHeight = 220.dp,
+            headerHeight = 84.dp,
+            timeButtonHeight = 52.dp
+        )
+        else -> ScreenConfig( // Standard devices (S23 등)
+            collapsedHeightRatio = 0.27f,  // 원래대로 복구
+            halfExpandedHeightRatio = 0.47f,
+            expandedHeightRatio = 0.82f,
+            buttonBarHeight = 72.dp,
+            chartBaseHeightRatio = 0.33f,
+            minChartHeight = 200.dp,
+            headerHeight = 80.dp,
+            timeButtonHeight = 48.dp
+        )
+    }
+    
+    // Safe zones
+    val safeZones = SafeZones(
+        top = 60.dp, // AppBar height
+        bottom = screenConfig.buttonBarHeight,
+        chartMin = screenConfig.minChartHeight,
+        bottomSheetMin = if (isCompactScreen) 140.dp else 160.dp
+    )
     
     // Character selection dialog state
     var showCharacterDialog by remember { mutableStateOf(false) }
@@ -112,11 +215,11 @@ fun ChartScreen(
         }
     }
 
-    // 3단계 높이 정의 (원래 ChartSample.kt 참고)
-    val collapsedHeight = 225.dp
-    val halfExpandedHeight = screenHeight * 0.50f  // 50%
-    val expandedHeight = screenHeight * 0.85f
-    val buttonBarHeight = 76.dp
+    // 3단계 높이 정의 - 반응형
+    val collapsedHeight = screenHeight * screenConfig.collapsedHeightRatio
+    val halfExpandedHeight = screenHeight * screenConfig.halfExpandedHeightRatio
+    val expandedHeight = screenHeight * screenConfig.expandedHeightRatio
+    val buttonBarHeight = screenConfig.buttonBarHeight
 
     // 바텀시트 상태와 현재 오프셋
     var bottomSheetState by rememberSaveable { mutableStateOf(BottomSheetState.COLLAPSED) }
@@ -125,6 +228,14 @@ fun ChartScreen(
     // Y 위치를 픽셀로 계산
     val screenHeightPx = with(density) { screenHeight.toPx() }
     val buttonBarHeightPx = with(density) { buttonBarHeight.toPx() }
+    
+    // Dynamic chart height calculation
+    fun calculateDynamicChartHeight(bottomSheetProgress: Float): Dp {
+        val baseHeight = screenHeight * screenConfig.chartBaseHeightRatio
+        val maxCompression = baseHeight - screenConfig.minChartHeight
+        val compressionFactor = bottomSheetProgress * 0.5f // 50% max compression
+        return (baseHeight - (maxCompression * compressionFactor)).coerceAtLeast(screenConfig.minChartHeight)
+    }
 
     // 각 상태별 Y 위치
     val sheetPositions = remember(screenHeightPx, density) {
@@ -166,11 +277,12 @@ fun ChartScreen(
         }
     }
 
-    // 헤더 정렬 진행도 계산 (원래 ChartSample.kt 방식)
-    val headerAlignmentProgress = when {
-        sheetProgress <= 0.3f -> 0f
-        sheetProgress >= 0.4f -> 1f
-        else -> (sheetProgress - 0.3f) / 0.1f // 30~40% 구간에서만 애니메이션
+    // 헤더 정렬 진행도 계산 - 중단까지만 애니메이션, 그 이후는 고정
+    val headerAlignmentProgress by remember(sheetPositions) {
+        derivedStateOf {
+            val halfProgress = (sheetPositions.collapsed - sheetAnimY.value) / (sheetPositions.collapsed - sheetPositions.halfExpanded)
+            halfProgress.coerceIn(0f, 1f)  // 0(하단) ~ 1(중단 이상)
+        }
     }
 
     // 바텀시트 위치에 따른 콘텐츠 오프셋 (헤더용 - 원래대로)
@@ -284,57 +396,51 @@ fun ChartScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(Color.White)  // 흰색 배경
         )
 
-        // 차트 + 시간버튼 분리된 구조 - 빈 공간 최소화
+        // 차트 + 시간버튼 영역 - 바텀시트 실시간 위치에 따른 높이 계산
+        val columnHeight = with(density) {
+            // 현재 바텀시트의 상단 위치 (실시간)
+            val currentBottomSheetTop = sheetAnimY.value.toDp()
+            val halfExpandedTop = sheetPositions.halfExpanded.toDp()
+            
+            // 중단 위치보다 위에 있으면 중단 높이로 고정
+            if (currentBottomSheetTop <= halfExpandedTop) {
+                // 중단 이상: 중단 위치에서 고정
+                (halfExpandedTop - safeZones.top).coerceAtLeast(200.dp)
+            } else {
+                // 하단->중단 사이: 실시간 바텀시트 위치에 따라 동적
+                (currentBottomSheetTop - safeZones.top).coerceAtLeast(200.dp)
+            }
+        }
+        
+        // Column을 항상 앱바 아래에 고정 (방법 2)
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = buttonBarHeight)
-                .offset(y = with(density) {
-                    val maxUpwardOffset = -56.dp.toPx()
-                    val offset = sheetAnimY.value - sheetPositions.collapsed
-                    val halfExpandedOffset = sheetPositions.halfExpanded - sheetPositions.collapsed
-                    val initialDownwardOffset = 30.dp.toPx() // 초기 위치를 30dp 아래로
-
-                    // 중단까지만 움직이고, 중단->상단에서는 고정
-                    (offset.coerceIn(halfExpandedOffset, 0f).coerceAtLeast(maxUpwardOffset) + initialDownwardOffset).toDp()
-                })
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .height(columnHeight)  // 바텀시트 위치에 따른 높이
+                .offset(y = safeZones.top)  // 항상 앱바(60dp) 아래에 고정
         ) {
-            // 앱바 영역 (고정)
-            Spacer(modifier = Modifier.height(56.dp))
 
-            // 헤더 영역 (최소화)
-            Spacer(modifier = Modifier.height((80f - (headerAlignmentProgress * 40f)).dp))
+            // 헤더 영역 - 타이틀 공간 확보 (AnimatedHeaderBox와 동일한 높이)
+            Spacer(modifier = Modifier.height(
+                with(density) {
+                    // AnimatedHeaderBox의 실제 높이를 고려
+                    val baseHeight = 120.dp  // 타이틀이 완전히 보이도록 충분한 공간
+                    val minHeight = 0.dp     // 중단 상태에서 완전히 사라짐
+                    // headerAlignmentProgress 사용 (중단까지만 압축)
+                    val compression = (baseHeight - minHeight) * headerAlignmentProgress
+                    (baseHeight - compression)
+                }
+            ))
 
-            // 차트 영역 (패널 디바이더 포함)
+            // 차트 영역 - weight(1f)로 남은 공간 모두 차지
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(
-                        with(density) {
-                            val baseHeight = 350.dp
-                            val maxUpwardOffset = -56.dp.toPx()
-                            val currentOffset = sheetAnimY.value - sheetPositions.collapsed
-                            val halfExpandedOffset = sheetPositions.halfExpanded - sheetPositions.collapsed
-
-                            when {
-                                // 중단->상단: 중단에서의 압축된 높이 유지
-                                currentOffset <= halfExpandedOffset -> {
-                                    val compressionAtHalf = -(halfExpandedOffset - maxUpwardOffset)
-                                    (baseHeight - compressionAtHalf.toDp()).coerceAtLeast(150.dp)
-                                }
-                                // 하단->중단: 앱바에 닿으면 압축 시작
-                                currentOffset <= maxUpwardOffset -> {
-                                    val compression = -(currentOffset - maxUpwardOffset)
-                                    (baseHeight - compression.toDp()).coerceAtLeast(150.dp)
-                                }
-                                // 하단: 기본 높이
-                                else -> baseHeight
-                            }
-                        }
-                    )
+                    .weight(1f)  // 자동으로 압축/확장
             ) {
                 // TradingView v5 Multi-Panel Chart with Native API
                 val multiPanelData = DataConverter.createMultiPanelData(
@@ -370,19 +476,25 @@ fun ChartScreen(
             // 차트와 시간버튼 사이 간격 최소화
             Spacer(modifier = Modifier.height(Spacing.sm))
 
+            // 차트와 시간버튼 사이 간격
+            Spacer(modifier = Modifier.height(8.dp))
+            
             // 시간버튼 영역
             TimeFrameSelection(
                 selectedTimeFrame = uiState.config.timeFrame,
                 onTimeFrameChange = { viewModel.onEvent(ChartUiEvent.ChangeTimeFrame(it)) },
+                isCompact = isCompactScreen,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp)
+                    .height(screenConfig.timeButtonHeight)
                     .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = Spacing.md, vertical = Spacing.xs)
+                    .padding(
+                        horizontal = if (isCompactScreen) Spacing.sm else Spacing.md,
+                        vertical = Spacing.xs
+                    )
             )
 
-            // 시간버튼과 바텀시트 사이 간격 최소화
-            Spacer(modifier = Modifier.height(Spacing.sm))
+            // Column 높이가 바텀시트 상단까지 정확히 계산되므로 추가 간격 불필요
 
         }
 
@@ -390,7 +502,7 @@ fun ChartScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .height(60.dp)
                 .background(MaterialTheme.colorScheme.surface)
                 .zIndex(1f)
         ) {
@@ -412,7 +524,7 @@ fun ChartScreen(
         AnimatedHeaderBox(
             stockInfo = uiState.currentStock,
             headerAlignmentProgress = headerAlignmentProgress,
-            contentOffsetY = contentOffsetY.value // 헤더는 원래대로 contentOffsetY 적용
+            contentOffsetY = contentOffsetY.value
         )
 
         // 4. 커스텀 3단계 바텀시트
@@ -480,13 +592,14 @@ fun ChartScreen(
                     )
                 }
 
-                // 동적 높이 바텀시트 콘텐츠
+                // 동적 높이 바텀시트 콘텐츠 - 반응형
                 BottomSheetContent(
                     viewModel = viewModel,
                     nestedScrollConnection = nestedScrollConnection,
                     holdingsListState = holdingsListState,
                     tradingHistoryListState = tradingHistoryListState,
                     bottomSheetState = bottomSheetState,
+                    isCompact = isCompactScreen,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(
@@ -494,9 +607,15 @@ fun ChartScreen(
                                 val currentProgress = (sheetPositions.collapsed - sheetAnimY.value) / (sheetPositions.collapsed - sheetPositions.expanded)
                                 val progress = currentProgress.coerceIn(0f, 1f)
 
-                                // 160dp(collapsed) ~ 550dp(expanded) 사이에서 실시간 보간
-                                val minHeight = 160.dp
-                                val maxHeight = 550.dp
+                                // 반응형 최소/최대 높이
+                                val minHeight = safeZones.bottomSheetMin
+                                val maxHeight = if (isCompactScreen) {
+                                    screenHeight * 0.65f // 컴팩트 기기에서는 더 적게
+                                } else if (isTablet) {
+                                    screenHeight * 0.75f // 태블릿에서는 더 크게
+                                } else {
+                                    screenHeight * 0.70f // 표준 기기
+                                }
                                 minHeight + (maxHeight - minHeight) * progress
                             }
                         )
@@ -519,7 +638,10 @@ fun ChartScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Spacing.md, vertical = Spacing.sm + Spacing.xs),
+                    .padding(
+                        horizontal = if (isCompactScreen) Spacing.sm else Spacing.md,
+                        vertical = if (isCompactScreen) Spacing.sm else (Spacing.sm + Spacing.xs)
+                    ),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm + Spacing.xs)
             ) {
                 Button(
@@ -529,7 +651,7 @@ fun ChartScreen(
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp)
+                        .height(if (isCompactScreen) 44.dp else 48.dp)
                         .semantics {
                             contentDescription = "${uiState.currentStock.name} 판매하기 버튼"
                         },
@@ -552,7 +674,7 @@ fun ChartScreen(
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp)
+                        .height(if (isCompactScreen) 44.dp else 48.dp)
                         .semantics {
                             contentDescription = "${uiState.currentStock.name} 구매하기 버튼"
                         },
@@ -689,6 +811,7 @@ private fun TopAppBar(
 fun TimeFrameSelection(
     selectedTimeFrame: String,
     onTimeFrameChange: (String) -> Unit,
+    isCompact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     var showMinuteDropdown by remember { mutableStateOf(false) }
@@ -726,7 +849,7 @@ fun TimeFrameSelection(
                         contentDescription = "분봉 선택: 현재 ${selectedMinute?.second ?: "10분"}"
                     }
                     .padding(horizontal = 6.dp)
-                    .height(36.dp),
+                    .height(if (isCompact) 32.dp else 36.dp),
                 shape = RoundedCornerShape(8.dp),
                 label = {
                     Row(
@@ -735,7 +858,7 @@ fun TimeFrameSelection(
                     ) {
                         Text(
                             selectedMinute?.second ?: "10분",
-                            style = SubtitleSb14,
+                            style = if (isCompact) BodyR12 else SubtitleSb14,
                             color = if (isMinuteSelected) Color.White else Gray900
                         )
                         Icon(
@@ -796,12 +919,12 @@ fun TimeFrameSelection(
                         contentDescription = "시간대 선택: ${name}${if (selectedTimeFrame == code) ", 선택됨" else ""}"
                     }
                     .padding(horizontal = 6.dp)
-                    .height(36.dp),
+                    .height(if (isCompact) 32.dp else 36.dp),
                 shape = RoundedCornerShape(8.dp),
                 label = {
                     Text(
                         name,
-                        style = SubtitleSb14,
+                        style = if (isCompact) BodyR12 else SubtitleSb14,
                         color = if (selectedTimeFrame == code) Color.White else Gray900
                     )
                 },
@@ -831,6 +954,7 @@ private fun BottomSheetContent(
     holdingsListState: LazyListState,
     tradingHistoryListState: LazyListState,
     bottomSheetState: BottomSheetState,
+    isCompact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -860,11 +984,11 @@ private fun BottomSheetContent(
                     text = {
                         Text(
                             title,
-                            style = TitleB16,
+                            style = if (isCompact) SubtitleSb14 else TitleB16,
                             color = if (selectedTabIndex == index) Gray900 else Gray600
                         )
                     },
-                    modifier = Modifier.height(44.dp)
+                    modifier = Modifier.height(if (isCompact) 40.dp else 44.dp)
                 )
             }
         }
@@ -874,7 +998,10 @@ private fun BottomSheetContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .padding(horizontal = 27.dp, vertical = 16.dp)
+                .padding(
+                    horizontal = if (isCompact) Spacing.md else 27.dp,
+                    vertical = if (isCompact) Spacing.sm else 16.dp
+                )
                 .padding(
                     bottom = when (bottomSheetState) {
                         BottomSheetState.EXPANDED -> 0.dp // 전체 화면일 때는 패딩 없음
@@ -1008,23 +1135,18 @@ private fun HoldingItemRow(item: HoldingItem) {
             )
 
             val isPositive = item.change >= 0
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    painter = painterResource(if (isPositive) R.drawable.up_triangle else R.drawable.down_triangle),
-                    contentDescription = null,
-                    tint = MainPink,
-                    modifier = Modifier.size(12.dp)
-                )
-                Spacer(modifier = Modifier.width(Spacing.xs))
-                Text(
-                    text = "${String.format("%+,d", (item.value * item.change / 100).toInt())}원 (${String.format("%.2f", item.change.absoluteValue)}%)",
-                    style = BodyR14,
-                    color = MainPink
-                )
+            val changeAmount = (item.value * item.change / 100).toInt()
+            val changeText = if (isPositive) {
+                "+${String.format("%,d", changeAmount)}원 (${String.format("%.2f", item.change)}%)"
+            } else {
+                "${String.format("%,d", changeAmount)}원 (${String.format("%.2f", item.change)}%)"
             }
+
+            Text(
+                text = changeText,
+                style = BodyR14,
+                color = if (isPositive) MainPink else MainBlue
+            )
         }
     }
 }
@@ -1401,5 +1523,50 @@ private fun IndicatorSettingsDialog(
                 )
             }
         }
+    )
+}
+
+
+// Helper function to calculate dynamic chart height
+@Composable
+fun calculateDynamicChartHeight(
+    progress: Float,
+    screenHeight: Dp,
+    safeZones: SafeZones,
+    config: ScreenConfig
+): Dp {
+    val baseHeight = screenHeight * config.chartBaseHeightRatio
+    val minHeight = config.minChartHeight
+    
+    // Calculate height based on progress
+    val targetHeight = when {
+        progress <= 0.5f -> {
+            // Collapsed to half-expanded: maintain most of the height
+            val factor = 1f - (progress * 0.2f) // 100% -> 90%
+            baseHeight * factor
+        }
+        else -> {
+            // Half-expanded to expanded: compress more
+            val factor = 0.9f - ((progress - 0.5f) * 0.3f) // 90% -> 75%
+            baseHeight * factor
+        }
+    }
+    
+    // Ensure minimum height is maintained
+    return max(minHeight, targetHeight)
+}
+
+// Preview function
+@Preview(name = "Compact", device = "spec:width=360dp,height=640dp,dpi=160")
+@Preview(name = "Standard", device = Devices.PIXEL_7)
+@Preview(name = "Large", device = "spec:width=430dp,height=932dp,dpi=480")
+@Preview(name = "Tablet", device = Devices.TABLET)
+@Composable
+fun ChartScreenPreview() {
+    ChartScreen(
+        stockCode = "005930",
+        onNavigateToStockPurchase = { _, _ -> },
+        onNavigateToAIDialog = {},
+        onNavigateBack = {}
     )
 }

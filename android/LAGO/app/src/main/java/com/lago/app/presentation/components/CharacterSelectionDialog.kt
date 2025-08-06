@@ -23,13 +23,18 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
 import kotlinx.coroutines.launch
+import kotlin.math.min
 
 // Character data model
 data class CharacterInfo(
@@ -42,13 +47,33 @@ data class CharacterInfo(
     val tagColor: Color,
     val cardColor: Color
 )
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CharacterSelectionDialog(
     onDismiss: () -> Unit,
     onConfirm: (CharacterInfo) -> Unit
 ) {
+    // Screen dimensions for responsive design
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val screenWidth = configuration.screenWidthDp.dp
+    val screenHeight = configuration.screenHeightDp.dp
+    
+    // Adaptive dimensions based on screen size
+    val isCompactScreen = screenWidth < 400.dp || screenHeight < 700.dp
+    val isLargeScreen = screenWidth > 600.dp
+    
+    // Dynamic sizing
+    val dialogPadding = if (isCompactScreen) Spacing.md else Spacing.lg
+    val cardPadding = if (isCompactScreen) Spacing.md else Spacing.lg
+    val cardHeight = with(density) { 
+        min(screenHeight.toPx() * 0.2f, 158.dp.toPx()).toDp()
+    }
+    val cardWidth = with(density) {
+        min(screenWidth.toPx() * 0.8f, 263.dp.toPx()).toDp()
+    }
+    val imageSize = if (isCompactScreen) 80.dp else if (isLargeScreen) 120.dp else 100.dp
+    val buttonHeight = if (isCompactScreen) 44.dp else 50.dp
     // Character data
     val characters = remember {
         listOf(
@@ -106,27 +131,28 @@ fun CharacterSelectionDialog(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            shape = RoundedCornerShape(16.dp),
+                .padding(horizontal = dialogPadding),
+            shape = RoundedCornerShape(Radius.lg),
             colors = CardDefaults.cardColors(containerColor = Color.White)
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier.padding(cardPadding),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Title
                 Text(
                     text = "누구의 기록을 확인할까요?",
-                    style = TitleB24,
+                    style = if (isCompactScreen) TitleB18 else TitleB24,
                     color = Gray900,
-                    modifier = Modifier.padding(bottom = 24.dp)
+                    modifier = Modifier.padding(bottom = if (isCompactScreen) Spacing.lg else Spacing.xl),
+                    textAlign = TextAlign.Center
                 )
 
                 // Character Pager
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(158.dp)
+                        .height(cardHeight)
                 ) {
                     HorizontalPager(
                         state = pagerState,
@@ -147,9 +173,11 @@ fun CharacterSelectionDialog(
                             CharacterCardOnly(
                                 character = characters[page],
                                 isChecked = selectedCharacterIndex == page,
+                                imageSize = imageSize,
+                                isCompact = isCompactScreen,
                                 modifier = Modifier
-                                    .width(263.dp)
-                                    .height(158.dp)
+                                    .width(cardWidth)
+                                    .height(cardHeight)
                                     .alpha(alpha)
                             )
                             
@@ -157,14 +185,18 @@ fun CharacterSelectionDialog(
                             // Card is 263x158, centered in the Box
                             // So card's right edge is at center + 131.5dp from center
                             // Icon center should be at card's right edge, so offset from center alignment
+                            val checkIconSize = if (isCompactScreen) 32.dp else 41.dp
+                            val offsetX = cardWidth / 2
+                            val offsetY = -cardHeight / 2
+                            
                             IconButton(
                                 onClick = { 
                                     selectedCharacterIndex = if (selectedCharacterIndex == page) -1 else page
                                 },
                                 modifier = Modifier
                                     .align(Alignment.Center)
-                                    .offset(x = 131.5.dp, y = (-79).dp ) // x: 카드 우측 끝, y: 카드 상단 + 아이콘 반지름
-                                    .size(41.dp)
+                                    .offset(x = offsetX, y = offsetY)
+                                    .size(checkIconSize)
                                     .zIndex(1f)
                                     .alpha(alpha)
                             ) {
@@ -174,63 +206,26 @@ fun CharacterSelectionDialog(
                                         else R.drawable.ic_check_circle_light
                                     ),
                                     contentDescription = "Check",
-                                    modifier = Modifier.size(41.dp)
+                                    modifier = Modifier.size(checkIconSize)
                                 )
                             }
                         }
                     }
 
-                    // Left Arrow
-                    if (pagerState.currentPage > 0) {
-                        IconButton(
-                            onClick = { 
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                                }
-                            },
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .size(27.dp)
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_chevron_left),
-                                contentDescription = "Previous",
-                                modifier = Modifier.size(27.dp)
-                            )
-                        }
-                    }
-
-                    // Right Arrow
-                    if (pagerState.currentPage < characters.size - 1) {
-                        IconButton(
-                            onClick = { 
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                                }
-                            },
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .size(27.dp)
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_chevron_right),
-                                contentDescription = "Next",
-                                modifier = Modifier.size(27.dp)
-                            )
-                        }
-                    }
+                    // Chevron navigation removed - users can swipe to navigate between characters
                 }
 
                 // Page Indicator
                 Row(
-                    modifier = Modifier.padding(vertical = 16.dp),
+                    modifier = Modifier.padding(vertical = if (isCompactScreen) Spacing.md else Spacing.lg),
                     horizontalArrangement = Arrangement.Center
                 ) {
                     repeat(characters.size) { index ->
+                        val indicatorSize = if (isCompactScreen) 6.dp else 8.dp
                         Box(
                             modifier = Modifier
-                                .padding(horizontal = 4.dp)
-                                .size(8.dp)
+                                .padding(horizontal = Spacing.xs)
+                                .size(indicatorSize)
                                 .clip(CircleShape)
                                 .background(
                                     if (index == pagerState.currentPage) Gray600
@@ -243,22 +238,22 @@ fun CharacterSelectionDialog(
                 // Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(if (isCompactScreen) Spacing.sm else Spacing.md)
                 ) {
                     // Cancel Button
                     Button(
                         onClick = onDismiss,
                         modifier = Modifier
                             .weight(1f)
-                            .height(50.dp),
-                        shape = RoundedCornerShape(8.dp),
+                            .height(buttonHeight),
+                        shape = RoundedCornerShape(Radius.sm),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Gray100
                         )
                     ) {
                         Text(
                             text = "취소",
-                            style = SubtitleSb16,
+                            style = if (isCompactScreen) BodyR14 else SubtitleSb16,
                             color = Gray600
                         )
                     }
@@ -272,15 +267,15 @@ fun CharacterSelectionDialog(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(50.dp),
-                        shape = RoundedCornerShape(8.dp),
+                            .height(buttonHeight),
+                        shape = RoundedCornerShape(Radius.sm),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MainBlue
                         )
                     ) {
                         Text(
                             text = "적용",
-                            style = SubtitleSb16,
+                            style = if (isCompactScreen) BodyR14 else SubtitleSb16,
                             color = Color(0xFFFFFFFF)
                         )
                     }
@@ -317,8 +312,6 @@ fun CharacterCard(
                     modifier = Modifier.size(100.dp)
                 )
 
-                Spacer(modifier = Modifier.width(16.dp))
-
                 // Text Content (우측)
                 Column(
                     modifier = Modifier.weight(1f),
@@ -334,16 +327,13 @@ fun CharacterCard(
                         style = HeadEb18
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
                     // Subtitle
                     Text(
                         text = character.subtitle,
                         style = TitleB18,
-                        color = Gray900
+                        color = Gray900,
+                        lineHeight = 16.sp
                     )
-
-                    Spacer(modifier = Modifier.height(4.dp))
 
                     // Hashtag
                     Text(
@@ -383,6 +373,8 @@ fun CharacterCard(
 fun CharacterCardOnly(
     character: CharacterInfo,
     isChecked: Boolean = false,
+    imageSize: androidx.compose.ui.unit.Dp = 100.dp,
+    isCompact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -394,22 +386,27 @@ fun CharacterCardOnly(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(if (isCompact) Spacing.sm else Spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            // Character Image (좌측)
-            Image(
-                painter = painterResource(id = character.drawableRes),
-                contentDescription = character.name,
-                modifier = Modifier.size(100.dp)
-            )
+            // Character Image (좌측 영역)
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = character.drawableRes),
+                    contentDescription = character.name,
+                    modifier = Modifier.size(imageSize)
+                )
+            }
 
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Text Content (우측)
+            // Text Content (우측 영역)
             Column(
                 modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.Start
+                horizontalAlignment = Alignment.Start,
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
                 // Character Name
                 Text(
@@ -421,7 +418,6 @@ fun CharacterCardOnly(
                     style = HeadEb18
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
 
                 // Subtitle
                 Text(
@@ -429,8 +425,6 @@ fun CharacterCardOnly(
                     style = TitleB18,
                     color = Gray900
                 )
-
-                Spacer(modifier = Modifier.height(4.dp))
 
                 // Hashtag
                 Text(
@@ -446,6 +440,37 @@ fun CharacterCardOnly(
     }
 }
 
+
+@Preview(showBackground = true)
+@Composable
+fun CharacterSelectionDialogPreview() {
+    CharacterSelectionDialog(
+        onDismiss = { },
+        onConfirm = { }
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CharacterCardOnlyPreview() {
+    val sampleCharacter = CharacterInfo(
+        id = "화끈이",
+        name = "화끈이",
+        subtitle = "위험? 수익?\n짜릿해!!",
+        hashtag = "#하이리스크하이리턴",
+        drawableRes = R.drawable.character_red,
+        textColor = Color(0xFFF94E2C),
+        tagColor = Color(0xFFDF2323),
+        cardColor = Color(0xFFFCEDEB)
+    )
+    
+    CharacterCardOnly(
+        character = sampleCharacter,
+        isChecked = false,
+        imageSize = 100.dp,
+        isCompact = false
+    )
+}
 
 // Usage example
 @Composable

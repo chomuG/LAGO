@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Icon
-import androidx.compose.ui.res.painterResource
-import com.lago.app.R
+// Icon imports removed - no longer using triangle icons
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,7 +18,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.lago.app.domain.entity.StockInfo
 import com.lago.app.presentation.theme.*
-import kotlin.math.abs
+import com.lago.app.presentation.theme.MainPink
+import com.lago.app.presentation.theme.MainBlue
+// abs import removed - no longer needed
 
 @Composable
 fun AnimatedHeaderBox(
@@ -103,29 +103,18 @@ fun AnimatedHeaderBox(
                     Spacer(modifier = Modifier.width(Spacing.sm + Spacing.xs))
                     
                     val isPositive = stockInfo.priceChange >= 0
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(if (isPositive) R.drawable.up_triangle else R.drawable.down_triangle),
-                            contentDescription = null,
-                            tint = if (isPositive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Spacer(modifier = Modifier.width(Spacing.xs))
-                        Text(
-                            text = "${String.format("%.0f", abs(stockInfo.priceChange))}원",
-                            style = SubtitleSb14,
-                            color = if (isPositive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-                        )
+                    val changeText = if (isPositive) {
+                        "+${String.format("%.0f", stockInfo.priceChange)}원 (${String.format("%.2f", stockInfo.priceChangePercent)}%)"
+                    } else {
+                        "${String.format("%.0f", stockInfo.priceChange)}원 (${String.format("%.2f", stockInfo.priceChangePercent)}%)"
                     }
                     
-                    Spacer(modifier = Modifier.width(Spacing.xs))
+                    Spacer(modifier = Modifier.width(Spacing.sm))
                     
                     Text(
-                        text = "${if (isPositive) "+" else "-"}${String.format("%.2f", stockInfo.priceChangePercent)}%",
+                        text = changeText,
                         style = SubtitleSb14,
-                        color = if (isPositive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+                        color = if (isPositive) MainPink else MainBlue
                     )
                 }
             }
@@ -162,22 +151,17 @@ fun AnimatedHeaderBox(
                     Spacer(modifier = Modifier.width(Spacing.xs + 2.dp))
 
                     val isPositive = stockInfo.priceChange >= 0
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(if (isPositive) R.drawable.up_triangle else R.drawable.down_triangle),
-                            contentDescription = null,
-                            tint = if (isPositive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(10.dp)
-                        )
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text(
-                            text = "${String.format("%.2f", stockInfo.priceChangePercent)}%",
-                            style = SubtitleSb14,
-                            color = if (isPositive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-                        )
+                    val percentText = if (isPositive) {
+                        "(${String.format("%.2f", stockInfo.priceChangePercent)}%)"
+                    } else {
+                        "(${String.format("%.2f", stockInfo.priceChangePercent)}%)"
                     }
+                    
+                    Text(
+                        text = percentText,
+                        style = SubtitleSb14,
+                        color = if (isPositive) MainPink else MainBlue
+                    )
                 }
             }
         }

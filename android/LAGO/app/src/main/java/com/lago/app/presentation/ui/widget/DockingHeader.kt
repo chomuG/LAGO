@@ -3,9 +3,7 @@ package com.lago.app.presentation.ui.widget
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.Icon
-import androidx.compose.ui.res.painterResource
-import com.lago.app.R
+// Icon imports removed - no longer using triangle icons
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,7 +17,7 @@ import androidx.constraintlayout.compose.ExperimentalMotionApi
 import androidx.constraintlayout.compose.MotionLayout
 import com.lago.app.presentation.theme.*
 import com.lago.app.domain.entity.StockInfo
-import kotlin.math.abs
+// abs import removed - no longer needed
 
 @OptIn(ExperimentalMotionApi::class)
 @Composable
@@ -122,30 +120,23 @@ fun DockingHeader(
         )
         
         // 변동금액
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
+        Text(
+            text = if (isPositive) {
+                "+${String.format("%.0f", stockInfo.priceChange)}원"
+            } else {
+                "${String.format("%.0f", stockInfo.priceChange)}원"
+            },
             modifier = Modifier
                 .layoutId("change")
                 .graphicsLayer {
                     scaleX = changeScale
                     scaleY = changeScale
-                }
-        ) {
-            Icon(
-                painter = painterResource(if (isPositive) R.drawable.up_triangle else R.drawable.down_triangle),
-                contentDescription = null,
-                tint = changeColor,
-                modifier = Modifier.size(12.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "${String.format("%.0f", abs(stockInfo.priceChange))}원",
-                style = TitleB16.copy(
-                    fontSize = (16f - progress * 2f).sp
-                ),
-                color = changeColor
-            )
-        }
+                },
+            style = TitleB16.copy(
+                fontSize = (16f - progress * 2f).sp
+            ),
+            color = changeColor
+        )
         
         // 변동률
         Text(
