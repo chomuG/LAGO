@@ -26,7 +26,7 @@ public class AiBotAccountResponse {
     private String nickname;
 
     @Schema(description = "계좌 ID", example = "12345")
-    private Long accountId;
+    private Integer accountId;
 
     @Schema(description = "보유 현금", example = "1000000")
     private Integer balance;

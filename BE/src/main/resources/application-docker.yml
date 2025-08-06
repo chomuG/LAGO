@@ -12,7 +12,7 @@ spring:
   # JPA 설정
   jpa:
     hibernate:
-      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+      ddl-auto: none  # EC2 DB 테이블 구조 변경 금지 - 지침서 준수
     show-sql: ${SPRING_JPA_SHOW_SQL:true}
     properties:
       hibernate:

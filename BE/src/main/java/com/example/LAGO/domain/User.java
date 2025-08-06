@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 /**
  * 사용자 엔티티
  * 지침서 명세 USER 테이블과 완전 일치
- * H2 데이터베이스 호환성을 위해 테이블명 USERS 사용
+ * EC2 데이터베이스 테이블명 USERS (대문자) 사용
  */
 @Entity
 @Table(name = "USERS")
@@ -25,13 +25,16 @@ public class User {
 
     @Id
     @Column(name = "user_id")
-    private Long userId;
+    private Integer userId;
 
     @Column(name = "email")
     private String email;
 
-    @Column(name = "firebase_uid")
-    private String firebaseUid;
+    @Column(name = "social_login_id")
+    private String socialLoginId;
+
+    @Column(name = "login_type")
+    private String loginType;
 
     @Column(name = "nickname", nullable = false)
     private String nickname;
