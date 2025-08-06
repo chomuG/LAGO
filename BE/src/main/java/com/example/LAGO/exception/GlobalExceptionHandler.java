@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import jakarta.servlet.http.HttpServletRequest;
 
 import jakarta.validation.ConstraintViolationException;
 import java.time.LocalDateTime;
@@ -100,25 +101,25 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
-
     /**
      * 일반적인 예외 처리
      */
     @ExceptionHandler(Exception.class)
     @ApiResponse(
-        responseCode = "500", 
-        description = "서버 내부 오류",
-        content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+            responseCode = "500",
+            description = "서버 내부 오류",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))
     )
-    public ResponseEntity<ErrorResponse> handleGenericException(Exception e) {
-        log.error("Unexpected Exception 발생: {}", e.getMessage(), e);
-        
+    public ResponseEntity<ErrorResponse> handleGenericException(Exception e, HttpServletRequest request) {
+        String path = request.getRequestURI();  // 요청 경로 동적 추출
+        log.error("Unexpected Exception 발생 [path: {}]: {}", path, e.getMessage(), e);
+
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
                 .message("서버 내부 오류가 발생했습니다.")
-                .path("/api/ai-bots")
+                .path(path)
                 .build();
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
