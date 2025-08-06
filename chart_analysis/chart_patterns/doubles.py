@@ -7,7 +7,7 @@ Function used to find the Double chart patterns
 import numpy as np
 import pandas as pd 
 import plotly.graph_objects as go
-
+import logging
 
 from pivot_points import find_all_pivot_points
 from tqdm import tqdm
@@ -75,10 +75,10 @@ def find_doubles_pattern(ohlc: pd.DataFrame, lookback: int = 25, double: str = "
                         ohlc.loc[candle_idx, "chart_type"]    = "double"
 
                         # === 판단 근거 출력 ===
-                        print("\n=== Double Top Detected ===")
-                        print(f"candle_idx: {candle_idx}")
-                        print(f"lookback: {lookback}")
-                        print("==============================\n")
+                        logging.debug("\n=== Double Top Detected ===")
+                        logging.debug(f"candle_idx: {candle_idx}")
+                        logging.debug(f"lookback: {lookback}")
+                        logging.debug("==============================\n")
 
                         # 추가로 판단 근거를 df에 컬럼으로 저장
                         
@@ -94,10 +94,10 @@ def find_doubles_pattern(ohlc: pd.DataFrame, lookback: int = 25, double: str = "
                         ohlc.loc[candle_idx, "chart_type"]    = "double"
 
                         # === 판단 근거 출력 ===
-                        print("\n=== Double Bottom Detected ===")
-                        print(f"candle_idx: {candle_idx}")
-                        print(f"lookback: {lookback}")
-                        print("==============================\n")
+                        logging.debug("\n=== Double Bottom Detected ===")
+                        logging.debug(f"candle_idx: {candle_idx}")
+                        logging.debug(f"lookback: {lookback}")
+                        logging.debug("==============================\n")
 
                         # 추가로 판단 근거를 df에 컬럼으로 저장
                         

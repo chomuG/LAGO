@@ -7,6 +7,7 @@ Function used to detect Pennant patterns
 import numpy as np
 import pandas as pd 
 import plotly.graph_objects as go
+import logging
 
 from charts_utils import find_points
 from pivot_points import find_all_pivot_points
@@ -118,16 +119,16 @@ def find_pennant(ohlc: pd.DataFrame, lookback: int = 20, min_points: int = 3,
                 ohlc.loc[candle_idx, "pennant_intercmax"]     = intercmax
                 
                 # === 판단 근거 출력 ===
-                print("\n=== Pennant Triangle Detected ===")
-                print(f"candle_idx: {candle_idx}")
-                print(f"pivot_high_count: {len(xxmax)}")
-                print(f"pivot_low_count: {len(xxmin)}")
-                print(f"slope_high: {slmax:.6f}")
-                print(f"slope_low: {slmin:.6f}")
-                print(f"r2_high: {rmax:.4f}")
-                print(f"r2_low: {rmin:.4f}")
-                print(f"lookback: {lookback}")
-                print("==============================\n")
+                logging.debug("\n=== Pennant Triangle Detected ===")
+                logging.debug(f"candle_idx: {candle_idx}")
+                logging.debug(f"pivot_high_count: {len(xxmax)}")
+                logging.debug(f"pivot_low_count: {len(xxmin)}")
+                logging.debug(f"slope_high: {slmax:.6f}")
+                logging.debug(f"slope_low: {slmin:.6f}")
+                logging.debug(f"r2_high: {rmax:.4f}")
+                logging.debug(f"r2_low: {rmin:.4f}")
+                logging.debug(f"lookback: {lookback}")
+                logging.debug("==============================\n")
 
                 # 추가로 판단 근거를 df에 컬럼으로 저장
                 ohlc.loc[candle_idx, "pennant_pivot_high_count"] = len(xxmax)

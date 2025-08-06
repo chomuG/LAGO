@@ -7,7 +7,7 @@ Detect Triangle Patterns - Ascending, Descending and Symmetrical
 import numpy as np
 import pandas as pd 
 import plotly.graph_objects as go
-
+import logging
 
 from pivot_points import find_all_pivot_points
 from plotting import display_chart_pattern
@@ -106,16 +106,16 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
                     ohlc.loc[candle_idx, "triangle_point"]        = candle_idx
 
                     # === 판단 근거 출력 ===
-                    print("\n=== Symmetrical Triangle Detected ===")
-                    print(f"candle_idx: {candle_idx}")
-                    print(f"pivot_high_count: {len(xxmax)}")
-                    print(f"pivot_low_count: {len(xxmin)}")
-                    print(f"slope_high: {slmax:.6f}")
-                    print(f"slope_low: {slmin:.6f}")
-                    print(f"r2_high: {rmax:.4f}")
-                    print(f"r2_low: {rmin:.4f}")
-                    print(f"lookback: {lookback}")
-                    print("==============================\n")
+                    logging.debug("\n=== Symmetrical Triangle Detected ===")
+                    logging.debug(f"candle_idx: {candle_idx}")
+                    logging.debug(f"pivot_high_count: {len(xxmax)}")
+                    logging.debug(f"pivot_low_count: {len(xxmin)}")
+                    logging.debug(f"slope_high: {slmax:.6f}")
+                    logging.debug(f"slope_low: {slmin:.6f}")
+                    logging.debug(f"r2_high: {rmax:.4f}")
+                    logging.debug(f"r2_low: {rmin:.4f}")
+                    logging.debug(f"lookback: {lookback}")
+                    logging.debug("==============================\n")
 
                     # 추가로 판단 근거를 df에 컬럼으로 저장
                     ohlc.loc[candle_idx, "triangle_pivot_high_count"] = len(xxmax)
@@ -137,16 +137,16 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
                     ohlc.loc[candle_idx, "triangle_point"]        = candle_idx
 
                     # === 판단 근거 출력 ===
-                    print("\n=== Ascending Triangle Detected ===")
-                    print(f"candle_idx: {candle_idx}")
-                    print(f"pivot_high_count: {len(xxmax)}")
-                    print(f"pivot_low_count: {len(xxmin)}")
-                    print(f"slope_high: {slmax:.6f}")
-                    print(f"slope_low: {slmin:.6f}")
-                    print(f"r2_high: {rmax:.4f}")
-                    print(f"r2_low: {rmin:.4f}")
-                    print(f"lookback: {lookback}")
-                    print("==============================\n")
+                    logging.debug("\n=== Ascending Triangle Detected ===")
+                    logging.debug(f"candle_idx: {candle_idx}")
+                    logging.debug(f"pivot_high_count: {len(xxmax)}")
+                    logging.debug(f"pivot_low_count: {len(xxmin)}")
+                    logging.debug(f"slope_high: {slmax:.6f}")
+                    logging.debug(f"slope_low: {slmin:.6f}")
+                    logging.debug(f"r2_high: {rmax:.4f}")
+                    logging.debug(f"r2_low: {rmin:.4f}")
+                    logging.debug(f"lookback: {lookback}")
+                    logging.debug("==============================\n")
 
                     # 추가로 판단 근거를 df에 컬럼으로 저장
                     ohlc.loc[candle_idx, "triangle_pivot_high_count"] = len(xxmax)
@@ -166,19 +166,18 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
                     ohlc.at[candle_idx,  "triangle_high_idx"]     = xxmax
                     ohlc.at[candle_idx,  "triangle_low_idx"]      = xxmin
                     ohlc.loc[candle_idx, "triangle_point"]        = candle_idx   
-                    print(f"Found pattern at index: {candle_idx}")
 
                     # === 판단 근거 출력 ===
-                    print("\n=== Descending Triangle Detected ===")
-                    print(f"candle_idx: {candle_idx}")
-                    print(f"pivot_high_count: {len(xxmax)}")
-                    print(f"pivot_low_count: {len(xxmin)}")
-                    print(f"slope_high: {slmax:.6f}")
-                    print(f"slope_low: {slmin:.6f}")
-                    print(f"r2_high: {rmax:.4f}")
-                    print(f"r2_low: {rmin:.4f}")
-                    print(f"lookback: {lookback}")
-                    print("==============================\n")
+                    logging.debug("\n=== Descending Triangle Detected ===")
+                    logging.debug(f"candle_idx: {candle_idx}")
+                    logging.debug(f"pivot_high_count: {len(xxmax)}")
+                    logging.debug(f"pivot_low_count: {len(xxmin)}")
+                    logging.debug(f"slope_high: {slmax:.6f}")
+                    logging.debug(f"slope_low: {slmin:.6f}")
+                    logging.debug(f"r2_high: {rmax:.4f}")
+                    logging.debug(f"r2_low: {rmin:.4f}")
+                    logging.debug(f"lookback: {lookback}")
+                    logging.debug("==============================\n")
 
                     # 추가로 판단 근거를 df에 컬럼으로 저장
                     ohlc.loc[candle_idx, "triangle_pivot_high_count"] = len(xxmax)

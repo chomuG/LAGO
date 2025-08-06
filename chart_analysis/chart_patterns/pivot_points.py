@@ -6,7 +6,7 @@ Author: Zetra Team
 
 import numpy as np
 import pandas as pd 
-
+import logging
 
 from utils import check_ohlc_names
 from plotting import display_pivot_points
@@ -122,7 +122,7 @@ def find_pivot_point_position(row: pd.Series) -> float:
             return np.nan
 
     except Exception as e:
-        print(f"Error: {e}")
+        logging.error(f"Error: {e}")
         return np.nan
     
 if __name__ == "__main__":

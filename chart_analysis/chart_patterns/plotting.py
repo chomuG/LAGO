@@ -9,7 +9,7 @@ import os
 import pandas as pd
 import plotly.graph_objects as go
 import sys
-
+import logging
 
 from utils import check_ohlc_names
 from plotly.subplots import make_subplots
@@ -61,13 +61,13 @@ def _plot_candlestick(ohlc: pd.DataFrame, plot_obs:int = 500, fig =None ) -> go.
     
     # Has the user run find_all_pivot_points?
     if ohlc.columns.str.contains("pivot_pos").sum() == 0:
-        print(f"-> Column `pivot_pos` was not found. Did you run `find_all_pivot_points`?")
+        logging.info(f"-> Column `pivot_pos` was not found. Did you run `find_all_pivot_points`?")
         sys.exit() 
         
       
     # Find the number of obs. Only plot 500 observations
     if len(ohlc)  > plot_obs + 1:
-        print(f"Note only the {plot_obs} points will be plotted")
+        logging.info(f"Note only the {plot_obs} points will be plotted")
         
         ohlc = ohlc.iloc[:plot_obs,]
     
@@ -115,7 +115,7 @@ def _plot_pivot_points(ohlc: pd.DataFrame, fig: go.Candlestick, pivot_name: int 
         pivot_lows  = ohlc.loc[ohlc[pivot_name] == 1,]
         pivot_highs = ohlc.loc[ohlc[pivot_name] == 2,]
     except Exception as e:
-        print(f"No column named `{pivot_name}`. Did you run `find_all_pivot_points`?")
+        logging.info(f"No column named `{pivot_name}`. Did you run `find_all_pivot_points`?")
         sys.exit() 
         
     fig.add_scatter(
@@ -417,7 +417,7 @@ def display_chart_pattern(ohlc: pd.DataFrame, pattern: str = "flag",
     
     # Check if the columns have the `pattern` results
     if ohlc.columns.str.lower().str.contains(pattern).sum() == 0:
-        print(f"No columns for the pattern `{pattern}`. Did you run the function to get the pattern?")
+        logging.info(f"No columns for the pattern `{pattern}`. Did you run the function to get the pattern?")
         sys.exit()
     
 
@@ -436,7 +436,7 @@ def display_chart_pattern(ohlc: pd.DataFrame, pattern: str = "flag",
             
     
     if len(pattern_points) == 0: # There is no pattern found
-        print(f"There are no `{pattern}` patterns detected.")
+        logging.info(f"There are no `{pattern}` patterns detected.")
     elif len(pattern_points) == 1:
             
         # Get the row index of the single pattern
@@ -480,7 +480,7 @@ def display_chart_pattern(ohlc: pd.DataFrame, pattern: str = "flag",
             fig.show()
     elif len(pattern_points) > 1:
              
-        for row in tqdm(pattern_points.iterrows(), desc=f"Saving the {pattern} charts..."):
+        for row in pattern_points.iterrows():
             # Get the row index
             pattern_point = row[0]
             

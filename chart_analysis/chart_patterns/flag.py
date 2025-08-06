@@ -9,7 +9,7 @@ Function used to detect the Flag pattern
 import numpy as np
 import pandas as pd 
 import plotly.graph_objects as go
-
+import logging
 
 from pivot_points import find_all_pivot_points
 from scipy.stats import linregress
@@ -122,18 +122,18 @@ def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 
                             ohlc.loc[candle_idx, "flag_intercmax"]     = intercmax
 
                             # === 판단 근거 출력 ===
-                            print("\n=== Flag Detected ===")
-                            print(f"candle_idx: {candle_idx}")
-                            print(f"flag_highs: {maxim}")
-                            print(f"flag_lows: {minim}")
-                            print(f"pivot_high_count: {len(xxmax)}")
-                            print(f"pivot_low_count: {len(xxmin)}")
-                            print(f"slope_high: {slmax:.6f}")
-                            print(f"slope_low: {slmin:.6f}")
-                            print(f"r2_high: {rmax:.4f}")
-                            print(f"r2_low: {rmin:.4f}")
-                            print(f"lookback: {lookback}")
-                            print("==============================\n")
+                            logging.debug("\n=== Flag Detected ===")
+                            logging.debug(f"candle_idx: {candle_idx}")
+                            logging.debug(f"flag_highs: {maxim}")
+                            logging.debug(f"flag_lows: {minim}")
+                            logging.debug(f"pivot_high_count: {len(xxmax)}")
+                            logging.debug(f"pivot_low_count: {len(xxmin)}")
+                            logging.debug(f"slope_high: {slmax:.6f}")
+                            logging.debug(f"slope_low: {slmin:.6f}")
+                            logging.debug(f"r2_high: {rmax:.4f}")
+                            logging.debug(f"r2_low: {rmin:.4f}")
+                            logging.debug(f"lookback: {lookback}")
+                            logging.debug("==============================\n")
 
                             # 추가로 판단 근거를 df에 컬럼으로 저장
                             ohlc.loc[candle_idx, "flag_pivot_high_count"] = len(xxmax)

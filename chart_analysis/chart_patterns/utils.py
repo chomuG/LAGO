@@ -8,11 +8,12 @@ Author: Zetra Team
 import numpy as np 
 import pandas as pd
 import sys
+import logging
 
 from typing import Union
 
 def columns_message(msg: str) -> None:
-        print(f"No `{msg.title()}` or `{msg}` price column ")
+        logging.info(f"No `{msg.title()}` or `{msg}` price column ")
         sys.exit() 
 
 def check_ohlc_names(ohlc: pd.DataFrame) -> Union[pd.DataFrame, None]:
