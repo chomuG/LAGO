@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 
 /**
  * 계좌 엔티티
- * 지침서 명세 ACCOUNT 테이블과 완전 일치
+ * 지침서 명세 ACCOUNTS 테이블과 완전 일치
  */
 @Entity
 @Table(name = "ACCOUNTS")
