@@ -59,7 +59,7 @@ def find_inverse_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivo
     ohlc["ihs_idx"]        = [np.array([]) for _ in range(len(ohlc)) ]
     ohlc["ihs_point"]      = [np.array([]) for _ in range(len(ohlc)) ]    
     
-     # Find the pivot points   
+    # Find the pivot points   
     ohlc = find_all_pivot_points(ohlc, left_count=pivot_interval, right_count=pivot_interval)
     ohlc = find_all_pivot_points(ohlc, left_count=short_pivot_interval, right_count=short_pivot_interval, name_pivot="short_pivot")
     

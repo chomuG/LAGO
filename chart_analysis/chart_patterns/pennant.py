@@ -68,8 +68,6 @@ def find_pennant(ohlc: pd.DataFrame, lookback: int = 20, min_points: int = 3,
     ohlc["pennant_intercmax"]    = np.nan
     
     # Find the pivot points
-    ohlc = find_all_pivot_points(ohlc, progress=progress)
-    
 
     if not progress:
         candle_iter = range(lookback, len(ohlc))

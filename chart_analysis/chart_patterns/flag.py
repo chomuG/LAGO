@@ -67,8 +67,6 @@ def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 
     ohlc["flag_intercmax"]    = np.nan
     
     # Find the pivot points
-    ohlc = find_all_pivot_points(ohlc)
-    
     
     if not progress:
         candle_iter = range(lookback, len(ohlc))

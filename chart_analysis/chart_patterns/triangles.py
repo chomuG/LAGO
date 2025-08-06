@@ -58,9 +58,7 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
     ohlc["triangle_low_idx"]      = [np.array([]) for _ in range(len(ohlc)) ]
     ohlc["triangle_point"]        = np.nan
     
-    
     # Find the pivot points
-    ohlc = find_all_pivot_points(ohlc)
     
     if not progress:
         candle_iter = range(lookback, len(ohlc))

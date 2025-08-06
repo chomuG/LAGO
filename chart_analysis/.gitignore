@@ -49,3 +49,4 @@ images/
 chart_patterns/__pycache__
 tests/__pycache__
 docs/
+.gemini/

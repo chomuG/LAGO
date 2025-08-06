@@ -9,7 +9,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import logging
 
-from pivot_points import find_all_pivot_points
 from tqdm import tqdm
 
 def find_doubles_pattern(ohlc: pd.DataFrame, lookback: int = 25, double: str = "tops", 
@@ -46,8 +45,8 @@ def find_doubles_pattern(ohlc: pd.DataFrame, lookback: int = 25, double: str = "
     ohlc["double_point"]  = [np.array([]) for _ in range(len(ohlc)) ]
     
     
-    # Find the pivot points
-    ohlc = find_all_pivot_points(ohlc)
+    # # Find the pivot points
+    # ohlc = find_all_pivot_points(ohlc)
     
     if not progress:
         candle_iter =  range(lookback, len(ohlc))
