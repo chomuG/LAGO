@@ -5,22 +5,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
-// Icon imports removed - no longer using triangle icons
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.lago.app.domain.entity.StockInfo
 import com.lago.app.presentation.theme.*
-import com.lago.app.presentation.theme.MainPink
-import com.lago.app.presentation.theme.MainBlue
-// abs import removed - no longer needed
 
 @Composable
 fun AnimatedHeaderBox(

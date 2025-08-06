@@ -3,7 +3,6 @@ package com.lago.app.presentation.ui.widget
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-// Icon imports removed - no longer using triangle icons
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,7 +16,6 @@ import androidx.constraintlayout.compose.ExperimentalMotionApi
 import androidx.constraintlayout.compose.MotionLayout
 import com.lago.app.presentation.theme.*
 import com.lago.app.domain.entity.StockInfo
-// abs import removed - no longer needed
 
 @OptIn(ExperimentalMotionApi::class)
 @Composable
