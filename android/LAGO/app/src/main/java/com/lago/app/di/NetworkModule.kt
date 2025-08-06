@@ -1,5 +1,9 @@
 package com.lago.app.di
 
+import com.lago.app.data.remote.ApiService
+import com.lago.app.data.remote.NewsApiService
+import com.lago.app.data.remote.StudyApiService
+import com.lago.app.util.Constants
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,9 +28,9 @@ object NetworkModule {
         
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(Constants.TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(Constants.TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .writeTimeout(Constants.TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .build()
     }
 
@@ -34,9 +38,27 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("https://api.example.com/") // Replace with your API base URL
+            .baseUrl(Constants.BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideApiService(retrofit: Retrofit): ApiService {
+        return retrofit.create(ApiService::class.java)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideNewsApiService(retrofit: Retrofit): NewsApiService {
+        return retrofit.create(NewsApiService::class.java)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideStudyApiService(retrofit: Retrofit): StudyApiService {
+        return retrofit.create(StudyApiService::class.java)
     }
 }
