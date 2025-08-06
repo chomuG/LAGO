@@ -9,6 +9,9 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -18,6 +21,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.lago.app.presentation.theme.MainBlue
@@ -64,6 +69,13 @@ fun BottomNavigationBar(
                         }
                         launchSingleTop = true
                         restoreState = true
+                    }
+                },
+                modifier = androidx.compose.ui.Modifier.semantics {
+                    contentDescription = if (currentRoute == item.route) {
+                        "${item.title} 탭, 현재 선택됨"
+                    } else {
+                        "${item.title} 탭으로 이동"
                     }
                 }
             )

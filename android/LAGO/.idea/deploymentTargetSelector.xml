@@ -12,6 +12,14 @@
           </Target>
         </DropdownSelection>
         <DialogSelection />
+        <DropdownSelection timestamp="2025-08-05T08:48:31.446802500Z">
+          <Target type="DEFAULT_BOOT">
+            <handle>
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=R3CY20B2R4V" />
+            </handle>
+          </Target>
+        </DropdownSelection>
+        <DialogSelection />
       </SelectionState>
     </selectionStates>
   </component>

@@ -49,7 +49,7 @@ fun HomeScreen() {
         TradingBot("균형이", R.drawable.character_blue, "15,200,000원", "-45,000원(-0.8%)", Color(0xFFFF6B6B)),
         TradingBot("조심이", R.drawable.character_green, "6,800,000원", "12,000원(+0.4%)", Color(0xFF51CF66))
     )
-    
+
     val stocks = listOf(
         Stock("삼성전자", "005930", 10, "82,000원", "-2.7%", "-2.7%", Color(0xFFFF6B6B)),
         Stock("한화생명", "088350", 5, "275,000원", "+15.7%", "+15.7%", Color(0xFF51CF66))
@@ -74,7 +74,7 @@ fun HomeScreen() {
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.FillBounds
                 )
-                
+
                 Box(
                     modifier = Modifier.fillMaxSize()
                 ) {
@@ -99,7 +99,7 @@ fun HomeScreen() {
                             )
                         }
                     }
-                    
+
                     // Character Image positioned at bottom right
                     Box(
                         modifier = Modifier
@@ -117,34 +117,34 @@ fun HomeScreen() {
                 }
             }
         }
-        
+
         item {
             Spacer(modifier = Modifier.height(16.dp))
         }
-        
+
         // 내 투자금 Section
         item {
             InvestmentSection()
         }
-        
+
         item {
             Spacer(modifier = Modifier.height(24.dp))
         }
-        
+
         // 성향별 매매봇 Section
         item {
             TradingBotSection(tradingBots)
         }
-        
+
         item {
             Spacer(modifier = Modifier.height(16.dp))
         }
-        
+
         // 보유 종목 Section
         item {
             StockSection(stocks)
         }
-        
+
         item {
             Spacer(modifier = Modifier.height(100.dp))
         }
@@ -160,9 +160,9 @@ private fun InvestmentSection() {
             text = "내 투자금",
             style = HeadEb24.copy(color = Color.Black)
         )
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -189,7 +189,7 @@ private fun InvestmentSection() {
                     contentDescription = "돈가방",
                     modifier = Modifier.size(80.dp)
                 )
-                
+
                 Column(
                     horizontalAlignment = Alignment.End
                 ) {
@@ -200,7 +200,7 @@ private fun InvestmentSection() {
                             text = "역산모드",
                             style = BodyR14.copy(color = Gray600)
                         )
-                        
+
                         // Radio button style toggle
                         Box(
                             modifier = Modifier
@@ -222,21 +222,21 @@ private fun InvestmentSection() {
                             )
                         }
                     }
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     Text(
                         text = "13,378,095원",
                         style = HeadEb28.copy(color = Color.Black)
                     )
-                    
+
                     Text(
                         text = "57,000원(+3.33%)",
                         style = BodyR14.copy(color = Color(0xFFFF6B6B))
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -264,9 +264,9 @@ private fun TradingBotSection(tradingBots: List<TradingBot>) {
             text = "성향별 매매봇",
             style = HeadEb24
         )
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(horizontal = 4.dp)
@@ -308,20 +308,20 @@ private fun TradingBotCard(bot: TradingBot) {
                     text = bot.name,
                     style = SubtitleSb16.copy(color = Color.Black)
                 )
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 Text(
                     text = bot.amount,
                     style = TitleB16.copy(color = Color.Black)
                 )
-                
+
                 Text(
                     text = bot.profit,
                     style = BodyR14.copy(color = bot.profitColor)
                 )
             }
-            
+
             // Character positioned at bottom right
             Box(
                 modifier = Modifier
@@ -348,9 +348,9 @@ private fun StockSection(stocks: List<Stock>) {
             text = "보유 종목",
             style = HeadEb24
         )
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -418,9 +418,9 @@ private fun StockItem(stock: Stock) {
                     )
                 )
             }
-            
+
             Spacer(modifier = Modifier.width(12.dp))
-            
+
             Column {
                 Text(
                     text = stock.name,
@@ -432,7 +432,7 @@ private fun StockItem(stock: Stock) {
                 )
             }
         }
-        
+
         Column(
             horizontalAlignment = Alignment.End
         ) {

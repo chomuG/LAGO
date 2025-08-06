@@ -160,25 +160,28 @@ val SubtitleSb14 = TextStyle(
 )
 
 val Typography = Typography(
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
-    ),
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = 0.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    )
+    // Display
+    displayLarge = HeadEb32,
+    displayMedium = HeadEb28,
+    displaySmall = HeadEb24,
+    
+    // Headline
+    headlineLarge = TitleB28,
+    headlineMedium = TitleB24,
+    headlineSmall = TitleB20,
+    
+    // Title
+    titleLarge = TitleB20,
+    titleMedium = TitleB18,
+    titleSmall = TitleB16,
+    
+    // Body
+    bodyLarge = BodyR16.copy(lineHeight = 24.sp),
+    bodyMedium = BodyR14.copy(lineHeight = 20.sp),
+    bodySmall = BodyR12.copy(lineHeight = 16.sp),
+    
+    // Label
+    labelLarge = SubtitleSb14,
+    labelMedium = SubtitleSb14.copy(fontSize = 12.sp),
+    labelSmall = BodyR12.copy(fontWeight = FontWeight.Medium)
 )
