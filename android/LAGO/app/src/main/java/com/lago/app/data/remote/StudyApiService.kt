@@ -15,4 +15,7 @@ interface StudyApiService {
     
     @GET("api/study/quiz/random")
     suspend fun getRandomQuiz(): QuizDto
+    
+    @GET("api/study/quiz/daily")
+    suspend fun getDailyQuiz(): QuizDto
 }

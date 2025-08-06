@@ -8,4 +8,5 @@ interface StudyRepository {
     suspend fun getTerms(): Result<List<Term>>
     suspend fun getChartPatterns(): Result<List<ChartPattern>>
     suspend fun getRandomQuiz(): Result<Quiz>
+    suspend fun getDailyQuiz(): Result<Quiz>
 }

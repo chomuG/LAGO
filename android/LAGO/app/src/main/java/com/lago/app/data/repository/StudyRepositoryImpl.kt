@@ -38,4 +38,13 @@ class StudyRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+    
+    override suspend fun getDailyQuiz(): Result<Quiz> {
+        return try {
+            val response = studyApiService.getDailyQuiz()
+            Result.success(response.toEntity())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

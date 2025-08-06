@@ -33,12 +33,12 @@ fun NewsCard(
             .clickable { onClick() }
             .shadow(
                 elevation = 4.dp,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(8.dp),
                 spotColor = ShadowColor,
                 ambientColor = ShadowColor
             )
             .height(128.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         )
@@ -61,7 +61,7 @@ fun NewsCard(
                                 "악재" -> BlueLightHover
                                 else -> Gray100
                             },
-                            shape = RoundedCornerShape(4.dp)
+                            shape = RoundedCornerShape(8.dp)
                         )
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
