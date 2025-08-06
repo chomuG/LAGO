@@ -1,5 +1,9 @@
 package com.lago.app.di
 
+import com.lago.app.data.repository.ChartRepositoryImpl
+import com.lago.app.data.repository.StockListRepositoryImpl
+import com.lago.app.domain.repository.ChartRepository
+import com.lago.app.domain.repository.StockListRepository
 import com.lago.app.data.repository.NewsRepositoryImpl
 import com.lago.app.data.repository.StudyRepositoryImpl
 import com.lago.app.domain.repository.NewsRepository
@@ -19,10 +23,21 @@ abstract class RepositoryModule {
     abstract fun bindNewsRepository(
         newsRepositoryImpl: NewsRepositoryImpl
     ): NewsRepository
-    
+
     @Binds
     @Singleton
     abstract fun bindStudyRepository(
         studyRepositoryImpl: StudyRepositoryImpl
     ): StudyRepository
+    @Binds
+    @Singleton
+    abstract fun bindChartRepository(
+        chartRepositoryImpl: ChartRepositoryImpl
+    ): ChartRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindStockListRepository(
+        stockListRepositoryImpl: StockListRepositoryImpl
+    ): StockListRepository
 }

@@ -42,16 +42,18 @@ val BlueDarkActive = Color(0xFF1E4B73)
 val BlueDarker = Color(0xFF173A59)
 
 val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
+    primary = MainBlue,
+    secondary = MainPink,
+    tertiary = BlueLightActive,
+    background = AppBackground,
+    surface = Color.White,
     onPrimary = Color.White,
     onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
+    onTertiary = BlueDark,
+    onBackground = Gray900,
+    onSurface = Gray900,
+    surfaceVariant = Gray100,
+    onSurfaceVariant = Gray700
 )
 
 val DarkColorScheme = darkColorScheme(

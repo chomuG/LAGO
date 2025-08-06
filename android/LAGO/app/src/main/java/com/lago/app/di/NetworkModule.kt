@@ -4,6 +4,7 @@ import com.lago.app.data.remote.ApiService
 import com.lago.app.data.remote.NewsApiService
 import com.lago.app.data.remote.StudyApiService
 import com.lago.app.util.Constants
+import com.lago.app.data.remote.api.ChartApiService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -21,13 +22,24 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
+    fun provideHttpLoggingInterceptor(): HttpLoggingInterceptor {
+        return HttpLoggingInterceptor().apply {
+            // Always use BODY level for development, NONE for production
             level = HttpLoggingInterceptor.Level.BODY
         }
-        
+    }
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(
+        loggingInterceptor: HttpLoggingInterceptor
+    ): OkHttpClient {
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
             .connectTimeout(Constants.TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(Constants.TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .writeTimeout(Constants.TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -43,19 +55,25 @@ object NetworkModule {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
-    
+
+    @Provides
+    @Singleton
+    fun provideChartApiService(retrofit: Retrofit): ChartApiService {
+        return retrofit.create(ChartApiService::class.java)
+    }
+
     @Provides
     @Singleton
     fun provideApiService(retrofit: Retrofit): ApiService {
         return retrofit.create(ApiService::class.java)
     }
-    
+
     @Provides
     @Singleton
     fun provideNewsApiService(retrofit: Retrofit): NewsApiService {
         return retrofit.create(NewsApiService::class.java)
     }
-    
+
     @Provides
     @Singleton
     fun provideStudyApiService(retrofit: Retrofit): StudyApiService {
