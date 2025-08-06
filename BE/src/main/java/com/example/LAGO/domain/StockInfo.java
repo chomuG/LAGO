@@ -1,6 +1,7 @@
-package com.example.LAGO.entity;
+package com.example.LAGO.domain;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
@@ -24,4 +25,11 @@ public class StockInfo {
 
     @Column(name = "market")
     private String market;
+
+    // 생성자
+    public StockInfo(String code, String name, String market) {
+        this.code = code;
+        this.name = name;
+        this.market = market;
+    }
 }

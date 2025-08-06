@@ -1,6 +1,6 @@
 package com.example.LAGO.repository;
 
-import com.example.LAGO.entity.StockMonth;
+import com.example.LAGO.domain.StockMonth;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 

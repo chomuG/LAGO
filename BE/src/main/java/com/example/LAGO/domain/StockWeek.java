@@ -1,4 +1,4 @@
-package com.example.LAGO.entity;
+package com.example.LAGO.domain;
 
 public class StockWeek {
 }

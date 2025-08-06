@@ -1,6 +1,6 @@
 package com.example.LAGO.service;
 
-import com.example.LAGO.entity.StockDay;
+import com.example.LAGO.domain.StockDay;
 import com.example.LAGO.dto.StockDayDto;
 import com.example.LAGO.repository.StockDayRepository;
 import org.springframework.beans.factory.annotation.Autowired;

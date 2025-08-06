@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.Builder;
 import java.time.LocalDate;
-import com.example.LAGO.entity.StockDay;
+import com.example.LAGO.domain.StockDay;
 
 @Getter
 @Setter

@@ -1,6 +1,6 @@
 package com.example.LAGO.repository;
 
-import com.example.LAGO.entity.StockMinute;
+import com.example.LAGO.domain.StockMinute;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.time.LocalDateTime;
 import java.util.List;

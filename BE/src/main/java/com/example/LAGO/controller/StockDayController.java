@@ -9,7 +9,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/stock-day")
+@RequestMapping("/api/charts/stock-day")
 public class StockDayController {
 
     private final StockDayService stockDayService;
@@ -19,7 +19,7 @@ public class StockDayController {
         this.stockDayService = stockDayService;
     }
 
-    // GET: /api/stock-day?stockId=1&start=2024-07-01&end=2024-07-31
+    // GET: /api/charts/stock-day?stockId=1&start=2024-07-01&end=2024-07-31
     @GetMapping
     public List<StockDayDto> getStockDays(
             @RequestParam("stockId") Integer stockInfoId,

@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/stock-month")
+@RequestMapping("/api/charts/stock-month")
 public class StockMonthController {
 
     private final StockMonthService stockMonthService;
@@ -17,7 +17,7 @@ public class StockMonthController {
         this.stockMonthService = stockMonthService;
     }
 
-    // GET: /api/stock-month?stockId=1&start=202407&end=202412
+    // GET: /api/charts/stock-month?stockId=1&start=202407&end=202412
     @GetMapping
     public List<StockMonthDto> getStockMonths(
             @RequestParam("stockId") Integer stockInfoId,

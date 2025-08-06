@@ -5,7 +5,7 @@ import lombok.Setter;
 import lombok.Builder;
 
 import java.time.LocalDateTime;
-import com.example.LAGO.entity.StockMinute;
+import com.example.LAGO.domain.StockMinute;
 
 @Getter
 @Setter
