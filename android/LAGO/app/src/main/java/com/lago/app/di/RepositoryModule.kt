@@ -4,6 +4,10 @@ import com.lago.app.data.repository.ChartRepositoryImpl
 import com.lago.app.data.repository.StockListRepositoryImpl
 import com.lago.app.domain.repository.ChartRepository
 import com.lago.app.domain.repository.StockListRepository
+import com.lago.app.data.repository.NewsRepositoryImpl
+import com.lago.app.data.repository.StudyRepositoryImpl
+import com.lago.app.domain.repository.NewsRepository
+import com.lago.app.domain.repository.StudyRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -14,6 +18,17 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
 
+    @Binds
+    @Singleton
+    abstract fun bindNewsRepository(
+        newsRepositoryImpl: NewsRepositoryImpl
+    ): NewsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindStudyRepository(
+        studyRepositoryImpl: StudyRepositoryImpl
+    ): StudyRepository
     @Binds
     @Singleton
     abstract fun bindChartRepository(

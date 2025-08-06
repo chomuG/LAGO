@@ -13,6 +13,7 @@ hilt = "2.48"
 cameraCore = "1.4.2"
 firebaseSessions = "3.0.0"
 media3CommonKtx = "1.8.0"
+lifecycleRuntimeComposeAndroid = "2.9.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -23,6 +24,7 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+androidx-lifecycle-runtime-compose-android = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose-android", version.ref = "lifecycleRuntimeComposeAndroid" }
 androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraCore" }
 firebase-sessions = { group = "com.google.firebase", name = "firebase-sessions", version.ref = "firebaseSessions" }
 androidx-media3-common-ktx = { group = "androidx.media3", name = "media3-common-ktx", version.ref = "media3CommonKtx" }

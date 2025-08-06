@@ -1,85 +1,205 @@
 package com.lago.app.presentation.ui
 
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.lago.app.presentation.theme.LagoTheme
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lago.app.R
+import com.lago.app.domain.entity.News
+import com.lago.app.presentation.theme.*
+import com.lago.app.presentation.ui.components.NewsCard
+import com.lago.app.presentation.viewmodel.NewsUiState
+import com.lago.app.presentation.viewmodel.NewsViewModel
+import com.lago.app.util.formatTimeAgo
 
+data class NewsItem(
+    val id: String,
+    val category: String,
+    val title: String,
+    val timeAgo: String,
+    val imageRes: Int
+)
+
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NewsScreen() {
+fun NewsScreen(
+    onNewsClick: (Int) -> Unit = {},
+    viewModel: NewsViewModel = hiltViewModel()
+) {
+    var selectedTab by remember { mutableStateOf("실시간 뉴스") }
+    
+    val newsState by viewModel.newsState.collectAsStateWithLifecycle()
+    val interestNewsState by viewModel.interestNewsState.collectAsStateWithLifecycle()
+    
+    LaunchedEffect(selectedTab) {
+        when (selectedTab) {
+            "실시간 뉴스" -> viewModel.loadNews()
+            "관심 종목 뉴스" -> viewModel.loadInterestNews()
+        }
+    }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .background(AppBackground)
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = "금융 뉴스",
-                    style = MaterialTheme.typography.headlineMedium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "최신 금융 시장 동향과 뉴스를 확인하세요",
-                    style = MaterialTheme.typography.bodyLarge
+        // Tab Row
+        TabRow(
+            modifier = Modifier.height(60.dp),
+            selectedTabIndex = if (selectedTab == "실시간 뉴스") 0 else 1,
+            containerColor = AppBackground,
+            indicator = { tabPositions ->
+                Box(
+                    modifier = Modifier
+                        .tabIndicatorOffset(tabPositions[if (selectedTab == "실시간 뉴스") 0 else 1])
+                        .height(2.dp)
+                        .background(MainBlue)
                 )
             }
+        ) {
+            Tab(
+                selected = selectedTab == "실시간 뉴스",
+                onClick = { selectedTab = "실시간 뉴스" },
+                text = {
+                    Text(
+                        text = "실시간 뉴스",
+                        style = TitleB18,
+                        color = if (selectedTab == "실시간 뉴스") Color.Black else Gray600
+                    )
+                }
+            )
+            Tab(
+                selected = selectedTab == "관심 종목 뉴스",
+                onClick = { selectedTab = "관심 종목 뉴스" },
+                text = {
+                    Text(
+                        text = "관심 종목 뉴스",
+                        style = TitleB18,
+                        color = if (selectedTab == "관심 종목 뉴스") Color.Black else Gray600
+                    )
+                }
+            )
         }
         
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(8) { index ->
-                Card(
-                    modifier = Modifier.fillMaxWidth()
+        // News List
+        val currentState = if (selectedTab == "실시간 뉴스") newsState else interestNewsState
+        
+        when (currentState) {
+            is NewsUiState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = when(index % 4) {
-                                0 -> "코스피 상승세 지속, 외국인 매수 확대"
-                                1 -> "미국 연준 금리 인상 기대감 확산"
-                                2 -> "국내 IT 기업들의 실적 호조"
-                                else -> "원달러 환율 변동성 확대 전망"
-                            },
-                            style = MaterialTheme.typography.titleMedium
+                    CircularProgressIndicator(color = MainBlue)
+                }
+            }
+            is NewsUiState.Success -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp)
+                ) {
+                    items(currentState.newsList) { news ->
+                        NewsCard(
+                            news = news,
+                            onClick = { onNewsClick(news.newsId) }
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "${index + 1}시간 전 • 경제신문",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "금융 시장의 최신 동향과 분석을 제공하는 뉴스 기사입니다.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
+                    }
+                }
+            }
+            is NewsUiState.Error -> {
+                // 에러 상황에서도 레이아웃 확인을 위한 더미 데이터
+                val dummyNews = listOf(
+                    News(
+                        newsId = 1,
+                        title = "삼성전자, 3분기 영업이익 전년 동기 대비 277% 증가",
+                        publishedAt = "2024-10-31T10:30:00Z",
+                        sentiment = "호재",
+                    ),
+                    News(
+                        newsId = 2,
+                        title = "SK하이닉스, HBM 시장 확대로 주가 상승 전망",
+                        publishedAt = "2024-10-31T09:15:00Z",
+                        sentiment = "호재",
+                    ),
+                    News(
+                        newsId = 3,
+                        title = "현대차, 전기차 판매 부진으로 실적 우려",
+                        publishedAt = "2024-10-31T08:45:00Z",
+                        sentiment = "악재",
+                    )
+                )
+                
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp)
+                ) {
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
                         ) {
-                            TextButton(
-                                onClick = { /* TODO: Navigate to full article */ }
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("더보기")
+                                Text(
+                                    text = "⚠️ 데이터 로드 실패",
+                                    style = TitleB16,
+                                    color = Color.Red
+                                )
+                                Text(
+                                    text = "아래는 레이아웃 확인용 더미 데이터입니다",
+                                    style = BodyR12,
+                                    color = Gray600
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    onClick = { 
+                                        when (selectedTab) {
+                                            "실시간 뉴스" -> viewModel.loadNews()
+                                            "관심 종목 뉴스" -> viewModel.loadInterestNews()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MainBlue)
+                                ) {
+                                    Text("다시 시도", color = Color.White)
+                                }
                             }
                         }
+                    }
+                    items(dummyNews) { news ->
+                        NewsCard(
+                            news = news,
+                            onClick = { onNewsClick(news.newsId) }
+                        )
                     }
                 }
             }
@@ -87,6 +207,8 @@ fun NewsScreen() {
     }
 }
 
+
+@RequiresApi(Build.VERSION_CODES.O)
 @Preview(showBackground = true)
 @Composable
 fun NewsScreenPreview() {

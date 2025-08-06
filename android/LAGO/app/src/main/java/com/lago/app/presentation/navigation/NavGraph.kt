@@ -1,5 +1,9 @@
 package com.lago.app.presentation.navigation
 
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -10,9 +14,16 @@ import com.lago.app.presentation.ui.*
 import com.lago.app.presentation.ui.chart.ChartScreen
 import com.lago.app.presentation.ui.purchase.StockPurchaseScreen
 import com.lago.app.presentation.ui.chart.AIDialog
+import com.lago.app.presentation.ui.study.Screen.PatternStudyScreen
+import com.lago.app.presentation.ui.study.Screen.WordbookScreen
+import com.lago.app.presentation.ui.study.Screen.RandomQuizScreen
+import com.lago.app.presentation.ui.study.Screen.DailyQuizScreen
+import com.lago.app.presentation.ui.news.NewsDetailScreen
+
 import androidx.compose.ui.Modifier
 import com.lago.app.presentation.ui.stocklist.StockListScreen
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun NavGraph(
     navController: NavHostController,
@@ -21,7 +32,11 @@ fun NavGraph(
     NavHost(
         navController = navController,
         startDestination = NavigationItem.Home.route,
-        modifier = modifier
+        modifier = modifier,
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None }
     ) {
         composable(NavigationItem.Home.route) {
             HomeScreen()
@@ -34,7 +49,7 @@ fun NavGraph(
                 }
             )
         }
-        
+
         composable(NavigationItem.Chart.route) {
             ChartScreen(
                 onNavigateToStockPurchase = { stockCode, action ->
@@ -48,7 +63,7 @@ fun NavGraph(
                 }
             )
         }
-        
+
         // Chart Screen with stock code parameter
         composable(
             route = "chart/{stockCode}",
@@ -57,7 +72,7 @@ fun NavGraph(
             )
         ) { backStackEntry ->
             val stockCode = backStackEntry.arguments?.getString("stockCode") ?: "005930"
-            
+
             ChartScreen(
                 stockCode = stockCode,
                 onNavigateToStockPurchase = { stockCode, action ->
@@ -71,7 +86,7 @@ fun NavGraph(
                 }
             )
         }
-        
+
         // Chart with specific stock code
         composable(
             route = "chart/{stockCode}",
@@ -80,7 +95,7 @@ fun NavGraph(
             )
         ) { backStackEntry ->
             val stockCode = backStackEntry.arguments?.getString("stockCode") ?: "005930"
-            
+
             ChartScreen(
                 stockCode = stockCode,
                 onNavigateToStockPurchase = { code, action ->
@@ -96,17 +111,34 @@ fun NavGraph(
         }
         
         composable(NavigationItem.Learn.route) {
-            LearnScreen()
+            LearnScreen(
+                onRandomQuizClick = {
+                    navController.navigate("random_quiz")
+                },
+                onDailyQuizClick = {
+                    navController.navigate("daily_quiz")
+                },
+                onPatternStudyClick = {
+                    navController.navigate("pattern_study")
+                },
+                onWordBookClick = {
+                    navController.navigate("wordbook")
+                }
+            )
         }
         
         composable(NavigationItem.News.route) {
-            NewsScreen()
+            NewsScreen(
+                onNewsClick = { newsId ->
+                    navController.navigate("news_detail/$newsId")
+                }
+            )
         }
         
         composable(NavigationItem.Portfolio.route) {
             PortfolioScreen()
         }
-        
+
         // Stock Purchase Screen with arguments
         composable(
             route = "stock_purchase/{stockCode}/{action}",
@@ -117,7 +149,7 @@ fun NavGraph(
         ) { backStackEntry ->
             val stockCode = backStackEntry.arguments?.getString("stockCode") ?: ""
             val action = backStackEntry.arguments?.getString("action") ?: "buy"
-            
+
             StockPurchaseScreen(
                 stockCode = stockCode,
                 action = action,
@@ -130,11 +162,56 @@ fun NavGraph(
                 }
             )
         }
-        
+
         // AI Chart Analysis Dialog
         composable(NavigationItem.AIDialog.route) {
             AIDialog(
                 onDismiss = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable("pattern_study") {
+            PatternStudyScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable("wordbook") {
+            WordbookScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable("random_quiz") {
+            RandomQuizScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onBackToLearn = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable("daily_quiz") {
+            DailyQuizScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable("news_detail/{newsId}") { backStackEntry ->
+            val newsId = backStackEntry.arguments?.getString("newsId") ?: "1"
+            NewsDetailScreen(
+                newsId = newsId,
+                onBackClick = {
                     navController.popBackStack()
                 }
             )

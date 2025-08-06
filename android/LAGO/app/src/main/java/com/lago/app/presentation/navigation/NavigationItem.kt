@@ -3,66 +3,56 @@ package com.lago.app.presentation.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.media3.common.Timeline
+import androidx.compose.ui.res.vectorResource
+import com.lago.app.R
 
 sealed class NavigationItem(
     val route: String,
     val title: String,
-    val icon: ImageVector
+    val iconRes: Int
 ) {
     object Home : NavigationItem(
         route = "home",
         title = "홈",
-        icon = Icons.Default.Home
+        iconRes = R.drawable.home
     )
     
     object Investment : NavigationItem(
         route = "investment",
         title = "투자",
-        icon = Icons.Default.Star
+        iconRes = R.drawable.stock
     )
-    
+
     object Chart : NavigationItem(
         route = "chart",
         title = "차트",
-        icon = Icons.Default.Build
+        iconRes = R.drawable.stock
     )
-    
+
     object Learn : NavigationItem(
         route = "learn",
         title = "학습",
-        icon = Icons.Default.Person
+        iconRes = R.drawable.scholar
     )
     
     object News : NavigationItem(
         route = "news",
         title = "뉴스",
-        icon = Icons.Default.Email
+        iconRes = R.drawable.news
     )
     
     object Portfolio : NavigationItem(
         route = "portfolio",
-        title = "포트폴리오",
-        icon = Icons.Default.AccountBox
+        title = "마이",
+        iconRes = R.drawable.my
     )
-    
-    // Chart-related additional screens
-    object StockPurchase : NavigationItem(
-        route = "stock_purchase/{stockCode}/{action}",
-        title = "주식 매매",
-        icon = Icons.Default.ShoppingCart
-    )
-    
-    object AIDialog : NavigationItem(
-        route = "ai_dialog",
-        title = "AI 차트 분석",
-        icon = Icons.Default.Edit
-    )
+
 }
 
 val bottomNavigationItems = listOf(
     NavigationItem.Home,
     NavigationItem.Investment,
+    NavigationItem.Learn,
     NavigationItem.Chart,
     NavigationItem.News,
     NavigationItem.Portfolio
