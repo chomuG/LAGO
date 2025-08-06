@@ -45,4 +45,10 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      * @return 사용자
      */
     Optional<User> findByUserId(Integer userId);
+    
+    /**
+     * 활성화된 AI 봇 목록 조회 (is_ai = true, deleted_at IS NULL)
+     * @return 삭제되지 않은 AI 봇 사용자 목록
+     */
+    List<User> findByIsAiTrueAndDeletedAtIsNull();
 }

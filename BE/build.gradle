@@ -1,5 +1,6 @@
 plugins {
 	id 'java'
+	id 'application'
 	id 'org.springframework.boot' version '3.5.4'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -53,8 +54,15 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+// Spring Boot 메인 클래스 명시적 설정
+application {
+	mainClass = 'com.example.LAGO.LagoApplication'
+}
+
 // bootRun 태스크 설정 - main 환경의 application.properties 사용 강제
 bootRun {
+	mainClass = 'com.example.LAGO.LagoApplication'
+	
 	// .env 파일 환경변수 로드
 	doFirst {
 		def envFile = file('../.env')
