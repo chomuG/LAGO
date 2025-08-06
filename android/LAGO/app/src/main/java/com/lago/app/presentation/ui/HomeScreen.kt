@@ -55,7 +55,9 @@ data class Stock(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onOrderHistoryClick: () -> Unit = {}
+) {
     val tradingBots = listOf(
         TradingBot("화끈이", R.drawable.character_red, "12,450,000원", "137,000원(+2.56%)", Color(0xFFFF6B6B)),
         TradingBot("적극이", R.drawable.character_yellow, "8,750,000원", "25,000원(+1.2%)", Color(0xFF51CF66)),
@@ -141,7 +143,7 @@ fun HomeScreen() {
 
         // 내 투자금 Section
         item {
-            InvestmentSection()
+            InvestmentSection(onOrderHistoryClick = onOrderHistoryClick)
         }
 
         item {
@@ -169,7 +171,9 @@ fun HomeScreen() {
 }
 
 @Composable
-private fun InvestmentSection() {
+private fun InvestmentSection(
+    onOrderHistoryClick: () -> Unit = {}
+) {
     var isHistoryMode by remember { mutableStateOf(true) }
     Column(
         modifier = Modifier.padding(horizontal = 20.dp)
@@ -268,7 +272,8 @@ private fun InvestmentSection() {
 
                     // 아래쪽 주문내역
                     Row(
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { onOrderHistoryClick() }
                     ) {
                         Text(
                             text = "주문내역",

@@ -19,6 +19,7 @@ import com.lago.app.presentation.ui.study.Screen.WordbookScreen
 import com.lago.app.presentation.ui.study.Screen.RandomQuizScreen
 import com.lago.app.presentation.ui.study.Screen.DailyQuizScreen
 import com.lago.app.presentation.ui.news.NewsDetailScreen
+import com.lago.app.presentation.ui.home.OrderHistoryScreen
 
 import androidx.compose.ui.Modifier
 import com.lago.app.presentation.ui.stocklist.StockListScreen
@@ -39,7 +40,11 @@ fun NavGraph(
         popExitTransition = { ExitTransition.None }
     ) {
         composable(NavigationItem.Home.route) {
-            HomeScreen()
+            HomeScreen(
+                onOrderHistoryClick = {
+                    navController.navigate(NavigationItem.OrderHistory.route)
+                }
+            )
         }
 
         composable(NavigationItem.Investment.route) {
@@ -211,6 +216,14 @@ fun NavGraph(
             val newsId = backStackEntry.arguments?.getString("newsId") ?: "1"
             NewsDetailScreen(
                 newsId = newsId,
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(NavigationItem.OrderHistory.route) {
+            OrderHistoryScreen(
                 onBackClick = {
                     navController.popBackStack()
                 }

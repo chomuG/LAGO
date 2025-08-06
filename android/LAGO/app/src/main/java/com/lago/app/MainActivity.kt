@@ -52,7 +52,7 @@ fun LagoApp() {
     val currentRoute = navBackStackEntry?.destination?.route
 
     // Routes where bottom navigation should be hidden
-    val hideBottomBarRoutes = listOf("pattern_study", "wordbook", "random_quiz", "daily_quiz")
+    val hideBottomBarRoutes = listOf("pattern_study", "wordbook", "random_quiz", "daily_quiz", "order_history")
     val shouldLogicallyShowBottomBar = currentRoute !in hideBottomBarRoutes && currentRoute?.startsWith("news_detail") != true
 
     // State for delayed bottom bar animation
