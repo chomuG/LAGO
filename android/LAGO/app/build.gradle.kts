@@ -97,6 +97,9 @@ dependencies {
     // MotionLayout for Compose
     implementation("androidx.constraintlayout:constraintlayout-compose:1.0.1")
 
+    // Lottie for Compose
+    implementation("com.airbnb.android:lottie-compose:6.4.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

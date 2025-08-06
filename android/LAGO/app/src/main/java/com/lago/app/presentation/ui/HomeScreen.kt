@@ -1,5 +1,6 @@
 package com.lago.app.presentation.ui
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,16 +10,28 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.airbnb.lottie.compose.*
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
 
@@ -51,8 +64,12 @@ fun HomeScreen() {
     )
 
     val stocks = listOf(
-        Stock("삼성전자", "005930", 10, "82,000원", "-2.7%", "-2.7%", Color(0xFFFF6B6B)),
-        Stock("한화생명", "088350", 5, "275,000원", "+15.7%", "+15.7%", Color(0xFF51CF66))
+        Stock("삼성전자", "005930", 10, "82,000원", "-2.7%", "-2.7%", MainBlue),
+        Stock("한화생명", "088350", 5, "275,000원", "+15.7%", "+15.7%", MainPink),
+        Stock("삼성전자", "005930", 10, "82,000원", "-2.7%", "-2.7%", MainBlue),
+        Stock("한화생명", "088350", 5, "275,000원", "+15.7%", "+15.7%", MainPink),
+        Stock("삼성전자", "005930", 10, "82,000원", "-2.7%", "-2.7%", MainBlue),
+        Stock("한화생명", "088350", 5, "275,000원", "+15.7%", "+15.7%", MainPink)
     )
 
     LazyColumn(
@@ -153,6 +170,7 @@ fun HomeScreen() {
 
 @Composable
 private fun InvestmentSection() {
+    var isHistoryMode by remember { mutableStateOf(true) }
     Column(
         modifier = Modifier.padding(horizontal = 20.dp)
     ) {
@@ -168,7 +186,7 @@ private fun InvestmentSection() {
                 .fillMaxWidth()
                 .shadow(
                     elevation = 4.dp,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
                     spotColor = ShadowColor,
                     ambientColor = ShadowColor
                 ),
@@ -178,75 +196,87 @@ private fun InvestmentSection() {
             )
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.money_bag),
-                    contentDescription = "돈가방",
-                    modifier = Modifier.size(80.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                val composition by rememberLottieComposition(
+                    LottieCompositionSpec.Asset("money_bag_animation.json")
+                )
+                val progress by animateLottieCompositionAsState(
+                    composition,
+                    iterations = LottieConstants.IterateForever
+                )
+                LottieAnimation(
+                    composition = composition,
+                    progress = { progress },
+                    modifier = Modifier
+                        .size(150.dp)
                 )
 
                 Column(
-                    horizontalAlignment = Alignment.End
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .height(169.dp)
+                        .padding(top = 16.dp, bottom = 16.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
+                    // 위쪽 그룹
+                    Column(
+                        horizontalAlignment = Alignment.End
                     ) {
-                        Text(
-                            text = "역산모드",
-                            style = BodyR14.copy(color = Gray600)
-                        )
-
-                        // Radio button style toggle
-                        Box(
-                            modifier = Modifier
-                                .padding(start = 8.dp)
-                                .size(20.dp)
-                                .background(
-                                    color = Gray300,
-                                    shape = androidx.compose.foundation.shape.CircleShape
-                                )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(12.dp)
-                                    .background(
-                                        color = Color.White,
-                                        shape = androidx.compose.foundation.shape.CircleShape
-                                    )
-                                    .align(Alignment.Center)
+                            Text(
+                                text = if (isHistoryMode) "역사모드" else "모의투자",
+                                style = BodyR12.copy(color = Gray600)
+                            )
+
+                            // Material3 Switch
+                            Switch(
+                                checked = isHistoryMode,
+                                onCheckedChange = { isHistoryMode = it },
+                                modifier = Modifier.padding(start = 8.dp),
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = MainBlue,
+                                    checkedBorderColor = Color.Transparent,
+                                    uncheckedThumbColor = Color.White,
+                                    uncheckedTrackColor = Gray300,
+                                    uncheckedBorderColor = Color.Transparent
+                                )
                             )
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "13,378,095원",
+                            style = HeadEb24
+                        )
+
+                        Text(
+                            text = "+57,000원(3.33%)",
+                            style = TitleB14.copy(color = Color(0xFFED5454))
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.weight(1f))
 
-                    Text(
-                        text = "13,378,095원",
-                        style = HeadEb28.copy(color = Color.Black)
-                    )
-
-                    Text(
-                        text = "57,000원(+3.33%)",
-                        style = BodyR14.copy(color = Color(0xFFFF6B6B))
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
+                    // 아래쪽 주문내역
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = "주문내역",
-                            style = BodyR14.copy(color = Gray600)
+                            style = SubtitleSb14
                         )
                         Text(
                             text = " >",
-                            style = BodyR14.copy(color = Gray600)
+                            style = SubtitleSb18
                         )
                     }
                 }
@@ -282,11 +312,11 @@ private fun TradingBotSection(tradingBots: List<TradingBot>) {
 private fun TradingBotCard(bot: TradingBot) {
     Card(
         modifier = Modifier
-            .width(200.dp)
-            .height(140.dp)
+            .width(273.dp)
+            .height(158.dp)
             .shadow(
                 elevation = 4.dp,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(20.dp),
                 spotColor = ShadowColor,
                 ambientColor = ShadowColor
             ),
@@ -306,19 +336,19 @@ private fun TradingBotCard(bot: TradingBot) {
             ) {
                 Text(
                     text = bot.name,
-                    style = SubtitleSb16.copy(color = Color.Black)
+                    style = TitleB14
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     text = bot.amount,
-                    style = TitleB16.copy(color = Color.Black)
+                    style = TitleB24
                 )
 
                 Text(
                     text = bot.profit,
-                    style = BodyR14.copy(color = bot.profitColor)
+                    style = SubtitleSb14.copy(color = Color(0xFFF63232))
                 )
             }
 
@@ -332,7 +362,7 @@ private fun TradingBotCard(bot: TradingBot) {
                 Image(
                     painter = painterResource(id = bot.character),
                     contentDescription = bot.name,
-                    modifier = Modifier.size(50.dp)
+                    modifier = Modifier.size(95.dp)
                 )
             }
         }
@@ -356,7 +386,7 @@ private fun StockSection(stocks: List<Stock>) {
                 .fillMaxWidth()
                 .shadow(
                     elevation = 4.dp,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
                     spotColor = ShadowColor,
                     ambientColor = ShadowColor
                 ),
@@ -372,12 +402,6 @@ private fun StockSection(stocks: List<Stock>) {
                     StockItem(stock)
                     if (index != stocks.lastIndex) {
                         Spacer(modifier = Modifier.height(16.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(Gray200)
-                        )
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
@@ -424,11 +448,11 @@ private fun StockItem(stock: Stock) {
             Column {
                 Text(
                     text = stock.name,
-                    style = SubtitleSb16.copy(color = Color.Black)
+                    style = TitleB16
                 )
                 Text(
                     text = "${stock.shares}주",
-                    style = BodyR12.copy(color = Gray600)
+                    style = BodyR12
                 )
             }
         }
@@ -438,7 +462,7 @@ private fun StockItem(stock: Stock) {
         ) {
             Text(
                 text = stock.price,
-                style = TitleB16.copy(color = Color.Black)
+                style = TitleB14
             )
             Text(
                 text = stock.profit,
