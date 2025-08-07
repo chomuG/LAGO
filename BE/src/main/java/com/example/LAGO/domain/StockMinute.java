@@ -1,15 +1,15 @@
 package com.example.LAGO.domain;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "\"STOCK_MINUTE\"")
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class StockMinute {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

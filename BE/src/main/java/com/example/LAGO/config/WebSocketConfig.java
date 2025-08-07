@@ -12,6 +12,8 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // WebSocketKing 테스트용 : 연결되는건 확인
+//        registry.addEndpoint("/ws-stock").setAllowedOriginPatterns("*");
         // /ws-stock으로 웹소켓 연결, SockJS 허용
         registry.addEndpoint("/ws-stock").setAllowedOriginPatterns("*").withSockJS();
     }

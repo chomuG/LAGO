@@ -4,6 +4,7 @@ import com.example.LAGO.domain.StockMinute;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import com.example.LAGO.domain.StockInfo;
 
 import java.time.LocalDateTime;
 
@@ -11,6 +12,7 @@ import java.time.LocalDateTime;
 @Setter
 @Builder
 public class StockMinuteDto {
+    private Integer stockInfoId;
     private LocalDateTime date;
     private Integer openPrice;
     private Integer highPrice;
@@ -21,6 +23,7 @@ public class StockMinuteDto {
     // Entity -> DTO 변환
     public static StockMinuteDto fromEntity(StockMinute entity) {
         return StockMinuteDto.builder()
+                .stockInfoId(entity.getStockInfo().getStockInfoId())
                 .date(entity.getDate())
                 .openPrice(entity.getOpenPrice())
                 .highPrice(entity.getHighPrice())

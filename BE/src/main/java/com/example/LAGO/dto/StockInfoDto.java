@@ -11,9 +11,6 @@ public class StockInfoDto {
     private String name;
     private String market;
 
-    private Double currentClosePrice;
-    private Double previousClosePrice;
-    private Double fluctuationRate;
 
     public StockInfoDto() {}
 
