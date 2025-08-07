@@ -11,9 +11,11 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -205,16 +207,22 @@ public class TechnicalAnalysisService {
      * 분석용 일별 주가 데이터 조회
      * 최신 데이터부터 역순으로 정렬 (index 0이 가장 최신)
      * 
+     * 연동된 EC2 DB STOCK_DAY 테이블 기준:
+     * - Repository에서 실제 존재하는 메서드 사용
+     * - findByStockInfoIdOrderByDateDescLimit() 메서드 활용
+     * 
      * @param stockInfo 종목 정보
      * @param days 조회할 일수
      * @return 일별 주가 데이터 리스트
      */
     private List<StockDay> getStockDataForAnalysis(StockInfo stockInfo, int days) {
         try {
+            // 지침서 명세: Repository에서 실제 존재하는 메서드 사용
             List<StockDay> stockData = stockDayRepository
                 .findByStockInfoIdOrderByDateDescLimit(stockInfo.getStockInfoId(), days);
             
-            log.debug("주가 데이터 조회 완료: {} - {}일", stockInfo.getCode(), stockData.size());
+            log.debug("주가 데이터 조회 완료: {} - {}일 (실제 조회: {}일)", 
+                     stockInfo.getCode(), days, stockData.size());
             return stockData;
             
         } catch (Exception e) {
@@ -524,21 +532,29 @@ public class TechnicalAnalysisService {
         return TechnicalAnalysisResult.builder()
             .stockCode(stockCode)
             .currentPrice(latestStock.getClosePrice().floatValue())
-            .volume(latestStock.getVolume().longValue())
+            .volume(latestStock.getVolume().floatValue()) // Integer -> Float 타입 맞춤
             .fluctuationRate(latestStock.getFluctuationRate())
             .rsi(rsi)
             .macdLine(macd != null ? macd[0] : null)
             .signalLine(macd != null ? macd[1] : null)
-            .macdHistogram(macd != null ? macd[2] : null)
+            .histogram(macd != null ? macd[2] : null) // DTO 필드명과 일치
             .bollingerUpperBand(bollinger != null ? bollinger[0] : null)
             .bollingerMiddleBand(bollinger != null ? bollinger[1] : null)
             .bollingerLowerBand(bollinger != null ? bollinger[2] : null)
             .ma5(ma != null ? ma[0] : null)
-            .ma20(ma != null && ma.length > 1 ? ma[1] : null)
-            .ma60(ma != null && ma.length > 2 ? ma[2] : null)
+            .ma10(ma != null && ma.length > 1 ? ma[1] : null) // ma10 추가
+            .ma20(ma != null && ma.length > 2 ? ma[2] : null)
+            .ma60(ma != null && ma.length > 3 ? ma[3] : null)
+            .ma120(ma != null && ma.length > 4 ? ma[4] : null) // ma120 추가
             .isGoldenCross(cross != null ? cross[0] : false)
             .isDeathCross(cross != null && cross.length > 1 ? cross[1] : false)
-            .analysisTime(LocalDateTime.now())
+            // 기본 신호 설정 (generateOverallSignal에서 업데이트)
+            .overallSignal(TradingConstants.SIGNAL_HOLD)
+            .signalStrength(TradingConstants.DEFAULT_SIGNAL_STRENGTH)
+            .signalReason("기술적 분석 완료")
+            // 분석 시간을 String 형태로 변환 (DTO 필드 타입에 맞춤)
+            .analysisTime(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+            .analysisVersion("1.0")
             .build();
     }
 
