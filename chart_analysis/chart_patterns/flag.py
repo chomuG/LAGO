@@ -4,8 +4,6 @@ Author: Zetra Team
 Function used to detect the Flag pattern
 """
 
-
-
 import numpy as np
 import pandas as pd 
 import plotly.graph_objects as go
@@ -66,7 +64,7 @@ def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 
     ohlc["flag_intercmin"]    = np.nan
     ohlc["flag_intercmax"]    = np.nan
     
-    # Find the pivot points
+    detected_pivots = set()
     
     if not progress:
         candle_iter = range(lookback, len(ohlc))
@@ -100,6 +98,10 @@ def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 
         # Check the order condition of the pivot points is met
         if (np.any(np.diff(minim) < 0)) or (np.any(np.diff(maxim) < 0)):
                continue
+
+        current_pivots = set(xxmax) | set(xxmin)
+        if any(p in detected_pivots for p in current_pivots):
+            continue
             
         # Run the regress to get the slope, intercepts and r-squared   
         slmin, intercmin, rmin, _, _ = linregress(xxmin, minim)
@@ -107,36 +109,37 @@ def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 
   
         # Check if the lines are parallel 
         if abs(rmax)>=r_max and abs(rmin)>=r_min and (slmin > slope_min and slmax > slope_max ) or (slmin < slope_min and slmax < slope_max):
-                        if (slmin/slmax > lower_ratio_slope and slmin/slmax < upper_ratio_slope):
-                            ohlc.loc[candle_idx,"chart_type"]          = "flag"
-                            ohlc.loc[candle_idx, "flag_point"]         = candle_idx
-                            ohlc.at[candle_idx, "flag_highs"]          = maxim
-                            ohlc.at[candle_idx, "flag_lows"]           = minim
-                            ohlc.at[candle_idx, "flag_highs_idx"]      = xxmax
-                            ohlc.at[candle_idx, "flag_lows_idx"]       = xxmin
-                            ohlc.loc[candle_idx, "flag_slmax"]         = slmax
-                            ohlc.loc[candle_idx, "flag_slmin"]         = slmin 
-                            ohlc.loc[candle_idx, "flag_intercmin"]     = intercmin
-                            ohlc.loc[candle_idx, "flag_intercmax"]     = intercmax
+            if (slmin/slmax > lower_ratio_slope and slmin/slmax < upper_ratio_slope):
+                ohlc.loc[candle_idx,"chart_type"]          = "flag"
+                ohlc.loc[candle_idx, "flag_point"]         = candle_idx
+                ohlc.at[candle_idx, "flag_highs"]          = maxim
+                ohlc.at[candle_idx, "flag_lows"]           = minim
+                ohlc.at[candle_idx, "flag_highs_idx"]      = xxmax
+                ohlc.at[candle_idx, "flag_lows_idx"]       = xxmin
+                ohlc.loc[candle_idx, "flag_slmax"]         = slmax
+                ohlc.loc[candle_idx, "flag_slmin"]         = slmin 
+                ohlc.loc[candle_idx, "flag_intercmin"]     = intercmin
+                ohlc.loc[candle_idx, "flag_intercmax"]     = intercmax
+                detected_pivots.update(current_pivots)
 
-                            # === 판단 근거 출력 ===
-                            logging.debug("\n=== Flag Detected ===")
-                            logging.debug(f"candle_idx: {candle_idx}")
-                            logging.debug(f"flag_highs: {maxim}")
-                            logging.debug(f"flag_lows: {minim}")
-                            logging.debug(f"pivot_high_count: {len(xxmax)}")
-                            logging.debug(f"pivot_low_count: {len(xxmin)}")
-                            logging.debug(f"slope_high: {slmax:.6f}")
-                            logging.debug(f"slope_low: {slmin:.6f}")
-                            logging.debug(f"r2_high: {rmax:.4f}")
-                            logging.debug(f"r2_low: {rmin:.4f}")
-                            logging.debug(f"lookback: {lookback}")
-                            logging.debug("==============================\n")
+                # === 판단 근거 출력 ===
+                logging.debug("\n=== Flag Detected ===")
+                logging.debug(f"candle_idx: {candle_idx}")
+                logging.debug(f"flag_highs: {maxim}")
+                logging.debug(f"flag_lows: {minim}")
+                logging.debug(f"pivot_high_count: {len(xxmax)}")
+                logging.debug(f"pivot_low_count: {len(xxmin)}")
+                logging.debug(f"slope_high: {slmax:.6f}")
+                logging.debug(f"slope_low: {slmin:.6f}")
+                logging.debug(f"r2_high: {rmax:.4f}")
+                logging.debug(f"r2_low: {rmin:.4f}")
+                logging.debug(f"lookback: {lookback}")
+                logging.debug("==============================\n")
 
-                            # 추가로 판단 근거를 df에 컬럼으로 저장
-                            ohlc.loc[candle_idx, "flag_pivot_high_count"] = len(xxmax)
-                            ohlc.loc[candle_idx, "flag_pivot_low_count"] = len(xxmin)
-                            ohlc.loc[candle_idx, "flag_r2_high"] = rmax
-                            ohlc.loc[candle_idx, "flag_r2_low"] = rmin
+                # 추가로 판단 근거를 df에 컬럼으로 저장
+                ohlc.loc[candle_idx, "flag_pivot_high_count"] = len(xxmax)
+                ohlc.loc[candle_idx, "flag_pivot_low_count"] = len(xxmin)
+                ohlc.loc[candle_idx, "flag_r2_high"] = rmax
+                ohlc.loc[candle_idx, "flag_r2_low"] = rmin
                             
-    return ohlc 
+    return ohlc

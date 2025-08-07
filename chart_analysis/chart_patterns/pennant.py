@@ -15,7 +15,6 @@ from scipy.stats import linregress
 from tqdm import tqdm
 
 
-
 def find_pennant(ohlc: pd.DataFrame, lookback: int = 20, min_points: int = 3,
                 r_max: float = 0.9, r_min: float = 0.9, slope_max: float = -0.0001, slope_min: float = 0.0001, 
                  lower_ratio_slope: float = 0.95, upper_ratio_slope: float = 1,
@@ -67,7 +66,7 @@ def find_pennant(ohlc: pd.DataFrame, lookback: int = 20, min_points: int = 3,
     ohlc["pennant_intercmin"]    = np.nan
     ohlc["pennant_intercmax"]    = np.nan
     
-    # Find the pivot points
+    detected_pivots = set()
 
     if not progress:
         candle_iter = range(lookback, len(ohlc))
@@ -98,11 +97,13 @@ def find_pennant(ohlc: pd.DataFrame, lookback: int = 20, min_points: int = 3,
         if len(np.unique(minim)) < 2 or len(np.unique(maxim)) < 2:
             continue
 
-         # Run the regress to get the slope, intercepts and r-squared
+        current_pivots = set(xxmax) | set(xxmin)
+        if any(p in detected_pivots for p in current_pivots):
+            continue
+
+        # Run the regress to get the slope, intercepts and r-squared
         slmin, intercmin, rmin, pmin, semin = linregress(xxmin, minim)
         slmax, intercmax, rmax, pmax, semax = linregress(xxmax, maxim)
-        
-        
         
         if abs(rmax)>=r_max and abs(rmin)>=r_min and slmin>=slope_min  and slmax<= slope_max  and abs(slmax/slmin) > lower_ratio_slope and abs(slmax/slmin) < upper_ratio_slope:
                 ohlc.loc[candle_idx,"chart_type"]          = "pennant"
@@ -115,6 +116,7 @@ def find_pennant(ohlc: pd.DataFrame, lookback: int = 20, min_points: int = 3,
                 ohlc.loc[candle_idx, "pennant_slmin"]         = slmin 
                 ohlc.loc[candle_idx, "pennant_intercmin"]     = intercmin
                 ohlc.loc[candle_idx, "pennant_intercmax"]     = intercmax
+                detected_pivots.update(current_pivots)
                 
                 # === 판단 근거 출력 ===
                 logging.debug("\n=== Pennant Triangle Detected ===")
@@ -134,4 +136,4 @@ def find_pennant(ohlc: pd.DataFrame, lookback: int = 20, min_points: int = 3,
                 ohlc.loc[candle_idx, "pennant_r2_high"] = rmax
                 ohlc.loc[candle_idx, "pennant_r2_low"] = rmin
     
-    return ohlc 
+    return ohlc

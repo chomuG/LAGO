@@ -44,9 +44,7 @@ def find_doubles_pattern(ohlc: pd.DataFrame, lookback: int = 25, double: str = "
     ohlc["double_idx"]    = [np.array([]) for _ in range(len(ohlc)) ]
     ohlc["double_point"]  = [np.array([]) for _ in range(len(ohlc)) ]
     
-    
-    # # Find the pivot points
-    # ohlc = find_all_pivot_points(ohlc)
+    detected_pivots = set()
     
     if not progress:
         candle_iter =  range(lookback, len(ohlc))
@@ -61,6 +59,9 @@ def find_doubles_pattern(ohlc: pd.DataFrame, lookback: int = 25, double: str = "
             continue
         
         if len(pivot_indx) == 5: # Must have only 5 pivots
+            if any(p in detected_pivots for p in pivot_indx):
+                continue
+
             pivots = ohlc.loc[pivot_indx, "pivot_pos"].tolist() 
             
             # Find Double Tops
@@ -72,6 +73,7 @@ def find_doubles_pattern(ohlc: pd.DataFrame, lookback: int = 25, double: str = "
                         ohlc.at[candle_idx, "double_point"]   = pivots
                         ohlc.loc[candle_idx, "double_type"]   = "tops"
                         ohlc.loc[candle_idx, "chart_type"]    = "double"
+                        detected_pivots.update(pivot_indx)
 
                         # === 판단 근거 출력 ===
                         logging.debug("\n=== Double Top Detected ===")
@@ -91,6 +93,7 @@ def find_doubles_pattern(ohlc: pd.DataFrame, lookback: int = 25, double: str = "
                         ohlc.at[candle_idx, "double_point"]   = pivots
                         ohlc.loc[candle_idx, "double_type"]   = "bottoms"                         
                         ohlc.loc[candle_idx, "chart_type"]    = "double"
+                        detected_pivots.update(pivot_indx)
 
                         # === 판단 근거 출력 ===
                         logging.debug("\n=== Double Bottom Detected ===")
@@ -101,9 +104,3 @@ def find_doubles_pattern(ohlc: pd.DataFrame, lookback: int = 25, double: str = "
                         # 추가로 판단 근거를 df에 컬럼으로 저장
                         
     return ohlc
-    
-
-
-    
-        
-        

@@ -58,7 +58,7 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
     ohlc["triangle_low_idx"]      = [np.array([]) for _ in range(len(ohlc)) ]
     ohlc["triangle_point"]        = np.nan
     
-    # Find the pivot points
+    detected_pivots = set()
     
     if not progress:
         candle_iter = range(lookback, len(ohlc))
@@ -80,7 +80,6 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
                 maxim = np.append(maxim, ohlc.loc[i,"high"])
                 xxmax = np.append(xxmax, i)
 
-       
         if xxmax.size < min_points or xxmin.size < min_points:
             continue
 
@@ -88,98 +87,53 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
         if len(np.unique(minim)) < 2 or len(np.unique(maxim)) < 2:
             continue
 
+        current_pivots = set(xxmax) | set(xxmin)
+        if any(p in detected_pivots for p in current_pivots):
+            continue
+
         slmin, intercmin, rmin, _, _ = linregress(xxmin, minim)
         slmax, intercmax, rmax, _, _ = linregress(xxmax, maxim)
 
+        def set_pattern_data(pattern_type):
+            ohlc.loc[candle_idx, "chart_type"]            = "triangle"
+            ohlc.loc[candle_idx, "triangle_type"]         = pattern_type
+            ohlc.loc[candle_idx, "triangle_slmax"]        = slmax
+            ohlc.loc[candle_idx, "triangle_slmin"]        = slmin
+            ohlc.loc[candle_idx, "triangle_intercmin"]    = intercmin
+            ohlc.loc[candle_idx, "triangle_intercmax"]    = intercmax
+            ohlc.at[candle_idx,  "triangle_high_idx"]     = xxmax
+            ohlc.at[candle_idx,  "triangle_low_idx"]      = xxmin
+            ohlc.loc[candle_idx, "triangle_point"]        = candle_idx
+            detected_pivots.update(current_pivots)
+
+            # === 판단 근거 출력 ===
+            logging.debug(f"\n=== {pattern_type.capitalize()} Triangle Detected ===")
+            logging.debug(f"candle_idx: {candle_idx}")
+            logging.debug(f"pivot_high_count: {len(xxmax)}")
+            logging.debug(f"pivot_low_count: {len(xxmin)}")
+            logging.debug(f"slope_high: {slmax:.6f}")
+            logging.debug(f"slope_low: {slmin:.6f}")
+            logging.debug(f"r2_high: {rmax:.4f}")
+            logging.debug(f"r2_low: {rmin:.4f}")
+            logging.debug(f"lookback: {lookback}")
+            logging.debug("==============================\n")
+
+            # 추가로 판단 근거를 df에 컬럼으로 저장
+            ohlc.loc[candle_idx, "triangle_pivot_high_count"] = len(xxmax)
+            ohlc.loc[candle_idx, "triangle_pivot_low_count"] = len(xxmin)
+            ohlc.loc[candle_idx, "triangle_r2_high"] = rmax
+            ohlc.loc[candle_idx, "triangle_r2_low"] = rmin
+
         if triangle_type == "symmetrical":
             if abs(rmax)>=rlimit and abs(rmin)>=rlimit and slmin>=slmin_limit and slmax<=-1*slmax_limit:
-                    ohlc.loc[candle_idx, "chart_type"]            = "triangle"
-                    ohlc.loc[candle_idx, "triangle_type"]         = "symmetrical"
-                    ohlc.loc[candle_idx, "triangle_slmax"]        = slmax
-                    ohlc.loc[candle_idx, "triangle_slmin"]        = slmin
-                    ohlc.loc[candle_idx, "triangle_intercmin"]    = intercmin
-                    ohlc.loc[candle_idx, "triangle_intercmax"]    = intercmax
-                    ohlc.at[candle_idx,  "triangle_high_idx"]     = xxmax
-                    ohlc.at[candle_idx,  "triangle_low_idx"]      = xxmin
-                    ohlc.loc[candle_idx, "triangle_point"]        = candle_idx
-
-                    # === 판단 근거 출력 ===
-                    logging.debug("\n=== Symmetrical Triangle Detected ===")
-                    logging.debug(f"candle_idx: {candle_idx}")
-                    logging.debug(f"pivot_high_count: {len(xxmax)}")
-                    logging.debug(f"pivot_low_count: {len(xxmin)}")
-                    logging.debug(f"slope_high: {slmax:.6f}")
-                    logging.debug(f"slope_low: {slmin:.6f}")
-                    logging.debug(f"r2_high: {rmax:.4f}")
-                    logging.debug(f"r2_low: {rmin:.4f}")
-                    logging.debug(f"lookback: {lookback}")
-                    logging.debug("==============================\n")
-
-                    # 추가로 판단 근거를 df에 컬럼으로 저장
-                    ohlc.loc[candle_idx, "triangle_pivot_high_count"] = len(xxmax)
-                    ohlc.loc[candle_idx, "triangle_pivot_low_count"] = len(xxmin)
-                    ohlc.loc[candle_idx, "triangle_r2_high"] = rmax
-                    ohlc.loc[candle_idx, "triangle_r2_low"] = rmin
-                    
+                set_pattern_data("symmetrical")
 
         elif triangle_type == "ascending":
             if abs(rmax)>=rlimit and abs(rmin)>=rlimit and slmin>=slmin_limit and (slmax>=-1*slmax_limit and slmax <= slmax_limit):
-                    ohlc.loc[candle_idx, "chart_type"]            = "triangle"
-                    ohlc.loc[candle_idx, "triangle_type"]         = "ascending"
-                    ohlc.loc[candle_idx, "triangle_slmax"]        = slmax
-                    ohlc.loc[candle_idx, "triangle_slmin"]        = slmin
-                    ohlc.loc[candle_idx, "triangle_intercmin"]    = intercmin
-                    ohlc.loc[candle_idx, "triangle_intercmax"]    = intercmax
-                    ohlc.at[candle_idx,  "triangle_high_idx"]     = xxmax
-                    ohlc.at[candle_idx,  "triangle_low_idx"]      = xxmin
-                    ohlc.loc[candle_idx, "triangle_point"]        = candle_idx
-
-                    # === 판단 근거 출력 ===
-                    logging.debug("\n=== Ascending Triangle Detected ===")
-                    logging.debug(f"candle_idx: {candle_idx}")
-                    logging.debug(f"pivot_high_count: {len(xxmax)}")
-                    logging.debug(f"pivot_low_count: {len(xxmin)}")
-                    logging.debug(f"slope_high: {slmax:.6f}")
-                    logging.debug(f"slope_low: {slmin:.6f}")
-                    logging.debug(f"r2_high: {rmax:.4f}")
-                    logging.debug(f"r2_low: {rmin:.4f}")
-                    logging.debug(f"lookback: {lookback}")
-                    logging.debug("==============================\n")
-
-                    # 추가로 판단 근거를 df에 컬럼으로 저장
-                    ohlc.loc[candle_idx, "triangle_pivot_high_count"] = len(xxmax)
-                    ohlc.loc[candle_idx, "triangle_pivot_low_count"] = len(xxmin)
-                    ohlc.loc[candle_idx, "triangle_r2_high"] = rmax
-                    ohlc.loc[candle_idx, "triangle_r2_low"] = rmin
-                    
+                set_pattern_data("ascending")
     
         elif triangle_type == "descending":
             if abs(rmax)>=rlimit and abs(rmin)>=rlimit and slmax<=-1*slmax_limit and (slmin>=-1*slmin_limit and slmin <= slmin_limit):
-                    ohlc.loc[candle_idx, "chart_type"]            = "triangle"
-                    ohlc.loc[candle_idx, "triangle_type"]         = "descending"
-                    ohlc.loc[candle_idx, "triangle_slmax"]        = slmax
-                    ohlc.loc[candle_idx, "triangle_slmin"]        = slmin
-                    ohlc.loc[candle_idx, "triangle_intercmin"]    = intercmin
-                    ohlc.loc[candle_idx, "triangle_intercmax"]    = intercmax
-                    ohlc.at[candle_idx,  "triangle_high_idx"]     = xxmax
-                    ohlc.at[candle_idx,  "triangle_low_idx"]      = xxmin
-                    ohlc.loc[candle_idx, "triangle_point"]        = candle_idx   
+                set_pattern_data("descending")
 
-                    # === 판단 근거 출력 ===
-                    logging.debug("\n=== Descending Triangle Detected ===")
-                    logging.debug(f"candle_idx: {candle_idx}")
-                    logging.debug(f"pivot_high_count: {len(xxmax)}")
-                    logging.debug(f"pivot_low_count: {len(xxmin)}")
-                    logging.debug(f"slope_high: {slmax:.6f}")
-                    logging.debug(f"slope_low: {slmin:.6f}")
-                    logging.debug(f"r2_high: {rmax:.4f}")
-                    logging.debug(f"r2_low: {rmin:.4f}")
-                    logging.debug(f"lookback: {lookback}")
-                    logging.debug("==============================\n")
-
-                    # 추가로 판단 근거를 df에 컬럼으로 저장
-                    ohlc.loc[candle_idx, "triangle_pivot_high_count"] = len(xxmax)
-                    ohlc.loc[candle_idx, "triangle_pivot_low_count"] = len(xxmin)
-                    ohlc.loc[candle_idx, "triangle_r2_high"] = rmax
-                    ohlc.loc[candle_idx, "triangle_r2_low"] = rmin
     return ohlc

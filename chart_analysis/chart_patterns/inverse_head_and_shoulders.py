@@ -15,7 +15,6 @@ from scipy.stats import linregress
 from tqdm import tqdm
 from typing import Tuple
 
-
 def find_inverse_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivot_interval: int = 10, short_pivot_interval: int = 5,
                                     head_ratio_before: float = 0.98, head_ratio_after: float = 0.98,
                                     upper_slmax: float = 1e-4, progress: bool = False) -> pd.DataFrame:
@@ -59,10 +58,10 @@ def find_inverse_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivo
     ohlc["ihs_idx"]        = [np.array([]) for _ in range(len(ohlc)) ]
     ohlc["ihs_point"]      = [np.array([]) for _ in range(len(ohlc)) ]    
     
-    # Find the pivot points   
+    detected_pivots = set()
+    
     ohlc = find_all_pivot_points(ohlc, left_count=pivot_interval, right_count=pivot_interval)
     ohlc = find_all_pivot_points(ohlc, left_count=short_pivot_interval, right_count=short_pivot_interval, name_pivot="short_pivot")
-    
     
     if not progress:
         candle_iter = range(lookback, len(ohlc))
@@ -74,7 +73,6 @@ def find_inverse_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivo
         if ohlc.loc[candle_idx, "pivot"] != 1 or ohlc.loc[candle_idx,"short_pivot"] != 1:
             continue
         
-
         maxim, minim, xxmax, xxmin, maxacount, minacount, maxbcount, minbcount = find_points(ohlc, candle_idx, lookback)
         if minbcount<1 or minacount<1 or maxbcount<1 or maxacount<1:
             continue
@@ -87,12 +85,14 @@ def find_inverse_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivo
         if len(minim) - 1 == headidx:
             continue       
 
-  
         if minim[headidx-1]-minim[headidx]>0 and (minim[headidx]/minim[headidx-1] < 1 and minim[headidx]/minim[headidx-1] >= head_ratio_before)  and \
             (minim[headidx]/minim[headidx+1] < 1 and minim[headidx]/minim[headidx+1] >= head_ratio_after) and \
             minim[headidx+1]-minim[headidx]> 0 and abs(slmax)<=upper_slmax and \
             xxmax[0]>xxmin[headidx-1] and xxmax[1]<xxmin[headidx+1]: 
 
+                indexes = [int(xxmin[headidx-1]), int(xxmax[0]), int(xxmin[headidx]), int(xxmax[1]), int(xxmin[headidx+1]) ]
+                if any(p in detected_pivots for p in indexes):
+                    continue
 
                 ohlc.loc[candle_idx, "chart_type"] = "ihs"
             
@@ -101,13 +101,14 @@ def find_inverse_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivo
                 values  = [minim[headidx-1], maxim[0], minim[headidx], maxim[1], minim[headidx+1]]
             
                 # Create a tuple of the index and values and sort them by the index
-                list_idx_values       =  [ (i, v) for i, v in zip(indexes, values)]
+                list_idx_values = [ (i, v) for i, v in zip(indexes, values)]
+                list_idx_values.sort()
                  
                 # Assign the index and values
                 ohlc.at[candle_idx, "ihs_idx"]   = [ t[0] for t in list_idx_values]
-                ohlc.at[candle_idx, "ihs_point"] = [ t[1] for t in list_idx_values]    
+                ohlc.at[candle_idx, "ihs_point"] = [ t[1] for t in list_idx_values]
+                detected_pivots.update(indexes)
  
-                   
                 # === 판단 근거 출력 ===
                 logging.debug("\n=== Inverse head and shoulder Detected ===")
                 logging.debug(f"candle_idx: {candle_idx}")
@@ -123,5 +124,3 @@ def find_inverse_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivo
                 ohlc.loc[candle_idx, "flag_pivot_low_count"] = len(xxmin)
 
     return ohlc
-
-
