@@ -156,7 +156,7 @@ def run_pattern_detection(ohlc_df):
             #       generate_judgement_reason 함수를 호출하도록 개선할 수 있습니다.
             #       현재는 정적 이유를 사용합니다.
             result = {
-                "pattern_name": pattern_name,
+                "name": pattern_name,
                 "reason": pattern_config["reason"]
             }
             detected_patterns.append(result)
