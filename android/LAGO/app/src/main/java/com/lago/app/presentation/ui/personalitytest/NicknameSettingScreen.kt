@@ -3,9 +3,11 @@ package com.lago.app.presentation.ui.personalitytest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -68,28 +70,15 @@ fun NicknameSettingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
+            .imePadding()
     ) {
-        CommonTopAppBar(
-            title = "닉네임 설정",
-            onBackClick = onBackClick
-        )
-
-        LinearProgressIndicator(
-            progress = 0.66f,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            color = MainBlue,
-            trackColor = Color(0xFFE5E5E5)
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(40.dp))
             
             Text(
                 text = "닉네임을 설정해 주세요",

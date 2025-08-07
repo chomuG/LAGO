@@ -48,16 +48,6 @@ fun PersonalityTestResultScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Progress bar 완료
-        LinearProgressIndicator(
-            progress = 1.0f,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(top = 20.dp),
-            color = MainBlue,
-            trackColor = Color(0xFFE5E5E5)
-        )
 
         Column(
             modifier = Modifier
@@ -69,22 +59,13 @@ fun PersonalityTestResultScreen(
             Spacer(modifier = Modifier.height(32.dp))
             
             Text(
-                text = "테스트 결과",
+                text = "${nickname}님의 결과",
                 style = HeadEb28,
                 color = Color.Black,
                 textAlign = TextAlign.Center
             )
             
-            Spacer(modifier = Modifier.height(8.dp))
-            
-//            Text(
-//                text = "${nickname}님의 투자 성향을 분석했어요",
-//                style = BodyR16,
-//                color = Gray600,
-//                textAlign = TextAlign.Center
-//            )
-//
-//            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
             // 캐릭터와 결과 카드
             Card(
@@ -135,12 +116,7 @@ fun PersonalityTestResultScreen(
                     )
                     
                     Spacer(modifier = Modifier.height(4.dp))
-                    
-                    Text(
-                        text = "총 ${totalScore}점",
-                        style = SubtitleSb16,
-                        color = Gray600
-                    )
+
                 }
             }
             
@@ -242,7 +218,7 @@ fun PersonalityTestResultScreen(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "LAGO 시작하기",
+                    text = "시작하기",
                     style = TitleB16,
                     color = Color.White
                 )

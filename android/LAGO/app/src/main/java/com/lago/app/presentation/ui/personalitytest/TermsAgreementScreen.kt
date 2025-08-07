@@ -33,17 +33,13 @@ fun TermsAgreementScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        CommonTopAppBar(
-            title = "약관 동의",
-            onBackClick = onBackClick
-        )
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(20.dp)
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(60.dp))
             
             Text(
                 text = "서비스 이용을 위해\n약관에 동의해 주세요",

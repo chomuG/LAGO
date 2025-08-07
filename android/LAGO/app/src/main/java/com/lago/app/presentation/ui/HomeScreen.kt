@@ -20,7 +20,7 @@ import com.lago.app.presentation.theme.LagoTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onPersonalityTestClick: () -> Unit = {}
+    onLoginClick: () -> Unit = {}
 ) {
     // 사용자 경험 개선을 위한 메모이제이션
     val homeItems = remember {
@@ -76,12 +76,12 @@ fun HomeScreen(
             }
         }
         
-        // 성향 테스트 시작 버튼
+        // 로그인하러가기 버튼
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
-                .clickable { onPersonalityTestClick() },
+                .clickable { onLoginClick() },
             colors = CardDefaults.cardColors(
                 containerColor = Color(0xFF4285F4).copy(alpha = 0.1f)
             ),
@@ -99,13 +99,13 @@ fun HomeScreen(
             ) {
                 Column {
                     Text(
-                        text = "🧐 투자 성향 테스트",
+                        text = "🚀 로그인하러가기",
                         style = MaterialTheme.typography.titleMedium,
                         color = Color(0xFF4285F4)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "나만의 투자 성향을 알아보고 맞춤 전략을 찾아보세요",
+                        text = "LAGO 서비스를 시작하고 투자 성향을 알아보세요",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color(0xFF666666)
                     )

@@ -6,6 +6,7 @@ import androidx.compose.ui.platform.LocalContext
 sealed class PersonalityTestStep {
     object TermsAgreement : PersonalityTestStep()
     object NicknameSetting : PersonalityTestStep()
+    data class TestIntro(val nickname: String) : PersonalityTestStep()
     data class PersonalityTest(val nickname: String) : PersonalityTestStep()
     data class TestResult(val nickname: String, val score: Int) : PersonalityTestStep()
 }
@@ -36,7 +37,16 @@ fun PersonalityTestNavigation(
                 },
                 onNextClick = { inputNickname ->
                     nickname = inputNickname
-                    currentStep = PersonalityTestStep.PersonalityTest(inputNickname)
+                    currentStep = PersonalityTestStep.TestIntro(inputNickname)
+                }
+            )
+        }
+        
+        is PersonalityTestStep.TestIntro -> {
+            PersonalityTestIntroScreen(
+                nickname = (currentStep as PersonalityTestStep.TestIntro).nickname,
+                onNextClick = {
+                    currentStep = PersonalityTestStep.PersonalityTest(nickname)
                 }
             )
         }
@@ -45,7 +55,10 @@ fun PersonalityTestNavigation(
             PersonalityTestScreen(
                 nickname = (currentStep as PersonalityTestStep.PersonalityTest).nickname,
                 onBackClick = {
-                    currentStep = PersonalityTestStep.NicknameSetting
+                    currentStep = PersonalityTestStep.TestIntro(nickname)
+                },
+                onPreviousClick = {
+                    currentStep = PersonalityTestStep.TestIntro(nickname)
                 },
                 onTestComplete = { score ->
                     testScore = score

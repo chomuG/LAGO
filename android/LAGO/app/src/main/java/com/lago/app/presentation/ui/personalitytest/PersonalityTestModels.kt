@@ -118,10 +118,10 @@ object PersonalityTestData {
     
     fun getPersonalityDescription(type: PersonalityType): String {
         return when (type) {
-            PersonalityType.CAUTIOUS -> "안정성을 최우선으로 하며, 변화보다 일관성을 추구하는 투자자입니다. 예적금, 원금 보장형 금융 상품을 선호합니다."
-            PersonalityType.BALANCED -> "실용적이며 주변 흐름을 살펴 신중히 행동하는 투자자입니다. ETF, 우량주, 중위험 중수익 투자를 선호합니다."
-            PersonalityType.ACTIVE -> "분석과 도전을 병행하며, 전략적으로 기회를 노리는 투자자입니다. 테마주, 펀드, 분산 투자를 선호합니다."
-            PersonalityType.AGGRESSIVE -> "기회를 놓치지 않으며, 빠르고 강한 액션을 지향하는 투자자입니다. 고위험 고수익, 코인, 단기 트레이딩을 선호합니다."
+            PersonalityType.AGGRESSIVE -> "위험? 수익? 기회가 보이면 질러버려요\n#상승장좋아 #단타의신 #하이리스크하이리턴"
+            PersonalityType.ACTIVE -> "분석은 필수! 빠른 판단력으로 기회를 잡아요 위험도 수익도 챙기는 똑똑한 투자자\n#전략형투자 #리스크관리"
+            PersonalityType.BALANCED -> "수익도 중요, 안정성도 중요! 분산 투자로 리스크를 줄이는 스마트 전략가\n#분산투자 #중장기관점 #위험조절"
+            PersonalityType.CAUTIOUS -> "조금 늦어도 괜찮아. 안전한 자산으로 착실하게 불려나가요\n#예금좋아 #리스크회피형"
         }
     }
 }

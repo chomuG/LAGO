@@ -26,6 +26,7 @@ import com.lago.app.presentation.ui.components.CommonTopAppBar
 fun PersonalityTestScreen(
     nickname: String = "",
     onBackClick: () -> Unit = {},
+    onPreviousClick: () -> Unit = {},
     onTestComplete: (Int) -> Unit = {}
 ) {
     var currentQuestionIndex by remember { mutableStateOf(0) }
@@ -51,19 +52,29 @@ fun PersonalityTestScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        CommonTopAppBar(
-            title = "성향 테스트",
-            onBackClick = onBackClick
-        )
-
-        LinearProgressIndicator(
-            progress = progress,
+        Spacer(modifier = Modifier.height(40.dp))
+        
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
-            color = MainBlue,
-            trackColor = Color(0xFFE5E5E5)
-        )
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier.weight(1f),
+                color = MainBlue,
+                trackColor = Color(0xFFE5E5E5)
+            )
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Text(
+                text = "${currentQuestionIndex + 1}/${questions.size}",
+                style = TitleB14,
+                color = MainBlue
+            )
+        }
 
         Column(
             modifier = Modifier
@@ -73,49 +84,17 @@ fun PersonalityTestScreen(
         ) {
             Spacer(modifier = Modifier.height(24.dp))
             
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${nickname}님의 투자 성향을\n알아보는 시간이에요!",
-                    style = HeadEb24,
-                    color = Color.Black
-                )
-                
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MainBlue.copy(alpha = 0.1f)
-                    ),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Text(
-                        text = "${currentQuestionIndex + 1}/${questions.size}",
-                        style = TitleB14,
-                        color = MainBlue,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                    )
-                }
-            }
-            
             Spacer(modifier = Modifier.height(32.dp))
             
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFF8F9FA)
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text(
-                    text = currentQuestion.question,
-                    style = TitleB18,
-                    color = Color.Black,
-                    textAlign = TextAlign.Start,
-                    modifier = Modifier.padding(24.dp)
-                )
-            }
+            Text(
+                text = currentQuestion.question,
+                style = TitleB18,
+                color = Color.Black,
+                textAlign = TextAlign.Start,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            )
             
             Spacer(modifier = Modifier.height(24.dp))
             
@@ -137,46 +116,79 @@ fun PersonalityTestScreen(
             
             Spacer(modifier = Modifier.height(40.dp))
             
-            if (selectedOptionIndex != -1) {
-                Button(
-                    onClick = {
-                        if (isLastQuestion) {
-                            val totalScore = selectedAnswers.values.sum()
-                            onTestComplete(totalScore)
-                        } else {
-                            currentQuestionIndex++
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MainBlue
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = if (isLastQuestion) "결과 보기" else "다음",
-                        style = TitleB16,
-                        color = Color.White
-                    )
-                }
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .background(
-                            color = Gray300,
-                            shape = RoundedCornerShape(12.dp)
+            // 이전/다음 버튼
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // 이전 버튼 (첫 번째 질문이 아닐 때만 표시)
+                if (currentQuestionIndex > 0) {
+                    OutlinedButton(
+                        onClick = {
+                            currentQuestionIndex--
+                            selectedOptionIndex = selectedAnswers[questions[currentQuestionIndex].id] ?: -1
+                        },
+                        modifier = Modifier
+                            .width(120.dp)
+                            .height(56.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MainBlue
                         ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "답변을 선택해 주세요",
-                        style = TitleB16,
-                        color = Color.White
-                    )
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MainBlue),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = "이전",
+                            style = TitleB16,
+                            color = MainBlue
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width(120.dp))
+                }
+                
+                // 다음/완료 버튼
+                if (selectedOptionIndex != -1) {
+                    Button(
+                        onClick = {
+                            if (isLastQuestion) {
+                                val totalScore = selectedAnswers.values.sum()
+                                onTestComplete(totalScore)
+                            } else {
+                                currentQuestionIndex++
+                            }
+                        },
+                        modifier = Modifier
+                            .width(120.dp)
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MainBlue
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = if (isLastQuestion) "완료하기" else "다음",
+                            style = TitleB16,
+                            color = Color.White
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .width(120.dp)
+                            .height(56.dp)
+                            .background(
+                                color = Gray300,
+                                shape = RoundedCornerShape(12.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isLastQuestion) "완료하기" else "다음",
+                            style = TitleB16,
+                            color = Color.White
+                        )
+                    }
                 }
             }
             
