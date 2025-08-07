@@ -22,6 +22,7 @@ import com.lago.app.presentation.ui.news.NewsDetailScreen
 
 import androidx.compose.ui.Modifier
 import com.lago.app.presentation.ui.stocklist.StockListScreen
+import com.lago.app.presentation.ui.personalitytest.PersonalityTestNavigation
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -39,7 +40,11 @@ fun NavGraph(
         popExitTransition = { ExitTransition.None }
     ) {
         composable(NavigationItem.Home.route) {
-            HomeScreen()
+            HomeScreen(
+                onPersonalityTestClick = {
+                    navController.navigate("personality_test")
+                }
+            )
         }
 
         composable(NavigationItem.Investment.route) {
@@ -212,6 +217,19 @@ fun NavGraph(
             NewsDetailScreen(
                 newsId = newsId,
                 onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Personality Test Flow
+        composable("personality_test") {
+            PersonalityTestNavigation(
+                onBackToHome = {
+                    navController.popBackStack()
+                },
+                onTestComplete = { result ->
+                    // TODO: 결과를 저장하고 홈으로 돌아가기
                     navController.popBackStack()
                 }
             )
