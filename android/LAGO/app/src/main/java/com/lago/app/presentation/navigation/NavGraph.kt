@@ -46,6 +46,9 @@ fun NavGraph(
             StockListScreen(
                 onStockClick = { stockCode ->
                     navController.navigate("chart/$stockCode")
+                },
+                onNewsClick = { newsId ->
+                    navController.navigate("news_detail/$newsId")
                 }
             )
         }

@@ -242,7 +242,7 @@ fun ChartScreen(
         object {
             val collapsed = screenHeightPx - with(density) { collapsedHeight.toPx() } - buttonBarHeightPx
             val halfExpanded = screenHeightPx - with(density) { halfExpandedHeight.toPx() } - buttonBarHeightPx
-            val expanded = screenHeightPx - with(density) { expandedHeight.toPx() } - buttonBarHeightPx
+            val expanded = with(density) { safeZones.top.toPx()*2 } - buttonBarHeightPx
         }
     }
 
@@ -396,7 +396,7 @@ fun ChartScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)  // 흰색 배경
+                .background(Color.White)  // 흰색 배`경
         )
 
         // 차트 + 시간버튼 영역 - 바텀시트 실시간 위치에 따른 높이 계산
@@ -1256,6 +1256,11 @@ private fun TradingItemRow(item: TradingItem) {
     }
 }
 
+data class ChartPattern(
+    val name: String,
+    val description: String
+)
+
 @Composable
 private fun PatternAnalysisContent(
     patternAnalysisCount: Int,
@@ -1263,103 +1268,99 @@ private fun PatternAnalysisContent(
     lastPatternAnalysis: PatternAnalysisResult?,
     onAnalyzeClick: () -> Unit
 ) {
+    // TODO: ViewModel에서 실제 분석 결과를 받아오도록 수정
+    val patterns = listOf(
+        ChartPattern(
+            name = "상승 삼각형",
+            description = "저항선을 여러 차례 돌파 시도했지 때문에 상승 가능성이 높습니다."
+        ),
+        ChartPattern(
+            name = "헤드앤숄더",
+            description = "저항선을 여러 차례 돌파 시도했지 때문에 상승 가능성이 높습니다."
+        )
+    )
+
     Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(24.dp)
     ) {
-        // 분석 결과 표시 - 결과가 있으면 표시, 없으면 "분석 결과가 없어요" 표시
-        if (lastPatternAnalysis != null || patternAnalysisCount > 0) {
-            // 분석 결과가 있는 경우
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "최근 분석 결과",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.Black
-                        )
-                        Text(
-                            "2025-07-28 오후 1시 35분",
-                            fontSize = 12.sp,
-                            color = Color(0xFF616161)
-                        )
-                    }
+        // 헤더
+        Text(
+            text = "최근 분석 결과",
+            style = TitleB18,
+            color = MainBlue,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "2025-07-28 오후 1시 35분", // TODO: 실제 분석 시간으로 변경
+            style = BodyR12,
+            color = Gray600,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
 
-                    Text(
-                        "상승 삼각형, 헤드앤숄더",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        "지향선을 여러 차례 돌파 시도했지 때문에 상승 가능성이 높습니다.",
-                        fontSize = 14.sp,
-                        color = Color(0xFF424242),
-                        lineHeight = 20.sp
-                    )
-                }
+        // 패턴 리스트
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            patterns.forEach { pattern ->
+                PatternItem(pattern = pattern)
             }
-        } else {
-            // 분석 결과가 없는 경우
-            Text(
-                "최근 분석 결과가 없어요.",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = Gray600,
-                modifier = Modifier.padding(vertical = 32.dp)
-            )
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // 분석 버튼
+        // 분석하기 버튼
         Button(
             onClick = onAnalyzeClick,
             enabled = patternAnalysisCount < maxPatternAnalysisCount,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF2196F3), // 파란색으로 변경
-                disabledContainerColor = Color(0xFFE0E0E0)
-            ),
-            shape = RoundedCornerShape(8.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
-                .padding(horizontal = 24.dp)
-                .semantics {
-                    contentDescription = if (patternAnalysisCount < maxPatternAnalysisCount) {
-                        "다시 분석하기 버튼, 남은 횟수: ${maxPatternAnalysisCount - patternAnalysisCount}번"
-                    } else {
-                        "오늘 분석 횟수를 모두 사용하셨습니다"
-                    }
-                }
+                .height(52.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MainBlue,
+                disabledContainerColor = Gray300
+            ),
+            shape = RoundedCornerShape(8.dp)
         ) {
             Text(
-                "다시 분석하기 ($patternAnalysisCount/$maxPatternAnalysisCount)",
-                color = if (patternAnalysisCount < maxPatternAnalysisCount) Color.White else Color(0xFF9E9E9E),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
+                text = "다시 분석하기 ($patternAnalysisCount/$maxPatternAnalysisCount)",
+                color = Color.White,
+                style = SubtitleSb14
             )
         }
     }
 }
+
+@Composable
+private fun PatternItem(pattern: ChartPattern) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        // 텍스트 내용
+        Column {
+            Text(
+                text = pattern.name,
+                style = TitleB16,
+                color = Gray900,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+
+            Text(
+                text = pattern.description,
+                style = BodyR14,
+                color = Gray700,
+                lineHeight = 22.sp
+            )
+        }
+    }
+}
+
 
 @Composable
 private fun IndicatorSettingsDialog(
@@ -1514,11 +1515,14 @@ private fun IndicatorSettingsDialog(
                 }
             }
         },
+        tonalElevation = 0.dp,
+        containerColor = Color.White,
+        shape = RoundedCornerShape(8.dp),
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text(
                     text = "확인",
-                    color = MainPink,
+                    color = Gray900,
                     fontWeight = FontWeight.Bold
                 )
             }

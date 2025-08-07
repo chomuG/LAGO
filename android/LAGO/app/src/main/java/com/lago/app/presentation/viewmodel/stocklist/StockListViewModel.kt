@@ -12,6 +12,16 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class SortType {
+    NONE,
+    NAME_ASC,
+    NAME_DESC,
+    PRICE_ASC,
+    PRICE_DESC,
+    CHANGE_ASC,
+    CHANGE_DESC
+}
+
 data class StockListUiState(
     val selectedTab: Int = 0,
     val searchQuery: String = "",
@@ -21,7 +31,9 @@ data class StockListUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val currentPage: Int = 0,
-    val hasMoreData: Boolean = true
+    val hasMoreData: Boolean = true,
+    val currentSortType: SortType = SortType.NAME_ASC,  // 초기값: 이름 오름차순
+    val showFavoritesOnly: Boolean = false  // 관심목록 필터
 )
 
 @HiltViewModel
@@ -98,13 +110,8 @@ class StockListViewModel @Inject constructor(
     }
 
     private fun getSortType(): String {
-        val filters = _uiState.value.selectedFilters
-        return when {
-            filters.contains("이름") -> "name"
-            filters.contains("현재가") -> "price"
-            filters.contains("등락률") -> "changeRate"
-            else -> "code"
-        }
+        // API 정렬 파라미터 반환 (필요시)
+        return "code"
     }
 
     fun loadMoreStocks() {
@@ -175,21 +182,63 @@ class StockListViewModel @Inject constructor(
     }
 
     fun onFilterChange(filter: String) {
-        _uiState.update { state ->
-            val newFilters = if (state.selectedFilters.contains(filter)) {
-                state.selectedFilters - filter
-            } else {
-                state.selectedFilters + filter
+        when (filter) {
+            "이름", "현재가", "등락률" -> {
+                // 정렬 처리
+                handleSorting(filter)
             }
-            state.copy(selectedFilters = newFilters)
+            "관심목록" -> {
+                // 관심목록 필터 토글
+                _uiState.update { state ->
+                    state.copy(showFavoritesOnly = !state.showFavoritesOnly)
+                }
+                filterStocks()
+            }
+            else -> {
+                // 기타 필터 처리
+                _uiState.update { state ->
+                    val newFilters = if (state.selectedFilters.contains(filter)) {
+                        state.selectedFilters - filter
+                    } else {
+                        state.selectedFilters + filter
+                    }
+                    state.copy(selectedFilters = newFilters)
+                }
+                filterStocks()
+            }
         }
-        
-        // 정렬 필터가 변경된 경우 새로운 데이터 로드
-        if (filter in listOf("이름", "현재가", "등락률")) {
-            refreshStocks()
-        } else {
-            filterStocks()
+    }
+    
+    private fun handleSorting(field: String) {
+        _uiState.update { state ->
+            val currentSort = state.currentSortType
+            val newSortType = when (field) {
+                "이름" -> {
+                    when (currentSort) {
+                        SortType.NAME_ASC -> SortType.NAME_DESC
+                        SortType.NAME_DESC -> SortType.NAME_ASC
+                        else -> SortType.NAME_ASC  // 첫 클릭: 오름차순
+                    }
+                }
+                "현재가" -> {
+                    when (currentSort) {
+                        SortType.PRICE_DESC -> SortType.PRICE_ASC
+                        SortType.PRICE_ASC -> SortType.PRICE_DESC
+                        else -> SortType.PRICE_DESC  // 첫 클릭: 내림차순
+                    }
+                }
+                "등락률" -> {
+                    when (currentSort) {
+                        SortType.CHANGE_DESC -> SortType.CHANGE_ASC
+                        SortType.CHANGE_ASC -> SortType.CHANGE_DESC
+                        else -> SortType.CHANGE_DESC  // 첫 클릭: 내림차순
+                    }
+                }
+                else -> currentSort
+            }
+            state.copy(currentSortType = newSortType)
         }
+        applySorting()
     }
 
     fun toggleFavorite(stockCode: String) {
@@ -226,20 +275,32 @@ class StockListViewModel @Inject constructor(
         _uiState.update { state ->
             var filtered = state.stocks
 
-            // 관심목록 필터 (검색은 이미 API에서 처리됨)
-            if (state.selectedFilters.contains("관심목록")) {
+            // 관심목록 필터
+            if (state.showFavoritesOnly) {
                 filtered = filtered.filter { it.isFavorite }
             }
 
-            // 로컬 정렬 (API 정렬과 함께 사용)
-            filtered = when {
-                state.selectedFilters.contains("이름") -> filtered.sortedBy { it.name }
-                state.selectedFilters.contains("현재가") -> filtered.sortedByDescending { it.currentPrice }
-                state.selectedFilters.contains("등락률") -> filtered.sortedByDescending { it.priceChangePercent }
-                else -> filtered
-            }
-
             state.copy(filteredStocks = filtered)
+        }
+        // 필터링 후 정렬 적용
+        applySorting()
+    }
+    
+    private fun applySorting() {
+        _uiState.update { state ->
+            var sorted = state.filteredStocks
+            
+            sorted = when (state.currentSortType) {
+                SortType.NAME_ASC -> sorted.sortedBy { it.name }
+                SortType.NAME_DESC -> sorted.sortedByDescending { it.name }
+                SortType.PRICE_ASC -> sorted.sortedBy { it.currentPrice }
+                SortType.PRICE_DESC -> sorted.sortedByDescending { it.currentPrice }
+                SortType.CHANGE_ASC -> sorted.sortedBy { it.priceChangePercent }
+                SortType.CHANGE_DESC -> sorted.sortedByDescending { it.priceChangePercent }
+                SortType.NONE -> sorted
+            }
+            
+            state.copy(filteredStocks = sorted)
         }
     }
 
@@ -266,6 +327,7 @@ class StockListViewModel @Inject constructor(
                                 errorMessage = null
                             )
                         }
+                        applySorting()  // 초기 정렬 적용
                     }
                     is Resource.Error -> {
                         _uiState.update {
