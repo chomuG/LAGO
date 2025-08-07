@@ -50,6 +50,7 @@ public class MockTradeRequest {
     /**
      * 주문 타입 (시장가/지정가)
      */
+    @Builder.Default
     @Schema(description = "주문 타입", example = "MARKET", allowableValues = {"MARKET", "LIMIT"})
     private String orderType = "MARKET";
 

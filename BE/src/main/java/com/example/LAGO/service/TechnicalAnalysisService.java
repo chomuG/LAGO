@@ -727,7 +727,7 @@ public class TechnicalAnalysisService {
             .overallSignal("ERROR")
             .signalStrength(0)
             .signalReason("분석 실패: " + errorMessage)
-            .analysisTime(LocalDateTime.now())
+            .analysisTime(LocalDateTime.now().toString())
             .build();
     }
 }

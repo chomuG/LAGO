@@ -35,9 +35,9 @@ src/
               strategy/
                 dto/
     resources/
-      application.properties      # 로컬 개발 환경
-      application-test.properties # 테스트 환경  
-      application-docker.yml      # Docker/운영 환경
+      application.properties         # 공통 설정
+      application-dev.properties     # 개발용
+      application-prod.properties    # 배포용
   test/
 ```
 
@@ -133,14 +133,14 @@ public class TradeResponse {
 
 | 환경 | 파일명 | 용도 | 활성화 방법 |
 |:-----|:-------|:-----|:------------|
-| 로컬 개발 | `application.properties` | IDE에서 개발/디버깅 | 기본 (default profile) |
-| 테스트 | `application-test.properties` | JUnit, 통합 테스트 | `@ActiveProfiles("test")` |
-| Docker/운영 | `application-docker.yml` | CI/CD, 운영 배포 | `SPRING_PROFILES_ACTIVE=docker` |
+| 공통 | `application.properties` | 모든 환경 공통 설정 | 항상 로드 |
+| 개발 | `application-dev.properties` | 로컬 개발/디버깅 | `--spring.profiles.active=dev` (기본) |
+| 배포 | `application-prod.properties` | Docker/운영 배포 | `SPRING_PROFILES_ACTIVE=prod` |
 
 ### 환경별 주요 차이점:
-- **로컬:** 실제 EC2 DB, 상세 로그, Swagger UI
-- **테스트:** In-Memory H2 DB, Mock 데이터, 최소 로그  
-- **운영:** 환경변수 보안, 성능 최적화
+- **공통:** 애플리케이션명, Swagger, Security 설정
+- **개발:** 실제 EC2 DB, 상세 로그, 로컬 Redis  
+- **배포:** 환경변수 보안, 성능 최적화, Docker 설정
 
 ---
 
