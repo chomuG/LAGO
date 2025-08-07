@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
  * H2 데이터베이스 호환성을 위해 테이블명 USERS 사용
  */
 @Entity
-@Table(name = "USERS")
+@Table(name = "\"USERS\"")
 @Getter 
 @Setter
 @NoArgsConstructor

@@ -1,8 +1,8 @@
 package com.example.LAGO.service;
 
 import com.example.LAGO.domain.StockMinute;
-import com.example.LAGO.repository.StockMinuteRepository;
 import com.example.LAGO.dto.StockMinuteDto;
+import com.example.LAGO.repository.StockMinuteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -23,18 +23,11 @@ public class StockMinuteService {
     // 특정 종목의 특정 구간(시작~종료) 1분봉 데이터를 조회하여 DTO로 변환
     public List<StockMinuteDto> getMinutes(Integer stockInfoId, LocalDateTime start, LocalDateTime end) {
         List<StockMinute> entityList = stockMinuteRepository
-                .findByStockInfo_StockInfoIdAndDateBetweenOrderByDateAsc(stockInfoId, start, end);
+                .findByStockInfoStockInfoIdAndDateBetweenOrderByDateAsc(stockInfoId, start, end);
 
         // Entity → DTO 변환
         return entityList.stream()
-                .map(entity -> StockMinuteDto.builder()
-                        .date(entity.getDate())
-                        .openPrice(entity.getOpenPrice())
-                        .highPrice(entity.getHighPrice())
-                        .lowPrice(entity.getLowPrice())
-                        .closePrice(entity.getClosePrice())
-                        .volume(entity.getVolume())
-                        .build())
+                .map(StockMinuteDto::fromEntity)
                 .collect(Collectors.toList());
     }
 }

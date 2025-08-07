@@ -34,7 +34,8 @@ public class GlobalExceptionHandler {
         description = "리소스를 찾을 수 없음",
         content = @Content(schema = @Schema(implementation = ErrorResponse.class))
     )
-    public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException e) {
+    public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException e, HttpServletRequest request) {
+        String path = request.getRequestURI();
         log.error("Runtime Exception 발생: {}", e.getMessage(), e);
         
         ErrorResponse errorResponse = ErrorResponse.builder()
@@ -42,7 +43,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.NOT_FOUND.value())
                 .error(HttpStatus.NOT_FOUND.getReasonPhrase())
                 .message(e.getMessage())
-                .path("/api/ai-bots")
+                .path(path)
                 .build();
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
@@ -57,7 +58,8 @@ public class GlobalExceptionHandler {
         description = "잘못된 요청",
         content = @Content(schema = @Schema(implementation = ErrorResponse.class))
     )
-    public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException e) {
+    public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException e, HttpServletRequest request) {
+        String path = request.getRequestURI();
         log.error("Validation Exception 발생: {}", e.getMessage());
         
         Map<String, String> errors = new HashMap<>();
@@ -72,7 +74,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                 .message("입력값 검증 실패")
-                .path("/api/ai-bots")
+                .path(path)
                 .validationErrors(errors)
                 .build();
 
@@ -88,7 +90,8 @@ public class GlobalExceptionHandler {
         description = "제약조건 위반",
         content = @Content(schema = @Schema(implementation = ErrorResponse.class))
     )
-    public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException e) {
+    public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException e, HttpServletRequest request) {
+        String path = request.getRequestURI();
         log.error("Constraint Violation Exception 발생: {}", e.getMessage());
         
         ErrorResponse errorResponse = ErrorResponse.builder()
@@ -96,7 +99,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                 .message(e.getMessage())
-                .path("/api/ai-bots")
+                .path(path)
                 .build();
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);

@@ -6,7 +6,7 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "STOCK_MINUTE")
+@Table(name = "\"STOCK_MINUTE\"")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -17,7 +17,7 @@ public class StockMinute {
     private Integer stockMidId;
 
     // 외래키
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stock_info_id")
     private StockInfo stockInfo;
 

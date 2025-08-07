@@ -5,9 +5,10 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
+import java.util.List;
 
 @Entity
-@Table(name = "STOCK_INFO")
+@Table(name = "\"STOCK_INFO\"")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -25,6 +26,11 @@ public class StockInfo {
 
     @Column(name = "market")
     private String market;
+
+    // STOCK_MINUTE과의 관계
+    @OneToMany(mappedBy = "stockInfo", fetch = FetchType.LAZY)
+    private List<StockMinute> stockMinutes;
+
 
     // 생성자
     public StockInfo(String code, String name, String market) {

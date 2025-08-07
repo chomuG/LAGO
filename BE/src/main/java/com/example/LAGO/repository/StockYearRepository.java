@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface StockYearRepository extends JpaRepository<StockYear, Integer> {
     // stockInfoId, 연도 구간, 오름차순 조회
-    List<StockYear> findByStockInfo_StockInfoIdAndDateBetweenOrderByDateAsc(
+    List<StockYear> findByStockInfoStockInfoIdAndDateBetweenOrderByDateAsc(
             Integer stockInfoId,
             Integer start,
             Integer end

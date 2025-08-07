@@ -6,7 +6,7 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "STOCK_YEAR")
+@Table(name = "\"STOCK_YEAR\"")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,7 +18,7 @@ public class StockYear {
     private Integer stockYearId;
 
     @ManyToOne
-    @JoinColumn(name = "stock_info_id", nullable = false)
+    @JoinColumn(name = "stock_info_id", referencedColumnName = "stock_info_id")
     private StockInfo stockInfo;
 
     @Column(name = "date", nullable = false)

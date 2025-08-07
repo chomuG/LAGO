@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "STOCK_DAY")
+@Table(name = "\"STOCK_DAY\"")
 @Getter
 @Setter
 @NoArgsConstructor

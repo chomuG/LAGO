@@ -21,7 +21,7 @@ public class StockYearService {
 
     public List<StockYearDto> getStockYears(Integer stockInfoId, Integer start, Integer end) {
         List<StockYear> entityList = stockYearRepository
-                .findByStockInfo_StockInfoIdAndDateBetweenOrderByDateAsc(stockInfoId, start, end);
+                .findByStockInfoStockInfoIdAndDateBetweenOrderByDateAsc(stockInfoId, start, end);
 
         return entityList.stream()
                 .map(StockYearDto::fromEntity)

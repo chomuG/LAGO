@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "MOCK_TRADE")
+@Table(name = "\"MOCK_TRADE\"")
 @Getter @Setter
 public class MockTrade {
 

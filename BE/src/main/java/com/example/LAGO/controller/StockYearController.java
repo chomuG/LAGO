@@ -19,7 +19,7 @@ public class StockYearController {
 
     private final StockYearService stockYearService;
 
-    @GetMapping
+    @GetMapping("/{stockId}")
     @Operation(summary = "년도별 주식 정보 조회", description = "지정한 주식의 특정 기간 년도별 정보를 조회합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공"),
@@ -28,7 +28,7 @@ public class StockYearController {
     })
     public List<StockYearDto> getStockYears(
             @Parameter(description = "주식 ID", required = true, example = "1")
-            @RequestParam("stockId") Integer stockInfoId,
+            @PathVariable("stockId") Integer stockInfoId,
             @Parameter(description = "시작 년도", required = true, example = "2020")
             @RequestParam("start") Integer start,
             @Parameter(description = "종료 년도", required = true, example = "2023")
