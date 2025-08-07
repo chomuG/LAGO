@@ -2,8 +2,8 @@ package com.example.LAGO.service;
 
 import com.example.LAGO.constants.TradingConstants;
 import com.example.LAGO.domain.*;
-import com.example.LAGO.dto.request.MockTradeRequestDto;
-import com.example.LAGO.dto.response.MockTradeResponseDto;
+import com.example.LAGO.dto.request.MockTradeRequest;
+import com.example.LAGO.dto.response.MockTradeResponse;
 import com.example.LAGO.repository.*;
 import com.example.LAGO.utils.TradingUtils;
 import lombok.RequiredArgsConstructor;
@@ -77,7 +77,7 @@ public class MockTradingService {
      * @throws RuntimeException 거래 처리 실패
      */
     @Transactional
-    public MockTradeResponseDto processBuyOrder(Integer userId, MockTradeRequestDto request) {
+    public MockTradeResponse processBuyOrder(Integer userId, MockTradeRequest request) {
         log.info("매수 주문 처리 시작: userId={}, stockCode={}, quantity={}, price={}", 
                 userId, request.getStockCode(), request.getQuantity(), request.getPrice());
 
@@ -108,7 +108,7 @@ public class MockTradingService {
             validateSufficientBalance(account, totalCost);
             
             // 8. Virtual Thread로 비동기 거래 처리
-            CompletableFuture<MockTradeResponseDto> tradeFuture = CompletableFuture.supplyAsync(() -> {
+            CompletableFuture<MockTradeResponse> tradeFuture = CompletableFuture.supplyAsync(() -> {
                 try {
                     // 계좌 잔액 차감
                     updateAccountForBuy(account, totalCost);
@@ -126,7 +126,7 @@ public class MockTradingService {
                             userId, request.getStockCode(), request.getQuantity(), totalCost);
                     
                     // 성공 응답 생성
-                    return MockTradeResponseDto.success(
+                    return MockTradeResponse.success(
                         mockTrade.getTradeId(),
                         request.getStockCode(),
                         stockInfo.getName(),
@@ -148,10 +148,10 @@ public class MockTradingService {
             
         } catch (IllegalArgumentException e) {
             log.warn("매수 주문 요청 오류: userId={}, error={}", userId, e.getMessage());
-            return MockTradeResponseDto.failure(request.getStockCode(), e.getMessage());
+            return MockTradeResponse.failure(request.getStockCode(), e.getMessage());
         } catch (Exception e) {
             log.error("매수 주문 처리 실패: userId={}, stockCode={}", userId, request.getStockCode(), e);
-            return MockTradeResponseDto.failure(request.getStockCode(), "거래 처리 중 오류가 발생했습니다");
+            return MockTradeResponse.failure(request.getStockCode(), "거래 처리 중 오류가 발생했습니다");
         }
     }
 
@@ -176,7 +176,7 @@ public class MockTradingService {
      * @throws RuntimeException 거래 처리 실패
      */
     @Transactional
-    public MockTradeResponseDto processSellOrder(Integer userId, MockTradeRequestDto request) {
+    public MockTradeResponse processSellOrder(Integer userId, MockTradeRequest request) {
         log.info("매도 주문 처리 시작: userId={}, stockCode={}, quantity={}, price={}", 
                 userId, request.getStockCode(), request.getQuantity(), request.getPrice());
 
@@ -208,7 +208,7 @@ public class MockTradingService {
             );
             
             // 8. Virtual Thread로 비동기 거래 처리
-            CompletableFuture<MockTradeResponseDto> tradeFuture = CompletableFuture.supplyAsync(() -> {
+            CompletableFuture<MockTradeResponse> tradeFuture = CompletableFuture.supplyAsync(() -> {
                 try {
                     // 계좌 잔액 증가
                     updateAccountForSell(account, totalRevenue);
@@ -226,7 +226,7 @@ public class MockTradingService {
                             userId, request.getStockCode(), request.getQuantity(), totalRevenue);
                     
                     // 성공 응답 생성
-                    return MockTradeResponseDto.success(
+                    return MockTradeResponse.success(
                         mockTrade.getTradeId(),
                         request.getStockCode(),
                         stockInfo.getName(),
@@ -248,10 +248,10 @@ public class MockTradingService {
             
         } catch (IllegalArgumentException e) {
             log.warn("매도 주문 요청 오류: userId={}, error={}", userId, e.getMessage());
-            return MockTradeResponseDto.failure(request.getStockCode(), e.getMessage());
+            return MockTradeResponse.failure(request.getStockCode(), e.getMessage());
         } catch (Exception e) {
             log.error("매도 주문 처리 실패: userId={}, stockCode={}", userId, request.getStockCode(), e);
-            return MockTradeResponseDto.failure(request.getStockCode(), "거래 처리 중 오류가 발생했습니다");
+            return MockTradeResponse.failure(request.getStockCode(), "거래 처리 중 오류가 발생했습니다");
         }
     }
 
@@ -260,7 +260,7 @@ public class MockTradingService {
     /**
      * 거래 요청 기본 유효성 검증
      */
-    private void validateTradeRequest(MockTradeRequestDto request, String tradeType) {
+    private void validateTradeRequest(MockTradeRequest request, String tradeType) {
         if (!TradingUtils.validateTradeRequest(
                 request.getStockCode(), 
                 request.getQuantity(), 
@@ -377,7 +377,7 @@ public class MockTradingService {
     /**
      * 매수 시 보유 주식 추가/업데이트
      */
-    private void updateStockHoldingForBuy(Account account, MockTradeRequestDto request, 
+    private void updateStockHoldingForBuy(Account account, MockTradeRequest request, 
                                         Integer executedPrice, Integer totalCost) {
         Optional<StockHolding> existingHolding = 
             stockHoldingRepository.findByAccountIdAndStockCode(account.getAccountId(), request.getStockCode());

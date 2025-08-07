@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Schema(description = "모의투자 거래 결과 정보")
-public class MockTradeResponseDto {
+public class MockTradeResponse {
 
     /**
      * 거래 성공 여부
@@ -110,10 +110,10 @@ public class MockTradeResponseDto {
     /**
      * 성공 응답 생성
      */
-    public static MockTradeResponseDto success(Long tradeId, String stockCode, String stockName,
+    public static MockTradeResponse success(Long tradeId, String stockCode, String stockName,
                                              Integer quantity, Integer executedPrice, Integer totalAmount,
                                              Integer commission, Integer remainingBalance, String tradeType) {
-        return MockTradeResponseDto.builder()
+        return MockTradeResponse.builder()
             .success(true)
             .tradeId(tradeId)
             .stockCode(stockCode)
@@ -131,8 +131,8 @@ public class MockTradeResponseDto {
     /**
      * 실패 응답 생성
      */
-    public static MockTradeResponseDto failure(String stockCode, String errorMessage) {
-        return MockTradeResponseDto.builder()
+    public static MockTradeResponse failure(String stockCode, String errorMessage) {
+        return MockTradeResponse.builder()
             .success(false)
             .stockCode(stockCode)
             .errorMessage(errorMessage)

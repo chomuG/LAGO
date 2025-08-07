@@ -24,7 +24,7 @@ import jakarta.validation.constraints.Positive;
 @AllArgsConstructor
 @Builder
 @Schema(description = "모의투자 거래 요청 정보")
-public class MockTradeRequestDto {
+public class MockTradeRequest {
 
     /**
      * 종목 코드
