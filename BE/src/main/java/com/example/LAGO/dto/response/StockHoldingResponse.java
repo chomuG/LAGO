@@ -1,4 +1,4 @@
-package com.example.LAGO.dto;
+package com.example.LAGO.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;

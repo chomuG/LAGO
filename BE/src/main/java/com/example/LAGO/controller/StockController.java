@@ -1,7 +1,7 @@
 package com.example.LAGO.controller;
 
-import com.example.LAGO.dto.TradeRequest;
-import com.example.LAGO.dto.TradeResponse;
+import com.example.LAGO.dto.request.TradeRequest;
+import com.example.LAGO.dto.response.TradeResponse;
 import com.example.LAGO.service.TradeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

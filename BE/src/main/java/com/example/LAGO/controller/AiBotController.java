@@ -1,7 +1,7 @@
 package com.example.LAGO.controller;
 
-import com.example.LAGO.dto.AiBotAccountResponse;
-import com.example.LAGO.dto.AiBotListResponse;
+import com.example.LAGO.dto.response.AiBotAccountResponse;
+import com.example.LAGO.dto.response.AiBotListResponse;
 import com.example.LAGO.service.AiBotService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

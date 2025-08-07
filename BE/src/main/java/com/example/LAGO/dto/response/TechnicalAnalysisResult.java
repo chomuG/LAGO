@@ -1,145 +1,86 @@
 package com.example.LAGO.dto.response;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-import java.time.LocalDateTime;
 
 /**
- * 기술적 분석 결과 Response DTO
- * 
- * 차트 패턴, RSI, MACD, 볼린저 밴드 등의 기술적 지표 분석 결과를 담는 응답 DTO
- * 
- * @author 라고할때 팀
- * @version 1.0
- * @since 2025-01-04
+ * 기술적 분석 결과 DTO
+ * 지침서 명세: 차트 패턴 분석 및 기술적 지표 결과를 담는 DTO
  */
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 @Builder
 public class TechnicalAnalysisResult {
     
-    /** 종목 코드 */
+    // 기본 가격 정보
     private String stockCode;
-    
-    /** 종목명 */
-    private String stockName;
-    
-    /** 현재가 */
     private Float currentPrice;
-    
-    /** 변동률 */
+    private Float openPrice;
+    private Float highPrice;
+    private Float lowPrice;
+    private Float volume;
     private Float fluctuationRate;
     
-    /** RSI 지표 (0~100) */
+    // RSI (Relative Strength Index) - 상대강도지수
     private Float rsi;
     
-    /** MACD Line */
+    // MACD (Moving Average Convergence Divergence) - 이동평균수렴확산
     private Float macdLine;
-    
-    /** MACD Signal Line */
     private Float signalLine;
+    private Float histogram;
     
-    /** MACD Histogram */
-    private Float macdHistogram;
-    
-    /** 볼린저 밴드 상단 */
+    // 볼린저 밴드 (Bollinger Bands)
     private Float bollingerUpperBand;
-    
-    /** 볼린저 밴드 중간 (이동평균) */
     private Float bollingerMiddleBand;
-    
-    /** 볼린저 밴드 하단 */
     private Float bollingerLowerBand;
     
-    /** 5일 이동평균 */
-    private Float ma5;
+    // 이동평균선 (Moving Averages)
+    private Float ma5;   // 5일 이동평균
+    private Float ma10;  // 10일 이동평균
+    private Float ma20;  // 20일 이동평균
+    private Float ma60;  // 60일 이동평균
+    private Float ma120; // 120일 이동평균
     
-    /** 20일 이동평균 */
-    private Float ma20;
+    // 크로스 신호
+    private boolean isGoldenCross;  // 골든크로스 (단기이평선이 장기이평선 상향돌파)
+    private boolean isDeathCross;   // 데드크로스 (단기이평선이 장기이평선 하향돌파)
     
-    /** 60일 이동평균 */
-    private Float ma60;
+    // 거래량 분석
+    private Float volumeRatio;      // 거래량 비율 (평균 대비)
+    private boolean isVolumeSpike;  // 거래량 급증 여부
     
-    /** 골든크로스 여부 */
-    private boolean isGoldenCross;
+    // 추세 분석
+    private String trendDirection;  // UP, DOWN, SIDEWAYS
+    private Float trendStrength;    // 추세 강도 (0-100)
     
-    /** 데드크로스 여부 */
-    private boolean isDeathCross;
+    // 지지/저항선
+    private Float supportLevel;     // 지지선
+    private Float resistanceLevel;  // 저항선
     
-    /** 종합 신호 (BUY/HOLD/SELL) */
-    private String overallSignal;
+    // 변동성 지표
+    private Float volatility;       // 변동성 (%)
+    private Float atr;             // Average True Range
     
-    /** 신호 강도 (0~100) */
-    private Integer signalStrength;
+    // 스토캐스틱
+    private Float stochasticK;
+    private Float stochasticD;
     
-    /** 신호 근거 */
-    private String signalReason;
+    // 윌리엄스 %R
+    private Float williamsR;
     
-    /** 분석 시간 */
-    private LocalDateTime analysisTime;
+    // CCI (Commodity Channel Index)
+    private Float cci;
     
-    /** 거래량 */
-    private Long volume;
+    // 패턴 분석 결과
+    private String chartPattern;    // 차트 패턴 (헤드앤숄더, 삼각형, 플래그 등)
+    private Float patternStrength;  // 패턴 신뢰도
     
-    /** 시가총액 */
-    private Long marketCap;
+    // 종합 신호
+    private String overallSignal;   // BUY, SELL, HOLD
+    private Integer signalStrength; // 신호 강도 (1-10)
+    private String signalReason;    // 신호 근거
     
-    /**
-     * 매수 추천 결과 생성 팩토리 메서드
-     */
-    public static TechnicalAnalysisResult buyRecommendation(String stockCode, String stockName, 
-                                                          Float currentPrice, Float fluctuationRate,
-                                                          Float rsi, Integer signalStrength, String reason) {
-        return TechnicalAnalysisResult.builder()
-                .stockCode(stockCode)
-                .stockName(stockName)
-                .currentPrice(currentPrice)
-                .fluctuationRate(fluctuationRate)
-                .rsi(rsi)
-                .overallSignal("BUY")
-                .signalStrength(signalStrength)
-                .signalReason(reason)
-                .analysisTime(LocalDateTime.now())
-                .build();
-    }
-    
-    /**
-     * 매도 추천 결과 생성 팩토리 메서드
-     */
-    public static TechnicalAnalysisResult sellRecommendation(String stockCode, String stockName,
-                                                           Float currentPrice, Float fluctuationRate,
-                                                           Float rsi, Integer signalStrength, String reason) {
-        return TechnicalAnalysisResult.builder()
-                .stockCode(stockCode)
-                .stockName(stockName)
-                .currentPrice(currentPrice)
-                .fluctuationRate(fluctuationRate)
-                .rsi(rsi)
-                .overallSignal("SELL")
-                .signalStrength(signalStrength)
-                .signalReason(reason)
-                .analysisTime(LocalDateTime.now())
-                .build();
-    }
-    
-    /**
-     * 관망 추천 결과 생성 팩토리 메서드
-     */
-    public static TechnicalAnalysisResult holdRecommendation(String stockCode, String stockName,
-                                                           Float currentPrice, Float fluctuationRate,
-                                                           String reason) {
-        return TechnicalAnalysisResult.builder()
-                .stockCode(stockCode)
-                .stockName(stockName)
-                .currentPrice(currentPrice)
-                .fluctuationRate(fluctuationRate)
-                .overallSignal("HOLD")
-                .signalStrength(0)
-                .signalReason(reason)
-                .analysisTime(LocalDateTime.now())
-                .build();
-    }
+    // 분석 메타데이터
+    private String analysisTime;    // 분석 시간
+    private String analysisVersion; // 분석 버전
+    private String[] warningMessages; // 경고 메시지
 }
