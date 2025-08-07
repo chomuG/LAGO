@@ -7,6 +7,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,6 +19,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
+import com.lago.app.presentation.ui.components.CommonTopAppBar
 
 data class OrderHistoryItem(
     val date: String,
@@ -74,27 +78,9 @@ fun OrderHistoryScreen(
             .fillMaxSize()
             .background(Color(0xFFF7F7F7))
     ) {
-        // Top Bar
-        TopAppBar(
-            title = {
-                Text(
-                    text = "나의 주문 내역",
-                    style = HeadEb20,
-                    color = Color.Black
-                )
-            },
-            navigationIcon = {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_chevron_left),
-                        contentDescription = "뒤로가기",
-                        tint = Color.Black
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.White
-            )
+        CommonTopAppBar(
+            title = "나의 주문 내역",
+            onBackClick = onBackClick
         )
         
         // Filter Row
@@ -123,7 +109,7 @@ fun OrderHistoryScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(
-                            painter = painterResource(id = R.drawable.ic_chevron_right),
+                            imageVector = Icons.Default.KeyboardArrowDown,
                             contentDescription = null,
                             tint = Color.Gray,
                             modifier = Modifier.size(16.dp)
@@ -166,7 +152,7 @@ fun OrderHistoryScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(
-                            painter = painterResource(id = R.drawable.ic_chevron_right),
+                            imageVector = Icons.Default.KeyboardArrowDown,
                             contentDescription = null,
                             tint = Color.Gray,
                             modifier = Modifier.size(16.dp)
