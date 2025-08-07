@@ -31,7 +31,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.airbnb.lottie.compose.*
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
 
@@ -204,18 +203,11 @@ private fun InvestmentSection(
                         .fillMaxWidth()
                         .padding(end = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                val composition by rememberLottieComposition(
-                    LottieCompositionSpec.Asset("money_bag_animation.json")
-                )
-                val progress by animateLottieCompositionAsState(
-                    composition,
-                    iterations = LottieConstants.IterateForever
-                )
-                LottieAnimation(
-                    composition = composition,
-                    progress = { progress },
+                Image(
+                    painter = painterResource(id = R.drawable.money_bag),
+                    contentDescription = "돈주머니",
                     modifier = Modifier
                         .size(150.dp)
                 )

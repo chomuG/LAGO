@@ -19,16 +19,17 @@ import com.lago.app.presentation.theme.*
 
 data class OrderHistoryItem(
     val date: String,
+    val month: String,
     val stockName: String,
     val orderType: String, // "매수", "매도"
     val shares: Int,
-    val amount: String
+    val pricePerShare: Int
 )
 
 enum class OrderType(val displayName: String) {
     ALL("전체"),
-    BUY("매수"),
-    SELL("매도")
+    BUY("구매"),
+    SELL("판매")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,16 +42,30 @@ fun OrderHistoryScreen(
     var isDateDropdownExpanded by remember { mutableStateOf(false) }
     var isOrderTypeDropdownExpanded by remember { mutableStateOf(false) }
     
-    val orderHistory = listOf(
-        OrderHistoryItem("8.05", "삼성전자", "매수", 5, "주문 72,500원"),
-        OrderHistoryItem("", "삼성전자", "구매", 2, "주문 71,900원"),
-        OrderHistoryItem("", "삼성전자", "구매", 7, "주문 71,800원"),
-        OrderHistoryItem("8.06", "삼성전자", "구매", 33, "주문 69,500원"),
-        OrderHistoryItem("", "삼성전자", "구매", 7, "주문 71,800원"),
-        OrderHistoryItem("", "삼성전자", "구매", 7, "주문 71,800원"),
-        OrderHistoryItem("", "삼성전자", "구매", 7, "주문 71,800원"),
-        OrderHistoryItem("", "삼성전자", "구매", 7, "주문 71,800원")
+    val allOrderHistory = listOf(
+        OrderHistoryItem("8.05", "2025년 8월", "삼성전자", "판매", 5, 72500),
+        OrderHistoryItem("", "2025년 8월", "한화생명", "구매", 2, 275000),
+        OrderHistoryItem("", "2025년 8월", "삼성전자", "판매", 3, 71800),
+        OrderHistoryItem("8.06", "2025년 8월", "한화생명", "구매", 1, 273000),
+        OrderHistoryItem("", "2025년 8월", "삼성전자", "구매", 10, 82000),
+        OrderHistoryItem("", "2025년 8월", "한화생명", "판매", 2, 274500),
+        OrderHistoryItem("", "2025년 8월", "삼성전자", "구매", 5, 81500),
+        OrderHistoryItem("", "2025년 8월", "삼성전자", "판매", 8, 82200),
+        OrderHistoryItem("7.28", "2025년 7월", "삼성전자", "구매", 15, 74000),
+        OrderHistoryItem("", "2025년 7월", "한화생명", "판매", 3, 268000),
+        OrderHistoryItem("", "2025년 7월", "삼성전자", "구매", 7, 73500),
+        OrderHistoryItem("7.30", "2025년 7월", "한화생명", "구매", 2, 270000)
     )
+    
+    val filteredHistory = allOrderHistory.filter { item ->
+        val dateMatches = item.month == selectedDate
+        val orderTypeMatches = when (selectedOrderType) {
+            OrderType.ALL -> true
+            OrderType.BUY -> item.orderType == "구매"
+            OrderType.SELL -> item.orderType == "판매"
+        }
+        dateMatches && orderTypeMatches
+    }
     
     val dateOptions = listOf("2025년 8월", "2025년 7월", "2025년 6월")
     
@@ -183,7 +198,7 @@ fun OrderHistoryScreen(
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
-            items(orderHistory) { item ->
+            items(filteredHistory) { item ->
                 OrderHistoryItemRow(item)
             }
             
@@ -196,79 +211,61 @@ fun OrderHistoryScreen(
 
 @Composable
 private fun OrderHistoryItemRow(item: OrderHistoryItem) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(0.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF7F7F7))
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                if (item.date.isNotEmpty()) {
-                    Text(
-                        text = item.date,
-                        style = TitleB16,
-                        color = Color.Black
-                    )
-                }
-                
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = item.stockName,
-                        style = SubtitleSb16,
-                        color = Color.Black
-                    )
-                    
-                    Spacer(modifier = Modifier.width(8.dp))
-                    
-                    // Order type badge
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = when (item.orderType) {
-                                "매수" -> Color(0xFFE3F2FD)
-                                else -> Color(0xFFE8F5E8)
-                            }
-                        ),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text(
-                            text = item.orderType,
-                            style = BodyR12,
-                            color = when (item.orderType) {
-                                "매수" -> MainBlue
-                                else -> Color(0xFF4CAF50)
-                            },
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-                
+            // Date on the left
+            if (item.date.isNotEmpty()) {
                 Text(
-                    text = "${item.shares}주 구매",
-                    style = BodyR14,
-                    color = Color.Gray
+                    text = item.date,
+                    style = TitleB16,
+                    color = Color.Black,
+                    modifier = Modifier.width(45.dp)
                 )
+            } else {
+                Spacer(modifier = Modifier.width(45.dp))
             }
             
-            Text(
-                text = item.amount,
-                style = SubtitleSb16,
-                color = Color.Black
-            )
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // Stock info
+            Column {
+                Text(
+                    text = item.stockName,
+                    style = SubtitleSb16,
+                    color = Color.Black
+                )
+                
+                Text(
+                    text = "${item.shares}주 ${item.orderType}",
+                    style = BodyR14,
+                    color = when (item.orderType) {
+                        "판매" -> MainBlue
+                        else -> Color.Gray
+                    }
+                )
+            }
         }
+        
+        Text(
+            text = "주당 ${String.format("%,d", item.pricePerShare)}원",
+            style = SubtitleSb16,
+            color = Color.Black
+        )
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun OrderHistoryScreenPreview() {
+fun OrderHistoryScreen() {
     LagoTheme {
         OrderHistoryScreen()
     }
