@@ -1373,14 +1373,14 @@ private fun IndicatorSettingsDialog(
         title = {
             Text(
                 text = "지표 설정",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                style = TitleB18,
+                color = MaterialTheme.colorScheme.onSurface
             )
         },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 // Volume 지표
                 Row(
@@ -1390,7 +1390,8 @@ private fun IndicatorSettingsDialog(
                 ) {
                     Text(
                         text = "거래량 (Volume)",
-                        fontSize = 16.sp
+                        style = BodyR16,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Switch(
                         checked = config.indicators.volume,
@@ -1412,7 +1413,8 @@ private fun IndicatorSettingsDialog(
                 ) {
                     Text(
                         text = "RSI",
-                        fontSize = 16.sp
+                        style = BodyR16,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Switch(
                         checked = config.indicators.rsi,
@@ -1434,7 +1436,8 @@ private fun IndicatorSettingsDialog(
                 ) {
                     Text(
                         text = "MACD",
-                        fontSize = 16.sp
+                        style = BodyR16,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Switch(
                         checked = config.indicators.macd,
@@ -1456,7 +1459,8 @@ private fun IndicatorSettingsDialog(
                 ) {
                     Text(
                         text = "SMA5",
-                        fontSize = 16.sp
+                        style = BodyR16,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Switch(
                         checked = config.indicators.sma5,
@@ -1478,7 +1482,8 @@ private fun IndicatorSettingsDialog(
                 ) {
                     Text(
                         text = "SMA20",
-                        fontSize = 16.sp
+                        style = BodyR16,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Switch(
                         checked = config.indicators.sma20,
@@ -1500,7 +1505,8 @@ private fun IndicatorSettingsDialog(
                 ) {
                     Text(
                         text = "볼린저 밴드",
-                        fontSize = 16.sp
+                        style = BodyR16,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Switch(
                         checked = config.indicators.bollingerBands,
@@ -1516,14 +1522,14 @@ private fun IndicatorSettingsDialog(
             }
         },
         tonalElevation = 0.dp,
-        containerColor = Color.White,
-        shape = RoundedCornerShape(8.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(Radius.lg),
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text(
                     text = "확인",
-                    color = Gray900,
-                    fontWeight = FontWeight.Bold
+                    style = SubtitleSb14,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }

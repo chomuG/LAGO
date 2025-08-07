@@ -455,7 +455,14 @@ class ChartViewModel @Inject constructor(
                 sma5Data = if (config.sma5) calculateSMA(candlestickData, 5) else emptyList(),
                 sma20Data = if (config.sma20) calculateSMA(candlestickData, 20) else emptyList(),
                 rsiData = if (config.rsi) calculateRSI(candlestickData) else emptyList(),
-                macdData = if (config.macd) calculateMACD(candlestickData) else null,
+                macdData = if (config.macd) {
+                    val macd = calculateMACD(candlestickData)
+                    android.util.Log.d("LAGO_CHART", "MACD calculated: ${macd?.macdLine?.size ?: 0} points")
+                    macd
+                } else {
+                    android.util.Log.d("LAGO_CHART", "MACD disabled in config")
+                    null
+                },
                 bollingerBands = if (config.bollingerBands) calculateBollingerBands(candlestickData) else null
             )
         }
@@ -556,16 +563,30 @@ class ChartViewModel @Inject constructor(
     }
     
     private fun calculateMACD(data: List<CandlestickData>): MACDResult? {
-        if (data.size < 26) return null
+        android.util.Log.d("LAGO_CHART", "MACD calculation start - data size: ${data.size}")
+        if (data.size < 26) {
+            android.util.Log.d("LAGO_CHART", "MACD failed - insufficient data (need 26, got ${data.size})")
+            return null
+        }
         
         val ema12 = calculateEMA(data, 12)
         val ema26 = calculateEMA(data, 26)
         
-        if (ema12.size != ema26.size) return null
+        android.util.Log.d("LAGO_CHART", "EMA calculated - EMA12: ${ema12.size}, EMA26: ${ema26.size}")
+        
+        if (ema12.isEmpty() || ema26.isEmpty()) {
+            android.util.Log.d("LAGO_CHART", "MACD failed - EMA data is empty")
+            return null
+        }
         
         val macdLine = mutableListOf<LineData>()
-        for (i in ema12.indices) {
-            macdLine.add(LineData(ema12[i].time, ema12[i].value - ema26[i].value))
+        // EMA26이 더 늦게 시작하므로 EMA26 크기에 맞춰서 계산
+        val startOffset = ema12.size - ema26.size
+        for (i in ema26.indices) {
+            val ema12Index = i + startOffset
+            if (ema12Index < ema12.size) {
+                macdLine.add(LineData(ema26[i].time, ema12[ema12Index].value - ema26[i].value))
+            }
         }
         
         val signalLine = calculateEMAFromLineData(macdLine, 9)
@@ -580,20 +601,22 @@ class ChartViewModel @Inject constructor(
     }
     
     private fun calculateEMA(data: List<CandlestickData>, period: Int): List<LineData> {
-        if (data.isEmpty()) return emptyList()
+        if (data.isEmpty() || data.size < period) return emptyList()
         
         val emaData = mutableListOf<LineData>()
         val multiplier = 2.0 / (period + 1)
-        var ema = data[0].close.toDouble()
         
-        emaData.add(LineData(data[0].time, ema.toFloat()))
+        // 첫 번째 EMA는 SMA로 초기화
+        var sma = data.take(period).map { it.close.toDouble() }.average()
+        emaData.add(LineData(data[period - 1].time, sma.toFloat()))
         
-        for (i in 1 until data.size) {
-            ema = (data[i].close * multiplier) + (ema * (1 - multiplier))
-            emaData.add(LineData(data[i].time, ema.toFloat()))
+        // EMA 계산
+        for (i in period until data.size) {
+            sma = (data[i].close * multiplier) + (sma * (1 - multiplier))
+            emaData.add(LineData(data[i].time, sma.toFloat()))
         }
         
-        return emaData.drop(period - 1)
+        return emaData
     }
     
     private fun calculateEMAFromLineData(data: List<LineData>, period: Int): List<LineData> {
