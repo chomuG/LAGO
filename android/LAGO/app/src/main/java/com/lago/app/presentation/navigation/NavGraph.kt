@@ -21,6 +21,8 @@ import com.lago.app.presentation.ui.study.Screen.DailyQuizScreen
 import com.lago.app.presentation.ui.news.NewsDetailScreen
 
 import androidx.compose.ui.Modifier
+import com.lago.app.presentation.ui.mypage.PortfolioScreen
+import com.lago.app.presentation.ui.mypage.RankingScreen
 import com.lago.app.presentation.ui.stocklist.StockListScreen
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -136,7 +138,19 @@ fun NavGraph(
         }
         
         composable(NavigationItem.Portfolio.route) {
-            PortfolioScreen()
+            PortfolioScreen(
+                onRankingClick = {
+                    navController.navigate("ranking")
+                }
+            )
+        }
+
+        composable("ranking") {
+            RankingScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
         }
 
         // Stock Purchase Screen with arguments

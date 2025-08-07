@@ -1,10 +1,10 @@
-package com.lago.app.presentation.ui
+package com.lago.app.presentation.ui.mypage
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -15,19 +15,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 // theme에 없는 색상들만 정의
 object AppColors {
@@ -54,7 +46,9 @@ data class PieChartData(
 )
 
 @Composable
-fun PortfolioScreen() {
+fun PortfolioScreen(
+    onRankingClick: () -> Unit = {}
+) {
     val stockList = listOf(
         StockInfo("삼성전자", "1주 평균 42,232원", "40.7%", MainBlue),
         StockInfo("한화생명", "1주 평균 52,232원", "25.4%", MainPink),
@@ -81,7 +75,7 @@ fun PortfolioScreen() {
         item { HeaderSection() }
 
         // 자산 현황 타이틀 섹션
-        item { AssetTitleSection() }
+        item { AssetTitleSection(onRankingClick = onRankingClick) }
 
         // 자산 현황 섹션
         item { AssetStatusSection() }
@@ -195,7 +189,9 @@ fun HeaderSection() {
 }
 
 @Composable
-fun AssetTitleSection() {
+fun AssetTitleSection(
+    onRankingClick: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -210,7 +206,8 @@ fun AssetTitleSection() {
         )
 
         Row(
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clickable { onRankingClick() }
         ) {
             Icon(
                 painter = painterResource(id = R.drawable.rank),

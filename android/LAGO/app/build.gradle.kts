@@ -5,6 +5,9 @@ plugins {
     alias(libs.plugins.dagger.hilt.android)
     alias(libs.plugins.compose.compiler)
     kotlin("plugin.serialization") version "1.9.20"
+
+    // Preview 오류 -> 컴포즈 컴파일러 버전 명지 (BOM과 버전 맞추기)
+    //id("org.jetbrains.kotlin.plugin.compose.compiler") version "1.5.10"
 }
 
 android {
