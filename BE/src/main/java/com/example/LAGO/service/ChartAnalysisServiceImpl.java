@@ -1,6 +1,6 @@
 package com.example.LAGO.service;
 
-import com.example.LAGO.dto.request.ChartPatternAnalysisRequestDto;
+import com.example.LAGO.dto.request.ChartPatternAnalysisRequest;
 import com.example.LAGO.dto.response.ChartAnalysisResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,10 +25,10 @@ public class ChartAnalysisServiceImpl implements ChartAnalysisService {
     public List<ChartAnalysisResponse> analyzePatterns(int stockId) {
         WebClient webClient = webClientBuilder.baseUrl(chartAnalysisUrl).build();
 
-        ChartPatternAnalysisRequestDto requestDto = new ChartPatternAnalysisRequestDto(stockId);
+        ChartPatternAnalysisRequest requestDto = new ChartPatternAnalysisRequest(stockId);
 
         return webClient.post()
-                .body(Mono.just(requestDto), ChartPatternAnalysisRequestDto.class)
+                .body(Mono.just(requestDto), ChartPatternAnalysisRequest.class)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<List<ChartAnalysisResponse>>() {})
                 .block(Duration.ofSeconds(30)); // 타임아웃 15초 설정

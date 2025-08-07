@@ -64,12 +64,9 @@ def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 
     ohlc["flag_intercmin"]    = np.nan
     ohlc["flag_intercmax"]    = np.nan
     
-    detected_pivots = set()
-    
-    if not progress:
-        candle_iter = range(lookback, len(ohlc))
-    else:
-        candle_iter = tqdm(range(lookback, len(ohlc)), desc="Finding flag patterns...")
+    candle_iter = reversed(range(lookback, len(ohlc)))
+    if progress:
+        candle_iter = tqdm(candle_iter, desc="Finding flag patterns...")
     
     for candle_idx in candle_iter:
     
@@ -85,7 +82,6 @@ def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 
             if ohlc.loc[i,"pivot"] == 2:
                 maxim = np.append(maxim, ohlc.loc[i,"high"])
                 xxmax = np.append(xxmax, i)
-
         
         # Check if the correct number of pivot points have been found
         if xxmax.size < min_points or xxmin.size < min_points:
@@ -98,10 +94,6 @@ def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 
         # Check the order condition of the pivot points is met
         if (np.any(np.diff(minim) < 0)) or (np.any(np.diff(maxim) < 0)):
                continue
-
-        current_pivots = set(xxmax) | set(xxmin)
-        if any(p in detected_pivots for p in current_pivots):
-            continue
             
         # Run the regress to get the slope, intercepts and r-squared   
         slmin, intercmin, rmin, _, _ = linregress(xxmin, minim)
@@ -120,7 +112,6 @@ def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 
                 ohlc.loc[candle_idx, "flag_slmin"]         = slmin 
                 ohlc.loc[candle_idx, "flag_intercmin"]     = intercmin
                 ohlc.loc[candle_idx, "flag_intercmax"]     = intercmax
-                detected_pivots.update(current_pivots)
 
                 # === 판단 근거 출력 ===
                 logging.debug("\n=== Flag Detected ===")
@@ -141,5 +132,7 @@ def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 
                 ohlc.loc[candle_idx, "flag_pivot_low_count"] = len(xxmin)
                 ohlc.loc[candle_idx, "flag_r2_high"] = rmax
                 ohlc.loc[candle_idx, "flag_r2_low"] = rmin
+
+                break
                             
-    return ohlc
+    return ohlc 

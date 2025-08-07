@@ -44,12 +44,9 @@ def find_doubles_pattern(ohlc: pd.DataFrame, lookback: int = 25, double: str = "
     ohlc["double_idx"]    = [np.array([]) for _ in range(len(ohlc)) ]
     ohlc["double_point"]  = [np.array([]) for _ in range(len(ohlc)) ]
     
-    detected_pivots = set()
-    
-    if not progress:
-        candle_iter =  range(lookback, len(ohlc))
-    else:
-        candle_iter =  tqdm(range(lookback, len(ohlc)), desc=f"Finding doubles patterns...")
+    candle_iter = reversed(range(lookback, len(ohlc)))
+    if progress:
+        candle_iter = tqdm(candle_iter, desc="Finding doubles patterns...")
            
     for candle_idx in candle_iter:
         sub_ohlc = ohlc.loc[candle_idx-lookback: candle_idx,:]
@@ -59,9 +56,6 @@ def find_doubles_pattern(ohlc: pd.DataFrame, lookback: int = 25, double: str = "
             continue
         
         if len(pivot_indx) == 5: # Must have only 5 pivots
-            if any(p in detected_pivots for p in pivot_indx):
-                continue
-
             pivots = ohlc.loc[pivot_indx, "pivot_pos"].tolist() 
             
             # Find Double Tops
@@ -73,16 +67,13 @@ def find_doubles_pattern(ohlc: pd.DataFrame, lookback: int = 25, double: str = "
                         ohlc.at[candle_idx, "double_point"]   = pivots
                         ohlc.loc[candle_idx, "double_type"]   = "tops"
                         ohlc.loc[candle_idx, "chart_type"]    = "double"
-                        detected_pivots.update(pivot_indx)
 
                         # === 판단 근거 출력 ===
                         logging.debug("\n=== Double Top Detected ===")
                         logging.debug(f"candle_idx: {candle_idx}")
-                        logging.debug(f"lookback: {lookback}")
-                        logging.debug("==============================\n")
-
+                        break
+                
                         # 추가로 판단 근거를 df에 컬럼으로 저장
-                        
                         
             # Find Double Bottoms            
             elif double == "bottoms" or double == "both":
@@ -93,14 +84,10 @@ def find_doubles_pattern(ohlc: pd.DataFrame, lookback: int = 25, double: str = "
                         ohlc.at[candle_idx, "double_point"]   = pivots
                         ohlc.loc[candle_idx, "double_type"]   = "bottoms"                         
                         ohlc.loc[candle_idx, "chart_type"]    = "double"
-                        detected_pivots.update(pivot_indx)
 
                         # === 판단 근거 출력 ===
                         logging.debug("\n=== Double Bottom Detected ===")
                         logging.debug(f"candle_idx: {candle_idx}")
-                        logging.debug(f"lookback: {lookback}")
-                        logging.debug("==============================\n")
-
-                        # 추가로 판단 근거를 df에 컬럼으로 저장
+                        break
                         
     return ohlc

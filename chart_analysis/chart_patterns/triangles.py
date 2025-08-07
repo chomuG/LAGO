@@ -58,12 +58,9 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
     ohlc["triangle_low_idx"]      = [np.array([]) for _ in range(len(ohlc)) ]
     ohlc["triangle_point"]        = np.nan
     
-    detected_pivots = set()
-    
-    if not progress:
-        candle_iter = range(lookback, len(ohlc))
-    else:
-        candle_iter = tqdm(range(lookback, len(ohlc)), desc="Finding triangle patterns")
+    candle_iter = reversed(range(lookback, len(ohlc)))
+    if progress:
+        candle_iter = tqdm(candle_iter, desc="Finding triangle patterns")
     
     for candle_idx in candle_iter:
         
@@ -87,10 +84,6 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
         if len(np.unique(minim)) < 2 or len(np.unique(maxim)) < 2:
             continue
 
-        current_pivots = set(xxmax) | set(xxmin)
-        if any(p in detected_pivots for p in current_pivots):
-            continue
-
         slmin, intercmin, rmin, _, _ = linregress(xxmin, minim)
         slmax, intercmax, rmax, _, _ = linregress(xxmax, maxim)
 
@@ -104,7 +97,6 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
             ohlc.at[candle_idx,  "triangle_high_idx"]     = xxmax
             ohlc.at[candle_idx,  "triangle_low_idx"]      = xxmin
             ohlc.loc[candle_idx, "triangle_point"]        = candle_idx
-            detected_pivots.update(current_pivots)
 
             # === 판단 근거 출력 ===
             logging.debug(f"\n=== {pattern_type.capitalize()} Triangle Detected ===")
@@ -124,16 +116,24 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
             ohlc.loc[candle_idx, "triangle_r2_high"] = rmax
             ohlc.loc[candle_idx, "triangle_r2_low"] = rmin
 
+        pattern_found = False
+
         if triangle_type == "symmetrical":
             if abs(rmax)>=rlimit and abs(rmin)>=rlimit and slmin>=slmin_limit and slmax<=-1*slmax_limit:
                 set_pattern_data("symmetrical")
+                pattern_found = True
 
         elif triangle_type == "ascending":
             if abs(rmax)>=rlimit and abs(rmin)>=rlimit and slmin>=slmin_limit and (slmax>=-1*slmax_limit and slmax <= slmax_limit):
                 set_pattern_data("ascending")
+                pattern_found = True
     
         elif triangle_type == "descending":
             if abs(rmax)>=rlimit and abs(rmin)>=rlimit and slmax<=-1*slmax_limit and (slmin>=-1*slmin_limit and slmin <= slmin_limit):
                 set_pattern_data("descending")
+                pattern_found = True
+        
+        if pattern_found:
+            break
 
     return ohlc
