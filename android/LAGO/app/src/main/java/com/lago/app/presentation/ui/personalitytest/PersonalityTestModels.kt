@@ -15,7 +15,8 @@ data class PersonalityResult(
     val type: PersonalityType,
     val score: Int,
     val characterRes: Int,
-    val description: String
+    val description: String,
+    val nickname: String
 )
 
 enum class PersonalityType(val displayName: String, val characterName: String) {

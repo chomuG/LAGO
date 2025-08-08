@@ -1,5 +1,7 @@
 package com.lago.app.presentation.navigation
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +17,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -43,17 +46,28 @@ fun BottomNavigationBar(
         containerColor = Color(0xFFFFFFFF)
     ) {
         bottomNavigationItems.forEach { item ->
+            val isSelected = currentRoute == item.route
+            val scale by animateFloatAsState(
+                targetValue = if (isSelected) 1.1f else 1.0f,
+                animationSpec = tween(durationMillis = 200),
+                label = "scale_animation"
+            )
+            
             NavigationBarItem(
                 icon = {
                     Icon(
                         imageVector = ImageVector.vectorResource(id = item.iconRes),
-                        contentDescription = item.title
+                        contentDescription = item.title,
+                        modifier = Modifier.scale(scale)
                     )
                 },
                 label = {
-                    Text(text = item.title)
+                    Text(
+                        text = item.title,
+                        modifier = Modifier.scale(scale)
+                    )
                 },
-                selected = currentRoute == item.route,
+                selected = isSelected,
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = MainBlue,
                     selectedTextColor = MainBlue,

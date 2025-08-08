@@ -28,9 +28,16 @@ import com.lago.app.presentation.navigation.BottomNavigationBar
 import com.lago.app.presentation.navigation.NavGraph
 import com.lago.app.presentation.theme.LagoTheme
 import dagger.hilt.android.AndroidEntryPoint
+import com.lago.app.data.local.prefs.UserPreferences
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var userPreferences: UserPreferences
+
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -40,7 +47,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             LagoTheme {
-                LagoApp()
+                LagoApp(userPreferences = userPreferences)
             }
         }
     }
@@ -48,7 +55,7 @@ class MainActivity : ComponentActivity() {
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun LagoApp() {
+fun LagoApp(userPreferences: UserPreferences) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -56,7 +63,7 @@ fun LagoApp() {
     // Routes where bottom navigation should be hidden
     val hideBottomBarRoutes = listOf(
         "pattern_study", "wordbook", "random_quiz", "daily_quiz",
-        "login", "personality_test"
+        "login", "personality_test", "order_history"
     )
     val shouldLogicallyShowBottomBar = currentRoute !in hideBottomBarRoutes && currentRoute?.startsWith("news_detail") != true
 
@@ -87,6 +94,7 @@ fun LagoApp() {
         ) { innerPadding ->
             NavGraph(
                 navController = navController,
+                userPreferences = userPreferences,
                 modifier = if (showBottomBarWithDelay) Modifier.padding(innerPadding) else Modifier
             )
         }
