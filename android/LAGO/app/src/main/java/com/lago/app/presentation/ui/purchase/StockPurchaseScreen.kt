@@ -2,6 +2,9 @@ package com.lago.app.presentation.ui.purchase
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -49,11 +52,12 @@ fun StockPurchaseScreen(
         },
         containerColor = Color.White,
         bottomBar = {
-            // 고정된 구매/판매 버튼
+            // 고정된 구매/판매 버튼 - 시스템 네비게이션 바 위에 위치
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color.White)
+                    .windowInsetsPadding(WindowInsets.navigationBars) // 시스템 네비게이션 바 패딩
                     .padding(16.dp)
             ) {
                 Button(
@@ -109,7 +113,7 @@ fun StockPurchaseScreen(
                 currentPrice = currentPrice
             )
 
-            Spacer(modifier = Modifier.height(100.dp)) // bottom bar 여유
+            Spacer(modifier = Modifier.height(24.dp)) // bottom bar 여유 (네비게이션 바 없음)
         }
     }
 
