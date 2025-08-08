@@ -25,6 +25,8 @@ import androidx.compose.ui.Modifier
 import com.lago.app.presentation.ui.stocklist.StockListScreen
 import com.lago.app.data.local.prefs.UserPreferences
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.lago.app.presentation.ui.personalitytest.PersonalityTestNavigation
+import com.lago.app.presentation.ui.login.LoginScreen
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -225,6 +227,32 @@ fun NavGraph(
                 newsId = newsId,
                 onBackClick = {
                     navController.popBackStack()
+                }
+            )
+        }
+
+        // Login Screen
+        composable("login") {
+            LoginScreen(
+                onKakaoLoginClick = {
+                    navController.navigate("personality_test")
+                }
+            )
+        }
+
+        // Personality Test Flow
+        composable("personality_test") {
+            PersonalityTestNavigation(
+                onBackToHome = {
+                    navController.popBackStack()
+                },
+                onTestComplete = { result ->
+                    // TODO: 결과를 저장하고 홈으로 돌아가기
+                    navController.navigate(NavigationItem.Home.route) {
+                        popUpTo(NavigationItem.Home.route) {
+                            inclusive = false
+                        }
+                    }
                 }
             )
         }

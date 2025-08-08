@@ -116,7 +116,7 @@ fun HomeScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                ,
+                            ,
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.Top
                         ) {
@@ -143,7 +143,7 @@ fun HomeScreen(
                                     )
                                 }
                             }
-                            
+
                             if (!isLoggedIn) {
                                 Button(
                                     onClick = { onLoginClick() },
@@ -253,12 +253,12 @@ private fun InvestmentSection(
             )
         ) {
             Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(end = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Image(
                     painter = painterResource(id = R.drawable.money_bag),
                     contentDescription = "돈주머니",
@@ -401,19 +401,19 @@ private fun TradingBotCard(bot: TradingBot) {
                             text = bot.name,
                             style = TitleB14
                         )
-                        
+
                         Text(
                             text = " | ",
                             style = TitleB14.copy(color = Gray500),
                             modifier = Modifier.padding(horizontal = 4.dp)
                         )
-                        
+
                         Text(
                             text = bot.investmentType,
                             style = BodyR14.copy(color = Gray500)
                         )
                     }
-                    
+
                     Image(
                         painter = painterResource(id = R.drawable.right_arrow),
                         contentDescription = "상세보기",
