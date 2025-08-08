@@ -3,6 +3,7 @@ package com.lago.app.presentation.ui.mypage
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -46,7 +47,8 @@ data class PodiumUser(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RankingScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onUserClick: () -> Unit = {}
 ) {
     val currentUser = RankingUser(
         rank = 17,
@@ -93,15 +95,22 @@ fun RankingScreen(
             // 현재 사용자 랭킹 카드
             RankingCard(
                 user = currentUser,
-                isCurrentUser = true
+                isCurrentUser = true,
+                onUserClick = onUserClick
             )
 
             // 포디움 섹션
-            PodiumSection(podiumUsers)
+            PodiumSection(
+                podiumUsers = podiumUsers,
+                onUserClick = onUserClick
+            )
 
             // 다른 사용자들
             otherUsers.forEach { user ->
-                RankingCard(user = user)
+                RankingCard(
+                    user = user,
+                    onUserClick = onUserClick
+                )
             }
 
             // 하단 여백
@@ -113,12 +122,14 @@ fun RankingScreen(
 @Composable
 fun RankingCard(
     user: RankingUser,
-    isCurrentUser: Boolean = false
+    isCurrentUser: Boolean = false,
+    onUserClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .height(70.dp)
+            .clickable { onUserClick() }
             .shadow(
                 elevation = 4.dp,
                 shape = RoundedCornerShape(Radius.lg),
@@ -193,7 +204,10 @@ fun RankingCard(
 }
 
 @Composable
-fun PodiumSection(podiumUsers: List<PodiumUser>) {
+fun PodiumSection(
+    podiumUsers: List<PodiumUser>,
+    onUserClick: () -> Unit = {}
+) {
 
         Box(
             modifier = Modifier
@@ -223,7 +237,8 @@ fun PodiumSection(podiumUsers: List<PodiumUser>) {
                     circleSize = 70.dp,
                     nameStyle = TitleB16,
                     amountStyle = SubtitleSb14,
-                    bottomPadding = 154.dp
+                    bottomPadding = 154.dp,
+                    onUserClick = onUserClick
                 )
 
                 // 1등 (가운데)
@@ -233,7 +248,8 @@ fun PodiumSection(podiumUsers: List<PodiumUser>) {
                     nameStyle = TitleB18,
                     amountStyle = HeadEb18,
                     amountColor = MainBlue,
-                    bottomPadding = 190.dp
+                    bottomPadding = 190.dp,
+                    onUserClick = onUserClick
                 )
 
                 // 3등 (오른쪽)
@@ -242,7 +258,8 @@ fun PodiumSection(podiumUsers: List<PodiumUser>) {
                     circleSize = 70.dp,
                     nameStyle = TitleB16,
                     amountStyle = SubtitleSb14,
-                    bottomPadding = 128.dp
+                    bottomPadding = 128.dp,
+                    onUserClick = onUserClick
                 )
             }
         }
@@ -255,11 +272,14 @@ fun PodiumUser(
     nameStyle: androidx.compose.ui.text.TextStyle,
     amountStyle: androidx.compose.ui.text.TextStyle,
     amountColor: Color = Black,
-    bottomPadding: androidx.compose.ui.unit.Dp
+    bottomPadding: androidx.compose.ui.unit.Dp,
+    onUserClick: () -> Unit = {}
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(bottom = bottomPadding)
+        modifier = Modifier
+            .padding(bottom = bottomPadding)
+            .clickable { onUserClick() }
     ) {
         // 사용자 원과 메달
         Box(
