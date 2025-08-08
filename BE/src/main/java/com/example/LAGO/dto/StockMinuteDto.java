@@ -4,6 +4,7 @@ import com.example.LAGO.domain.StockMinute;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.example.LAGO.domain.StockInfo;
 
 import java.time.LocalDateTime;
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 @Builder
 public class StockMinuteDto {
     private Integer stockInfoId;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "Asia/Seoul")
     private LocalDateTime date;
     private Integer openPrice;
     private Integer highPrice;
@@ -23,7 +25,7 @@ public class StockMinuteDto {
     // Entity -> DTO 변환
     public static StockMinuteDto fromEntity(StockMinute entity) {
         return StockMinuteDto.builder()
-                .stockInfoId(entity.getStockInfoId().getStockInfoId())
+                .stockInfoId(entity.getStockInfo().getStockInfoId())
                 .date(entity.getDate())
                 .openPrice(entity.getOpenPrice())
                 .highPrice(entity.getHighPrice())

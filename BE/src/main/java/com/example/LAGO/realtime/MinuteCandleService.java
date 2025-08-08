@@ -184,7 +184,7 @@ public class MinuteCandleService {
 
         // StockMinute 엔티티 생성 (stockInfoId 필드에 저장)
         return StockMinute.builder()
-                .stockInfoId(stockInfo)   // 필드명 변경: stockInfo → stockInfoId
+                .stockInfo(stockInfo)   // 필드명 변경: stockInfo → stockInfoId
                 .date(candleDateTime)
                 .openPrice(openPrice)
                 .highPrice(highPrice)

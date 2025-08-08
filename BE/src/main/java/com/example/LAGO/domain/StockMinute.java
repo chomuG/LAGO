@@ -19,7 +19,7 @@ public class StockMinute {
     // 외래키
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stock_info_id")
-    private StockInfo stockInfoId;
+    private StockInfo stockInfo;
 
     @Column(name = "date", nullable = false)
     private java.time.LocalDateTime date;
