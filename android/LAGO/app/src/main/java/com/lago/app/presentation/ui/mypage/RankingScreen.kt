@@ -4,8 +4,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -43,6 +43,7 @@ data class PodiumUser(
     val medalResource: Int
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RankingScreen(
     onBackClick: () -> Unit = {}
@@ -79,34 +80,32 @@ fun RankingScreen(
             onBackClick = onBackClick
         )
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = Spacing.md),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
             // 상단 여백
-            item { Spacer(modifier = Modifier.height(Spacing.sm)) }
+            Spacer(modifier = Modifier.height(Spacing.sm))
 
             // 현재 사용자 랭킹 카드
-            item {
-                RankingCard(
-                    user = currentUser,
-                    isCurrentUser = true
-                )
-            }
+            RankingCard(
+                user = currentUser,
+                isCurrentUser = true
+            )
 
             // 포디움 섹션
-            item {
-                PodiumSection(podiumUsers)
-            }
+            PodiumSection(podiumUsers)
 
             // 다른 사용자들
-            items(otherUsers) { user ->
+            otherUsers.forEach { user ->
                 RankingCard(user = user)
             }
 
             // 하단 여백
-            item { Spacer(modifier = Modifier.height(Spacing.xl)) }
+            Spacer(modifier = Modifier.height(Spacing.xl))
         }
     }
 }
@@ -199,7 +198,7 @@ fun PodiumSection(podiumUsers: List<PodiumUser>) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(280.dp),
+                .height(340.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
             // 포디움 배경 이미지
@@ -207,7 +206,7 @@ fun PodiumSection(podiumUsers: List<PodiumUser>) {
                 painter = painterResource(id = R.drawable.top3),
                 contentDescription = "Top 3 Podium",
                 modifier = Modifier
-                    .size(width = 331.dp, height = 234.dp)
+                    .size(width = 316.dp, height = 186.dp)
                     .align(Alignment.BottomCenter)
             )
 
@@ -224,7 +223,7 @@ fun PodiumSection(podiumUsers: List<PodiumUser>) {
                     circleSize = 70.dp,
                     nameStyle = TitleB16,
                     amountStyle = SubtitleSb14,
-                    bottomPadding = 40.dp
+                    bottomPadding = 154.dp
                 )
 
                 // 1등 (가운데)
@@ -234,7 +233,7 @@ fun PodiumSection(podiumUsers: List<PodiumUser>) {
                     nameStyle = TitleB18,
                     amountStyle = HeadEb18,
                     amountColor = MainBlue,
-                    bottomPadding = 80.dp
+                    bottomPadding = 190.dp
                 )
 
                 // 3등 (오른쪽)
@@ -243,7 +242,7 @@ fun PodiumSection(podiumUsers: List<PodiumUser>) {
                     circleSize = 70.dp,
                     nameStyle = TitleB16,
                     amountStyle = SubtitleSb14,
-                    bottomPadding = 40.dp
+                    bottomPadding = 128.dp
                 )
             }
         }
@@ -280,9 +279,12 @@ fun PodiumUser(
                 contentDescription = "${user.rank}등 메달",
                 modifier = Modifier
                     .size(37.dp)
+                    .align(Alignment.BottomEnd)
+                    .offset(y = 8.dp, x = 5.dp)
                     .zIndex(1f),
                 tint = Color.Unspecified
             )
+
         }
 
         Spacer(modifier = Modifier.height(Spacing.sm))

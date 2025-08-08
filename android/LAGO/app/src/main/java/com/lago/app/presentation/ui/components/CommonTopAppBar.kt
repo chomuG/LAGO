@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.WindowInsets
 import com.lago.app.presentation.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -12,7 +13,7 @@ import com.lago.app.presentation.theme.*
 fun CommonTopAppBar(
     title: String,
     onBackClick: () -> Unit = {},
-    backgroundColor: Color = AppBackground
+    backgroundColor: Color = Color.White
 ) {
     CenterAlignedTopAppBar(
         title = {
