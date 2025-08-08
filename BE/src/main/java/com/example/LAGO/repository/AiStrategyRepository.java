@@ -100,8 +100,8 @@ public interface AiStrategyRepository extends JpaRepository<AiStrategy, Integer>
      * @param userId 사용자 ID
      * @return 오늘 생성된 전략 목록
      */
-    @Query("SELECT a FROM AiStrategy a WHERE a.userId = :userId AND DATE(a.createdAt) = CURRENT_DATE ORDER BY a.createdAt DESC")
-    List<AiStrategy> findTodayStrategiesByUserId(@Param("userId") Integer userId);
+//    @Query("SELECT a FROM AiStrategy a WHERE a.userId = :userId AND DATE(a.createdAt) = CURRENT_DATE ORDER BY a.createdAt DESC")
+//    List<AiStrategy> findTodayStrategiesByUserId(@Param("userId") Integer userId);
 
     /**
      * 최근 N일간 인기 전략 조회
