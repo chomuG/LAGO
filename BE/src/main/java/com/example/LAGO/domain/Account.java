@@ -24,10 +24,10 @@ public class Account {
 
     @Id
     @Column(name = "account_id")
-    private Long accountId;
+    private Integer accountId;
 
     @Column(name = "user_id", nullable = false)
-    private Long userId;
+    private Integer userId;
 
     @Column(name = "balance", nullable = false)
     private Integer balance;

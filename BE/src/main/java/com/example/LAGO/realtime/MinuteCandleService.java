@@ -3,30 +3,22 @@ package com.example.LAGO.realtime;
 import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Comparator;
-import java.util.stream.Collectors;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import com.example.LAGO.domain.StockInfo;
 import com.example.LAGO.repository.StockInfoRepository;
-import lombok.Data;
-import lombok.Builder;
-import com.example.LAGO.realtime.TickData;
+import com.example.LAGO.repository.StockMinuteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.example.LAGO.domain.StockMinute;
 import com.example.LAGO.dto.StockMinuteDto;
 
-import com.example.LAGO.realtime.MinuteCandleWebsocketController;
-import com.example.LAGO.repository.StockMinuteRepository;
-import org.springframework.scheduling.annotation.Scheduled;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;

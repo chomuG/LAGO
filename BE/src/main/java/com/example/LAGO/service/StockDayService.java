@@ -26,7 +26,7 @@ public class StockDayService {
 //    @Cacheable(value = "stockDay", key = "#stockInfoId + ':' + #start + ':' + #end")
     public List<StockDayDto> getStockDays(Integer stockInfoId, LocalDate start, LocalDate end) {
         List<StockDay> entityList = stockDayRepository
-                .findByStockInfo_StockInfoIdAndDateBetweenOrderByDateAsc(stockInfoId, start, end);
+                .findByStockInfoStockInfoIdAndDateBetweenOrderByDateAsc(stockInfoId, start, end);
 
         // Entity → DTO 변환
         return entityList.stream()

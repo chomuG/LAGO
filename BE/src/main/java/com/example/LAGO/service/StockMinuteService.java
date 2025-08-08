@@ -3,8 +3,8 @@ package com.example.LAGO.service;
 import com.example.LAGO.domain.StockMinute;
 import com.example.LAGO.domain.StockInfo;
 import com.example.LAGO.dto.StockMinuteDto;
-import com.example.LAGO.repository.StockMinuteRepository;
 import com.example.LAGO.repository.StockInfoRepository;
+import com.example.LAGO.repository.StockMinuteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

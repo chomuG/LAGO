@@ -5,11 +5,12 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-
-@SpringBootApplication
 @EnableCaching	// 스프링 캐시 활성화
 @EnableScheduling
+@SpringBootApplication
+@EnableJpaRepositories(basePackages = "com.example.LAGO.repository")
 public class LagoApplication {
 
 	public static void main(String[] args) {
