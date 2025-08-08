@@ -33,7 +33,8 @@ data class RankingUser(
     val amount: String,
     val profit: String,
     val profitPercent: String,
-    val isCurrentUser: Boolean = false
+    val isCurrentUser: Boolean = false,
+    val isAi: Boolean = false
 )
 
 // 포디움 데이터 클래스 (1, 2, 3등)
@@ -48,7 +49,8 @@ data class PodiumUser(
 @Composable
 fun RankingScreen(
     onBackClick: () -> Unit = {},
-    onUserClick: () -> Unit = {}
+    onUserClick: () -> Unit = {},
+    onAiPortfolioClick: () -> Unit = {}
 ) {
     val currentUser = RankingUser(
         rank = 17,
@@ -68,7 +70,7 @@ fun RankingScreen(
     val otherUsers = listOf(
         RankingUser(4, "워렌버핏", "12,482,000원", "+612,000원", "(33.03%)"),
         RankingUser(5, "박두팔", "12,482,000원", "+612,000원", "(33.03%)"),
-        RankingUser(6, "박두구", "12,482,000원", "+612,000원", "(33.03%)")
+        RankingUser(6, "AI 포트폴리오", "12,482,000원", "+612,000원", "(33.03%)", isAi = true)
     )
 
     Column(
@@ -109,7 +111,7 @@ fun RankingScreen(
             otherUsers.forEach { user ->
                 RankingCard(
                     user = user,
-                    onUserClick = onUserClick
+                    onUserClick = if (user.isAi) onAiPortfolioClick else onUserClick
                 )
             }
 
@@ -164,21 +166,41 @@ fun RankingCard(
                     modifier = Modifier.padding(end = 8.dp)
                 )
 
-                // 하늘색 동그라미
+                // 프로필 동그라미 (AI인 경우 다른 색상)
                 Box(
                     modifier = Modifier
                         .size(20.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFDEEFFE))
+                        .background(if (user.isAi) MainBlue else Color(0xFFDEEFFE))
                 )
 
-                // 사용자 이름
-                Text(
-                    text = user.name,
-                    style = SubtitleSb16,
-                    color = Black,
-                    modifier = Modifier.padding(start = 11.dp)
-                )
+                // 사용자 이름 (AI인 경우 아이콘 추가)
+                Row(
+                    modifier = Modifier.padding(start = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = user.name,
+                        style = SubtitleSb16,
+                        color = Black
+                    )
+                    if (user.isAi) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(MainBlue),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "AI",
+                                style = BodyR12,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.weight(1f))
 

@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import com.lago.app.presentation.ui.mypage.PortfolioScreen
 import com.lago.app.presentation.ui.mypage.MyPageScreen
 import com.lago.app.presentation.ui.mypage.RankingScreen
+import com.lago.app.presentation.ui.mypage.AiPortfolioScreen
 import com.lago.app.presentation.ui.stocklist.StockListScreen
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -156,6 +157,9 @@ fun NavGraph(
                 },
                 onUserClick = {
                     navController.navigate("portfolio")
+                },
+                onAiPortfolioClick = {
+                    navController.navigate("ai_portfolio")
                 }
             )
         }
@@ -169,6 +173,18 @@ fun NavGraph(
                     navController.popBackStack()
                 },
                 userName = "박두칠"
+            )
+        }
+
+        composable("ai_portfolio") {
+            AiPortfolioScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onStockClick = { stockCode ->
+                    navController.navigate("chart/$stockCode")
+                },
+                userName = "AI 포트폴리오"
             )
         }
 
