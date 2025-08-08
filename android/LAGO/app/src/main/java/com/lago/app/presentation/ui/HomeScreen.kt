@@ -1,10 +1,13 @@
 package com.lago.app.presentation.ui
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -16,7 +19,9 @@ import com.lago.app.presentation.theme.LagoTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onLoginClick: () -> Unit = {}
+) {
     // 사용자 경험 개선을 위한 메모이제이션
     val homeItems = remember {
         (1..5).map { index ->
@@ -67,6 +72,48 @@ fun HomeScreen() {
                     modifier = Modifier.semantics {
                         contentDescription = "LAGO 서비스 소개 문구"
                     }
+                )
+            }
+        }
+        
+        // 로그인하러가기 버튼
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+                .clickable { onLoginClick() },
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF4285F4).copy(alpha = 0.1f)
+            ),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                Color(0xFF4285F4)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "🚀 로그인하러가기",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF4285F4)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "LAGO 서비스를 시작하고 투자 성향을 알아보세요",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF666666)
+                    )
+                }
+                Text(
+                    text = "시작하기 →",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Color(0xFF4285F4)
                 )
             }
         }

@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun LagoApp() {
     val navController = rememberNavController()
@@ -52,7 +54,10 @@ fun LagoApp() {
     val currentRoute = navBackStackEntry?.destination?.route
 
     // Routes where bottom navigation should be hidden
-    val hideBottomBarRoutes = listOf("pattern_study", "wordbook", "random_quiz", "daily_quiz")
+    val hideBottomBarRoutes = listOf(
+        "pattern_study", "wordbook", "random_quiz", "daily_quiz",
+        "login", "personality_test"
+    )
     val shouldLogicallyShowBottomBar = currentRoute !in hideBottomBarRoutes && currentRoute?.startsWith("news_detail") != true
 
     // State for delayed bottom bar animation
