@@ -9,6 +9,9 @@ import java.util.Comparator;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import com.example.LAGO.domain.StockInfo;
 import com.example.LAGO.repository.StockInfoRepository;
@@ -25,6 +28,8 @@ import com.example.LAGO.realtime.MinuteCandleWebsocketController;
 import com.example.LAGO.repository.StockMinuteRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 // 1분봉 집계 : 임시 저장 + 집계 역할
 
@@ -45,28 +50,71 @@ public class MinuteCandleService {
     
     // 마지막으로 처리한 분을 추적 (중복 처리 방지)
     private volatile LocalDateTime lastProcessedMinute = null;
+    
+    // 지연 처리를 위한 스케줄러
+    private ScheduledExecutorService delayedProcessingScheduler;
+    
+    @PostConstruct
+    public void init() {
+        delayedProcessingScheduler = Executors.newScheduledThreadPool(2);
+        log.info("🚀 MinuteCandleService 초기화 완료 - 지연 처리 스케줄러 생성");
+    }
+    
+    @PreDestroy
+    public void cleanup() {
+        if (delayedProcessingScheduler != null) {
+            delayedProcessingScheduler.shutdown();
+            try {
+                if (!delayedProcessingScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                    delayedProcessingScheduler.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                delayedProcessingScheduler.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+        log.info("🧹 MinuteCandleService 정리 완료");
+    }
 
     public void addTick(TickData tick) {
         String key = tick.getMinuteKey();
         minuteBucket.computeIfAbsent(key, k -> new ArrayList<>()).add(tick);
         
-        // 새로운 분이 시작되면 이전 분의 집계를 완료 처리
-        checkAndProcessCompletedMinutes(tick.getTruncatedMinute());
+        // 새로운 분이 시작되면 이전 분의 집계를 지연 처리로 스케줄링
+        scheduleDelayedProcessing(tick.getTruncatedMinute());
     }
     
     /**
-     * 새로운 분 도착 시 이전 분의 1분봉 집계를 완료 처리
+     * 새로운 분 도착 시 이전 분의 1분봉 집계를 지연 처리로 스케줄링
      */
-    private void checkAndProcessCompletedMinutes(LocalDateTime currentMinute) {
+    private void scheduleDelayedProcessing(LocalDateTime currentMinute) {
         if (currentMinute == null) return;
         
         // 1분 전 시간 계산
         LocalDateTime previousMinute = currentMinute.minusMinutes(1);
         
-        // 이전 분을 아직 처리하지 않았다면 처리
+        // 이전 분을 아직 처리하지 않았다면 10초 후 처리하도록 스케줄링
         if (lastProcessedMinute == null || previousMinute.isAfter(lastProcessedMinute)) {
-            processCompletedMinutesUpTo(previousMinute);
-            lastProcessedMinute = previousMinute;
+            String scheduleKey = previousMinute.toString();
+            
+            // 중복 스케줄링 방지를 위해 동기화된 블록에서 확인 및 즉시 상태 업데이트
+            synchronized (this) {
+                if (lastProcessedMinute == null || previousMinute.isAfter(lastProcessedMinute)) {
+                    // 즉시 상태 업데이트로 중복 스케줄링 방지
+                    lastProcessedMinute = previousMinute;
+                    
+                    delayedProcessingScheduler.schedule(() -> {
+                        try {
+                            log.info("⏰ 지연 처리 시작 - 분: {}", previousMinute);
+                            processCompletedMinutesUpTo(previousMinute);
+                        } catch (Exception e) {
+                            log.error("❌ 지연 처리 중 오류 발생 - 분: {}, 오류: {}", previousMinute, e.getMessage(), e);
+                        }
+                    }, 10, TimeUnit.SECONDS);
+                    
+                    log.debug("📅 분봉 집계 스케줄링 완료 - 분: {} (10초 후 처리)", previousMinute);
+                }
+            }
         }
     }
     
@@ -112,13 +160,13 @@ public class MinuteCandleService {
         int openPrice = firstTick.getOpenPrice() != null ? firstTick.getOpenPrice() : firstTick.getClosePrice();
         int closePrice = lastTick.getClosePrice();
 
-        // high, low
+        // high, low: 실제 거래가격(closePrice) 기준으로 계산
         int highPrice = tickList.stream()
-                .mapToInt(TickData::getHighPrice)
+                .mapToInt(TickData::getClosePrice)
                 .max()
                 .orElse(closePrice);
         int lowPrice = tickList.stream()
-                .mapToInt(TickData::getLowPrice)
+                .mapToInt(TickData::getClosePrice)
                 .min()
                 .orElse(closePrice);
 
@@ -136,7 +184,7 @@ public class MinuteCandleService {
 
         // StockMinute 엔티티 생성 (stockInfoId 필드에 저장)
         return StockMinute.builder()
-                .stockInfo(stockInfo)   // 실제 필드명에 맞게!
+                .stockInfoId(stockInfo)   // 필드명 변경: stockInfo → stockInfoId
                 .date(candleDateTime)
                 .openPrice(openPrice)
                 .highPrice(highPrice)
@@ -181,8 +229,9 @@ public class MinuteCandleService {
     
     /**
      * 스케줄러: 매 분마다 완성된 1분봉 처리 (혹시 놓친 것들 처리)
+     * 지연 처리 방식 사용으로 비활성화
      */
-    @Scheduled(cron = "30 * * * * *") // 매분 30초에 실행
+    // @Scheduled(cron = "30 * * * * *") // 지연 처리와 중복 방지를 위해 비활성화
     public void scheduleProcessCompletedMinutes() {
         LocalDateTime currentTime = LocalDateTime.now().withSecond(0).withNano(0);
         LocalDateTime oneMinuteAgo = currentTime.minusMinutes(1);

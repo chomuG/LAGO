@@ -23,7 +23,7 @@ public class StockMinuteDto {
     // Entity -> DTO 변환
     public static StockMinuteDto fromEntity(StockMinute entity) {
         return StockMinuteDto.builder()
-                .stockInfoId(entity.getStockInfo().getStockInfoId())
+                .stockInfoId(entity.getStockInfoId().getStockInfoId())
                 .date(entity.getDate())
                 .openPrice(entity.getOpenPrice())
                 .highPrice(entity.getHighPrice())
