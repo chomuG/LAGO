@@ -1,8 +1,8 @@
-package com.example.LAGO.service;
+package com.example.LAGO.ai.service;
 
 import com.example.LAGO.domain.User;
 import com.example.LAGO.domain.Account;
-import com.example.LAGO.dto.AiBotAccountResponse;
+import com.example.LAGO.ai.dto.response.AiBotAccountResponse;
 import com.example.LAGO.repository.UserRepository;
 import com.example.LAGO.repository.AccountRepository;
 import com.example.LAGO.repository.MockTradeRepository;

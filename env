@@ -1,0 +1,30 @@
+# =================================================================
+# 환경 전환 설정
+# 개발환경: SPRING_PROFILES_ACTIVE=dev (Docker timescaledb 사용)
+# 운영환경: SPRING_PROFILES_ACTIVE=prod (EC2 i13d203.p.ssafy.io 사용)
+# =================================================================
+
+# TimescaleDB 공통 설정
+POSTGRES_DB=stock_db
+POSTGRES_USER=ssafyuser
+POSTGRES_PASSWORD=ssafypw!
+
+# 현재 활성 환경 (dev 또는 prod로 변경)
+SPRING_PROFILES_ACTIVE=dev
+
+# =================================================================
+# 현재 활성 데이터베이스 URL (환경에 따라 아래 중 하나를 활성화)
+# 개발용: timescaledb (Docker 내부)
+# 운영용: i13d203.p.ssafy.io (EC2 외부 도메인)
+# =================================================================
+SPRING_DATASOURCE_URL=jdbc:postgresql://timescaledb:5432/stock_db
+# SPRING_DATASOURCE_URL=jdbc:postgresql://i13d203.p.ssafy.io:5432/stock_db
+
+SPRING_JPA_HIBERNATE_DDL_AUTO=update
+SPRING_JPA_SHOW_SQL=true
+SPRING_REDIS_HOST=redis
+SPRING_REDIS_PORT=6379
+
+# Docker 그룹 ID
+DOCKER_GID=999
+
