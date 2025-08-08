@@ -32,7 +32,9 @@ data class ChartUiState(
     val selectedBottomTab: Int = 0,
     val patternAnalysisCount: Int = 1,
     val maxPatternAnalysisCount: Int = 3,
-    val patternAnalysis: PatternAnalysisResult? = null,
+    val patternAnalysis: com.lago.app.domain.entity.PatternAnalysisResult? = null,
+    val isPatternAnalyzing: Boolean = false,
+    val patternAnalysisError: String? = null,
     val showIndicatorSettings: Boolean = false
 )
 
@@ -40,7 +42,8 @@ data class HoldingItem(
     val name: String,
     val quantity: String,
     val value: Int,
-    val change: Float
+    val change: Float,
+    val stockCode: String
 )
 
 data class TradingItem(
@@ -51,8 +54,3 @@ data class TradingItem(
     val stockCode: String = "005930" // 기본값으로 삼성전자 추가
 )
 
-data class PatternAnalysisResult(
-    val patternName: String,
-    val description: String,
-    val analysisTime: String
-)

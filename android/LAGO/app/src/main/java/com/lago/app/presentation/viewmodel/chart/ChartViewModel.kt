@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lago.app.domain.entity.*
 import com.lago.app.domain.repository.ChartRepository
+import com.lago.app.domain.usecase.AnalyzeChartPatternUseCase
 import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -12,7 +13,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ChartViewModel @Inject constructor(
-    private val chartRepository: ChartRepository
+    private val chartRepository: ChartRepository,
+    private val analyzeChartPatternUseCase: AnalyzeChartPatternUseCase
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ChartUiState())
@@ -247,7 +249,8 @@ class ChartViewModel @Inject constructor(
                                     name = domainItem.stockName,
                                     quantity = "${domainItem.quantity}주",
                                     value = domainItem.totalValue.toInt(),
-                                    change = domainItem.profitLossPercent
+                                    change = domainItem.profitLossPercent,
+                                    stockCode = domainItem.stockCode
                                 )
                             } ?: emptyList()
                             
@@ -373,14 +376,40 @@ class ChartViewModel @Inject constructor(
     }
     
     private fun analyzePattern() {
-        _uiState.update { 
-            it.copy(
-                patternAnalysis = PatternAnalysisResult(
-                    patternName = "상승 플래그",
-                    description = "상승 플래그 패턴이 감지되었습니다.",
-                    analysisTime = "2024-01-15 14:30"
-                )
-            )
+        viewModelScope.launch {
+            analyzeChartPatternUseCase(
+                stockCode = _uiState.value.currentStock.code,
+                timeFrame = _uiState.value.config.timeFrame
+            ).collect { resource ->
+                when (resource) {
+                    is Resource.Loading -> {
+                        _uiState.update { 
+                            it.copy(
+                                isPatternAnalyzing = true,
+                                patternAnalysisError = null
+                            )
+                        }
+                    }
+                    is Resource.Success -> {
+                        _uiState.update { 
+                            it.copy(
+                                isPatternAnalyzing = false,
+                                patternAnalysis = resource.data,
+                                patternAnalysisCount = it.patternAnalysisCount + 1,
+                                patternAnalysisError = null
+                            )
+                        }
+                    }
+                    is Resource.Error -> {
+                        _uiState.update { 
+                            it.copy(
+                                isPatternAnalyzing = false,
+                                patternAnalysisError = resource.message
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -470,9 +499,9 @@ class ChartViewModel @Inject constructor(
     
     private fun loadMockHoldings() {
         val mockHoldings = listOf(
-            HoldingItem("삼성전자", "10주", 742000, 1.09f),
-            HoldingItem("SK하이닉스", "5주", 675000, -1.46f),
-            HoldingItem("NAVER", "3주", 555000, 0.82f)
+            HoldingItem("삼성전자", "10주", 742000, 1.09f, "005930"),
+            HoldingItem("SK하이닉스", "5주", 675000, -1.46f, "000660"),
+            HoldingItem("NAVER", "3주", 555000, 0.82f, "035420")
         )
         _uiState.update { 
             it.copy(holdingItems = mockHoldings)

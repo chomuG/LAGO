@@ -2,9 +2,12 @@ package com.lago.app.presentation.ui.chart
 
 import android.view.ViewGroup
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,6 +31,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.max
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
@@ -70,12 +77,13 @@ import com.lago.app.domain.entity.VolumeData
 import com.lago.app.domain.entity.StockInfo
 import com.lago.app.domain.entity.MACDResult
 import com.lago.app.domain.entity.BollingerBandsResult
+import com.lago.app.domain.entity.PatternAnalysisResult
+import com.lago.app.domain.entity.PatternItem
 // ViewModel imports
 import com.lago.app.presentation.viewmodel.chart.ChartViewModel
 import com.lago.app.presentation.viewmodel.chart.ChartUiEvent
 import com.lago.app.presentation.viewmodel.chart.HoldingItem
 import com.lago.app.presentation.viewmodel.chart.TradingItem
-import com.lago.app.presentation.viewmodel.chart.PatternAnalysisResult
 import com.skydoves.flexible.core.pxToDp
 // Chart imports - v5 Multi-Panel Chart
 import com.lago.app.presentation.ui.chart.v5.MultiPanelChart
@@ -139,7 +147,8 @@ fun ChartScreen(
     viewModel: ChartViewModel = hiltViewModel(),
     onNavigateToStockPurchase: (String, String) -> Unit = { _, _ -> },
     onNavigateToAIDialog: () -> Unit = {},
-    onNavigateBack: () -> Unit = {}
+    onNavigateBack: () -> Unit = {},
+    onNavigateToStock: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val density = LocalDensity.current
@@ -153,53 +162,61 @@ fun ChartScreen(
     val isLargeScreen = screenWidth > 600.dp
     val isTablet = screenWidth > 700.dp && screenHeight > 900.dp
     
-    // Screen configuration based on device type
+    // Screen configuration based on device type - 네비게이션 바 없어서 차트 영역 증가
     val screenConfig = when {
         isCompactScreen -> ScreenConfig(
-            collapsedHeightRatio = 0.28f,  // 원래대로 복구
+            collapsedHeightRatio = 0.20f,  // 네비게이션 바 공간만큼 줄임 (더 많은 차트 영역)
             halfExpandedHeightRatio = 0.45f,
-            expandedHeightRatio = 0.80f,
+            expandedHeightRatio = 0.85f,  // 더 높게 올라감
             buttonBarHeight = 68.dp,
-            chartBaseHeightRatio = 0.30f,
-            minChartHeight = 180.dp,
+            chartBaseHeightRatio = 0.38f,  // 차트 영역 증가
+            minChartHeight = 200.dp,  // 최소 높이도 증가
             headerHeight = 72.dp,
             timeButtonHeight = 44.dp
         )
         isTablet -> ScreenConfig(
-            collapsedHeightRatio = 0.25f,
+            collapsedHeightRatio = 0.18f,  // 네비게이션 바 공간만큼 줄임
             halfExpandedHeightRatio = 0.50f,
-            expandedHeightRatio = 0.85f,
+            expandedHeightRatio = 0.90f,  // 더 높게 올라감
             buttonBarHeight = 80.dp,
-            chartBaseHeightRatio = 0.40f,
-            minChartHeight = 250.dp,
+            chartBaseHeightRatio = 0.48f,  // 차트 영역 증가
+            minChartHeight = 280.dp,  // 최소 높이도 증가
             headerHeight = 90.dp,
             timeButtonHeight = 56.dp
         )
         isLargeScreen -> ScreenConfig(
-            collapsedHeightRatio = 0.26f,
+            collapsedHeightRatio = 0.19f,  // 네비게이션 바 공간만큼 줄임
             halfExpandedHeightRatio = 0.48f,
-            expandedHeightRatio = 0.83f,
+            expandedHeightRatio = 0.88f,  // 더 높게 올라감
             buttonBarHeight = 76.dp,
-            chartBaseHeightRatio = 0.35f,
-            minChartHeight = 220.dp,
+            chartBaseHeightRatio = 0.43f,  // 차트 영역 증가
+            minChartHeight = 250.dp,  // 최소 높이도 증가
             headerHeight = 84.dp,
             timeButtonHeight = 52.dp
         )
         else -> ScreenConfig( // Standard devices (S23 등)
-            collapsedHeightRatio = 0.27f,  // 원래대로 복구
+            collapsedHeightRatio = 0.20f,  // 네비게이션 바 공간만큼 줄임 (더 많은 차트 영역)
             halfExpandedHeightRatio = 0.47f,
-            expandedHeightRatio = 0.82f,
+            expandedHeightRatio = 0.87f,  // 더 높게 올라감
             buttonBarHeight = 72.dp,
-            chartBaseHeightRatio = 0.33f,
-            minChartHeight = 200.dp,
+            chartBaseHeightRatio = 0.40f,  // 차트 영역 증가
+            minChartHeight = 220.dp,  // 최소 높이도 증가
             headerHeight = 80.dp,
             timeButtonHeight = 48.dp
         )
     }
     
-    // Safe zones
+    // 시스템 바 높이 계산 (먼저 정의)
+    val systemNavBarHeight = with(density) {
+        WindowInsets.navigationBars.getBottom(density).toDp()
+    }
+    val statusBarHeight = with(density) {
+        WindowInsets.statusBars.getTop(density).toDp()
+    }
+    
+    // Safe zones - 앱바는 원래 위치 유지
     val safeZones = SafeZones(
-        top = 60.dp, // AppBar height
+        top = 60.dp, // AppBar height only (상태표시줄 제외)
         bottom = screenConfig.buttonBarHeight,
         chartMin = screenConfig.minChartHeight,
         bottomSheetMin = if (isCompactScreen) 140.dp else 160.dp
@@ -238,11 +255,30 @@ fun ChartScreen(
     }
 
     // 각 상태별 Y 위치
-    val sheetPositions = remember(screenHeightPx, density) {
+    val sheetPositions = remember(screenHeightPx, density, isCompactScreen, systemNavBarHeight, statusBarHeight) {
         object {
-            val collapsed = screenHeightPx - with(density) { collapsedHeight.toPx() } - buttonBarHeightPx
-            val halfExpanded = screenHeightPx - with(density) { halfExpandedHeight.toPx() } - buttonBarHeightPx
-            val expanded = with(density) { safeZones.top.toPx()*2 } - buttonBarHeightPx
+            val tabHeight = if (isCompactScreen) 40.dp else 44.dp
+            
+            // 정확한 구매/판매 버튼 박스 높이 계산
+            val buttonHeight = if (isCompactScreen) 44.dp else 48.dp
+            val verticalPadding = if (isCompactScreen) 8.dp else 12.dp // Spacing.sm, Spacing.sm+xs
+            val actualBuyButtonBoxHeight = buttonHeight + (verticalPadding * 2)
+            
+            // 드래그 핸들 영역 높이 (padding + handle)
+            val dragHandleAreaHeight = 12.dp + 8.dp + 4.dp // top + bottom + handle = 24dp
+            
+            // Tab indicator 높이 (선택된 탭 밑줄) + 여유공간
+            val tabIndicatorHeight = 2.dp + 2.dp // indicator + 추가 여유공간
+            
+            // collapsed: 바텀시트 상단이 구매/판매 버튼 바로 위에 위치하도록 (시스템 네비게이션 바 위)
+            // 상태표시줄 패딩만큼 위로 올려줌
+            val collapsed = screenHeightPx - with(density) { 
+                (statusBarHeight + systemNavBarHeight + actualBuyButtonBoxHeight + tabHeight + tabIndicatorHeight + dragHandleAreaHeight).toPx() 
+            }
+            val halfExpanded = screenHeightPx - with(density) { (halfExpandedHeight + statusBarHeight).toPx() } - buttonBarHeightPx
+            // expanded: 앱바 바로 아래에 완전히 붙이기
+            // shadow(8dp)와 rounded corner 영향을 고려하여 추가로 올림
+            val expanded = with(density) { (statusBarHeight + 60.dp - dragHandleAreaHeight - 8.dp).toPx() }
         }
     }
 
@@ -498,7 +534,7 @@ fun ChartScreen(
 
         }
 
-        // 2. 앱바 (중간 레이어)
+        // 2. 앱바 (중간 레이어) - 원래 위치 유지
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -599,6 +635,7 @@ fun ChartScreen(
                     holdingsListState = holdingsListState,
                     tradingHistoryListState = tradingHistoryListState,
                     bottomSheetState = bottomSheetState,
+                    onStockClick = onNavigateToStock,
                     isCompact = isCompactScreen,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -623,11 +660,12 @@ fun ChartScreen(
             }
         }
 
-        // 5. 화면 하단 고정 매수/매도 버튼
+        // 5. 화면 하단 고정 매수/매도 버튼 (시스템 네비게이션 바 위)
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars)  // 시스템 네비게이션 바 패딩
                 .shadow(
                     elevation = 16.dp,  // 바텀시트보다 높은 elevation
                     spotColor = Color(0x1A000000)
@@ -954,6 +992,7 @@ private fun BottomSheetContent(
     holdingsListState: LazyListState,
     tradingHistoryListState: LazyListState,
     bottomSheetState: BottomSheetState,
+    onStockClick: (String) -> Unit,
     isCompact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -1012,6 +1051,8 @@ private fun BottomSheetContent(
             when (selectedTabIndex) {
                 0 -> HoldingsContent(
                     holdings = uiState.holdingItems,
+                    currentStockCode = uiState.currentStock.code,
+                    onStockClick = onStockClick,
                     listState = holdingsListState,
                     nestedScrollConnection = nestedScrollConnection,
                     bottomSheetState = bottomSheetState
@@ -1027,6 +1068,8 @@ private fun BottomSheetContent(
                     patternAnalysisCount = uiState.patternAnalysisCount,
                     maxPatternAnalysisCount = uiState.maxPatternAnalysisCount,
                     lastPatternAnalysis = uiState.patternAnalysis,
+                    isPatternAnalyzing = uiState.isPatternAnalyzing,
+                    patternAnalysisError = uiState.patternAnalysisError,
                     onAnalyzeClick = { viewModel.onEvent(ChartUiEvent.AnalyzePattern) }
                 )
             }
@@ -1037,6 +1080,8 @@ private fun BottomSheetContent(
 @Composable
 private fun HoldingsContent(
     holdings: List<HoldingItem>,
+    currentStockCode: String,
+    onStockClick: (String) -> Unit,
     listState: LazyListState,
     nestedScrollConnection: NestedScrollConnection,
     bottomSheetState: BottomSheetState
@@ -1064,18 +1109,35 @@ private fun HoldingsContent(
             userScrollEnabled = bottomSheetState != BottomSheetState.COLLAPSED
         ) {
             items(holdings) { holding ->
-                HoldingItemRow(holding)
+                HoldingItemRow(
+                    item = holding,
+                    currentStockCode = currentStockCode,
+                    onStockClick = onStockClick
+                )
             }
         }
     }
 }
 
 @Composable
-private fun HoldingItemRow(item: HoldingItem) {
+private fun HoldingItemRow(
+    item: HoldingItem,
+    currentStockCode: String,
+    onStockClick: (String) -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = 8.dp)
+            .clickable(
+                indication = null, // 클릭 시 엘리베이션 효과 제거
+                interactionSource = remember { MutableInteractionSource() }
+            ) {
+                // Only navigate if the selected stock is different from current stock
+                if (item.stockCode != currentStockCode) {
+                    onStockClick(item.stockCode)
+                }
+            },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1227,14 +1289,13 @@ private fun TradingItemRow(item: TradingItem) {
             Column {
                 Text(
                     text = item.quantity,
-                    fontSize = 14.sp,
-                    color = Gray900,
-                    fontWeight = FontWeight.Medium
+                    style = TitleB20,
+                    color = Gray900
                 )
                 Text(
                     text = item.date,
-                    fontSize = 12.sp,
-                    color = Gray600
+                    style = BodyR12,
+                    color = Gray500
                 )
             }
         }
@@ -1242,15 +1303,14 @@ private fun TradingItemRow(item: TradingItem) {
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = "${String.format("%,d", item.amount)}원",
-                fontSize = 14.sp,
-                color = Gray900,
-                fontWeight = FontWeight.SemiBold
+                style = TitleB18,
+                color = Gray900
             )
             val quantityNumber = item.quantity.replace("주", "").trim().toIntOrNull() ?: 1
             Text(
                 text = "주당 ${String.format("%,d", item.amount / quantityNumber)}원",
-                fontSize = 12.sp,
-                color = Gray600
+                style = BodyR12,
+                color = Gray500
             )
         }
     }
@@ -1266,50 +1326,153 @@ private fun PatternAnalysisContent(
     patternAnalysisCount: Int,
     maxPatternAnalysisCount: Int,
     lastPatternAnalysis: PatternAnalysisResult?,
+    isPatternAnalyzing: Boolean,
+    patternAnalysisError: String?,
     onAnalyzeClick: () -> Unit
 ) {
-    // TODO: ViewModel에서 실제 분석 결과를 받아오도록 수정
-    val patterns = listOf(
-        ChartPattern(
-            name = "상승 삼각형",
-            description = "저항선을 여러 차례 돌파 시도했지 때문에 상승 가능성이 높습니다."
-        ),
-        ChartPattern(
-            name = "헤드앤숄더",
-            description = "저항선을 여러 차례 돌파 시도했지 때문에 상승 가능성이 높습니다."
-        )
-    )
-
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
             .padding(24.dp)
     ) {
-        // 헤더
-        Text(
-            text = "최근 분석 결과",
-            style = TitleB18,
-            color = MainBlue,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-
-        Text(
-            text = "2025-07-28 오후 1시 35분", // TODO: 실제 분석 시간으로 변경
-            style = BodyR12,
-            color = Gray600,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
-
-        // 패턴 리스트
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            patterns.forEach { pattern ->
-                PatternItem(pattern = pattern)
+        when {
+            isPatternAnalyzing -> {
+                // 로딩 상태
+                PatternAnalysisLoading()
+            }
+            patternAnalysisError != null -> {
+                // 에러 상태
+                PatternAnalysisError(
+                    error = patternAnalysisError,
+                    onRetryClick = onAnalyzeClick
+                )
+            }
+            lastPatternAnalysis != null -> {
+                // 분석 결과가 있을 때
+                PatternAnalysisWithResults(
+                    patternAnalysis = lastPatternAnalysis,
+                    patternAnalysisCount = patternAnalysisCount,
+                    maxPatternAnalysisCount = maxPatternAnalysisCount,
+                    onAnalyzeClick = onAnalyzeClick
+                )
+            }
+            else -> {
+                // 분석 결과가 없을 때 (한 번도 분석 안함)
+                PatternAnalysisEmpty(
+                    patternAnalysisCount = patternAnalysisCount,
+                    maxPatternAnalysisCount = maxPatternAnalysisCount,
+                    onAnalyzeClick = onAnalyzeClick
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun PatternAnalysisWithResults(
+    patternAnalysis: PatternAnalysisResult,
+    patternAnalysisCount: Int,
+    maxPatternAnalysisCount: Int,
+    onAnalyzeClick: () -> Unit
+) {
+    // 실제 패턴 데이터 사용
+    val patterns = patternAnalysis.patterns
+    
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        // 헤더
+        item {
+            Text(
+                text = "최근 분석 결과",
+                style = HeadEb24,
+                color = BlueNormalHover,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+
+        // 날짜/시간 (실제 분석 시간 사용)
+        item {
+            Text(
+                text = patternAnalysis.analysisTime,
+                style = BodyR14,
+                color = Gray800,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+        }
+
+        // 구분선
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(Gray200)
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        // 패턴 리스트
+        itemsIndexed(patterns) { index, pattern ->
+            PatternResultItem(
+                pattern = pattern,
+                isLastItem = index == patterns.size - 1
+            )
+        }
+
+        // 다시 분석하기 버튼
+        item {
+            Spacer(modifier = Modifier.height(32.dp))
+            Button(
+                onClick = onAnalyzeClick,
+                enabled = patternAnalysisCount < maxPatternAnalysisCount,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BlueLightHover,
+                    disabledContainerColor = Gray300
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = "다시 분석하기 ($patternAnalysisCount/$maxPatternAnalysisCount)",
+                    style = TitleB16,
+                    color = BlueNormalHover
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun PatternAnalysisEmpty(
+    patternAnalysisCount: Int,
+    maxPatternAnalysisCount: Int,
+    onAnalyzeClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // 빈 상태 텍스트
+        Text(
+            text = "아직 분석한 패턴이 없어요",
+            style = TitleB20,
+            color = Gray700,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        
+        Text(
+            text = "차트 패턴을 분석해보세요!",
+            style = BodyR16,
+            color = Gray600,
+            modifier = Modifier.padding(bottom = 40.dp)
+        )
 
         // 분석하기 버튼
         Button(
@@ -1319,43 +1482,134 @@ private fun PatternAnalysisContent(
                 .fillMaxWidth()
                 .height(52.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MainBlue,
+                containerColor = BlueLightHover,
                 disabledContainerColor = Gray300
             ),
             shape = RoundedCornerShape(8.dp)
         ) {
             Text(
-                text = "다시 분석하기 ($patternAnalysisCount/$maxPatternAnalysisCount)",
-                color = Color.White,
-                style = SubtitleSb14
+                text = "패턴 분석하기 ($patternAnalysisCount/$maxPatternAnalysisCount)",
+                style = TitleB16,
+                color = BlueNormalHover
             )
         }
     }
 }
 
 @Composable
-private fun PatternItem(pattern: ChartPattern) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top
-    ) {
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // 텍스트 내용
-        Column {
-            Text(
-                text = pattern.name,
-                style = TitleB16,
-                color = Gray900,
-                modifier = Modifier.padding(bottom = 4.dp)
+private fun PatternResultItem(
+    pattern: PatternItem,
+    isLastItem: Boolean = false
+) {
+    Column {
+        // 패턴 타이틀 (아이콘 + 제목)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 12.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.glowing_blue),
+                contentDescription = null,
+                tint = Color.Unspecified, // 원본 색상 유지 (그라데이션)
+                modifier = Modifier
+                    .size(20.dp) // 24sp 타이틀의 절반 정도로 크게 조정
+                    .padding(end = 12.dp)
             )
-
+            
             Text(
-                text = pattern.description,
-                style = BodyR14,
-                color = Gray700,
-                lineHeight = 22.sp
+                text = pattern.patternName,
+                style = TitleB24,
+                color = Gray900
+            )
+        }
+
+        // 패턴 설명 (아이콘 + 간격만큼 들여쓰기)
+        Text(
+            text = pattern.description,
+            style = BodyR20,
+            color = Gray700,
+            lineHeight = 28.sp,
+            modifier = Modifier
+                .padding(start = 32.dp, bottom = 24.dp) // 20dp(아이콘) + 12dp(간격) = 32dp 들여쓰기
+        )
+
+        // 구분선 (마지막 아이템이 아닐 때만 표시)
+        if (!isLastItem) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(Gray200)
+            )
+        }
+    }
+}
+
+@Composable
+private fun PatternAnalysisLoading() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator(
+            color = MainBlue,
+            modifier = Modifier.size(48.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "패턴을 분석하고 있습니다...",
+            style = TitleB18,
+            color = Gray700
+        )
+        Text(
+            text = "잠시만 기다려주세요",
+            style = BodyR14,
+            color = Gray600,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun PatternAnalysisError(
+    error: String,
+    onRetryClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "분석 중 오류가 발생했습니다",
+            style = TitleB20,
+            color = Gray800,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        
+        Text(
+            text = error,
+            style = BodyR14,
+            color = Gray600,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        Button(
+            onClick = onRetryClick,
+            modifier = Modifier
+                .fillMaxWidth(0.6f)
+                .height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = BlueLightHover
+            ),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(
+                text = "다시 시도",
+                style = TitleB16,
+                color = BlueNormalHover
             )
         }
     }
@@ -1577,6 +1831,7 @@ fun ChartScreenPreview() {
         stockCode = "005930",
         onNavigateToStockPurchase = { _, _ -> },
         onNavigateToAIDialog = {},
-        onNavigateBack = {}
+        onNavigateBack = {},
+        onNavigateToStock = {}
     )
 }

@@ -12,6 +12,7 @@ import androidx.navigation.navArgument
 import androidx.navigation.NavType
 import com.lago.app.presentation.ui.*
 import com.lago.app.presentation.ui.chart.ChartScreen
+import com.lago.app.presentation.ui.historychallenge.HistoryChallengeChartScreen
 import com.lago.app.presentation.ui.purchase.StockPurchaseScreen
 import com.lago.app.presentation.ui.chart.AIDialog
 import com.lago.app.presentation.ui.study.Screen.PatternStudyScreen
@@ -47,6 +48,9 @@ fun NavGraph(
                 onStockClick = { stockCode ->
                     navController.navigate("chart/$stockCode")
                 },
+                onHistoryChallengeStockClick = { stockCode ->
+                    navController.navigate("history_challenge_chart/$stockCode")
+                },
                 onNewsClick = { newsId ->
                     navController.navigate("news_detail/$newsId")
                 }
@@ -55,6 +59,7 @@ fun NavGraph(
 
         composable(NavigationItem.Chart.route) {
             ChartScreen(
+                stockCode = "005930", // 삼성전자 임시 목 데이터
                 onNavigateToStockPurchase = { stockCode, action ->
                     navController.navigate("stock_purchase/$stockCode/$action")
                 },
@@ -62,7 +67,14 @@ fun NavGraph(
                     navController.navigate(NavigationItem.AIDialog.route)
                 },
                 onNavigateBack = {
-                    navController.popBackStack()
+                    // 차트 탭에서는 뒤로가기 버튼 비활성화 (바텀네비게이션 탭이므로)
+                },
+                onNavigateToStock = { selectedStockCode ->
+                    navController.navigate("chart/$selectedStockCode") {
+                        // 현재 차트 화면을 새로운 차트 화면으로 교체 (스택에 쌓지 않음)
+                        popUpTo("chart") { inclusive = true }
+                        launchSingleTop = true
+                    }
                 }
             )
         }
@@ -86,29 +98,13 @@ fun NavGraph(
                 },
                 onNavigateBack = {
                     navController.popBackStack()
-                }
-            )
-        }
-
-        // Chart with specific stock code
-        composable(
-            route = "chart/{stockCode}",
-            arguments = listOf(
-                navArgument("stockCode") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val stockCode = backStackEntry.arguments?.getString("stockCode") ?: "005930"
-
-            ChartScreen(
-                stockCode = stockCode,
-                onNavigateToStockPurchase = { code, action ->
-                    navController.navigate("stock_purchase/$code/$action")
                 },
-                onNavigateToAIDialog = {
-                    navController.navigate(NavigationItem.AIDialog.route)
-                },
-                onNavigateBack = {
-                    navController.popBackStack()
+                onNavigateToStock = { selectedStockCode ->
+                    navController.navigate("chart/$selectedStockCode") {
+                        // 현재 차트 화면을 새로운 차트 화면으로 교체 (스택에 쌓지 않음)
+                        popUpTo("chart") { inclusive = true }
+                        launchSingleTop = true
+                    }
                 }
             )
         }
@@ -215,6 +211,25 @@ fun NavGraph(
             NewsDetailScreen(
                 newsId = newsId,
                 onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // History Challenge Chart Screen with stock code parameter
+        composable(
+            route = "history_challenge_chart/{stockCode}",
+            arguments = listOf(
+                navArgument("stockCode") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val stockCode = backStackEntry.arguments?.getString("stockCode") ?: "005930"
+            HistoryChallengeChartScreen(
+                stockCode = stockCode,
+                onNavigateToStockPurchase = { code, action ->
+                    navController.navigate("stock_purchase/$code/$action")
+                },
+                onNavigateBack = {
                     navController.popBackStack()
                 }
             )
