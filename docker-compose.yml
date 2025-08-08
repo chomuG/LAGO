@@ -37,6 +37,21 @@ services:
       - ./redisdata:/data
     restart: unless-stopped
 
+  # finbert:
+  #   build:
+  #     context: ./finbert
+  #     dockerfile: Dockerfile
+  #   container_name: finbert
+  #   ports:
+  #     - "5000:5000"
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 120s
+
   backend:
     build:
       context: ./BE
@@ -56,6 +71,7 @@ services:
     depends_on:
       - timescaledb
       - redis
+      # - finbert
     restart: unless-stopped
 
 volumes:

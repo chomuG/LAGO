@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(copy:*)",
+      "Bash(cp:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose:*)",
+      "Bash(./gradlew:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd //c:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(start /b:*)",
+      "Bash(powershell:*)",
+      "Bash(set NAVER_CLIENT_ID=TQeJEcmiR1hnZ6CNiXnA)",
+      "Bash(set NAVER_CLIENT_SECRET=lVWp4C4vUb)",
+      "Bash(setx:*)",
+      "Bash(start-with-env.bat)",
+      "Bash(gradlew.bat build:*)",
+      "Bash(timeout 30 docker-compose logs -f backend)",
+      "Bash(docker exec:*)",
+      "Bash(mv:*)",
+      "Bash(rmdir:*)",
+      "Bash(rm:*)",
+      "Bash(docker logs:*)",
+      "Bash(telnet:*)",
+      "Bash(docker restart:*)",
+      "Bash(docker build:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker run:*)",
+      "Bash(docker port:*)",
+      "Bash(docker:*)",
+      "Bash(timeout 10 docker-compose logs -f backend)",
+      "WebFetch(domain:developers.naver.com)",
+      "Bash(git add:*)"
+    ],
+    "deny": []
+  }
+}

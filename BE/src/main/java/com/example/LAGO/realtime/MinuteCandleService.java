@@ -22,11 +22,13 @@ import com.example.LAGO.dto.StockMinuteDto;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 // 1분봉 집계 : 임시 저장 + 집계 역할
 
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "redis.stream.enabled", havingValue = "true", matchIfMissing = false)
 public class MinuteCandleService {
     private final Map<String, List<TickData>> minuteBucket = new ConcurrentHashMap<>();
     // String key = "종목코드_yyyyMMdd_HHmm"

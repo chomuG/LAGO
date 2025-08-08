@@ -35,15 +35,21 @@ dependencies {
 
 	// Swagger/OpenAPI 3.0 - Spring Boot 3.5.x 호환 최신 버전
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.0'
+	
+	// Kotlin reflection for Swagger (Kotlin 의존성 오류 해결)
+	implementation 'org.jetbrains.kotlin:kotlin-reflect:1.9.25'
 
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	
 	// Validation
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	
+	// Web Crawling
+	implementation 'org.jsoup:jsoup:1.17.2'
 
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
-	runtimeOnly 'com.h2database:h2'
+	// runtimeOnly 'com.h2database:h2'  // H2 의존성 제거 (PostgreSQL 사용)
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
@@ -53,7 +59,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	// testImplementation 'org.springframework.security:spring-security-test'  // 개발 단계에서 임시 비활성화
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	testRuntimeOnly 'com.h2database:h2'
+	// testRuntimeOnly 'com.h2database:h2'  // 테스트에서도 H2 제거
 }
 
 tasks.named('test') {
