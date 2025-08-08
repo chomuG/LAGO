@@ -83,7 +83,8 @@ fun PersonalityTestNavigation(
                         type = personalityType,
                         score = (currentStep as PersonalityTestStep.TestResult).score,
                         characterRes = characterRes,
-                        description = PersonalityTestData.getPersonalityDescription(personalityType)
+                        description = PersonalityTestData.getPersonalityDescription(personalityType),
+                        nickname = (currentStep as PersonalityTestStep.TestResult).nickname
                     )
                     onTestComplete(result)
                 }

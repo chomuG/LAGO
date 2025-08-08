@@ -114,14 +114,12 @@ fun HomeScreen(
                     ) {
                         // Greeting Text with background for better visibility
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                            ,
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.Top
                         ) {
                             Column(
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f, fill = false)
                             ) {
                                 if (isLoggedIn) {
                                     Text(
@@ -145,28 +143,29 @@ fun HomeScreen(
                             }
 
                             if (!isLoggedIn) {
-                                Button(
+                                Card(
                                     onClick = { onLoginClick() },
-                                    modifier = Modifier
-                                        .padding(top = 8.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.White,
-                                        contentColor = Black
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color.White
                                     ),
-                                    shape = RoundedCornerShape(20.dp)
                                 ) {
-                                    Text(
-                                        text = "로그인",
-                                        style = TitleB14
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "로그인",
+                                            style = TitleB14.copy(color = Black)
+                                        )
 
-                                    Image(
-                                        painter = painterResource(id = R.drawable.right_arrow),
-                                        contentDescription = "로그인",
-                                        modifier = Modifier
-                                            .size(15.dp)
-                                            .padding(start = 8.dp)
-                                    )
+                                        Image(
+                                            painter = painterResource(id = R.drawable.right_arrow),
+                                            contentDescription = "로그인",
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .padding(start = 4.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -196,7 +195,10 @@ fun HomeScreen(
 
         // 내 투자금 Section
         item {
-            InvestmentSection(onOrderHistoryClick = onOrderHistoryClick)
+            InvestmentSection(
+                isLoggedIn = isLoggedIn,
+                onOrderHistoryClick = onOrderHistoryClick
+            )
         }
 
         item {
@@ -214,7 +216,10 @@ fun HomeScreen(
 
         // 보유 종목 Section
         item {
-            StockSection(stocks)
+            StockSection(
+                isLoggedIn = isLoggedIn,
+                stocks = stocks
+            )
         }
 
         item {
@@ -225,6 +230,7 @@ fun HomeScreen(
 
 @Composable
 private fun InvestmentSection(
+    isLoggedIn: Boolean = true,
     onOrderHistoryClick: () -> Unit = {}
 ) {
     var isHistoryMode by remember { mutableStateOf(false) }
@@ -249,90 +255,125 @@ private fun InvestmentSection(
                 ),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color.White
+                containerColor = if (isLoggedIn) Color.White else Gray200
             )
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(end = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.money_bag),
-                    contentDescription = "돈주머니",
+            if (isLoggedIn) {
+                // 로그인된 상태의 기존 UI
+                Row(
                     modifier = Modifier
-                        .size(150.dp)
-                )
-
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .height(169.dp)
-                        .padding(top = 8.dp, bottom = 12.dp)
+                        .fillMaxWidth()
+                        .padding(end = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 위쪽 그룹
+                    Image(
+                        painter = painterResource(id = R.drawable.money_bag),
+                        contentDescription = "돈주머니",
+                        modifier = Modifier
+                            .size(150.dp)
+                    )
+
                     Column(
-                        horizontalAlignment = Alignment.End
+                        horizontalAlignment = Alignment.End,
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .height(169.dp)
+                            .padding(top = 8.dp, bottom = 12.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
+                        // 위쪽 그룹
+                        Column(
+                            horizontalAlignment = Alignment.End
                         ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = if (isHistoryMode) "역사모드" else "모의투자",
+                                    style = BodyR12.copy(color = Gray600)
+                                )
+
+                                // Material3 Switch
+                                Switch(
+                                    checked = isHistoryMode,
+                                    onCheckedChange = { isHistoryMode = it },
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .scale(0.8f),
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = Color.White,
+                                        checkedTrackColor = MainBlue,
+                                        checkedBorderColor = Color.Transparent,
+                                        uncheckedThumbColor = Color.White,
+                                        uncheckedTrackColor = Gray300,
+                                        uncheckedBorderColor = Color.Transparent
+                                    )
+                                )
+                            }
+
                             Text(
-                                text = if (isHistoryMode) "역사모드" else "모의투자",
-                                style = BodyR12.copy(color = Gray600)
+                                text = "13,378,095원",
+                                style = HeadEb24
                             )
 
-                            // Material3 Switch
-                            Switch(
-                                checked = isHistoryMode,
-                                onCheckedChange = { isHistoryMode = it },
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .scale(0.8f),
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = MainBlue,
-                                    checkedBorderColor = Color.Transparent,
-                                    uncheckedThumbColor = Color.White,
-                                    uncheckedTrackColor = Gray300,
-                                    uncheckedBorderColor = Color.Transparent
-                                )
+                            Text(
+                                text = "+57,000원(3.33%)",
+                                style = TitleB14.copy(color = Color(0xFFED5454))
                             )
                         }
 
-                        Text(
-                            text = "13,378,095원",
-                            style = HeadEb24
-                        )
+                        Spacer(modifier = Modifier.weight(1f))
 
-                        Text(
-                            text = "+57,000원(3.33%)",
-                            style = TitleB14.copy(color = Color(0xFFED5454))
-                        )
+                        // 아래쪽 주문내역
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { onOrderHistoryClick() }
+                        ) {
+                            Text(
+                                text = "주문내역",
+                                style = SubtitleSb14
+                            )
+                            Image(
+                                painter = painterResource(id = R.drawable.right_arrow),
+                                contentDescription = "주문내역 보기",
+                                modifier = Modifier
+                                    .size(15.dp)
+                                    .padding(start = 8.dp)
+                            )
+                        }
                     }
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    // 아래쪽 주문내역
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { onOrderHistoryClick() }
+                }
+            } else {
+                // 비로그인 상태의 새로운 UI
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(169.dp)
+                        .padding(24.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Bottom)
                     ) {
                         Text(
-                            text = "주문내역",
-                            style = SubtitleSb14
+                            text = "로그인하시고",
+                            style = TitleB24
                         )
-                        Image(
-                            painter = painterResource(id = R.drawable.right_arrow),
-                            contentDescription = "주문내역 보기",
-                            modifier = Modifier
-                                .size(15.dp)
-                                .padding(start = 8.dp)
+                        Text(
+                            text = "투자금을 확인하세요.",
+                            style = TitleB24,
+                            modifier = Modifier.padding(top = 4.dp)
                         )
                     }
+
+                    Image(
+                        painter = painterResource(id = R.drawable.lock_image),
+                        contentDescription = "잠금",
+                        modifier = Modifier
+                            .size(150.dp)
+                            .align(Alignment.CenterVertically)
+                    )
                 }
             }
         }
@@ -461,7 +502,10 @@ private fun TradingBotCard(bot: TradingBot) {
 }
 
 @Composable
-private fun StockSection(stocks: List<Stock>) {
+private fun StockSection(
+    isLoggedIn: Boolean = true,
+    stocks: List<Stock>
+) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp)
     ) {
@@ -483,18 +527,35 @@ private fun StockSection(stocks: List<Stock>) {
                 ),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color.White
+                containerColor = if (isLoggedIn) Color.White else Gray200
             )
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                stocks.forEachIndexed { index, stock ->
-                    StockItem(stock)
-                    if (index != stocks.lastIndex) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Spacer(modifier = Modifier.height(16.dp))
+            if (isLoggedIn) {
+                // 로그인된 상태의 기존 UI
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    stocks.forEachIndexed { index, stock ->
+                        StockItem(stock)
+                        if (index != stocks.lastIndex) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
                     }
+                }
+            } else {
+                // 비로그인 상태의 새로운 UI
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "로그인이 필요합니다",
+                        style = TitleB16.copy(color = Gray600)
+                    )
                 }
             }
         }
