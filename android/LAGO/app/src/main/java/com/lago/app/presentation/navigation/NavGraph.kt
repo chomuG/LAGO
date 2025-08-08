@@ -23,11 +23,14 @@ import com.lago.app.presentation.ui.home.OrderHistoryScreen
 
 import androidx.compose.ui.Modifier
 import com.lago.app.presentation.ui.stocklist.StockListScreen
+import com.lago.app.data.local.prefs.UserPreferences
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun NavGraph(
     navController: NavHostController,
+    userPreferences: UserPreferences,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -41,8 +44,12 @@ fun NavGraph(
     ) {
         composable(NavigationItem.Home.route) {
             HomeScreen(
+                userPreferences = userPreferences,
                 onOrderHistoryClick = {
                     navController.navigate(NavigationItem.OrderHistory.route)
+                },
+                onLoginClick = {
+                    navController.navigate("login");
                 }
             )
         }

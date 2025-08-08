@@ -27,9 +27,15 @@ import com.lago.app.presentation.navigation.BottomNavigationBar
 import com.lago.app.presentation.navigation.NavGraph
 import com.lago.app.presentation.theme.LagoTheme
 import dagger.hilt.android.AndroidEntryPoint
+import com.lago.app.data.local.prefs.UserPreferences
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    
+    @Inject
+    lateinit var userPreferences: UserPreferences
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -39,14 +45,14 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             LagoTheme {
-                LagoApp()
+                LagoApp(userPreferences = userPreferences)
             }
         }
     }
 }
 
 @Composable
-fun LagoApp() {
+fun LagoApp(userPreferences: UserPreferences) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -82,6 +88,7 @@ fun LagoApp() {
         ) { innerPadding ->
             NavGraph(
                 navController = navController,
+                userPreferences = userPreferences,
                 modifier = if (showBottomBarWithDelay) Modifier.padding(innerPadding) else Modifier
             )
         }

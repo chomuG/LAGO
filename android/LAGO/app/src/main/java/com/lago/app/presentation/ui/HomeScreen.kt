@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Dp
@@ -31,15 +32,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
+import com.lago.app.data.local.prefs.UserPreferences
+import androidx.compose.runtime.LaunchedEffect
+import android.content.SharedPreferences
 
 data class TradingBot(
     val name: String,
     val character: Int,
     val amount: String,
     val profit: String,
-    val profitColor: Color
+    val profitPercent: String,
+    val investmentType: String
 )
 
 data class Stock(
@@ -55,13 +62,17 @@ data class Stock(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOrderHistoryClick: () -> Unit = {}
+    userPreferences: UserPreferences,
+    onOrderHistoryClick: () -> Unit = {},
+    onLoginClick: () -> Unit = {}
 ) {
+    val isLoggedIn = userPreferences.getAuthToken() != null
+    val username = userPreferences.getUsername() ?: "게스트"
     val tradingBots = listOf(
-        TradingBot("화끈이", R.drawable.character_red, "12,450,000원", "137,000원(+2.56%)", Color(0xFFFF6B6B)),
-        TradingBot("적극이", R.drawable.character_yellow, "8,750,000원", "25,000원(+1.2%)", Color(0xFF51CF66)),
-        TradingBot("균형이", R.drawable.character_blue, "15,200,000원", "-45,000원(-0.8%)", Color(0xFFFF6B6B)),
-        TradingBot("조심이", R.drawable.character_green, "6,800,000원", "12,000원(+0.4%)", Color(0xFF51CF66))
+        TradingBot("화끈이", R.drawable.character_red, "12,450,000원", "+137,000원", "2.56%", "공격투자형"),
+        TradingBot("적극이", R.drawable.character_yellow, "8,750,000원", "+25,000원", "1.2%", "적극투자형"),
+        TradingBot("균형이", R.drawable.character_blue, "15,200,000원", "-45,000원", "0.8%", "위험중립형"),
+        TradingBot("조심이", R.drawable.character_green, "6,800,000원", "+12,000원", "0.4%", "안정추구형")
     )
 
     val stocks = listOf(
@@ -102,19 +113,62 @@ fun HomeScreen(
                             .padding(24.dp)
                     ) {
                         // Greeting Text with background for better visibility
-                        Column(
-                            modifier = Modifier.padding(top = 24.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                ,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
                         ) {
-                            Text(
-                                text = "안녕하세요 박두칠님!",
-                                style = HeadEb28
-                            )
-                            Text(
-                                text = "위험중립형에게는 중위험/중수익의" +
-                                        "\n대형주를 권해요.",
-                                style = TitleB18,
-                                modifier = Modifier.padding(top = 13.dp)
-                            )
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                if (isLoggedIn) {
+                                    Text(
+                                        text = "안녕하세요 ${username}님!",
+                                        style = HeadEb28
+                                    )
+                                    Text(
+                                        text = "위험중립형에게는 중위험/중수익의" +
+                                                "\n대형주를 권해요.",
+                                        style = TitleB18,
+                                        modifier = Modifier.padding(top = 13.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        text = "로그인하고" +
+                                                "\n투자성향을 파악해보세요!",
+                                        style = TitleB20,
+                                        modifier = Modifier.padding(top = 8.dp)
+                                    )
+                                }
+                            }
+                            
+                            if (!isLoggedIn) {
+                                Button(
+                                    onClick = { onLoginClick() },
+                                    modifier = Modifier
+                                        .padding(top = 8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.White,
+                                        contentColor = Black
+                                    ),
+                                    shape = RoundedCornerShape(20.dp)
+                                ) {
+                                    Text(
+                                        text = "로그인",
+                                        style = TitleB14
+                                    )
+
+                                    Image(
+                                        painter = painterResource(id = R.drawable.right_arrow),
+                                        contentDescription = "로그인",
+                                        modifier = Modifier
+                                            .size(15.dp)
+                                            .padding(start = 8.dp)
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -173,7 +227,7 @@ fun HomeScreen(
 private fun InvestmentSection(
     onOrderHistoryClick: () -> Unit = {}
 ) {
-    var isHistoryMode by remember { mutableStateOf(true) }
+    var isHistoryMode by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier.padding(horizontal = 20.dp)
     ) {
@@ -217,7 +271,7 @@ private fun InvestmentSection(
                     modifier = Modifier
                         .fillMaxHeight()
                         .height(169.dp)
-                        .padding(top = 16.dp, bottom = 16.dp)
+                        .padding(top = 8.dp, bottom = 12.dp)
                 ) {
                     // 위쪽 그룹
                     Column(
@@ -235,7 +289,9 @@ private fun InvestmentSection(
                             Switch(
                                 checked = isHistoryMode,
                                 onCheckedChange = { isHistoryMode = it },
-                                modifier = Modifier.padding(start = 8.dp),
+                                modifier = Modifier
+                                    .padding(start = 8.dp)
+                                    .scale(0.8f),
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = Color.White,
                                     checkedTrackColor = MainBlue,
@@ -246,8 +302,6 @@ private fun InvestmentSection(
                                 )
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
                             text = "13,378,095원",
@@ -271,9 +325,12 @@ private fun InvestmentSection(
                             text = "주문내역",
                             style = SubtitleSb14
                         )
-                        Text(
-                            text = " >",
-                            style = SubtitleSb18
+                        Image(
+                            painter = painterResource(id = R.drawable.right_arrow),
+                            contentDescription = "주문내역 보기",
+                            modifier = Modifier
+                                .size(15.dp)
+                                .padding(start = 8.dp)
                         )
                     }
                 }
@@ -284,19 +341,18 @@ private fun InvestmentSection(
 
 @Composable
 private fun TradingBotSection(tradingBots: List<TradingBot>) {
-    Column(
-        modifier = Modifier.padding(horizontal = 20.dp)
-    ) {
+    Column {
         Text(
             text = "성향별 매매봇",
-            style = HeadEb24
+            style = HeadEb24,
+            modifier = Modifier.padding(horizontal = 20.dp)
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(horizontal = 4.dp)
+            contentPadding = PaddingValues(horizontal = 20.dp)
         ) {
             items(tradingBots) { bot ->
                 TradingBotCard(bot)
@@ -307,6 +363,7 @@ private fun TradingBotSection(tradingBots: List<TradingBot>) {
 
 @Composable
 private fun TradingBotCard(bot: TradingBot) {
+    val profitColor = if (bot.profit.startsWith("-")) MainBlue else Color(0xFFFF6B6B)
     Card(
         modifier = Modifier
             .width(273.dp)
@@ -331,10 +388,38 @@ private fun TradingBotCard(bot: TradingBot) {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.Top
             ) {
-                Text(
-                    text = bot.name,
-                    style = TitleB14
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = bot.name,
+                            style = TitleB14
+                        )
+                        
+                        Text(
+                            text = " | ",
+                            style = TitleB14.copy(color = Gray500),
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
+                        
+                        Text(
+                            text = bot.investmentType,
+                            style = BodyR14.copy(color = Gray500)
+                        )
+                    }
+                    
+                    Image(
+                        painter = painterResource(id = R.drawable.right_arrow),
+                        contentDescription = "상세보기",
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -343,10 +428,19 @@ private fun TradingBotCard(bot: TradingBot) {
                     style = TitleB24
                 )
 
-                Text(
-                    text = bot.profit,
-                    style = SubtitleSb14.copy(color = Color(0xFFF63232))
-                )
+                Row(
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Text(
+                        text = bot.profit,
+                        style = SubtitleSb14.copy(color = profitColor)
+                    )
+                    Text(
+                        text = "(${bot.profitPercent})",
+                        style = SubtitleSb14.copy(color = profitColor),
+                        modifier = Modifier.padding(start = 2.dp)
+                    )
+                }
             }
 
             // Character positioned at bottom right
@@ -473,6 +567,30 @@ private fun StockItem(stock: Stock) {
 @Composable
 fun HomeScreenPreview() {
     LagoTheme {
-        HomeScreen()
+        val mockSharedPrefs = object : SharedPreferences {
+            override fun getAll(): MutableMap<String, *> = mutableMapOf<String, Any>()
+            override fun getString(key: String?, defValue: String?): String? = defValue
+            override fun getStringSet(key: String?, defValues: MutableSet<String>?): MutableSet<String>? = defValues
+            override fun getInt(key: String?, defValue: Int): Int = defValue
+            override fun getLong(key: String?, defValue: Long): Long = defValue
+            override fun getFloat(key: String?, defValue: Float): Float = defValue
+            override fun getBoolean(key: String?, defValue: Boolean): Boolean = defValue
+            override fun contains(key: String?): Boolean = false
+            override fun edit(): SharedPreferences.Editor = object : SharedPreferences.Editor {
+                override fun putString(key: String?, value: String?) = this
+                override fun putStringSet(key: String?, values: MutableSet<String>?) = this
+                override fun putInt(key: String?, value: Int) = this
+                override fun putLong(key: String?, value: Long) = this
+                override fun putFloat(key: String?, value: Float) = this
+                override fun putBoolean(key: String?, value: Boolean) = this
+                override fun remove(key: String?) = this
+                override fun clear() = this
+                override fun commit() = true
+                override fun apply() {}
+            }
+            override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) {}
+            override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) {}
+        }
+        HomeScreen(userPreferences = UserPreferences(mockSharedPrefs))
     }
 }

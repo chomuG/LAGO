@@ -18,11 +18,9 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import com.lago.app.R
 import com.lago.app.presentation.theme.MainBlue
 import com.lago.app.presentation.theme.AppBackground
@@ -31,10 +29,8 @@ import com.lago.app.presentation.theme.Gray700
 import com.lago.app.presentation.theme.HeadEb18
 import com.lago.app.presentation.theme.HeadEb20
 import com.lago.app.presentation.theme.HeadEb24
-import com.lago.app.presentation.theme.HeadEb28
 import com.lago.app.presentation.theme.LagoTheme
 import com.lago.app.presentation.theme.SubtitleSb14
-import com.lago.app.presentation.theme.SubtitleSb16
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -157,7 +153,7 @@ fun LearnScreen(
                 
                 // Glowing stars - positioned on top of everything
                 Image(
-                    painter = painterResource(id = R.drawable.glowing),
+                    painter = painterResource(id = R.drawable.glowing_white),
                     contentDescription = null,
                     modifier = Modifier
                         .size(22.dp)
@@ -165,7 +161,7 @@ fun LearnScreen(
                         .offset(x = 20.dp, y = 20.dp)
                 )
                 Image(
-                    painter = painterResource(id = R.drawable.glowing),
+                    painter = painterResource(id = R.drawable.glowing_white),
                     contentDescription = null,
                     modifier = Modifier
                         .size(20.dp)
