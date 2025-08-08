@@ -1,3 +1,20 @@
+# IDE
+*.DS_Store
+
+# Docker/DB/Redis 볼륨(실제 데이터)
+/dbdata/
+/redisdata/
+
+# 기타 임시/캐시
+*.tmp
+*.temp
+*.cache
+
+# node, frontend 등 추가시
+node_modules/
+
+# 기타 팀/실무 환경에 따라 필요시 추가
+
 # Java/Spring Boot 빌드 파일
 /build/
 /BE/build/
@@ -44,7 +61,6 @@ out/
 
 # OS/에디터 불필요 파일
 Thumbs.db
-.DS_Store
 *.bak
 *.swp
 *.swo
@@ -67,3 +83,6 @@ BE/redisdata/
 
 # node, frontend 등 추가시
 node_modules/
+
+# Gemini
+.gemini/
