@@ -3,7 +3,9 @@ package com.lago.app.presentation.viewmodel.stocklist
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lago.app.domain.entity.StockItem
+import com.lago.app.domain.entity.HistoryChallengeStock
 import com.lago.app.domain.repository.StockListRepository
+import com.lago.app.domain.repository.HistoryChallengeRepository
 import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +30,7 @@ data class StockListUiState(
     val selectedFilters: List<String> = emptyList(),
     val stocks: List<StockItem> = emptyList(),
     val filteredStocks: List<StockItem> = emptyList(),
+    val historyChallengeStocks: List<HistoryChallengeStock> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val currentPage: Int = 0,
@@ -38,7 +41,8 @@ data class StockListUiState(
 
 @HiltViewModel
 class StockListViewModel @Inject constructor(
-    private val stockListRepository: StockListRepository
+    private val stockListRepository: StockListRepository,
+    private val historyChallengeRepository: HistoryChallengeRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StockListUiState())
@@ -46,6 +50,7 @@ class StockListViewModel @Inject constructor(
 
     init {
         loadStocks()
+        loadHistoryChallengeStocks()
     }
 
     private fun loadStocks(isRefresh: Boolean = false) {
@@ -339,6 +344,51 @@ class StockListViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    private fun loadHistoryChallengeStocks() {
+        viewModelScope.launch {
+            historyChallengeRepository.getHistoryChallengeStocks().collect { resource ->
+                when (resource) {
+                    is Resource.Loading -> {
+                        // 로딩 처리는 필요시 추가
+                    }
+                    is Resource.Success -> {
+                        _uiState.update {
+                            it.copy(historyChallengeStocks = resource.data ?: emptyList())
+                        }
+                    }
+                    is Resource.Error -> {
+                        // 에러 시 Mock 데이터 사용
+                        loadMockHistoryChallengeStocks()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun loadMockHistoryChallengeStocks() {
+        // 역사 챌린지는 1개 종목만 표시
+        val mockStocks = listOf(
+            HistoryChallengeStock(
+                challengeId = 1,
+                stockCode = "005930",
+                stockName = "삼성전자",
+                currentPrice = 74200f,
+                openPrice = 73400f,
+                highPrice = 75000f,
+                lowPrice = 73000f,
+                closePrice = 74200f,
+                fluctuationRate = 2.14f,
+                tradingVolume = 15000000L,
+                marketCap = 445000000000000L,
+                profitRate = 12.5f
+            )
+        )
+        
+        _uiState.update {
+            it.copy(historyChallengeStocks = mockStocks)
         }
     }
 }

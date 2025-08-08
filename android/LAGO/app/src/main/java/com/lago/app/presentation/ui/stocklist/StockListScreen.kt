@@ -31,6 +31,7 @@ import com.lago.app.presentation.viewmodel.stocklist.StockListViewModel
 import com.lago.app.presentation.viewmodel.stocklist.SortType
 import com.lago.app.domain.entity.StockItem
 import com.lago.app.domain.entity.News
+import com.lago.app.domain.entity.HistoryChallengeStock
 import com.lago.app.presentation.ui.components.NewsCard
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -38,6 +39,7 @@ import com.lago.app.presentation.ui.components.NewsCard
 fun StockListScreen(
     viewModel: StockListViewModel = hiltViewModel(),
     onStockClick: (String) -> Unit,
+    onHistoryChallengeStockClick: (String) -> Unit = { onStockClick(it) },
     onNewsClick: (Int) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -81,14 +83,31 @@ fun StockListScreen(
                     }
                 }
                 1 -> {
-                    // 역사 챌린지 화면 - 뉴스 탭과 동일한 스타일
+                    // 역사 챌린지 화면 - 종목 리스트 + 관련 뉴스
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(vertical = 16.dp)
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(Spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm + Spacing.xs)
                     ) {
+                        // 역사 챌린지 종목들
+                        items(uiState.historyChallengeStocks) { stock ->
+                            HistoryChallengeStockItem(
+                                stock = stock,
+                                onClick = { onHistoryChallengeStockClick(stock.stockCode) }
+                            )
+                        }
+                        
+                        // 관련 뉴스 섹션 제목
+                        item {
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "관련 뉴스",
+                                style = SB_18,
+                                color = Gray900,
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
+                        }
+                        
                         // 더미 뉴스 데이터
                         val dummyNews = listOf(
                             News(
@@ -345,90 +364,145 @@ private fun StockItemCard(
     onFavoriteClick: () -> Unit,
     onClick: () -> Unit
 ) {
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .background(Color.White)
+            .clickable { onClick() }
+            .padding(Spacing.md),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        // 둥근 로고
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(Spacing.md),
-            verticalAlignment = Alignment.CenterVertically
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary),
+            contentAlignment = Alignment.Center
         ) {
-            // 로고
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
+            Text(
+                text = stock.name.take(2),
+                color = MaterialTheme.colorScheme.onPrimary,
+                style = TitleB16
+            )
+        }
+
+        Spacer(modifier = Modifier.width(Spacing.sm))
+
+        // 종목 정보
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stock.name,
+                style = SB_18,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = stock.name.take(2),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    style = TitleB16
-                )
-            }
-
-            Spacer(modifier = Modifier.width(Spacing.sm + Spacing.xs))
-
-            // 종목 정보
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stock.name,
-                    style = TitleB16,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
                     text = "${String.format("%,d", stock.currentPrice)}원",
-                    style = SubtitleSb14,
+                    style = R_14,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-            }
-
-            // 변동률
-            Column(horizontalAlignment = Alignment.End) {
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                // 변동률과 변동금액 (현재 금액 바로 오른쪽)
                 val isPositive = stock.priceChangePercent >= 0
                 val changeColor = if (isPositive) MainPink else MainBlue
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        painter = painterResource(if (isPositive) R.drawable.up_triangle else R.drawable.down_triangle),
-                        contentDescription = null,
-                        tint = changeColor,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(Spacing.xs))
-                    Text(
-                        text = "${String.format("%,d", kotlin.math.abs(stock.priceChange))}원",
-                        style = SubtitleSb14,
-                        color = changeColor
-                    )
-                }
+                val changeSign = if (isPositive) "+" else ""
+                
                 Text(
-                    text = "(${if (isPositive) "+" else ""}${String.format("%.2f", stock.priceChangePercent)}%)",
-                    style = BodyR12,
+                    text = "${changeSign}${String.format("%,d", stock.priceChange)}(${changeSign}${String.format("%.2f", stock.priceChangePercent)}%)",
+                    style = R_12,
                     color = changeColor
                 )
             }
+        }
 
-            Spacer(modifier = Modifier.width(Spacing.sm))
+        // 즐겨찾기 버튼
+        IconButton(onClick = onFavoriteClick) {
+            Icon(
+                painter = if (stock.isFavorite) painterResource(R.drawable.pink_heart) else painterResource(R.drawable.blank_heart),
+                contentDescription = "관심종목",
+                tint = if (stock.isFavorite) Color.Unspecified else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
 
-            // 즐겨찾기 버튼
-            IconButton(onClick = onFavoriteClick) {
-                Icon(
-                    painter = if (stock.isFavorite) painterResource(R.drawable.pink_heart) else painterResource(R.drawable.blank_heart),
-                    contentDescription = "관심종목",
-                    tint = if (stock.isFavorite) Color.Unspecified else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
+@Composable
+private fun HistoryChallengeStockItem(
+    stock: HistoryChallengeStock,
+    onClick: () -> Unit,
+    onFavoriteClick: (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .clickable { onClick() }
+            .padding(Spacing.md),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 둥근 로고
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = stock.stockName.take(2),
+                color = MaterialTheme.colorScheme.onPrimary,
+                style = TitleB16
+            )
+        }
+
+        Spacer(modifier = Modifier.width(Spacing.sm))
+
+        // 종목 정보
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stock.stockName,
+                style = SB_18,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${String.format("%,d", stock.currentPrice.toInt())}원",
+                    style = R_14,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                // 변동률과 변동금액 (현재 금액 바로 오른쪽)
+                val isPositive = stock.fluctuationRate >= 0
+                val changeColor = if (isPositive) MainPink else MainBlue
+                val changeSign = if (isPositive) "+" else ""
+                val changeAmount = (stock.currentPrice * stock.fluctuationRate / 100).toInt()
+                
+                Text(
+                    text = "${changeSign}${String.format("%,d", kotlin.math.abs(changeAmount))}(${changeSign}${String.format("%.2f", stock.fluctuationRate)}%)",
+                    style = R_12,
+                    color = changeColor
                 )
             }
+        }
+
+        // 즐겨찾기 버튼 (역사챌린지에서는 빈 하트로 고정)
+        IconButton(onClick = { onFavoriteClick?.invoke() }) {
+            Icon(
+                painter = painterResource(R.drawable.blank_heart),
+                contentDescription = "관심종목",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
