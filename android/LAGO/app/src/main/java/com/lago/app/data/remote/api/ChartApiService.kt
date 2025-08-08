@@ -115,4 +115,14 @@ interface ChartApiService {
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20
     ): StockListResponse
+
+    /**
+     * 차트 패턴 분석
+     */
+    @POST("api/stock/{stockCode}/pattern-analysis")
+    suspend fun analyzeChartPattern(
+        @Header("Authorization") token: String,
+        @Path("stockCode") stockCode: String,
+        @Body request: PatternAnalysisRequest
+    ): PatternAnalysisResponse
 }
