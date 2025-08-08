@@ -1,0 +1,272 @@
+import pandas as pd
+import pymysql
+from flask import Flask, request, jsonify
+from config import HOST, PORT, DEBUG, LOG_LEVEL, LOG_FORMAT
+import logging
+
+# Import pattern detection functions
+from doubles import find_doubles_pattern
+from flag import find_flag_pattern
+from head_and_shoulders import find_head_and_shoulders
+from inverse_head_and_shoulders import find_inverse_head_and_shoulders
+from pennant import find_pennant
+from triangles import find_triangle_pattern
+from plotting import display_chart_pattern
+from pivot_points import find_all_pivot_points
+
+# --- Configuration ---
+
+# 로깅 설정
+logging.basicConfig(level=LOG_LEVEL, format=LOG_FORMAT)
+logger = logging.getLogger(__name__)
+
+# DB 연결 정보 (외부 설정 파일로 분리하는 것을 권장)
+DB_CONFIG = {
+    'host': 'i13D203.p.ssafy.io',
+    'port': 3306,
+    'user': 'ssafyuser',
+    'password': 'ssafypw!',
+    'db': 'stock_db'
+}
+
+# --- Pattern Definitions ---
+
+PATTERNS_CONFIG = [
+    {
+        "name": "더블 탑 패턴",
+        "function": find_doubles_pattern,
+        "params": {"double": "tops"},
+        "result_check": lambda df: df[df["double_idx"].str.len() > 0],
+        "reason": "고점이 두 번 형성되며 상승 추세가 멈추고 하락 반전될 가능성을 나타내는 패턴입니다.",
+        "display_options": {"pattern": "double", "save": True}
+    },
+    {
+        "name": "더블 바텀 패턴",
+        "function": find_doubles_pattern,
+        "params": {"double": "bottoms"},
+        "result_check": lambda df: df[df["double_idx"].str.len() > 0],
+        "reason": "저점이 두 번 형성되며 하락 추세가 멈추고 상승 반전될 가능성을 나타내는 패턴입니다.",
+        "display_options": {"pattern": "double", "save": True}
+    },
+    {
+        "name": "플래그 패턴",
+        "function": find_flag_pattern,
+        "params": {},
+        "result_check": lambda df: df[df["flag_point"] > 0],
+        "reason": "급등락 이후 평행한 추세선 사이에서 가격이 일시적으로 조정되는 패턴으로, 기존 추세의 지속 가능성을 시사합니다.",
+        "display_options": {"pattern": "flag", "save": True}
+    },
+    {
+        "name": "페넌트 패턴",
+        "function": find_pennant,
+        "params": {},
+        "result_check": lambda df: df[df["pennant_point"] > 0],
+        "reason": "급등락 후 고점과 저점이 수렴하는 삼각형 형태로, 강한 추세 후 휴식 구간을 나타내는 지속형 패턴입니다.",
+        "display_options": {"pattern": "pennant", "save": True}
+    },
+    {
+        "name": "상승 삼각형",
+        "function": find_triangle_pattern,
+        "params": {"triangle_type": "ascending"},
+        "result_check": lambda df: df[df["triangle_point"] > 0],
+        "reason": "고점이 일정하게 유지되고 저점이 점점 높아지는 구조로, 매수세가 점차 강해지는 패턴입니다.",
+        "display_options": {"pattern": "triangle", "save": True}
+    },
+    {
+        "name": "하락 삼각형",
+        "function": find_triangle_pattern,
+        "params": {"triangle_type": "descending"},
+        "result_check": lambda df: df[df["triangle_point"] > 0],
+        "reason": "저점이 일정하게 유지되고 고점이 점점 낮아지는 구조로, 매도세가 강해지는 패턴입니다.",
+        "display_options": {"pattern": "triangle", "save": True}
+    },
+    {
+        "name": "대칭 삼각형",
+        "function": find_triangle_pattern,
+        "params": {"triangle_type": "symmetrical"},
+        "result_check": lambda df: df[df["triangle_point"] > 0],
+        "reason": "고점과 저점이 점차 수렴하는 구조로, 향후 큰 방향성이 나올 가능성이 높은 패턴입니다.",
+        "display_options": {"pattern": "triangle", "save": True}
+    },
+    {
+        "name": "헤드 앤 숄더 패턴",
+        "function": find_head_and_shoulders,
+        "params": {},
+        "result_check": lambda df: df[df["hs_idx"].str.len() > 0],
+        "reason": "고점이 세 번 형성되며 가운데 고점이 가장 높아 하락 반전을 암시하는 패턴입니다.",
+        "display_options": {"pattern": "hs", "save": True}
+    },
+    {
+        "name": "역 헤드 앤 숄더 패턴",
+        "function": find_inverse_head_and_shoulders,
+        "params": {},
+        "result_check": lambda df: df[df["ihs_idx"].str.len() > 0],
+        "reason": "저점이 세 번 형성되며 가운데 저점이 가장 낮아 상승 반전을 암시하는 패턴입니다.",
+        "display_options": {"pattern": "ihs", "save": True, "pivot_name": "short_pivot"}
+    }
+]
+
+# --- Flask App ---
+
+app = Flask(__name__)
+
+def get_stock_data(stock_info_id, limit=200):
+    """지정된 stock_info_id에 대한 데이터를 DB에서 조회합니다."""
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        query = f"""
+            SELECT date, open_price, high_price, low_price, close_price, volume
+            FROM STOCK_MINUTE
+            WHERE stock_info_id={stock_info_id}
+            ORDER BY date DESC
+            LIMIT {limit}
+        """
+        # 데이터를 시간순으로 정렬하기 위해 조회 후 순서를 뒤집습니다.
+        ohlc = pd.read_sql(query, conn)
+        return ohlc.iloc[::-1].reset_index(drop=True)
+    except pymysql.Error as e:
+        logger.error(f"DB 조회 오류: {e}")
+        return None
+    finally:
+        if 'conn' in locals() and conn.open:
+            conn.close()
+
+def run_pattern_detection(ohlc_df):
+    """
+    주어진 OHLC 데이터프레임에 대해 모든 차트 패턴 감지를 실행합니다.
+    """
+    detected_patterns = []
+    ohlc_df = find_all_pivot_points(ohlc_df.copy())
+
+    for pattern_config in PATTERNS_CONFIG:
+        # 각 패턴 감지 전 원본 데이터프레임 복사
+        ohlc_copy = ohlc_df.copy()
+        
+        # 패턴 감지 함수 실행
+        ohlc_copy = pattern_config["function"](ohlc_copy, **pattern_config["params"])
+        
+        # 감지 결과 확인
+        df_detected = pattern_config["result_check"](ohlc_copy)
+
+        if not df_detected.empty:
+            pattern_name = pattern_config["name"]
+            logger.debug(f"'{pattern_name}' 패턴이 감지되었습니다!")
+            
+            # TODO: 감지된 패턴의 상세 정보(날짜, 신뢰도 등)를 추출하여
+            #       generate_judgement_reason 함수를 호출하도록 개선할 수 있습니다.
+            #       현재는 정적 이유를 사용합니다.
+            result = {
+                "name": pattern_name,
+                "reason": pattern_config["reason"]
+            }
+            detected_patterns.append(result)
+            
+            # 차트 이미지 생성
+            display_chart_pattern(ohlc_copy, **pattern_config["display_options"])
+        else:
+            logger.debug(f"'{pattern_config['name']}' 패턴이 감지되지 않았습니다.")
+            
+    return detected_patterns
+
+@app.route('/', methods=['GET'])
+def health_check():
+    """서버 상태 확인용 엔드포인트"""
+    return jsonify({
+        "status": "healthy"
+    })
+
+@app.route('/detect-patterns', methods=['POST'])
+def detect_patterns_endpoint():
+    """
+    요청 본문에서 stock_info_id를 받아 차트 패턴을 감지합니다.
+    """
+    logger.info("패턴 감지 요청 수신")
+    
+    data = request.get_json()
+    if not data or 'stock_info_id' not in data:
+        return jsonify({"error": "stock_info_id가 필요합니다."}), 400
+
+    stock_info_id = data['stock_info_id']
+    logger.info(f"패턴 감지 시작 (stock_info_id: {stock_info_id})")
+
+    # DB에서 데이터 조회
+    ohlc_df = get_stock_data(stock_info_id)
+    if ohlc_df is None or ohlc_df.empty:
+        logger.warning("DB에서 데이터를 조회하지 못했거나 데이터가 없습니다.")
+        return jsonify({"error": "데이터를 조회할 수 없습니다."}), 500
+    
+    logger.debug("DB 데이터 조회 완료")
+
+    # 패턴 감지 실행
+    detected_patterns = run_pattern_detection(ohlc_df)
+
+    logger.info(f"패턴 감지 완료! 총 {len(detected_patterns)}개 패턴 감지.")
+    return jsonify(detected_patterns)
+
+
+def generate_judgement_reason(pattern_type, slmin, slmax, rmin, rmax, dates, direction=None, neckline_break=False):
+    """
+    (참고) 이 함수는 동적 분석 결과를 생성하기 위해 정의되었으나,
+    현재 패턴 감지 함수들이 상세 정보(slmin, rmax 등)를 반환하지 않아 직접 사용되지 않고 있습니다.
+    향후 각 감지 모듈(doubles.py, flag.py 등)이 상세 분석 결과를 반환하도록 개선하면
+    이 함수를 활용하여 더욱 풍부한 분석 결과를 제공할 수 있습니다.
+    """
+    if pattern_type == "double_top":
+        if len(dates) >= 2:
+            reason = f"{dates[0]}와 {dates[1]}에 고점이 반복 형성되었으며, "
+            if neckline_break:
+                reason += "넥라인을 돌파해 하락 반전 가능성이 높습니다."
+            else:
+                reason += "아직 넥라인 돌파는 발생하지 않았습니다."
+            return reason
+        else:
+            return "두 개의 고점이 형성되어야 하지만 충분하지 않습니다."
+
+    elif pattern_type == "double_bottom":
+        if len(dates) >= 2:
+            reason = f"{dates[0]}와 {dates[1]}에 저점이 반복 형성되었으며, "
+            if neckline_break:
+                reason += "넥라인을 돌파해 상승 반전 가능성이 높습니다."
+            else:
+                reason += "아직 넥라인 돌파는 발생하지 않았습니다."
+            return reason
+        else:
+            return "두 개의 저점이 형성되어야 하지만 충분하지 않습니다."
+    
+    elif pattern_type == "flag":
+        trend = "상승 추세 후" if direction == "bullish" else "하락 추세 후"
+        confidence = "높은 신뢰도로" if rmax and rmax > 0.9 else "다소 불확실한 흐름 속에서"
+        return f"{trend} 깃발 형태의 조정 구간이 {confidence} 나타났습니다. 추세 지속 가능성이 있습니다."
+
+    elif pattern_type == "head_and_shoulders":
+        return f"좌우 어깨와 머리 형태로 고점이 점차 낮아지는 패턴입니다. 하락 반전 가능성이 있습니다. 주요 고점: {', '.join(dates)}"
+
+    elif pattern_type == "inverse_head_and_shoulders":
+        return f"역 헤드 앤 숄더 패턴으로 바닥 다지기 후 상승세로 전환될 가능성이 있습니다. 주요 저점: {', '.join(dates)}"
+    
+    elif pattern_type == "pennant":
+        trend = "상승세" if direction == "bullish" else "하락세"
+        return f"급격한 {trend} 이후 삼각 수렴형 조정이 발생했습니다. 패턴은 {', '.join(dates)}에 형성되었습니다."
+
+    elif pattern_type == "ascending_triangle":
+        if rmax > 0.9 and abs(slmax) < 0.001:
+            return f"저항선을 여러 차례 돌파 시도했으며, {', '.join(dates)}에 고점이 형성되었습니다. 상승 가능성이 높습니다."
+        else:
+            return "고점이 일정한 수평선을 이루며 매수세가 점차 강해지는 모습입니다."
+
+    elif pattern_type == "descending_triangle":
+        if rmin > 0.9 and abs(slmin) < 0.001:
+            return f"지지선을 여러 번 시험하는 하락형 패턴입니다. {', '.join(dates)}에 저점이 반복적으로 발생했습니다."
+        else:
+            return "저점이 수평선을 이루며 매도 압력이 강해지는 모습입니다."
+
+    elif pattern_type == "symmetrical_triangle":
+        return f"수렴형 삼각형 패턴으로, 고점과 저점이 점점 좁아지고 있습니다. 변동성 확대가 예상됩니다. ({', '.join(dates)} 기준)"
+
+
+if __name__ == "__main__":
+    # 서버 시작 전 모델 로드
+    logger.info("Flask 서버 시작 중...")
+
+    # Flask 서버 실행
+    app.run(host=HOST, port=PORT, debug=DEBUG)

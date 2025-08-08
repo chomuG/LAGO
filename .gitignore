@@ -67,3 +67,6 @@ BE/redisdata/
 
 # node, frontend 등 추가시
 node_modules/
+
+# Gemini
+.gemini/
