@@ -185,13 +185,13 @@ fun AssetTitleSectionWithRanking(
             Icon(
                 painter = painterResource(id = R.drawable.rank),
                 contentDescription = "랭킹",
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(16.dp),
                 tint = Gray700
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = "랭킹 보러가기 >",
-                style = BodyR12,
+                text = "랭킹 보기 >",
+                style = BodyR14,
                 color = Gray700
             )
         }
