@@ -1,6 +1,7 @@
 package com.example.LAGO.ai.strategy.dto;
 
 import com.example.LAGO.ai.sentiment.dto.SentimentResponseDto;
+import com.example.LAGO.dto.response.TechnicalAnalysisResult;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

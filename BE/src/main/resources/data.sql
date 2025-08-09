@@ -1,2 +1,1 @@
--- 초기 데이터 (필요시 추가)
--- INSERT INTO news (title, content) VALUES ('테스트 뉴스', '테스트 내용');
+-- Intentionally left empty. Use profile-specific data loaders or migrations.
