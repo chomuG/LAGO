@@ -17,8 +17,8 @@ import androidx.core.view.WindowCompat
 
 @Composable
 fun LagoTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    darkTheme: Boolean = false, // Force light theme as per MainActivity
+    dynamicColor: Boolean = false, // Disable dynamic colors for consistent branding
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -35,7 +35,7 @@ fun LagoTheme(
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
 
