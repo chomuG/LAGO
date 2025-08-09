@@ -5,10 +5,16 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
@@ -33,6 +39,11 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var userPreferences: UserPreferences
+
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -42,30 +53,35 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             LagoTheme {
-                LagoApp()
+                LagoApp(userPreferences = userPreferences)
             }
         }
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun LagoApp() {
+fun LagoApp(userPreferences: UserPreferences) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
     // Routes where bottom navigation should be hidden
     val hideBottomBarRoutes = listOf(
-        "pattern_study", 
-        "wordbook", 
-        "random_quiz", 
+        "pattern_study",
+        "wordbook",
+        "random_quiz",
         "daily_quiz",
+        "pattern_study",
+        "login", "personality_test",
+        "order_history", "ranking",
+        "portfolio",
         "chart",  // 차트 탭 화면 (목 데이터)
         "chart/{stockCode}",  // 차트 화면
         "history_challenge_chart/{stockCode}",  // 역사 챌린지 차트 화면
         "stock_purchase/{stockCode}/{transactionType}"  // 구매/판매 화면
     )
-    
+
     // Check if current route matches any of the hidden routes (including parameterized routes)
     val shouldHideBottomBar = hideBottomBarRoutes.any { route ->
         when {
@@ -77,7 +93,7 @@ fun LagoApp() {
             else -> currentRoute == route
         }
     } || currentRoute?.startsWith("news_detail") == true
-    
+
     val shouldLogicallyShowBottomBar = !shouldHideBottomBar
 
     // State for delayed bottom bar animation
@@ -110,11 +126,9 @@ fun LagoApp() {
                 modifier = if (showBottomBarWithDelay) {
                     Modifier.padding(innerPadding)
                 } else {
-                    // 네비게이션 바가 없을 때도 상태표시줄 패딩은 유지
-                    Modifier.padding(
-                        WindowInsets.statusBars.asPaddingValues()
-                    )
-                }
+                    Modifier.windowInsetsPadding(WindowInsets.navigationBars)
+                },
+                userPreferences = userPreferences,
             )
         }
     }

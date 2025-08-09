@@ -20,14 +20,24 @@ import com.lago.app.presentation.ui.study.Screen.WordbookScreen
 import com.lago.app.presentation.ui.study.Screen.RandomQuizScreen
 import com.lago.app.presentation.ui.study.Screen.DailyQuizScreen
 import com.lago.app.presentation.ui.news.NewsDetailScreen
+import com.lago.app.presentation.ui.home.OrderHistoryScreen
 
 import androidx.compose.ui.Modifier
+import com.lago.app.presentation.ui.mypage.PortfolioScreen
+import com.lago.app.presentation.ui.mypage.MyPageScreen
+import com.lago.app.presentation.ui.mypage.RankingScreen
+import com.lago.app.presentation.ui.mypage.AiPortfolioScreen
 import com.lago.app.presentation.ui.stocklist.StockListScreen
+import com.lago.app.data.local.prefs.UserPreferences
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.lago.app.presentation.ui.personalitytest.PersonalityTestNavigation
+import com.lago.app.presentation.ui.login.LoginScreen
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun NavGraph(
     navController: NavHostController,
+    userPreferences: UserPreferences,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -40,7 +50,15 @@ fun NavGraph(
         popExitTransition = { ExitTransition.None }
     ) {
         composable(NavigationItem.Home.route) {
-            HomeScreen()
+            HomeScreen(
+                userPreferences = userPreferences,
+                onOrderHistoryClick = {
+                    navController.navigate(NavigationItem.OrderHistory.route)
+                },
+                onLoginClick = {
+                    navController.navigate("login");
+                }
+            )
         }
 
         composable(NavigationItem.Investment.route) {
@@ -134,8 +152,53 @@ fun NavGraph(
             )
         }
         
-        composable(NavigationItem.Portfolio.route) {
-            PortfolioScreen()
+        composable(NavigationItem.MyPage.route) {
+            MyPageScreen(
+                onRankingClick = {
+                    navController.navigate("ranking")
+                },
+                onStockClick = { stockCode ->
+                    navController.navigate("chart/$stockCode")
+                }
+            )
+        }
+
+        composable("ranking") {
+            RankingScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onUserClick = {
+                    navController.navigate("portfolio")
+                },
+                onAiPortfolioClick = {
+                    navController.navigate("ai_portfolio")
+                }
+            )
+        }
+
+        composable("portfolio") {
+            PortfolioScreen(
+                onStockClick = { stockCode ->
+                    navController.navigate("chart/$stockCode")
+                },
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                userName = "박두칠"
+            )
+        }
+
+        composable("ai_portfolio") {
+            AiPortfolioScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onStockClick = { stockCode ->
+                    navController.navigate("chart/$stockCode")
+                },
+                userName = "AI 포트폴리오"
+            )
         }
 
         // Stock Purchase Screen with arguments
@@ -230,6 +293,46 @@ fun NavGraph(
                     navController.navigate("stock_purchase/$code/$action")
                 },
                 onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Login Screen
+        composable("login") {
+            LoginScreen(
+                userPreferences = userPreferences,
+                onKakaoLoginClick = {
+                    navController.navigate("personality_test")
+                }
+            )
+        }
+
+        // Personality Test Flow
+        composable("personality_test") {
+            PersonalityTestNavigation(
+                onBackToHome = {
+                    navController.popBackStack()
+                },
+                onTestComplete = { result ->
+                    // 투자성향 테스트 완료 시 임시 로그인 처리
+                    userPreferences.setAuthToken("temp_token_12345")
+                    userPreferences.setUserId("temp_user_001")
+                    userPreferences.setUsername(result.nickname)
+
+                    // 결과를 저장하고 홈으로 돌아가기
+                    navController.navigate(NavigationItem.Home.route) {
+                        popUpTo(NavigationItem.Home.route) {
+                            inclusive = false
+                        }
+                    }
+                }
+            )
+        }
+
+        composable(NavigationItem.OrderHistory.route) {
+            OrderHistoryScreen(
+                onBackClick = {
                     navController.popBackStack()
                 }
             )
