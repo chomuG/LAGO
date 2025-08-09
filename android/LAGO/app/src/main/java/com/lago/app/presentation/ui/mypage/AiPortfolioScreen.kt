@@ -147,13 +147,6 @@ fun AiAssetTitleSection() {
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.rank),
-                contentDescription = "구매내역",
-                modifier = Modifier.size(18.dp),
-                tint = Gray700
-            )
-            Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = "구매내역보기 >",
                 style = BodyR12,
