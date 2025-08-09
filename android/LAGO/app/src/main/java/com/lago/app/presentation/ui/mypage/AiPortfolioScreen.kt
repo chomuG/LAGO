@@ -146,7 +146,7 @@ fun AiAssetTitleSection() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "거래 내역 보기 >",
+                text = "거래내역 >",
                 style = BodyR14,
                 color = Gray700
             )

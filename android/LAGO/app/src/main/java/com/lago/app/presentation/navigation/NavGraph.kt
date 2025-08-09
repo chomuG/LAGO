@@ -57,6 +57,9 @@ fun NavGraph(
                 },
                 onLoginClick = {
                     navController.navigate("login");
+                },
+                onTradingBotClick = {
+                    navController.navigate("ai_portfolio")
                 }
             )
         }
