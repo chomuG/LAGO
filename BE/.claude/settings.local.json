@@ -34,7 +34,9 @@
       "Bash(docker:*)",
       "Bash(timeout 10 docker-compose logs -f backend)",
       "WebFetch(domain:developers.naver.com)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git pull:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   }
