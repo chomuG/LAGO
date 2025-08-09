@@ -15,23 +15,6 @@ import lombok.AllArgsConstructor;
 @Data
 @Builder
 @NoArgsConstructor
-package com.example.LAGO.dto.request;
-
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import lombok.Data;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-
-/**
- * 매매 요청
- */
-@Data
-@Builder
-@NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "매매 요청")
 public class TradeRequest {
@@ -57,4 +40,3 @@ public class TradeRequest {
     @Schema(description = "계좌 ID", example = "1001")
     private Integer accountId; // 선택적 - 없으면 기본 계좌 사용
 }
-<<<<<<< HEAD

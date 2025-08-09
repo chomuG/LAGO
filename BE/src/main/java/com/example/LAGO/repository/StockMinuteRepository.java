@@ -8,18 +8,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface StockMinuteRepository extends JpaRepository<StockMinute, Integer> {
-       // 구간 조회 (stock_info_id, 시작일~종료일)
-       List<StockMinute> findByStockInfoAndDateBetweenOrderByDateAsc(
-                     StockInfo stockInfoId,
-                     LocalDateTime start,
-                     LocalDateTime end
-       );
-
-       // 특정 종목의, 특정 시간 분 데이터(최신 시간) 한 건 조회
-       StockMinute findTopByStockInfoAndDateOrderByDateDesc(StockInfo stockInfoId, LocalDateTime date);
-}
-=======
-public interface StockMinuteRepository extends JpaRepository<StockMinute, Integer> {
     // 구간 조회 (stock_info_id, 시작일~종료일)
     List<StockMinute> findByStockInfoAndDateBetweenOrderByDateAsc(
             StockInfo stockInfoId,
@@ -29,7 +17,4 @@ public interface StockMinuteRepository extends JpaRepository<StockMinute, Intege
 
     // 특정 종목의, 특정 시간 분 데이터(최신 시간) 한 건 조회
     StockMinute findTopByStockInfoAndDateOrderByDateDesc(StockInfo stockInfoId, LocalDateTime date);
-
-
 }
->>>>>>> origin/backend-dev
