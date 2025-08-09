@@ -200,6 +200,9 @@ fun NavGraph(
                 onStockClick = { stockCode ->
                     navController.navigate("chart/$stockCode")
                 },
+                onOrderHistoryClick = {
+                    navController.navigate(NavigationItem.OrderHistory.route)
+                },
                 userName = "AI 포트폴리오"
             )
         }
