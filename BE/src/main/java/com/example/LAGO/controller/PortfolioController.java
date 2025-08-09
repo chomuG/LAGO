@@ -1,6 +1,6 @@
 package com.example.LAGO.controller;
 
-import com.example.LAGO.dto.StockHoldingResponse;
+import com.example.LAGO.dto.response.StockHoldingResponse;
 import com.example.LAGO.service.PortfolioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

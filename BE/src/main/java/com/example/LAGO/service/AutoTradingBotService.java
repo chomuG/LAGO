@@ -1,7 +1,7 @@
 package com.example.LAGO.service;
 
 import com.example.LAGO.constants.TradingConstants;
-import com.example.LAGO.dto.request.MockTradeRequestDto;
+import com.example.LAGO.dto.request.MockTradeRequest;
 import com.example.LAGO.domain.*;
 import com.example.LAGO.repository.*;
 import com.example.LAGO.utils.TradingUtils;
@@ -538,7 +538,7 @@ public class AutoTradingBotService {
                     aiBot.getUserId(), stock.getCode(), signal, quantity);
             
             // 거래 요청 DTO 생성
-            MockTradeRequestDto tradeRequest = createTradeRequest(
+            MockTradeRequest tradeRequest = createTradeRequest(
                 stock.getCode(), signal, quantity, stock.getClosePrice()
             );
             
@@ -578,9 +578,9 @@ public class AutoTradingBotService {
      * @param price 거래 단가
      * @return 거래 요청 DTO
      */
-    private MockTradeRequestDto createTradeRequest(String stockCode, String tradeType, 
+    private MockTradeRequest createTradeRequest(String stockCode, String tradeType, 
                                                   Integer quantity, Integer price) {
-        MockTradeRequestDto request = new MockTradeRequestDto();
+        MockTradeRequest request = new MockTradeRequest();
         request.setStockCode(stockCode);
         request.setQuantity(quantity);
         request.setPrice(price);

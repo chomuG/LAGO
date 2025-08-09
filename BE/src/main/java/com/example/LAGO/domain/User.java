@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
  * EC2 데이터베이스 테이블명 USERS (대문자) 사용
  */
 @Entity
-@Table(name = "USERS")
+@Table(name = "\"USERS\"")
 @Getter 
 @Setter
 @NoArgsConstructor

@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
  * 지침서 명세 MOCK_TRADE 테이블과 완전 일치
  */
 @Entity
-@Table(name = "MOCK_TRADE")
-@Getter 
+@Table(name = "\"MOCK_TRADE\"")
+@Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor

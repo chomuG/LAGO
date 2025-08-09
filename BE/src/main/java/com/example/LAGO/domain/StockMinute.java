@@ -1,6 +1,48 @@
 package com.example.LAGO.domain;
 
 import jakarta.persistence.*;
+import lombok.*;
+
+@Entity
+@Table(name = "\"STOCK_MINUTE\"")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class StockMinute {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "stock_mid_id")
+    private Integer stockMidId;
+
+    // 외래키
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stock_info_id")
+    private StockInfo stockInfo;
+
+    @Column(name = "date", nullable = false)
+    private java.time.LocalDateTime date;
+
+    @Column(name = "open_price", nullable = false)
+    private Integer openPrice;
+
+    @Column(name = "high_price", nullable = false)
+    private Integer highPrice;
+
+    @Column(name = "low_price", nullable = false)
+    private Integer lowPrice;
+
+    @Column(name = "close_price", nullable = false)
+    private Integer closePrice;
+
+    @Column(name = "volume", nullable = false)
+    private Integer volume;
+}
+package com.example.LAGO.domain;
+
+import jakarta.persistence.*;
+<<<<<<< HEAD
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
@@ -37,11 +79,19 @@ import java.time.LocalDateTime;
     @Index(name = "idx_stock_minute_stock_date", columnList = "stock_info_id, date_time")
 })
 @Getter 
+=======
+import lombok.*;
+
+@Entity
+@Table(name = "\"STOCK_MINUTE\"")
+@Getter
+>>>>>>> origin/backend-dev
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class StockMinute {
+<<<<<<< HEAD
 
     /**
      * 주식 분단위 데이터 고유 ID (PK)
@@ -58,11 +108,7 @@ public class StockMinute {
     @Column(name = "stock_info_id", nullable = false)
     private Integer stockInfoId;
 
-    /**
-     * 거래 일시 (분단위)
-     * 예: 2025-08-06 09:01:00, 2025-08-06 09:02:00
-     */
-    @Column(name = "date_time", nullable = false)
+    import lombok.*;
     private LocalDateTime dateTime;
 
     /**
@@ -91,7 +137,11 @@ public class StockMinute {
 
     /**
      * 거래량 (해당 분 동안의 총 거래량)
-     */
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
     @Column(name = "volume", nullable = false)
     private Long volume;
 
@@ -214,4 +264,33 @@ public class StockMinute {
         int bodyBottom = Math.min(openPrice, closePrice);
         return bodyBottom - lowPrice;
     }
+=======
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "stock_mid_id")
+    private Integer stockMidId;
+
+    // 외래키
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stock_info_id")
+    private StockInfo stockInfo;
+
+    @Column(name = "date", nullable = false)
+    private java.time.LocalDateTime date;
+
+    @Column(name = "open_price", nullable = false)
+    private Integer openPrice;
+
+    @Column(name = "high_price", nullable = false)
+    private Integer highPrice;
+
+    @Column(name = "low_price", nullable = false)
+    private Integer lowPrice;
+
+    @Column(name = "close_price", nullable = false)
+    private Integer closePrice;
+
+    @Column(name = "volume", nullable = false)
+    private Integer volume;
+>>>>>>> origin/backend-dev
 }

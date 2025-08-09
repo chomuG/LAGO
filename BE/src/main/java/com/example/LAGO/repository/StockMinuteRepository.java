@@ -1,6 +1,32 @@
 package com.example.LAGO.repository;
 
+import com.example.LAGO.domain.StockInfo;
 import com.example.LAGO.domain.StockMinute;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+public interface StockMinuteRepository extends JpaRepository<StockMinute, Integer> {
+       // 구간 조회 (stock_info_id, 시작일~종료일)
+       List<StockMinute> findByStockInfoAndDateBetweenOrderByDateAsc(
+                     StockInfo stockInfoId,
+                     LocalDateTime start,
+                     LocalDateTime end
+       );
+
+       // 특정 종목의, 특정 시간 분 데이터(최신 시간) 한 건 조회
+       StockMinute findTopByStockInfoAndDateOrderByDateDesc(StockInfo stockInfoId, LocalDateTime date);
+}
+package com.example.LAGO.repository;
+
+<<<<<<< HEAD
+import com.example.LAGO.domain.StockMinute;
+=======
+import com.example.LAGO.domain.StockInfo;
+import com.example.LAGO.domain.StockMinute;
+import org.springframework.data.domain.Pageable;
+>>>>>>> origin/backend-dev
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,6 +36,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+<<<<<<< HEAD
 /**
  * 주식 분단위 데이터 Repository
  * 지침서 명세: 연동된 EC2 DB STOCK_MINUTE 테이블 연동
@@ -174,3 +201,18 @@ public interface StockMinuteRepository extends JpaRepository<StockMinute, Intege
                                      @Param("endTime") String endTime,
                                      @Param("dateTime") LocalDateTime dateTime);
 }
+=======
+public interface StockMinuteRepository extends JpaRepository<StockMinute, Integer> {
+    // 구간 조회 (stock_info_id, 시작일~종료일)
+    List<StockMinute> findByStockInfoAndDateBetweenOrderByDateAsc(
+            StockInfo stockInfoId,
+            LocalDateTime start,
+            LocalDateTime end
+    );
+
+    // 특정 종목의, 특정 시간 분 데이터(최신 시간) 한 건 조회
+    StockMinute findTopByStockInfoAndDateOrderByDateDesc(StockInfo stockInfoId, LocalDateTime date);
+
+
+}
+>>>>>>> origin/backend-dev

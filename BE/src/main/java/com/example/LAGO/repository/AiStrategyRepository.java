@@ -100,8 +100,8 @@ public interface AiStrategyRepository extends JpaRepository<AiStrategy, Integer>
      * @param userId 사용자 ID
      * @return 오늘 생성된 전략 목록
      */
-    @Query("SELECT a FROM AiStrategy a WHERE a.userId = :userId AND DATE(a.createdAt) = CURRENT_DATE ORDER BY a.createdAt DESC")
-    List<AiStrategy> findTodayStrategiesByUserId(@Param("userId") Integer userId);
+//    @Query("SELECT a FROM AiStrategy a WHERE a.userId = :userId AND DATE(a.createdAt) = CURRENT_DATE ORDER BY a.createdAt DESC")
+//    List<AiStrategy> findTodayStrategiesByUserId(@Param("userId") Integer userId);
 
     /**
      * 최근 N일간 인기 전략 조회
@@ -110,7 +110,7 @@ public interface AiStrategyRepository extends JpaRepository<AiStrategy, Integer>
      * @return 인기 전략 목록 (사용 횟수 기준)
      */
     @Query(value = "SELECT strategy, COUNT(*) as usage_count FROM AI_STRATEGY " +
-           "WHERE created_at >= DATE_SUB(NOW(), INTERVAL :days DAY) " +
+           "WHERE created_at >= CURRENT_DATE - INTERVAL ':days days' " +
            "GROUP BY strategy ORDER BY usage_count DESC", nativeQuery = true)
     List<Object[]> findPopularStrategiesInLastDays(@Param("days") int days);
 }

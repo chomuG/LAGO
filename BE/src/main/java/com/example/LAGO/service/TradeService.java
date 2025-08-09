@@ -1,10 +1,10 @@
 package com.example.LAGO.service;
 
 import com.example.LAGO.domain.*;
-import com.example.LAGO.dto.request.MockTradeRequestDto;
-import com.example.LAGO.dto.TradeRequest;
-import com.example.LAGO.dto.response.MockTradeResponseDto;
-import com.example.LAGO.dto.TradeResponse;
+import com.example.LAGO.dto.request.MockTradeRequest;
+import com.example.LAGO.dto.request.TradeRequest;
+import com.example.LAGO.dto.response.MockTradeResponse;
+import com.example.LAGO.dto.response.TradeResponse;
 import com.example.LAGO.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,14 +36,14 @@ public class TradeService {
     /**
      * 모의 거래 처리 (간소화 버전)
      */
-    public MockTradeResponseDto processMockTrade(MockTradeRequestDto request) {
+    public MockTradeResponse processMockTrade(MockTradeRequest request) {
         try {
             log.info("모의 거래 처리 시작: stockCode={}, tradeType={}", 
                     request.getStockCode(), request.getTradeType());
             
             // 기본 검증
             if (request.getStockCode() == null || request.getTradeType() == null) {
-                return MockTradeResponseDto.failure("ERROR", "필수 파라미터가 누락되었습니다.");
+                return MockTradeResponse.failure("ERROR", "필수 파라미터가 누락되었습니다.");
             }
             
             // 거래 기록 생성 (간소화)
@@ -62,7 +62,7 @@ public class TradeService {
             
             log.info("모의 거래 처리 완료: tradeId={}", mockTrade.getTradeId());
             
-            return MockTradeResponseDto.success(
+            return MockTradeResponse.success(
                     mockTrade.getTradeId(), // Long 타입 그대로 사용
                     mockTrade.getStockCode(),
                     mockTrade.getStockCode(), // stockName 대신 임시로 stockCode 사용
@@ -76,7 +76,7 @@ public class TradeService {
             
         } catch (Exception e) {
             log.error("모의 거래 처리 오류: {}", e.getMessage(), e);
-            return MockTradeResponseDto.failure(
+            return MockTradeResponse.failure(
                     "ERROR",
                     "거래 처리 실패: " + e.getMessage()
             );
@@ -86,7 +86,7 @@ public class TradeService {
     /**
      * 거래 검증 (간소화)
      */
-    public boolean validateTrade(MockTradeRequestDto request) {
+    public boolean validateTrade(MockTradeRequest request) {
         try {
             return request.getStockCode() != null && 
                    request.getTradeType() != null && 

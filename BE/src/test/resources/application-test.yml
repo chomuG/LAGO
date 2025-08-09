@@ -47,3 +47,12 @@ logging:
 # 서버 포트 (테스트용 랜덤)
 server:
   port: 0
+
+# Redis Stream 설정 (테스트용)
+redis:
+  stream:
+    key: krx_stream_key1
+    consumer-group: spring-candle-group-test
+    consumer-name: spring-consumer-test
+    read-timeout: 1000
+    batch-size: 10

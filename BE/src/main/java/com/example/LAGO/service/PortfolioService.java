@@ -3,7 +3,7 @@ package com.example.LAGO.service;
 import com.example.LAGO.domain.Account;
 import com.example.LAGO.domain.Stock;
 import com.example.LAGO.domain.StockHolding;
-import com.example.LAGO.dto.StockHoldingResponse;
+import com.example.LAGO.dto.response.StockHoldingResponse;
 import com.example.LAGO.repository.AccountRepository;
 import com.example.LAGO.repository.StockRepository;
 import com.example.LAGO.repository.StockHoldingRepository;
