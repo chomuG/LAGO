@@ -2,6 +2,7 @@ package com.example.LAGO.service;
 
 import com.example.LAGO.domain.HistoryChallenge;
 import com.example.LAGO.domain.HistoryChallengeData;
+import com.example.LAGO.constants.Interval;
 import com.example.LAGO.dto.response.HistoryChallengeDataResponse;
 import com.example.LAGO.dto.response.HistoryChallengeResponse;
 import com.example.LAGO.repository.HistoryChallengeDataRepository;
@@ -31,20 +32,19 @@ public class HistoryChallengeServiceImpl implements HistoryChallengeService {
     }
 
     @Override
-    public List<HistoryChallengeDataResponse> getHistoryChallengeData(Integer challengeId, String interval) {
-        HistoryChallenge challenge = historyChallengeRepository.findByDate(LocalDate.now());
-        if (challenge == null) {
-            throw new IllegalStateException("현재 진행 중인 역사 챌린지가 없습니다.");
-        }
+    public List<HistoryChallengeDataResponse> getHistoryChallengeData(Integer challengeId, Interval interval) {
+        HistoryChallenge challenge = historyChallengeRepository.findById(challengeId.longValue())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid challenge ID: " + challengeId));
 
-        switch (interval.toUpperCase()) {
-            case "1D":
-                List<HistoryChallengeData> dayData = historyChallengeDataRepository.findByIntervalTypeAndDate(challengeId, interval, LocalDateTime.now());
-                return dayData.stream()
-                        .map(HistoryChallengeDataResponse::new)
-                        .collect(Collectors.toList());
-            default:
-                throw new IllegalArgumentException("지원하지 않는 간격입니다: " + interval);
-        }
+        // enum의 code 값을 사용하여 Repository 호출
+        List<HistoryChallengeData> data = historyChallengeDataRepository.findByIntervalTypeAndDate(
+                challengeId, 
+                interval.getCode(), 
+                LocalDateTime.now()
+        );
+        
+        return data.stream()
+                .map(HistoryChallengeDataResponse::new)
+                .collect(Collectors.toList());
     }
 }

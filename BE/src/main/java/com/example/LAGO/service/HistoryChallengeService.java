@@ -1,6 +1,6 @@
 package com.example.LAGO.service;
 
-import com.example.LAGO.dto.response.ChartAnalysisResponse;
+import com.example.LAGO.constants.Interval;
 import com.example.LAGO.dto.response.HistoryChallengeDataResponse;
 import com.example.LAGO.dto.response.HistoryChallengeResponse;
 
@@ -17,8 +17,9 @@ public interface HistoryChallengeService {
     /**
      * 현재 시점 까지의 역사챌린지 주가 정보 목록을 반환합니다.
      *
+     * @param challengeId 챌린지 ID
      * @param interval 간격
      * @return 역사챌린지 주가 정보 목록
      */
-    List<HistoryChallengeDataResponse> getHistoryChallengeData(Integer challengeId, String interval);
+    List<HistoryChallengeDataResponse> getHistoryChallengeData(Integer challengeId, Interval interval);
 }
