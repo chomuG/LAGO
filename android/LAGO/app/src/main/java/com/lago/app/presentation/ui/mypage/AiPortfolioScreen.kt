@@ -96,8 +96,6 @@ fun AiPortfolioScreen(
             // 포트폴리오 차트 및 주식 리스트 통합 섹션
             item { AiPortfolioSection(aiPieChartData, aiStockList) }
 
-            // 로그아웃 버튼
-            item { AiLogoutButton() }
 
             item { Spacer(modifier = Modifier.height(8.dp)) }
         }
@@ -444,23 +442,6 @@ fun AiStockListItemInCard(stock: AiStockInfo) {
     }
 }
 
-@Composable
-fun AiLogoutButton() {
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
-    ) {
-        TextButton(
-            onClick = { /* 로그아웃 로직 */ }
-        ) {
-            Text(
-                text = "로그아웃",
-                style = BodyR12,
-                color = Gray700
-            )
-        }
-    }
-}
 
 @Preview(showBackground = true)
 @Composable

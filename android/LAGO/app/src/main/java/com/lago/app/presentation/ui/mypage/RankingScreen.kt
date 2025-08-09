@@ -186,19 +186,12 @@ fun RankingCard(
                     )
                     if (user.isAi) {
                         Spacer(modifier = Modifier.width(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(MainBlue),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "AI",
-                                style = BodyR12,
-                                color = Color.White
-                            )
-                        }
+                        Icon(
+                            painter = painterResource(id = R.drawable.robot_icon),
+                            contentDescription = "AI 봇",
+                            modifier = Modifier.size(16.dp),
+                            tint = MainBlue
+                        )
                     }
                 }
 
