@@ -1,10 +1,9 @@
-package com.lago.app.presentation.ui
+package com.lago.app.presentation.ui.mypage
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -14,188 +13,124 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
+import com.lago.app.presentation.ui.components.CommonTopAppBar
 
 // theme에 없는 색상들만 정의
-object AppColors {
+object AiAppColors {
     val Yellow = Color(0xFFFFE28A)
     val Green = Color(0xFFC8FACC)
     val Purple = Color(0xFFC5B5F9)
-    val Gray = Color(0xFFC4C4C4)
-    val RiskNeutralBg = Color(0xFFECF6FF)
-    val RiskNeutralText = Color(0xFF3585CC)
 }
 
 // 데이터 클래스
-data class StockInfo(
+data class AiStockInfo(
     val name: String,
     val averagePrice: String,
     val percentage: String,
     val color: Color
 )
 
-data class PieChartData(
+data class AiPieChartData(
     val label: String,
     val value: Float,
     val color: Color
 )
 
 @Composable
-fun PortfolioScreen() {
-    val stockList = listOf(
-        StockInfo("삼성전자", "1주 평균 42,232원", "40.7%", MainBlue),
-        StockInfo("한화생명", "1주 평균 52,232원", "25.4%", MainPink),
-        StockInfo("LG전자", "1주 평균 2,232원", "12.1%", AppColors.Yellow),
-        StockInfo("셀트리온", "1주 평균 4,232원", "8.2%", AppColors.Green),
-        StockInfo("네이버", "1주 평균 10,232원", "5.6%", AppColors.Purple),
-        StockInfo("기타", "1주 평균 1,232원", "40.7%", AppColors.Gray)
+fun AiPortfolioScreen(
+    onBackClick: () -> Unit = {},
+    onStockClick: (String) -> Unit = {},
+    userName: String = "AI 포트폴리오"
+) {
+    val aiStockList = listOf(
+        AiStockInfo("삼성전자", "1주 평균 42,232원", "40.7%", MainBlue),
+        AiStockInfo("한화생명", "1주 평균 52,232원", "25.4%", MainPink),
+        AiStockInfo("LG전자", "1주 평균 2,232원", "12.1%", AiAppColors.Yellow),
+        AiStockInfo("셀트리온", "1주 평균 4,232원", "8.2%", AiAppColors.Green),
+        AiStockInfo("네이버", "1주 평균 10,232원", "5.6%", AiAppColors.Purple),
+        AiStockInfo("기타", "1주 평균 1,232원", "40.7%", Gray400)
     )
 
-    val pieChartData = stockList.map { stock ->
-        PieChartData(stock.name, stock.percentage.removeSuffix("%").toFloat(), stock.color)
+    val aiPieChartData = aiStockList.map { stock ->
+        AiPieChartData(stock.name, stock.percentage.removeSuffix("%").toFloat(), stock.color)
     }
 
-    LazyColumn(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(AppBackground)
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item { Spacer(modifier = Modifier.height(16.dp)) }
-
-        // 헤더 섹션
-        item { HeaderSection() }
-
-        // 자산 현황 타이틀 섹션
-        item { AssetTitleSection() }
-
-        // 자산 현황 섹션
-        item { AssetStatusSection() }
-
-        // 포트폴리오 차트 및 주식 리스트 통합 섹션
-        item { PortfolioSection(pieChartData, stockList) }
-
-        // 로그아웃 버튼
-        item { LogoutButton() }
-
-        item { Spacer(modifier = Modifier.height(8.dp)) }
-    }
-}
-
-@Composable
-fun HeaderSection() {
-    Box(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        // 메인 카드
-        Card(
+        // CommonTopAppBar 추가
+        CommonTopAppBar(
+            title = userName,
+            onBackClick = onBackClick
+        )
+        
+        // 스크롤 가능한 컨텐츠
+        LazyColumn(
             modifier = Modifier
-                .fillMaxWidth()
-                .shadow(
-                    elevation = 0.dp,
-                    shape = RoundedCornerShape(16.dp),
-                    ambientColor = ShadowColor,
-                    spotColor = ShadowColor
-                )
-                .drawWithContent {
-                    drawContent()
-                    drawRoundRect(
-                        color = Gray100,
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx()),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
-                    )
-                },
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                // 왼쪽 컨텐츠
-                Column {
-                    // 위험중립형 태그
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                BlueLight,
-                                RoundedCornerShape(16.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "위험중립형",
-                            style = BodyR12,
-                            color = BlueNormal
-                        )
-                    }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+            // ProfileSection 추가
+            item { AiProfileSection() }
 
-                    // 사용자 이름
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 4.dp)
-                    ) {
-                        Text(
-                            text = "박두칠",
-                            style = TitleB24,
-                            color = Black
-                        )
-                    }
+            // 자산 현황 타이틀 섹션
+            item { AiAssetTitleSection() }
 
+            // 자산 현황 섹션
+            item { AiAssetStatusSection() }
 
+            // 포트폴리오 차트 및 주식 리스트 통합 섹션
+            item { AiPortfolioSection(aiPieChartData, aiStockList) }
 
-                }
+            // 로그아웃 버튼
+            item { AiLogoutButton() }
 
-                // 오른쪽 큰 원 (#DEEFFE 컬러, 74*74 크기, 카드 오른쪽에서 32dp 떨어져 있음)
-                Box(
-                    modifier = Modifier
-                        .size(74.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFDEEFFE))
-                        .align(Alignment.CenterEnd)
-                )
-
-                // 카드 내부 하얀 설정 아이콘 버튼 (카드 위에서 74dp, 오른쪽에서 32dp, 큰 원 아래쪽에 위치)
-                Box(
-                    modifier = Modifier
-                        .size(22.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .align(Alignment.BottomEnd),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.setting),
-                        contentDescription = "설정",
-                        modifier = Modifier.size(12.dp),
-                        tint = Black
-                    )
-                }
-            }
+            item { Spacer(modifier = Modifier.height(8.dp)) }
         }
     }
 }
 
 @Composable
-fun AssetTitleSection() {
+fun AiProfileSection() {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // 프로필 사진
+        Box(
+            modifier = Modifier
+                .size(74.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFDEEFFE))
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // 사용자 이름
+        Text(
+            text = "AI 포트폴리오",
+            style = TitleB24,
+            color = Black
+        )
+    }
+}
+
+@Composable
+fun AiAssetTitleSection() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -212,15 +147,8 @@ fun AssetTitleSection() {
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.rank),
-                contentDescription = "랭킹",
-                modifier = Modifier.size(18.dp),
-                tint = Gray700
-            )
-            Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = "랭킹 보러가기 >",
+                text = "구매내역보기 >",
                 style = BodyR12,
                 color = Gray700
             )
@@ -229,7 +157,7 @@ fun AssetTitleSection() {
 }
 
 @Composable
-fun AssetStatusSection() {
+fun AiAssetStatusSection() {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -243,8 +171,8 @@ fun AssetStatusSection() {
                 drawContent()
                 drawRoundRect(
                     color = Gray100,
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx()),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                    cornerRadius = CornerRadius(16.dp.toPx()),
+                    style = Stroke(width = 2.dp.toPx())
                 )
             },
         shape = RoundedCornerShape(16.dp),
@@ -287,9 +215,9 @@ fun AssetStatusSection() {
             Spacer(modifier = Modifier.height(8.dp))
             
             // 나머지 자산 정보
-            AssetInfoRow("보유현금", "25,000,000")
-            AssetInfoRow("총매수", "1,000,000")
-            AssetInfoRow("총평가", "1,000,000")
+            AiAssetInfoRow("보유현금", "25,000,000")
+            AiAssetInfoRow("총매수", "1,000,000")
+            AiAssetInfoRow("총평가", "1,000,000")
 
             Row(
                 modifier = Modifier.fillMaxWidth()
@@ -322,7 +250,7 @@ fun AssetStatusSection() {
 }
 
 @Composable
-fun AssetInfoRow(label: String, value: String) {
+fun AiAssetInfoRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -343,7 +271,7 @@ fun AssetInfoRow(label: String, value: String) {
 }
 
 @Composable
-fun PortfolioSection(pieChartData: List<PieChartData>, stockList: List<StockInfo>) {
+fun AiPortfolioSection(pieChartData: List<AiPieChartData>, stockList: List<AiStockInfo>) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -357,8 +285,8 @@ fun PortfolioSection(pieChartData: List<PieChartData>, stockList: List<StockInfo
                 drawContent()
                 drawRoundRect(
                     color = Gray100,
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx()),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                    cornerRadius = CornerRadius(24.dp.toPx()),
+                    style = Stroke(width = 2.dp.toPx())
                 )
             },
         shape = RoundedCornerShape(24.dp),
@@ -380,7 +308,7 @@ fun PortfolioSection(pieChartData: List<PieChartData>, stockList: List<StockInfo
                     contentAlignment = Alignment.Center
                 ) {
                     // 도넛 차트
-                    DonutChart(
+                    AiDonutChart(
                         data = pieChartData,
                         modifier = Modifier.size(200.dp)
                     )
@@ -407,7 +335,7 @@ fun PortfolioSection(pieChartData: List<PieChartData>, stockList: List<StockInfo
 
             // 주식 리스트
             stockList.forEach { stock ->
-                StockListItemInCard(stock)
+                AiStockListItemInCard(stock)
                 if (stock != stockList.last()) {
                     Spacer(modifier = Modifier.height(12.dp))
                 }
@@ -420,49 +348,8 @@ fun PortfolioSection(pieChartData: List<PieChartData>, stockList: List<StockInfo
 }
 
 @Composable
-fun ChartSection(data: List<PieChartData>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                contentAlignment = Alignment.Center
-            ) {
-                // 도넛 차트
-                DonutChart(
-                    data = data,
-                    modifier = Modifier.size(200.dp)
-                )
-
-                // 중앙 텍스트
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "수익률",
-                        style = SubtitleSb16,
-                        color = Gray900
-                    )
-                    Text(
-                        text = "+23.4%",
-                        style = TitleB24,
-                        color = MainPink
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun DonutChart(
-    data: List<PieChartData>,
+fun AiDonutChart(
+    data: List<AiPieChartData>,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -477,8 +364,8 @@ fun DonutChart(
             if (data.isNotEmpty()) {
                 val total = data.sumOf { it.value.toDouble() }.toFloat()
                 val center = this.center
-                val radius = size.minDimension / 2.2f  // 더 큰 반지름
-                val strokeWidth = radius * 0.8f  // 적당히 두꺼운 도넛
+                val radius = size.minDimension / 2.2f
+                val strokeWidth = radius * 0.8f
                 
                 var startAngle = -90f
 
@@ -490,9 +377,9 @@ fun DonutChart(
                         startAngle = startAngle,
                         sweepAngle = sweepAngle,
                         useCenter = false,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        style = Stroke(
                             width = strokeWidth,
-                            cap = androidx.compose.ui.graphics.StrokeCap.Butt
+                            cap = StrokeCap.Butt
                         )
                     )
 
@@ -504,7 +391,7 @@ fun DonutChart(
 }
 
 @Composable
-fun StockListItemInCard(stock: StockInfo) {
+fun AiStockListItemInCard(stock: AiStockInfo) {
     Row(
         modifier = Modifier.fillMaxWidth()
             .padding(4.dp),
@@ -558,69 +445,7 @@ fun StockListItemInCard(stock: StockInfo) {
 }
 
 @Composable
-fun StockListItem(stock: StockInfo) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 색상 인디케이터
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .clip(CircleShape)
-                        .background(stock.color)
-                )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column {
-                    Text(
-                        text = stock.name,
-                        style = SubtitleSb14,
-                        color = Gray900
-                    )
-                    Text(
-                        text = stock.averagePrice,
-                        style = BodyR12,
-                        color = Gray800
-                    )
-                }
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stock.percentage,
-                    style = BodyR18,
-                    color = Gray900
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    painter = painterResource(id = R.drawable.bracket),
-                    contentDescription = "더보기",
-                    modifier = Modifier.size(16.dp),
-                    tint = Gray300
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun LogoutButton() {
+fun AiLogoutButton() {
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
@@ -639,8 +464,8 @@ fun LogoutButton() {
 
 @Preview(showBackground = true)
 @Composable
-fun MyPageScreenPreview() {
+fun AiPortfolioScreenPreview() {
     MaterialTheme {
-        PortfolioScreen()
+        AiPortfolioScreen()
     }
 }

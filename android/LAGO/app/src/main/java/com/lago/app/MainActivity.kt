@@ -5,11 +5,16 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -62,8 +67,11 @@ fun LagoApp(userPreferences: UserPreferences) {
 
     // Routes where bottom navigation should be hidden
     val hideBottomBarRoutes = listOf(
-        "pattern_study", "wordbook", "random_quiz", "daily_quiz",
-        "login", "personality_test", "order_history"
+        "pattern_study", "wordbook",
+        "random_quiz", "daily_quiz",
+        "login", "personality_test",
+        "order_history", "ranking",
+        "portfolio"
     )
     val shouldLogicallyShowBottomBar = currentRoute !in hideBottomBarRoutes && currentRoute?.startsWith("news_detail") != true
 
@@ -94,8 +102,12 @@ fun LagoApp(userPreferences: UserPreferences) {
         ) { innerPadding ->
             NavGraph(
                 navController = navController,
+                modifier = if (showBottomBarWithDelay) {
+                    Modifier.padding(innerPadding)
+                } else {
+                    Modifier.windowInsetsPadding(WindowInsets.navigationBars)
+                },
                 userPreferences = userPreferences,
-                modifier = if (showBottomBarWithDelay) Modifier.padding(innerPadding) else Modifier
             )
         }
     }

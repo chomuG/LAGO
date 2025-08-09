@@ -22,6 +22,10 @@ import com.lago.app.presentation.ui.news.NewsDetailScreen
 import com.lago.app.presentation.ui.home.OrderHistoryScreen
 
 import androidx.compose.ui.Modifier
+import com.lago.app.presentation.ui.mypage.PortfolioScreen
+import com.lago.app.presentation.ui.mypage.MyPageScreen
+import com.lago.app.presentation.ui.mypage.RankingScreen
+import com.lago.app.presentation.ui.mypage.AiPortfolioScreen
 import com.lago.app.presentation.ui.stocklist.StockListScreen
 import com.lago.app.data.local.prefs.UserPreferences
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -149,8 +153,53 @@ fun NavGraph(
             )
         }
         
-        composable(NavigationItem.Portfolio.route) {
-            PortfolioScreen()
+        composable(NavigationItem.MyPage.route) {
+            MyPageScreen(
+                onRankingClick = {
+                    navController.navigate("ranking")
+                },
+                onStockClick = { stockCode ->
+                    navController.navigate("chart/$stockCode")
+                }
+            )
+        }
+
+        composable("ranking") {
+            RankingScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onUserClick = {
+                    navController.navigate("portfolio")
+                },
+                onAiPortfolioClick = {
+                    navController.navigate("ai_portfolio")
+                }
+            )
+        }
+
+        composable("portfolio") {
+            PortfolioScreen(
+                onStockClick = { stockCode ->
+                    navController.navigate("chart/$stockCode")
+                },
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                userName = "박두칠"
+            )
+        }
+
+        composable("ai_portfolio") {
+            AiPortfolioScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onStockClick = { stockCode ->
+                    navController.navigate("chart/$stockCode")
+                },
+                userName = "AI 포트폴리오"
+            )
         }
 
         // Stock Purchase Screen with arguments

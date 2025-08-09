@@ -41,8 +41,8 @@ sealed class NavigationItem(
         iconRes = R.drawable.news
     )
     
-    object Portfolio : NavigationItem(
-        route = "portfolio",
+    object MyPage : NavigationItem(
+        route = "mypage",
         title = "마이",
         iconRes = R.drawable.my
     )
@@ -67,5 +67,5 @@ val bottomNavigationItems = listOf(
     NavigationItem.Learn,
     NavigationItem.Chart,
     NavigationItem.News,
-    NavigationItem.Portfolio
+    NavigationItem.MyPage
 )
