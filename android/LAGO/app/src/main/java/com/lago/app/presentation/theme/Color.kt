@@ -30,6 +30,11 @@ val Gray700 = Color(0xFF5F6368)
 val Gray800 = Color(0xFF3C4043)
 val Gray900 = Color(0xFF202124)
 
+// Basic Colors
+val White = Color(0xFFFFFFFF)
+val Red500 = Color(0xFFF44336)
+val Blue500 = Color(0xFF2196F3)
+
 // Blue Scale
 val BlueLight = Color(0xFFECF6FF)
 val BlueLightHover = Color(0xFFE3F2FF)

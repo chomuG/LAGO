@@ -68,6 +68,7 @@ fun AnimatedHeaderBox(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(Spacing.md)
+                    .offset(y = (-20).dp) // 타이틀 위치 상향 조정
                     .alpha((1f - easedTransition).coerceAtLeast(0f))
                     .graphicsLayer {
                         translationY = -easedTransition * 10f // 부드러운 이동
@@ -117,7 +118,7 @@ fun AnimatedHeaderBox(
             Column(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .padding(start = Spacing.xxxl - Spacing.md) // 뒤로가기 버튼 + 여백
+                    .padding(start = Spacing.xxxl + Spacing.xs) // 뒤로가기 버튼 + 추가 여백
                     .alpha(easedTransition.coerceAtLeast(0f))
                     .graphicsLayer {
                         translationY = (1f - easedTransition) * 10f // 부드러운 이동
@@ -146,9 +147,9 @@ fun AnimatedHeaderBox(
 
                     val isPositive = stockInfo.priceChange >= 0
                     val percentText = if (isPositive) {
-                        "(${String.format("%.2f", stockInfo.priceChangePercent)}%)"
+                        "+${String.format("%.2f", stockInfo.priceChangePercent)}%"
                     } else {
-                        "(${String.format("%.2f", stockInfo.priceChangePercent)}%)"
+                        "${String.format("%.2f", stockInfo.priceChangePercent)}%"
                     }
                     
                     Text(

@@ -1,9 +1,7 @@
-package com.lago.app.presentation.ui.chart
+package com.lago.app.presentation.ui.historychallenge
 
 import android.view.ViewGroup
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -90,27 +88,11 @@ import com.lago.app.presentation.ui.chart.v5.MultiPanelChart
 import com.lago.app.presentation.ui.chart.v5.DataConverter
 import com.lago.app.presentation.ui.chart.v5.toEnabledIndicators
 import kotlin.math.absoluteValue
-// Character Dialog import
-import com.lago.app.presentation.components.CharacterSelectionDialog
-import com.lago.app.presentation.components.CharacterInfo
 
 
 /**
- * ChartScreen - Responsive trading chart screen with bottom sheet
- * 
- * Features:
- * - Adaptive layout for different screen sizes (compact, standard, large, tablet)
- * - 3-stage bottom sheet with smooth animations (collapsed, half-expanded, expanded)
- * - Dynamic chart height based on bottom sheet state
- * - Safe zones to prevent UI overlap
- * - Synchronized animations with unified progress system
- * - Minimum touch target sizes (44dp for compact, 48dp for standard)
- * 
- * Device Support:
- * - Compact: <400dp width or <700dp height (small phones)
- * - Standard: 400-600dp width (most phones)
- * - Large: 600-700dp width (large phones, small tablets)
- * - Tablet: >700dp width and >900dp height
+ * HistoryChallengeChartScreen - 역사 챌린지 전용 차트 화면
+ * ChartScreen과 동일하지만 AI 버튼이 제거됨
  */
 
 // 바텀시트 상태 열거형
@@ -142,13 +124,11 @@ data class SafeZones(
 
 
 @Composable
-fun ChartScreen(
+fun HistoryChallengeChartScreen(
     stockCode: String? = null,
     viewModel: ChartViewModel = hiltViewModel(),
     onNavigateToStockPurchase: (String, String) -> Unit = { _, _ -> },
-    onNavigateToAIDialog: () -> Unit = {},
-    onNavigateBack: () -> Unit = {},
-    onNavigateToStock: (String) -> Unit = {}
+    onNavigateBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val density = LocalDensity.current
@@ -221,9 +201,6 @@ fun ChartScreen(
         chartMin = screenConfig.minChartHeight,
         bottomSheetMin = if (isCompactScreen) 140.dp else 160.dp
     )
-    
-    // Character selection dialog state
-    var showCharacterDialog by remember { mutableStateOf(false) }
 
     // 투자 탭에서 선택된 주식 코드로 차트 데이터 로드
     LaunchedEffect(stockCode) {
@@ -432,7 +409,7 @@ fun ChartScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)  // 흰색 배`경
+                .background(Color.White)  // 흰색 배경
         )
 
         // 차트 + 시간버튼 영역 - 바텀시트 실시간 위치에 따른 높이 계산
@@ -534,7 +511,7 @@ fun ChartScreen(
 
         }
 
-        // 2. 앱바 (중간 레이어) - 원래 위치 유지
+        // 2. 앱바 (중간 레이어) - AI 버튼 제거, 원래 위치 유지
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -551,7 +528,6 @@ fun ChartScreen(
                 onFavoriteClick = { viewModel.onEvent(ChartUiEvent.ToggleFavorite) },
                 stockInfo = uiState.currentStock,
                 onSettingsClick = { viewModel.onEvent(ChartUiEvent.ToggleIndicatorSettings) },
-                onNavigateToAIDialog = { showCharacterDialog = true },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -635,7 +611,6 @@ fun ChartScreen(
                     holdingsListState = holdingsListState,
                     tradingHistoryListState = tradingHistoryListState,
                     bottomSheetState = bottomSheetState,
-                    onStockClick = onNavigateToStock,
                     isCompact = isCompactScreen,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -752,21 +727,10 @@ fun ChartScreen(
                 CircularProgressIndicator(color = Color(0xFFFF69B4))
             }
         }
-        
-        // Character Selection Dialog
-        if (showCharacterDialog) {
-            CharacterSelectionDialog(
-                onDismiss = { showCharacterDialog = false },
-                onConfirm = { character ->
-                    // 선택한 캐릭터 처리
-                    println("선택된 캐릭터: ${character.name}")
-                    showCharacterDialog = false
-                }
-            )
-        }
     }
 }
 
+// AI 버튼이 제거된 TopAppBar
 @Composable
 private fun TopAppBar(
     onBackClick: () -> Unit,
@@ -774,7 +738,6 @@ private fun TopAppBar(
     onFavoriteClick: () -> Unit,
     stockInfo: StockInfo,
     onSettingsClick: () -> Unit = {},
-    onNavigateToAIDialog: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -812,19 +775,7 @@ private fun TopAppBar(
             )
         }
 
-        IconButton(
-            onClick = { onNavigateToAIDialog() },
-            modifier = Modifier.semantics {
-                contentDescription = "AI 차트 분석"
-            }
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ai_button),
-                contentDescription = null,
-                tint = Color.Unspecified,
-                modifier = Modifier.size(24.dp)
-            )
-        }
+        // AI 버튼 제거됨 - 역사 챌린지에서는 AI 기능 없음
 
         IconButton(
             onClick = onSettingsClick,
@@ -842,8 +793,6 @@ private fun TopAppBar(
 
     }
 }
-
-// Legacy v4 OptimizedChartView removed - replaced with v5 MultiPanelChart
 
 @Composable
 fun TimeFrameSelection(
@@ -992,23 +941,23 @@ private fun BottomSheetContent(
     holdingsListState: LazyListState,
     tradingHistoryListState: LazyListState,
     bottomSheetState: BottomSheetState,
-    onStockClick: (String) -> Unit,
     isCompact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedTabIndex = uiState.selectedBottomTab
-    val tabTitles = listOf("보유현황", "매매내역", "차트패턴")
+    // 역사 챌린지에서도 패턴분석 탭 포함 (모의투자와 횟수 공유)
+    val tabTitles = listOf("보유현황", "매매내역", "패턴분석")
 
     Column(modifier = modifier) {
         // 탭
         TabRow(
-            selectedTabIndex = selectedTabIndex,
+            selectedTabIndex = selectedTabIndex.coerceAtMost(tabTitles.size - 1),
             containerColor = Color.White,
             contentColor = Color(0xFF08090E),
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex.coerceAtMost(tabTitles.size - 1)]),
                     color = Color.Black,
                     height = 2.dp
                 )
@@ -1048,11 +997,9 @@ private fun BottomSheetContent(
                     }
                 )
         ) {
-            when (selectedTabIndex) {
+            when (selectedTabIndex.coerceAtMost(tabTitles.size - 1)) {
                 0 -> HoldingsContent(
                     holdings = uiState.holdingItems,
-                    currentStockCode = uiState.currentStock.code,
-                    onStockClick = onStockClick,
                     listState = holdingsListState,
                     nestedScrollConnection = nestedScrollConnection,
                     bottomSheetState = bottomSheetState
@@ -1080,8 +1027,6 @@ private fun BottomSheetContent(
 @Composable
 private fun HoldingsContent(
     holdings: List<HoldingItem>,
-    currentStockCode: String,
-    onStockClick: (String) -> Unit,
     listState: LazyListState,
     nestedScrollConnection: NestedScrollConnection,
     bottomSheetState: BottomSheetState
@@ -1109,35 +1054,18 @@ private fun HoldingsContent(
             userScrollEnabled = bottomSheetState != BottomSheetState.COLLAPSED
         ) {
             items(holdings) { holding ->
-                HoldingItemRow(
-                    item = holding,
-                    currentStockCode = currentStockCode,
-                    onStockClick = onStockClick
-                )
+                HoldingItemRow(holding)
             }
         }
     }
 }
 
 @Composable
-private fun HoldingItemRow(
-    item: HoldingItem,
-    currentStockCode: String,
-    onStockClick: (String) -> Unit
-) {
+private fun HoldingItemRow(item: HoldingItem) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .clickable(
-                indication = null, // 클릭 시 엘리베이션 효과 제거
-                interactionSource = remember { MutableInteractionSource() }
-            ) {
-                // Only navigate if the selected stock is different from current stock
-                if (item.stockCode != currentStockCode) {
-                    onStockClick(item.stockCode)
-                }
-            },
+            .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1316,11 +1244,6 @@ private fun TradingItemRow(item: TradingItem) {
     }
 }
 
-data class ChartPattern(
-    val name: String,
-    val description: String
-)
-
 @Composable
 private fun PatternAnalysisContent(
     patternAnalysisCount: Int,
@@ -1376,55 +1299,34 @@ private fun PatternAnalysisWithResults(
     maxPatternAnalysisCount: Int,
     onAnalyzeClick: () -> Unit
 ) {
-    // 실제 패턴 데이터 사용
-    val patterns = patternAnalysis.patterns
-    
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
-        // 헤더
         item {
+            // 헤더 텍스트
             Text(
-                text = "최근 분석 결과",
-                style = HeadEb24,
-                color = BlueNormalHover,
-                modifier = Modifier.padding(bottom = 8.dp)
+                text = "발견된 패턴",
+                style = TitleB24,
+                color = Gray900,
+                modifier = Modifier.padding(bottom = 32.dp)
             )
         }
-
-        // 날짜/시간 (실제 분석 시간 사용)
-        item {
-            Text(
-                text = patternAnalysis.analysisTime,
-                style = BodyR14,
-                color = Gray800,
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
-        }
-
-        // 구분선
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp)
-                    .background(Gray200)
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        // 패턴 리스트
-        itemsIndexed(patterns) { index, pattern ->
+        
+        // 패턴 목록
+        itemsIndexed(patternAnalysis.patterns) { index, pattern ->
             PatternResultItem(
                 pattern = pattern,
-                isLastItem = index == patterns.size - 1
+                isLastItem = index == patternAnalysis.patterns.size - 1
             )
+            
+            if (index < patternAnalysis.patterns.size - 1) {
+                Spacer(modifier = Modifier.height(32.dp))
+            }
         }
-
-        // 다시 분석하기 버튼
+        
         item {
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(40.dp))
+            // 다시 분석하기 버튼
             Button(
                 onClick = onAnalyzeClick,
                 enabled = patternAnalysisCount < maxPatternAnalysisCount,
@@ -1615,7 +1517,6 @@ private fun PatternAnalysisError(
     }
 }
 
-
 @Composable
 private fun IndicatorSettingsDialog(
     config: ChartConfig,
@@ -1787,51 +1688,5 @@ private fun IndicatorSettingsDialog(
                 )
             }
         }
-    )
-}
-
-
-// Helper function to calculate dynamic chart height
-@Composable
-fun calculateDynamicChartHeight(
-    progress: Float,
-    screenHeight: Dp,
-    safeZones: SafeZones,
-    config: ScreenConfig
-): Dp {
-    val baseHeight = screenHeight * config.chartBaseHeightRatio
-    val minHeight = config.minChartHeight
-    
-    // Calculate height based on progress
-    val targetHeight = when {
-        progress <= 0.5f -> {
-            // Collapsed to half-expanded: maintain most of the height
-            val factor = 1f - (progress * 0.2f) // 100% -> 90%
-            baseHeight * factor
-        }
-        else -> {
-            // Half-expanded to expanded: compress more
-            val factor = 0.9f - ((progress - 0.5f) * 0.3f) // 90% -> 75%
-            baseHeight * factor
-        }
-    }
-    
-    // Ensure minimum height is maintained
-    return max(minHeight, targetHeight)
-}
-
-// Preview function
-@Preview(name = "Compact", device = "spec:width=360dp,height=640dp,dpi=160")
-@Preview(name = "Standard", device = Devices.PIXEL_7)
-@Preview(name = "Large", device = "spec:width=430dp,height=932dp,dpi=480")
-@Preview(name = "Tablet", device = Devices.TABLET)
-@Composable
-fun ChartScreenPreview() {
-    ChartScreen(
-        stockCode = "005930",
-        onNavigateToStockPurchase = { _, _ -> },
-        onNavigateToAIDialog = {},
-        onNavigateBack = {},
-        onNavigateToStock = {}
     )
 }

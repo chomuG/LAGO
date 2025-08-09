@@ -159,6 +159,37 @@ val SubtitleSb14 = TextStyle(
     fontSize = 14.sp
 )
 
+// Additional missing styles
+val SB_18 = TextStyle(
+    fontFamily = PretendardFamily,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 18.sp
+)
+
+val BodyR10 = TextStyle(
+    fontFamily = PretendardFamily,
+    fontWeight = FontWeight.Normal,
+    fontSize = 10.sp
+)
+
+val TitleB12 = TextStyle(
+    fontFamily = PretendardFamily,
+    fontWeight = FontWeight.Bold,
+    fontSize = 12.sp
+)
+
+val R_14 = TextStyle(
+    fontFamily = PretendardFamily,
+    fontWeight = FontWeight.Normal,
+    fontSize = 14.sp
+)
+
+val R_12 = TextStyle(
+    fontFamily = PretendardFamily,
+    fontWeight = FontWeight.Normal,
+    fontSize = 12.sp
+)
+
 val Typography = Typography(
     // Display
     displayLarge = HeadEb32,

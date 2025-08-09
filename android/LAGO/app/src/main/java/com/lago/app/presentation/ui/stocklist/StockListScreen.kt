@@ -1,5 +1,8 @@
 package com.lago.app.presentation.ui.stocklist
 
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -25,12 +28,19 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lago.app.presentation.theme.*
 import com.lago.app.presentation.viewmodel.stocklist.StockListViewModel
+import com.lago.app.presentation.viewmodel.stocklist.SortType
 import com.lago.app.domain.entity.StockItem
+import com.lago.app.domain.entity.News
+import com.lago.app.domain.entity.HistoryChallengeStock
+import com.lago.app.presentation.ui.components.NewsCard
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun StockListScreen(
     viewModel: StockListViewModel = hiltViewModel(),
-    onStockClick: (String) -> Unit
+    onStockClick: (String) -> Unit,
+    onHistoryChallengeStockClick: (String) -> Unit = { onStockClick(it) },
+    onNewsClick: (Int) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -53,7 +63,8 @@ fun StockListScreen(
                         modifier = Modifier.padding(Spacing.md)
                     )
                     FilterChips(
-                        selectedFilters = uiState.selectedFilters,
+                        currentSortType = uiState.currentSortType,
+                        showFavoritesOnly = uiState.showFavoritesOnly,
                         onFilterChange = { viewModel.onFilterChange(it) },
                         modifier = Modifier.padding(horizontal = Spacing.md)
                     )
@@ -72,56 +83,64 @@ fun StockListScreen(
                     }
                 }
                 1 -> {
-                    // 역사 챌린지 화면: 예시로 종목 관련 뉴스 등
-                    // 필요하다면 viewModel에서 관련 뉴스 로딩 로직 추가
-                    Text(
-                        text = "관련 뉴스",
-                        style = TitleB20,
-                        modifier = Modifier.padding(Spacing.md)
-                    )
-                    // 뉴스 카드 리스트 (가짜 데이터 예시)
+                    // 역사 챌린지 화면 - 종목 리스트 + 관련 뉴스
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(Spacing.md),
                         verticalArrangement = Arrangement.spacedBy(Spacing.sm + Spacing.xs)
                     ) {
-                        item {
-                            // 첫 번째 큰 뉴스 카드
-                            Card(
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(Spacing.md)) {
-                                    Text("호재", style = SubtitleSb14, color = MainPink)
-                                    Spacer(Modifier.height(Spacing.sm))
-                                    Text(
-                                        "서정진 “셀트리온, 관세 리스크 완전 해소…연 4.6조 매출 예상”",
-                                        style = TitleB16
-                                    )
-                                    Spacer(Modifier.height(Spacing.xs))
-                                    Text("27분전", style = BodyR12, color = Gray600)
-                                }
-                            }
+                        // 역사 챌린지 종목들
+                        items(uiState.historyChallengeStocks) { stock ->
+                            HistoryChallengeStockItem(
+                                stock = stock,
+                                onClick = { onHistoryChallengeStockClick(stock.stockCode) }
+                            )
                         }
-                        // 나머지 뉴스들
-                        items(3) { idx ->
-                            Card(
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(modifier = Modifier.padding(Spacing.sm + Spacing.xs)) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text("중립", style = SubtitleSb14, color = Gray900)
-                                        Spacer(Modifier.height(Spacing.xs))
-                                        Text(
-                                            "코스피 하락세 지속, 외국인 매도물량 증가로 인한 시장 불안감 확산",
-                                            style = BodyR14
-                                        )
-                                        Spacer(Modifier.height(2.dp))
-                                        Text("27분전", style = BodyR12, color = Gray600)
-                                    }
-                                }
-                            }
+                        
+                        // 관련 뉴스 섹션 제목
+                        item {
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "관련 뉴스",
+                                style = SB_18,
+                                color = Gray900,
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
+                        }
+                        
+                        // 더미 뉴스 데이터
+                        val dummyNews = listOf(
+                            News(
+                                newsId = 1,
+                                title = "삼성전자, 3분기 영업이익 전년 동기 대비 277% 증가",
+                                publishedAt = "2024-10-31T10:30:00Z",
+                                sentiment = "호재",
+                            ),
+                            News(
+                                newsId = 2,
+                                title = "SK하이닉스, HBM 시장 확대로 주가 상승 전망",
+                                publishedAt = "2024-10-31T09:15:00Z",
+                                sentiment = "호재",
+                            ),
+                            News(
+                                newsId = 3,
+                                title = "현대차, 전기차 판매 부진으로 실적 우려",
+                                publishedAt = "2024-10-31T08:00:00Z",
+                                sentiment = "악재",
+                            ),
+                            News(
+                                newsId = 4,
+                                title = "LG에너지솔루션, 북미 배터리 공장 가동 시작",
+                                publishedAt = "2024-10-31T07:30:00Z",
+                                sentiment = "중립",
+                            )
+                        )
+                        
+                        items(dummyNews) { news ->
+                            NewsCard(
+                                news = news,
+                                onClick = { onNewsClick(news.newsId) }
+                            )
                         }
                     }
                 }
@@ -135,42 +154,41 @@ private fun StockListTopBar(
     selectedTab: Int,
     onTabChange: (Int) -> Unit
 ) {
-    Column {
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    height = 2.dp
-                )
-            }
-        ) {
-            Tab(
-                selected = selectedTab == 0,
-                onClick = { onTabChange(0) },
-                text = {
-                    Text(
-                        "모의 투자",
-                        style = TitleB16,
-                        color = if (selectedTab == 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            )
-            Tab(
-                selected = selectedTab == 1,
-                onClick = { onTabChange(1) },
-                text = {
-                    Text(
-                        "역사 챌린지",
-                        style = TitleB16,
-                        color = if (selectedTab == 1) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+    TabRow(
+        modifier = Modifier.height(60.dp),
+        selectedTabIndex = selectedTab,
+        containerColor = AppBackground,
+        indicator = { tabPositions ->
+            Box(
+                modifier = Modifier
+                    .tabIndicatorOffset(tabPositions[selectedTab])
+                    .height(2.dp)
+                    .background(MainBlue)
             )
         }
+    ) {
+        Tab(
+            selected = selectedTab == 0,
+            onClick = { onTabChange(0) },
+            text = {
+                Text(
+                    text = "모의 투자",
+                    style = TitleB18,
+                    color = if (selectedTab == 0) Color.Black else Gray600
+                )
+            }
+        )
+        Tab(
+            selected = selectedTab == 1,
+            onClick = { onTabChange(1) },
+            text = {
+                Text(
+                    text = "역사 챌린지",
+                    style = TitleB18,
+                    color = if (selectedTab == 1) Color.Black else Gray600
+                )
+            }
+        )
     }
 }
 
@@ -185,15 +203,15 @@ private fun SearchBar(
         onValueChange = onQueryChange,
         modifier = modifier
             .fillMaxWidth()
-            .height(48.dp),
+            .height(56.dp),  // 검색창 높이 증가
         placeholder = {
             Text(
                 "검색하기...",
-                style = BodyR14,
+                style = BodyR18.copy(lineHeight = 24.sp),  // 줄 높이 추가
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
-        leadingIcon = {
+        trailingIcon = {
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = "검색",
@@ -203,7 +221,7 @@ private fun SearchBar(
         shape = RoundedCornerShape(8.dp),
         colors = OutlinedTextFieldDefaults.colors(
             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-            focusedBorderColor = MainPink
+            focusedBorderColor = MainBlue
         ),
         singleLine = true
     )
@@ -211,7 +229,8 @@ private fun SearchBar(
 
 @Composable
 private fun FilterChips(
-    selectedFilters: List<String>,
+    currentSortType: SortType,
+    showFavoritesOnly: Boolean,
     onFilterChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -222,22 +241,121 @@ private fun FilterChips(
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         filters.forEach { filter ->
-            FilterChip(
-                selected = selectedFilters.contains(filter),
-                onClick = { onFilterChange(filter) },
-                label = {
-                    Text(
-                        filter,
-                        style = SubtitleSb14
+            when (filter) {
+                "관심목록" -> {
+                    // 관심목록은 화살표 없이 필터링만
+                    FilterChip(
+                        selected = showFavoritesOnly,
+                        onClick = { onFilterChange(filter) },
+                        border = BorderStroke(1.dp, Gray600),
+                        label = {
+                            Text(
+                                filter,
+                                style = SubtitleSb14
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MainPink,
+                            selectedLabelColor = Color.White,
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
                     )
-                },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MainPink,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                )
-            )
+                }
+                else -> {
+                    // 정렬 버튼 (화살표 포함)
+                    val sortDirection = when (filter) {
+                        "이름" -> when (currentSortType) {
+                            SortType.NAME_ASC -> SortDirection.ASC
+                            SortType.NAME_DESC -> SortDirection.DESC
+                            else -> SortDirection.NONE
+                        }
+                        "현재가" -> when (currentSortType) {
+                            SortType.PRICE_ASC -> SortDirection.ASC
+                            SortType.PRICE_DESC -> SortDirection.DESC
+                            else -> SortDirection.NONE
+                        }
+                        "등락률" -> when (currentSortType) {
+                            SortType.CHANGE_ASC -> SortDirection.ASC
+                            SortType.CHANGE_DESC -> SortDirection.DESC
+                            else -> SortDirection.NONE
+                        }
+                        else -> SortDirection.NONE
+                    }
+                    
+                    SortChip(
+                        label = filter,
+                        sortDirection = sortDirection,
+                        onClick = { onFilterChange(filter) }
+                    )
+                }
+            }
         }
     }
+}
+
+enum class SortDirection {
+    NONE, ASC, DESC
+}
+
+@Composable
+private fun SortChip(
+    label: String,
+    sortDirection: SortDirection,
+    onClick: () -> Unit
+) {
+    FilterChip(
+        selected = false,  // 색상 변경 없음
+        onClick = onClick,
+        label = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = label,
+                    style = SubtitleSb14,
+                    color = Gray700  // 텍스트 색상은 항상 동일
+                )
+                
+                // 화살표 컬럼 - 정렬 중일 때만 표시
+                if (sortDirection != SortDirection.NONE) {
+                    Column(
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.height(16.dp)
+                    ) {
+                        // 위 화살표 (오름차순)
+                        Icon(
+                            painter = painterResource(
+                                if (sortDirection == SortDirection.ASC) 
+                                    R.drawable.order_arrowup_black 
+                                else 
+                                    R.drawable.order_arrowup_gray
+                            ),
+                            contentDescription = "오름차순",
+                            modifier = Modifier.size(8.dp),
+                            tint = Color.Unspecified
+                        )
+                        // 아래 화살표 (내림차순)
+                        Icon(
+                            painter = painterResource(
+                                if (sortDirection == SortDirection.DESC) 
+                                    R.drawable.order_arrowdown_black 
+                                else 
+                                    R.drawable.order_arrowdown_gray
+                            ),
+                            contentDescription = "내림차순",
+                            modifier = Modifier.size(8.dp),
+                            tint = Color.Unspecified
+                        )
+                    }
+                }
+            }
+        },
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            labelColor = MaterialTheme.colorScheme.onSurface
+        )
+    )
 }
 
 @Composable
@@ -246,91 +364,145 @@ private fun StockItemCard(
     onFavoriteClick: () -> Unit,
     onClick: () -> Unit
 ) {
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .background(Color.White)
+            .clickable { onClick() }
+            .padding(Spacing.md),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        // 둥근 로고
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(Spacing.md),
-            verticalAlignment = Alignment.CenterVertically
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary),
+            contentAlignment = Alignment.Center
         ) {
-            // 로고
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
+            Text(
+                text = stock.name.take(2),
+                color = MaterialTheme.colorScheme.onPrimary,
+                style = TitleB16
+            )
+        }
+
+        Spacer(modifier = Modifier.width(Spacing.sm))
+
+        // 종목 정보
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stock.name,
+                style = SB_18,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = stock.name.take(2),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    style = TitleB16
-                )
-            }
-
-            Spacer(modifier = Modifier.width(Spacing.sm + Spacing.xs))
-
-            // 종목 정보
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stock.name,
-                    style = TitleB16,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
                     text = "${String.format("%,d", stock.currentPrice)}원",
-                    style = SubtitleSb14,
+                    style = R_14,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-            }
-
-            // 변동률
-            Column(horizontalAlignment = Alignment.End) {
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                // 변동률과 변동금액 (현재 금액 바로 오른쪽)
                 val isPositive = stock.priceChangePercent >= 0
                 val changeColor = if (isPositive) MainPink else MainBlue
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        painter = painterResource(if (isPositive) R.drawable.up_triangle else R.drawable.down_triangle),
-                        contentDescription = null,
-                        tint = changeColor,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(Spacing.xs))
-                    Text(
-                        text = "${String.format("%,d", kotlin.math.abs(stock.priceChange))}원",
-                        style = SubtitleSb14,
-                        color = changeColor
-                    )
-                }
+                val changeSign = if (isPositive) "+" else ""
+                
                 Text(
-                    text = "(${if (isPositive) "+" else ""}${String.format("%.2f", stock.priceChangePercent)}%)",
-                    style = BodyR12,
+                    text = "${changeSign}${String.format("%,d", stock.priceChange)}(${changeSign}${String.format("%.2f", stock.priceChangePercent)}%)",
+                    style = R_12,
                     color = changeColor
                 )
             }
+        }
 
-            Spacer(modifier = Modifier.width(Spacing.sm))
-
-            // 즐겨찾기 버튼
-            IconButton(onClick = onFavoriteClick) {
-                Icon(
-                    painter = if (stock.isFavorite) painterResource(R.drawable.pink_heart) else painterResource(R.drawable.blank_heart),
-                    contentDescription = "관심종목",
-                    tint = if (stock.isFavorite) Color.Unspecified else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+        // 즐겨찾기 버튼
+        IconButton(onClick = onFavoriteClick) {
+            Icon(
+                painter = if (stock.isFavorite) painterResource(R.drawable.pink_heart) else painterResource(R.drawable.blank_heart),
+                contentDescription = "관심종목",
+                tint = if (stock.isFavorite) Color.Unspecified else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
 
+@Composable
+private fun HistoryChallengeStockItem(
+    stock: HistoryChallengeStock,
+    onClick: () -> Unit,
+    onFavoriteClick: (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .clickable { onClick() }
+            .padding(Spacing.md),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 둥근 로고
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = stock.stockName.take(2),
+                color = MaterialTheme.colorScheme.onPrimary,
+                style = TitleB16
+            )
+        }
+
+        Spacer(modifier = Modifier.width(Spacing.sm))
+
+        // 종목 정보
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stock.stockName,
+                style = SB_18,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${String.format("%,d", stock.currentPrice.toInt())}원",
+                    style = R_14,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                // 변동률과 변동금액 (현재 금액 바로 오른쪽)
+                val isPositive = stock.fluctuationRate >= 0
+                val changeColor = if (isPositive) MainPink else MainBlue
+                val changeSign = if (isPositive) "+" else ""
+                val changeAmount = (stock.currentPrice * stock.fluctuationRate / 100).toInt()
+                
+                Text(
+                    text = "${changeSign}${String.format("%,d", kotlin.math.abs(changeAmount))}(${changeSign}${String.format("%.2f", stock.fluctuationRate)}%)",
+                    style = R_12,
+                    color = changeColor
+                )
+            }
+        }
+
+        // 즐겨찾기 버튼 (역사챌린지에서는 빈 하트로 고정)
+        IconButton(onClick = { onFavoriteClick?.invoke() }) {
+            Icon(
+                painter = painterResource(R.drawable.blank_heart),
+                contentDescription = "관심종목",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}

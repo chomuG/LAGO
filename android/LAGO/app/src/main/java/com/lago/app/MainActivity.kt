@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -33,8 +36,6 @@ import com.lago.app.presentation.navigation.BottomNavigationBar
 import com.lago.app.presentation.navigation.NavGraph
 import com.lago.app.presentation.theme.LagoTheme
 import dagger.hilt.android.AndroidEntryPoint
-import com.lago.app.data.local.prefs.UserPreferences
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -67,13 +68,33 @@ fun LagoApp(userPreferences: UserPreferences) {
 
     // Routes where bottom navigation should be hidden
     val hideBottomBarRoutes = listOf(
-        "pattern_study", "wordbook",
-        "random_quiz", "daily_quiz",
+        "pattern_study",
+        "wordbook",
+        "random_quiz",
+        "daily_quiz",
+        "pattern_study",
         "login", "personality_test",
         "order_history", "ranking",
-        "portfolio"
+        "portfolio",
+        "chart",  // 차트 탭 화면 (목 데이터)
+        "chart/{stockCode}",  // 차트 화면
+        "history_challenge_chart/{stockCode}",  // 역사 챌린지 차트 화면
+        "stock_purchase/{stockCode}/{transactionType}"  // 구매/판매 화면
     )
-    val shouldLogicallyShowBottomBar = currentRoute !in hideBottomBarRoutes && currentRoute?.startsWith("news_detail") != true
+
+    // Check if current route matches any of the hidden routes (including parameterized routes)
+    val shouldHideBottomBar = hideBottomBarRoutes.any { route ->
+        when {
+            route.contains("{") -> {
+                // For parameterized routes, check if current route starts with the base path
+                val basePath = route.substringBefore("{")
+                currentRoute?.startsWith(basePath) == true
+            }
+            else -> currentRoute == route
+        }
+    } || currentRoute?.startsWith("news_detail") == true
+
+    val shouldLogicallyShowBottomBar = !shouldHideBottomBar
 
     // State for delayed bottom bar animation
     var showBottomBarWithDelay by remember { mutableStateOf(shouldLogicallyShowBottomBar) }

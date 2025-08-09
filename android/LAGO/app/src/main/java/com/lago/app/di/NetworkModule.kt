@@ -5,6 +5,7 @@ import com.lago.app.data.remote.NewsApiService
 import com.lago.app.data.remote.StudyApiService
 import com.lago.app.util.Constants
 import com.lago.app.data.remote.api.ChartApiService
+import com.lago.app.data.remote.api.HistoryChallengeApiService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -78,5 +79,11 @@ object NetworkModule {
     @Singleton
     fun provideStudyApiService(retrofit: Retrofit): StudyApiService {
         return retrofit.create(StudyApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideHistoryChallengeApiService(retrofit: Retrofit): HistoryChallengeApiService {
+        return retrofit.create(HistoryChallengeApiService::class.java)
     }
 }

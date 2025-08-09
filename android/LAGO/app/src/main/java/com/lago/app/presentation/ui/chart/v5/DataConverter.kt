@@ -5,6 +5,7 @@ import com.lago.app.domain.entity.LineData as DomainLineData
 import com.lago.app.domain.entity.VolumeData as DomainVolumeData
 import com.lago.app.domain.entity.MACDResult as DomainMACDResult
 import com.lago.app.domain.entity.BollingerBandsResult as DomainBollingerBandsResult
+import com.lago.app.presentation.ui.chart.v5.MACDChartData
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -197,72 +198,50 @@ object DataConverter {
             )
         }
         
-        // MACD 지표 추가
+        // MACD 지표 추가 (패널로 처리하기 위해 indicators 리스트에 추가)
         if (enabledIndicators.macd && macdData != null && macdData.macdLine.isNotEmpty()) {
+            android.util.Log.d("LAGO_CHART", "Adding MACD indicator with ${macdData.macdLine.size} MACD line, ${macdData.signalLine.size} signal line, ${macdData.histogram.size} histogram points")
             indicators.add(
                 IndicatorData(
                     type = IndicatorType.MACD,
                     name = "MACD (12,26,9)",
-                    data = convertLineData(macdData.macdLine),
+                    data = convertLineData(macdData.macdLine), // 이건 더미 데이터 (실제 MACD 데이터는 macdData 필드에서 사용)
                     options = IndicatorOptions(
                         color = "#2196F3",
                         height = 100
                     )
                 )
             )
+        } else {
+            android.util.Log.d("LAGO_CHART", "MACD not added - enabled:${enabledIndicators.macd}, data:${macdData != null}, dataSize:${macdData?.macdLine?.size ?: 0}")
         }
         
-        // 볼린저 밴드 지표 추가
-        if (enabledIndicators.bollingerBands && bollingerBands != null && bollingerBands.upperBand.isNotEmpty()) {
-            // Upper band 추가
-            indicators.add(
-                IndicatorData(
-                    type = IndicatorType.BOLLINGER_BANDS,
-                    name = "볼린저 밴드 (상단)",
-                    data = convertLineData(bollingerBands.upperBand),
-                    options = IndicatorOptions(
-                        color = "#607D8B",
-                        height = 120
-                    )
-                )
-            )
-            
-            // Middle band (SMA) 추가
-            indicators.add(
-                IndicatorData(
-                    type = IndicatorType.BOLLINGER_BANDS,
-                    name = "볼린저 밴드 (중간)",
-                    data = convertLineData(bollingerBands.middleBand),
-                    options = IndicatorOptions(
-                        color = "#FF9800",
-                        height = 120
-                    )
-                )
-            )
-            
-            // Lower band 추가
-            indicators.add(
-                IndicatorData(
-                    type = IndicatorType.BOLLINGER_BANDS,
-                    name = "볼린저 밴드 (하단)",
-                    data = convertLineData(bollingerBands.lowerBand),
-                    options = IndicatorOptions(
-                        color = "#607D8B",
-                        height = 120
-                    )
-                )
-            )
-        }
-        
-        // SMA5 지표 - 메인 패널에 오버레이로 표시하기 위해 별도 처리 필요
-        // 현재는 MultiPanelChart가 메인 패널 오버레이를 지원하지 않으므로 생략
-        
-        // SMA20 지표 - 메인 패널에 오버레이로 표시하기 위해 별도 처리 필요
-        // 현재는 MultiPanelChart가 메인 패널 오버레이를 지원하지 않으므로 생략
+        // 볼린저 밴드는 메인 차트에 오버레이로 표시하기 위해 별도 처리 필요
+        // MultiPanelChart에서 메인 패널에 직접 추가됨
         
         return MultiPanelData(
             priceData = convertCandlestickData(candlestickData),
-            indicators = indicators
+            indicators = indicators,
+            bollingerBands = if (enabledIndicators.bollingerBands && bollingerBands != null) {
+                BollingerBandsData(
+                    upperBand = convertLineData(bollingerBands.upperBand),
+                    middleBand = convertLineData(bollingerBands.middleBand),
+                    lowerBand = convertLineData(bollingerBands.lowerBand)
+                )
+            } else null,
+            sma5Data = if (enabledIndicators.sma5 && sma5Data.isNotEmpty()) {
+                convertLineData(sma5Data)
+            } else null,
+            sma20Data = if (enabledIndicators.sma20 && sma20Data.isNotEmpty()) {
+                convertLineData(sma20Data)
+            } else null,
+            macdData = if (enabledIndicators.macd && macdData != null) {
+                MACDChartData(
+                    macdLine = convertLineData(macdData.macdLine),
+                    signalLine = convertLineData(macdData.signalLine),
+                    histogram = convertVolumeData(macdData.histogram)
+                )
+            } else null
         )
     }
 }

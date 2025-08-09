@@ -72,4 +72,14 @@ interface ChartRepository {
      * 관심종목 여부 확인
      */
     suspend fun isFavorite(stockCode: String): Flow<Resource<Boolean>>
+    
+    /**
+     * 차트 패턴 분석
+     */
+    suspend fun analyzeChartPattern(
+        stockCode: String,
+        timeFrame: String,
+        startTime: String? = null,
+        endTime: String? = null
+    ): Flow<Resource<PatternAnalysisResult>>
 }

@@ -286,4 +286,53 @@ class ChartRepositoryImpl @Inject constructor(
             emit(Resource.Error("Unexpected error: ${e.localizedMessage}"))
         }
     }
+
+    override suspend fun analyzeChartPattern(
+        stockCode: String,
+        timeFrame: String,
+        startTime: String?,
+        endTime: String?
+    ): Flow<Resource<PatternAnalysisResult>> = flow {
+        try {
+            emit(Resource.Loading())
+            
+            val token = userPreferences.getAuthToken()
+            if (token.isNullOrEmpty()) {
+                emit(Resource.Error("Authentication required"))
+                return@flow
+            }
+            
+            val request = com.lago.app.data.remote.dto.PatternAnalysisRequest(
+                timeFrame = timeFrame,
+                startTime = startTime,
+                endTime = endTime
+            )
+            
+            val response = apiService.analyzeChartPattern("Bearer $token", stockCode, request)
+            
+            if (response.success) {
+                val patternResult = PatternAnalysisResult(
+                    patterns = response.data.patterns.map { pattern ->
+                        PatternItem(
+                            patternName = pattern.patternName,
+                            description = pattern.description,
+                            confidence = pattern.confidence,
+                            recommendation = pattern.recommendation
+                        )
+                    },
+                    analysisTime = response.data.analysisTime,
+                    confidenceScore = response.data.confidenceScore
+                )
+                emit(Resource.Success(patternResult))
+            } else {
+                emit(Resource.Error("Pattern analysis failed"))
+            }
+        } catch (e: HttpException) {
+            emit(Resource.Error("Network error: ${e.localizedMessage}"))
+        } catch (e: IOException) {
+            emit(Resource.Error("Connection error: ${e.localizedMessage}"))
+        } catch (e: Exception) {
+            emit(Resource.Error("Unexpected error: ${e.localizedMessage}"))
+        }
+    }
 }
