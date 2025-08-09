@@ -51,7 +51,9 @@ services:
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
       - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_PORT=${SPRING_REDIS_PORT}
+      - SPRING_PROFILES_ACTIVE=dev
+      - REDIS_STREAM_KEY=orders-stream
     depends_on:
       - timescaledb
       - redis

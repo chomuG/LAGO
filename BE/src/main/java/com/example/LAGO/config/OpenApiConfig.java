@@ -11,6 +11,7 @@ import io.swagger.v3.oas.models.servers.Server;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
@@ -43,7 +44,8 @@ public class OpenApiConfig {
      * @return OpenAPI 객체
      */
     @Bean
-    public OpenAPI customOpenAPI() {
+        @Primary
+        public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(createApiInfo())
                 .servers(createServers())
