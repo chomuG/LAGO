@@ -8,7 +8,7 @@ import java.util.stream.Stream;
 
 @Getter
 @RequiredArgsConstructor
-public enum Interval {
+public enum ChallengeInterval {
     MINUTE("1m"),
     HOUR("1H"),
     DAY("1D");
@@ -16,11 +16,11 @@ public enum Interval {
     private final String code;
 
     @JsonCreator
-    public static Interval fromCode(String code) {
+    public static ChallengeInterval fromCode(String code) {
         if (code == null) {
             return null;
         }
-        return Stream.of(Interval.values())
+        return Stream.of(ChallengeInterval.values())
                 .filter(i -> i.getCode().equalsIgnoreCase(code))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 간격 코드입니다: " + code));

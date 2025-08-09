@@ -12,6 +12,13 @@ import java.util.List;
 @Repository
 public interface HistoryChallengeDataRepository extends JpaRepository<HistoryChallengeData, Integer> {
 
+    /**
+     * 특정 챌린지의 주가 데이터를 조회합니다.
+     * @param challengeId 챌린지 ID
+     * @param intervalType 간격
+     * @param targetDate 현재 일시
+     * @return 역사챌린지 주가 데이터 목록
+     */
     @Query("SELECT hcd FROM HistoryChallengeData hcd " +
             "WHERE hcd.challengeId = :challengeId " +
             "AND hcd.intervalType = :intervalType " +
@@ -20,10 +27,15 @@ public interface HistoryChallengeDataRepository extends JpaRepository<HistoryCha
     List<HistoryChallengeData> findByIntervalTypeAndDate(@Param("challengeId") Integer challengeId, @Param("intervalType") String intervalType, @Param("targetDate") LocalDateTime targetDate);
 
     /**
-     * 특정 챌린지의 가장 최신 주가 데이터를 한 건 조회합니다.
+     * 특정 챌린지의 가장 최신 주가 데이터를 조회합니다.
      * @param challengeId 챌린지 ID
-     * @return 가장 최신 주가 데이터
+     * @return 역사챌린지 최신 주가 데이터
      */
+    @Query("SELECT hcd FROM HistoryChallengeData hcd " +
+            "WHERE hcd.challengeId = :challengeId " +
+            "AND hcd.intervalType = '10M' " +
+            "AND hcd.eventDate <= :targetDate " +
+            "ORDER BY hcd.eventDate DESC LIMIT 1")
     HistoryChallengeData findTopByChallengeIdOrderByEventDateDesc(Integer challengeId);
 
 }

@@ -31,8 +31,14 @@ public class HistoryChallengeResponse {
     @Schema(description = "종료일시", example = "2025-08-20 21:00:00")
     private LocalDateTime endDate;
 
-    @Schema(description = "현재 주가 정보")
-    private HistoryChallengeDataResponse currentPriceData;
+    @Schema(description = "현재 주가", example = "204730")
+    private Integer currentPrice;
+
+    @Schema(description = "등락", example = "1500")
+    private Integer fluctuationPrice;
+
+    @Schema(description = "등락률", example = "2.14")
+    private Float fluctuationRate;
 
     public HistoryChallengeResponse(HistoryChallenge entity) {
         this.challengeId = entity.getChallengeId();
@@ -41,7 +47,6 @@ public class HistoryChallengeResponse {
         this.stockCode = entity.getStockCode();
         this.startDate = entity.getStartDate();
         this.endDate = entity.getEndDate();
-        this.currentPriceData = null; // 기본 생성자에서는 null로 초기화
     }
 
     public HistoryChallengeResponse(HistoryChallenge challenge, HistoryChallengeData currentData) {
@@ -51,6 +56,8 @@ public class HistoryChallengeResponse {
         this.stockCode = challenge.getStockCode();
         this.startDate = challenge.getStartDate();
         this.endDate = challenge.getEndDate();
-        this.currentPriceData = (currentData != null) ? new HistoryChallengeDataResponse(currentData) : null;
+        this.currentPrice = currentData.getClosePrice();
+        this.fluctuationPrice = currentData.getClosePrice() - currentData.getOpenPrice();
+        this.fluctuationRate = currentData.getFluctuationRate();
     }
 }

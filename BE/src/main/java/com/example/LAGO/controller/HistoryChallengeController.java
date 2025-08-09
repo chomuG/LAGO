@@ -1,6 +1,6 @@
 package com.example.LAGO.controller;
 
-import com.example.LAGO.constants.Interval;
+import com.example.LAGO.constants.ChallengeInterval;
 import com.example.LAGO.dto.response.HistoryChallengeDataResponse;
 import com.example.LAGO.dto.response.HistoryChallengeResponse;
 import com.example.LAGO.service.HistoryChallengeService;
@@ -46,13 +46,14 @@ public class HistoryChallengeController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "역사챌린지 차트 조회 성공"),
+            @ApiResponse(responseCode = "204", description = "진행 중인 역사챌린지 없음"),
             @ApiResponse(responseCode = "500", description = "서버 내부 오류")
     })
     public ResponseEntity<List<HistoryChallengeDataResponse>> getHistoryChallengeChart(
             @Parameter(description = "챌린지 ID", required = true, example = "1")
             @Validated @PathVariable Integer challengeId,
             @Parameter(description = "간격", required = true, example = "1D")
-            @Validated @RequestParam Interval interval
+            @Validated @RequestParam ChallengeInterval interval
     ) {
         List<HistoryChallengeDataResponse> response = historyChallengeService.getHistoryChallengeData(challengeId, interval);
         return ResponseEntity.ok(response);
