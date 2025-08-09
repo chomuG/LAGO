@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,6 +47,18 @@ public interface StockDayRepository extends JpaRepository<StockDay, Integer> {
     List<StockDay> findByStockInfoStockInfoIdAndDateBetweenOrderByDateAsc(Integer stockInfoId,
                                                                  LocalDate startDate,
                                                                  LocalDate endDate);
+
+    /**
+     * 종목 정보 ID로 특정 기간 일봉 데이터 조회
+     *
+     * @param stockInfoId 종목 정보 ID
+     * @param startDate   시작일
+     * @param endDate     종료일
+     * @return 일봉 데이터 리스트 (날짜순)
+     */
+    List<StockDay> findByStockInfoStockInfoIdAndNewDateBetweenOrderByNewDateAsc(Integer stockInfoId,
+                                                                          LocalDateTime startDate,
+                                                                          LocalDateTime endDate);
 
     /**
      * 종목 정보 ID로 최신 일봉 데이터 조회

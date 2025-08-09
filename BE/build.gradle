@@ -31,6 +31,7 @@ dependencies {
 	// implementation 'org.springframework.boot:spring-boot-starter-security'  // 개발 단계에서 임시 비활성화
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'com.fasterxml.jackson.core:jackson-databind'
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
 	// Swagger/OpenAPI 3.0 - Spring Boot 3.5.x 호환 최신 버전

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 @NoArgsConstructor
@@ -17,8 +18,8 @@ public class ChartAnalysisRequest {
     private String interval; // "minute", "day", "week"
 
     @NotNull(message = "시작일은 필수입니다.")
-    private LocalDate startDate;
+    private LocalDateTime startDate;
 
     @NotNull(message = "종료일은 필수입니다.")
-    private LocalDate endDate;
+    private LocalDateTime endDate;
 }

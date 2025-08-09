@@ -1,6 +1,9 @@
 package com.example.LAGO.service;
 
 import com.example.LAGO.dto.response.ChartAnalysisResponse;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ChartAnalysisService {
@@ -10,5 +13,5 @@ public interface ChartAnalysisService {
      * @param stockId 분석할 주식의 ID
      * @return 감지된 차트 패턴 목록
      */
-    List<ChartAnalysisResponse> analyzePatterns(int stockId);
+    List<ChartAnalysisResponse> analyzePatterns(Long stockId, String interval, LocalDateTime startDate, LocalDateTime endDate);
 }

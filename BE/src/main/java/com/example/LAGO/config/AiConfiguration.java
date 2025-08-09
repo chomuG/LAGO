@@ -52,7 +52,7 @@ public class AiConfiguration {
      * 
      * @return ObjectMapper 인스턴스
      */
-    @Bean
+    @Bean(name="aiObjectMapper")
     public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         
