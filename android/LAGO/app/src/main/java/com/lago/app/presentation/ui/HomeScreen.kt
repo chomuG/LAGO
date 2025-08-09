@@ -64,7 +64,8 @@ data class Stock(
 fun HomeScreen(
     userPreferences: UserPreferences,
     onOrderHistoryClick: () -> Unit = {},
-    onLoginClick: () -> Unit = {}
+    onLoginClick: () -> Unit = {},
+    onTradingBotClick: () -> Unit = {}
 ) {
     val isLoggedIn = userPreferences.getAuthToken() != null
     val username = userPreferences.getUsername() ?: "게스트"
@@ -207,7 +208,7 @@ fun HomeScreen(
 
         // 성향별 매매봇 Section
         item {
-            TradingBotSection(tradingBots)
+            TradingBotSection(tradingBots, onTradingBotClick)
         }
 
         item {
@@ -330,7 +331,7 @@ private fun InvestmentSection(
                             modifier = Modifier.clickable { onOrderHistoryClick() }
                         ) {
                             Text(
-                                text = "주문내역",
+                                text = "거래내역",
                                 style = SubtitleSb14
                             )
                             Image(
@@ -381,7 +382,7 @@ private fun InvestmentSection(
 }
 
 @Composable
-private fun TradingBotSection(tradingBots: List<TradingBot>) {
+private fun TradingBotSection(tradingBots: List<TradingBot>, onTradingBotClick: () -> Unit = {}) {
     Column {
         Text(
             text = "성향별 매매봇",
@@ -396,16 +397,17 @@ private fun TradingBotSection(tradingBots: List<TradingBot>) {
             contentPadding = PaddingValues(horizontal = 20.dp)
         ) {
             items(tradingBots) { bot ->
-                TradingBotCard(bot)
+                TradingBotCard(bot, onTradingBotClick)
             }
         }
     }
 }
 
 @Composable
-private fun TradingBotCard(bot: TradingBot) {
+private fun TradingBotCard(bot: TradingBot, onTradingBotClick: () -> Unit = {}) {
     val profitColor = if (bot.profit.startsWith("-")) MainBlue else Color(0xFFFF6B6B)
     Card(
+        onClick = { onTradingBotClick() },
         modifier = Modifier
             .width(273.dp)
             .height(158.dp)

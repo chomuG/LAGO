@@ -79,7 +79,7 @@ fun OrderHistoryScreen(
             .background(Color(0xFFF7F7F7))
     ) {
         CommonTopAppBar(
-            title = "나의 주문 내역",
+            title = "거래 내역",
             onBackClick = onBackClick
         )
         

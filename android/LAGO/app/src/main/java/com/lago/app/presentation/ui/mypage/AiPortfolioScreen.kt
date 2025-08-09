@@ -2,6 +2,7 @@ package com.lago.app.presentation.ui.mypage
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -49,6 +50,7 @@ data class AiPieChartData(
 fun AiPortfolioScreen(
     onBackClick: () -> Unit = {},
     onStockClick: (String) -> Unit = {},
+    onOrderHistoryClick: () -> Unit = {},
     userName: String = "AI 포트폴리오"
 ) {
     val aiStockList = listOf(
@@ -88,7 +90,7 @@ fun AiPortfolioScreen(
             item { AiProfileSection() }
 
             // 자산 현황 타이틀 섹션
-            item { AiAssetTitleSection() }
+            item { AiAssetTitleSection(onOrderHistoryClick) }
 
             // 자산 현황 섹션
             item { AiAssetStatusSection() }
@@ -128,7 +130,7 @@ fun AiProfileSection() {
 }
 
 @Composable
-fun AiAssetTitleSection() {
+fun AiAssetTitleSection(onOrderHistoryClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -143,11 +145,12 @@ fun AiAssetTitleSection() {
         )
 
         Row(
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clickable { onOrderHistoryClick() }
         ) {
             Text(
-                text = "구매내역보기 >",
-                style = BodyR12,
+                text = "거래내역 >",
+                style = BodyR14,
                 color = Gray700
             )
         }
