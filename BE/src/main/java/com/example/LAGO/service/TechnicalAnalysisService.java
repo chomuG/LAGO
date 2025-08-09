@@ -7,6 +7,7 @@ import com.example.LAGO.repository.*;
 import com.example.LAGO.utils.TechnicalAnalysisUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -219,7 +220,7 @@ public class TechnicalAnalysisService {
         try {
             // 지침서 명세: Repository에서 실제 존재하는 메서드 사용
             List<StockDay> stockData = stockDayRepository
-                .findByStockInfoIdOrderByDateDescLimit(stockInfo.getStockInfoId(), days);
+                .findByStockInfoStockInfoIdOrderByDateDesc(stockInfo.getStockInfoId(), Pageable.ofSize(days));
             
             log.debug("주가 데이터 조회 완료: {} - {}일 (실제 조회: {}일)", 
                      stockInfo.getCode(), days, stockData.size());

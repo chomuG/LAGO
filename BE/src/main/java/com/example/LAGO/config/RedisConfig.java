@@ -1,0 +1,39 @@
+package com.example.LAGO.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.GenericToStringSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
+
+@Configuration
+public class RedisConfig {
+    
+    /**
+     * Redis Template 설정
+     * String 키/값 및 Stream 처리를 위한 설정
+     */
+    @Bean
+    public RedisTemplate<String, String> redisTemplate(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, String> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+        
+        // String serializer 사용
+        StringRedisSerializer stringSerializer = new StringRedisSerializer();
+        
+        // 키 serialization
+        template.setKeySerializer(stringSerializer);
+        template.setHashKeySerializer(stringSerializer);
+        
+        // 값 serialization
+        template.setValueSerializer(stringSerializer);
+        template.setHashValueSerializer(stringSerializer);
+        
+        // Stream 메시지의 필드와 값을 위한 serializer
+        template.setDefaultSerializer(stringSerializer);
+        
+        template.afterPropertiesSet();
+        return template;
+    }
+}

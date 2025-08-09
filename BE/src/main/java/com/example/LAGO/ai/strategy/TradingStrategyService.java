@@ -10,6 +10,7 @@ import com.example.LAGO.domain.*;
 import com.example.LAGO.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -379,8 +380,8 @@ public class TradingStrategyService {
                 .orElseThrow(() -> new IllegalArgumentException("주식 정보를 찾을 수 없습니다: " + stockCode));
 
             // 2. EC2 DB에서 최근 60일 주식 데이터 조회
-            List<StockDay> recentData = stockDayRepository.findByStockInfoIdOrderByDateDescLimit(
-                stockInfo.getStockInfoId(), 60);
+            List<StockDay> recentData = stockDayRepository.findByStockInfoStockInfoIdOrderByDateDesc(
+                stockInfo.getStockInfoId(), Pageable.ofSize(60));
             
             if (recentData.isEmpty()) {
                 throw new IllegalArgumentException("주식 데이터를 찾을 수 없습니다: " + stockCode);

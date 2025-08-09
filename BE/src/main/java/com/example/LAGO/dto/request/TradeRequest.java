@@ -10,8 +10,24 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
 /**
- * 매매 요청 DTO
- * 지침서 명세: 사용자 매매 요청 (POST /api/stocks/buy, /api/stocks/sell)
+ * 매매 요청
+ */
+@Data
+@Builder
+@NoArgsConstructor
+package com.example.LAGO.dto.request;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import lombok.Data;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+
+/**
+ * 매매 요청
  */
 @Data
 @Builder
@@ -40,25 +56,5 @@ public class TradeRequest {
 
     @Schema(description = "계좌 ID", example = "1001")
     private Integer accountId; // 선택적 - 없으면 기본 계좌 사용
-    
-    /**
-     * 매수 요청 유효성 검증
-     * 지침서 명세: Validation/Exception 모든 입력/출력/관계/필수값/에러 꼼꼼히 처리
-     */
-    public boolean isValidBuyRequest() {
-        return "BUY".equals(tradeType) && 
-               stockCode != null && !stockCode.trim().isEmpty() &&
-               quantity != null && quantity > 0 &&
-               price != null && price > 0;
-    }
-
-    /**
-     * 매도 요청 유효성 검증
-     */
-    public boolean isValidSellRequest() {
-        return "SELL".equals(tradeType) && 
-               stockCode != null && !stockCode.trim().isEmpty() &&
-               quantity != null && quantity > 0 &&
-               price != null && price > 0;
-    }
 }
+<<<<<<< HEAD

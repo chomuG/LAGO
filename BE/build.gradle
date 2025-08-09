@@ -30,61 +30,44 @@ repositories {
 }
 
 dependencies {
-	// =================================================================
-	// Spring Boot Core Dependencies
-	// =================================================================
+	// Core
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-actuator'
-	
-	// Spring Security (개발 단계에서 임시 비활성화)
-	// implementation 'org.springframework.boot:spring-boot-starter-security'
-	
-	// =================================================================
-	// API Documentation (Swagger/OpenAPI 3.0)
-	// =================================================================
+
+	// Swagger/OpenAPI 3
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.0'
-	
-	// =================================================================
-	// Database Drivers
-	// =================================================================
-	runtimeOnly 'org.postgresql:postgresql'              // PostgreSQL/TimescaleDB
-	runtimeOnly 'com.mysql:mysql-connector-j'           // MySQL (데이터 이전용)
-	runtimeOnly 'com.h2database:h2'                     // H2 (테스트용)
-	
-	// =================================================================
-	// Development Tools
-	// =================================================================
-	compileOnly 'org.projectlombok:lombok'
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
-	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
-	annotationProcessor 'org.projectlombok:lombok'
-	
-	// =================================================================
-	// HTTP Client (외부 API 연동용)
-	// =================================================================
-	implementation 'org.springframework.boot:spring-boot-starter-webflux'  // WebClient for FinBERT
-	
-	// =================================================================
-	// JSON Processing
-	// =================================================================
+
+	// JSON
 	implementation 'com.fasterxml.jackson.core:jackson-databind'
 	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
-	
-	// =================================================================
-	// Test Dependencies
-	// =================================================================
+
+	// WebClient
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+	// Env helper (backend-dev)
+	implementation 'io.github.cdimascio:java-dotenv:5.2.2'
+
+	// Runtime drivers
+	runtimeOnly 'org.postgresql:postgresql'
+
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+	// Dev tools
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	testImplementation 'org.testcontainers:junit-jupiter'
 	testImplementation 'org.testcontainers:postgresql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testRuntimeOnly 'com.h2database:h2'
-	
-	// Security Test (비활성화)
-	// testImplementation 'org.springframework.security:spring-security-test'
 }
 
 // =================================================================
@@ -92,8 +75,8 @@ dependencies {
 // =================================================================
 tasks.named('test') {
 	useJUnitPlatform()
-	
-	// 테스트 시 H2 데이터베이스 사용 (별도 프로필 없이 시스템 프로퍼티로 설정)
+
+	// 테스트 시 H2 데이터베이스 사용 (시스템 프로퍼티로 설정)
 	systemProperty 'spring.datasource.url', 'jdbc:h2:mem:testdb'
 	systemProperty 'spring.datasource.username', 'sa'
 	systemProperty 'spring.datasource.password', ''
@@ -115,7 +98,7 @@ application {
 // =================================================================
 bootRun {
 	mainClass = 'com.example.LAGO.LagoApplication'
-	
+
 	// .env 파일에서 환경변수 로드
 	doFirst {
 		def envFile = file('../.env')
@@ -136,7 +119,7 @@ bootRun {
 			println "No .env file found, using default settings"
 		}
 	}
-	
+
 	// 개발환경 프로파일 강제 설정
 	systemProperty 'spring.profiles.active', 'dev'
 	systemProperty 'spring.config.location', 'classpath:application.properties,classpath:application-dev.properties'
@@ -151,16 +134,16 @@ jar {
 
 bootJar {
 	archiveFileName = 'lago-backend.jar'
-	
+
 	// JAR 실행 시 환경 정보 포함
 	manifest {
 		attributes(
-			'Implementation-Title': project.name,
-			'Implementation-Version': project.version,
-			'Built-By': System.getProperty('user.name'),
-			'Build-Timestamp': new Date(),
-			'Created-By': "Gradle ${gradle.gradleVersion}",
-			'Build-Jdk': "${System.getProperty('java.version')} (${System.getProperty('java.vendor')} ${System.getProperty('java.vm.version')})"
+				'Implementation-Title': project.name,
+				'Implementation-Version': project.version,
+				'Built-By': System.getProperty('user.name'),
+				'Build-Timestamp': new Date(),
+				'Created-By': "Gradle ${gradle.gradleVersion}",
+				'Build-Jdk': "${System.getProperty('java.version')} (${System.getProperty('java.vendor')} ${System.getProperty('java.vm.version')})"
 		)
 	}
 }

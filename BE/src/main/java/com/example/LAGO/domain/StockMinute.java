@@ -1,36 +1,28 @@
 package com.example.LAGO.domain;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
-import java.time.LocalDateTime;
-
-/**
- * 주식 분봉 데이터 엔티티
- * stock_minute 테이블과 매핑
- * 1분 단위 주식 가격 정보를 저장
- */
 @Entity
-@Table(name = "stock_minute")
-@Data
-@Builder
+@Table(name = "\"STOCK_MINUTE\"")
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class StockMinute {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @Column(name = "stock_mid_id")
+    private Integer stockMidId;
 
-    @Column(name = "stock_code", nullable = false, length = 10)
-    private String stockCode;
+    // 외래키: STOCK_INFO 참조
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stock_info_id")
+    private StockInfo stockInfo;
 
-    @Column(name = "minute_datetime", nullable = false)
-    private LocalDateTime minuteDateTime;
+    @Column(name = "date", nullable = false)
+    private java.time.LocalDateTime date;
 
     @Column(name = "open_price", nullable = false)
     private Integer openPrice;
@@ -45,16 +37,5 @@ public class StockMinute {
     private Integer closePrice;
 
     @Column(name = "volume", nullable = false)
-    private Long volume;
-
-    @Column(name = "trading_value")
-    private Long tradingValue;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
+    private Integer volume;
 }
