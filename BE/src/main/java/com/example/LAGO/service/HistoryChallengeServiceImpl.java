@@ -24,11 +24,17 @@ public class HistoryChallengeServiceImpl implements HistoryChallengeService {
 
     @Override
     public HistoryChallengeResponse getHistoryChallenge() {
+        // 1. 현재 날짜로 진행 중인 챌린지 조회
         HistoryChallenge challenge = historyChallengeRepository.findByDate(LocalDate.now());
         if (challenge == null) {
             throw new IllegalStateException("현재 진행 중인 역사 챌린지가 없습니다.");
         }
-        return new HistoryChallengeResponse(challenge);
+
+        // 2. 해당 챌린지의 가장 최신 주가 데이터 조회
+        HistoryChallengeData currentData = historyChallengeDataRepository.findTopByChallengeIdOrderByEventDateDesc(challenge.getChallengeId());
+
+        // 3. 두 엔티티를 사용하여 응답 DTO 생성 및 반환
+        return new HistoryChallengeResponse(challenge, currentData);
     }
 
     @Override
