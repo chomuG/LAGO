@@ -40,7 +40,7 @@ public class HistoryChallengeServiceImpl implements HistoryChallengeService {
 
     @Override
     public List<HistoryChallengeDataResponse> getHistoryChallengeData(Integer challengeId, ChallengeInterval interval) {
-        historyChallengeRepository.findById(challengeId.longValue())
+        historyChallengeRepository.findById(challengeId)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid challenge ID: " + challengeId));
 
         // enum의 code 값을 사용하여 Repository 호출
@@ -58,4 +58,21 @@ public class HistoryChallengeServiceImpl implements HistoryChallengeService {
                 .map(HistoryChallengeDataResponse::new)
                 .collect(Collectors.toList());
     }
+
+//    public List<News> getChallengeNews() {
+//        HistoryChallenge challenge = historyChallengeRepository.findByDate(LocalDate.now());
+//        if (challenge == null) {
+//            throw new NoContentException("현재 진행 중인 역사 챌린지가 없습니다.");
+//        }
+//
+//        // 1. 현재 이벤트 진행 시간 계산
+//        LocalDateTime now = LocalDateTime.now();
+//        long minutesSinceStart = Duration.between(event.getStartTime(), now).toMinutes();
+//
+//        // 2. 분 단위 → 과거 시간으로 변환
+//        LocalDateTime pastTime = event.getPastStartTime().plusMinutes(minutesSinceStart);
+//
+//        // 3. 뉴스 조회 (과거 날짜로)
+//        return newsService.getNewsByDate(pastTime.toLocalDate());
+//    }
 }

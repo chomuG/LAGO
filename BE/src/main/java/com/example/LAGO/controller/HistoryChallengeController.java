@@ -58,4 +58,18 @@ public class HistoryChallengeController {
         List<HistoryChallengeDataResponse> response = historyChallengeService.getHistoryChallengeData(challengeId, interval);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/news")
+    @Operation(
+            summary = "역사챌린지 뉴스 조회",
+            description = "현재 진행 중인 역사챌린지의 뉴스를 조회합니다."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "역사챌린지 뉴스 조회 성공"),
+            @ApiResponse(responseCode = "204", description = "진행 중인 역사챌린지 없음"),
+            @ApiResponse(responseCode = "500", description = "서버 내부 오류")
+    })
+    public ResponseEntity<List<HistoryChallengeDataResponse>> getHistoryChallengeNews() {
+        return null;
+    }
 }

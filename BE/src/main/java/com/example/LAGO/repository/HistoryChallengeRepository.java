@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 
 @Repository
-public interface HistoryChallengeRepository extends JpaRepository<HistoryChallenge, Long> {
+public interface HistoryChallengeRepository extends JpaRepository<HistoryChallenge, Integer> {
     /**
      * 특정 날짜에 진행 중인 역사챌린지를 조회합니다.
      *
