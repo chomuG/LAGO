@@ -330,7 +330,7 @@ private fun InvestmentSection(
                             modifier = Modifier.clickable { onOrderHistoryClick() }
                         ) {
                             Text(
-                                text = "주문내역",
+                                text = "거래내역",
                                 style = SubtitleSb14
                             )
                             Image(
