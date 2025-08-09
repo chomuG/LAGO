@@ -80,7 +80,8 @@ fun LagoApp(userPreferences: UserPreferences) {
         "chart",  // 차트 탭 화면 (목 데이터)
         "chart/{stockCode}",  // 차트 화면
         "history_challenge_chart/{stockCode}",  // 역사 챌린지 차트 화면
-        "stock_purchase/{stockCode}/{transactionType}"  // 구매/판매 화면
+        "stock_purchase/{stockCode}/{transactionType}", // 구매/판매 화면,
+        "ai_portfolio"
     )
 
     // Check if current route matches any of the hidden routes (including parameterized routes)
