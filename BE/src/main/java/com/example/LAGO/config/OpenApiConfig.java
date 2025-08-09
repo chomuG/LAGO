@@ -167,11 +167,10 @@ public class OpenApiConfig {
                                         "4. 모든 인증이 필요한 API에 자동 적용됨"));
     }
 
-    /**
-     * 인증 관련 API 그룹
-     * 
-     * @return GroupedOpenApi
-     */
+    // 그룹 기능을 비활성화하여 모든 API를 한 번에 표시
+    // GroupedOpenApi Bean들을 주석처리하면 기본적으로 모든 API가 한 화면에 표시됩니다
+    
+    /*
     @Bean
     public GroupedOpenApi authApi() {
         return GroupedOpenApi.builder()
@@ -181,11 +180,6 @@ public class OpenApiConfig {
                 .build();
     }
 
-    /**
-     * 주식 관련 API 그룹
-     * 
-     * @return GroupedOpenApi
-     */
     @Bean
     public GroupedOpenApi stockApi() {
         return GroupedOpenApi.builder()
@@ -195,11 +189,6 @@ public class OpenApiConfig {
                 .build();
     }
 
-    /**
-     * 계좌 관련 API 그룹
-     * 
-     * @return GroupedOpenApi
-     */
     @Bean
     public GroupedOpenApi accountApi() {
         return GroupedOpenApi.builder()
@@ -209,11 +198,6 @@ public class OpenApiConfig {
                 .build();
     }
 
-    /**
-     * AI 봇 관련 API 그룹
-     * 
-     * @return GroupedOpenApi
-     */
     @Bean
     public GroupedOpenApi aiBotApi() {
         return GroupedOpenApi.builder()
@@ -223,11 +207,6 @@ public class OpenApiConfig {
                 .build();
     }
 
-    /**
-     * 학습 관련 API 그룹
-     * 
-     * @return GroupedOpenApi
-     */
     @Bean
     public GroupedOpenApi studyApi() {
         return GroupedOpenApi.builder()
@@ -237,11 +216,6 @@ public class OpenApiConfig {
                 .build();
     }
 
-    /**
-     * 뉴스/공지 관련 API 그룹
-     * 
-     * @return GroupedOpenApi
-     */
     @Bean
     public GroupedOpenApi newsApi() {
         return GroupedOpenApi.builder()
@@ -251,11 +225,6 @@ public class OpenApiConfig {
                 .build();
     }
 
-    /**
-     * 사용자 관련 API 그룹
-     * 
-     * @return GroupedOpenApi
-     */
     @Bean
     public GroupedOpenApi userApi() {
         return GroupedOpenApi.builder()
@@ -265,11 +234,6 @@ public class OpenApiConfig {
                 .build();
     }
 
-    /**
-     * 기타 관리 API 그룹
-     * 
-     * @return GroupedOpenApi
-     */
     @Bean
     public GroupedOpenApi adminApi() {
         return GroupedOpenApi.builder()
@@ -278,4 +242,5 @@ public class OpenApiConfig {
                 .pathsToMatch("/api/admin/**", "/api/frames/**", "/api/recaps/**")
                 .build();
     }
+    */
 }
