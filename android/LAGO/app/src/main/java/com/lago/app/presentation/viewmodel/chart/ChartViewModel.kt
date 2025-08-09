@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lago.app.domain.entity.*
 import com.lago.app.domain.repository.ChartRepository
+import com.lago.app.domain.usecase.AnalyzeChartPatternUseCase
 import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -12,7 +13,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ChartViewModel @Inject constructor(
-    private val chartRepository: ChartRepository
+    private val chartRepository: ChartRepository,
+    private val analyzeChartPatternUseCase: AnalyzeChartPatternUseCase
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ChartUiState())
@@ -247,7 +249,8 @@ class ChartViewModel @Inject constructor(
                                     name = domainItem.stockName,
                                     quantity = "${domainItem.quantity}주",
                                     value = domainItem.totalValue.toInt(),
-                                    change = domainItem.profitLossPercent
+                                    change = domainItem.profitLossPercent,
+                                    stockCode = domainItem.stockCode
                                 )
                             } ?: emptyList()
                             
@@ -373,14 +376,40 @@ class ChartViewModel @Inject constructor(
     }
     
     private fun analyzePattern() {
-        _uiState.update { 
-            it.copy(
-                patternAnalysis = PatternAnalysisResult(
-                    patternName = "상승 플래그",
-                    description = "상승 플래그 패턴이 감지되었습니다.",
-                    analysisTime = "2024-01-15 14:30"
-                )
-            )
+        viewModelScope.launch {
+            analyzeChartPatternUseCase(
+                stockCode = _uiState.value.currentStock.code,
+                timeFrame = _uiState.value.config.timeFrame
+            ).collect { resource ->
+                when (resource) {
+                    is Resource.Loading -> {
+                        _uiState.update { 
+                            it.copy(
+                                isPatternAnalyzing = true,
+                                patternAnalysisError = null
+                            )
+                        }
+                    }
+                    is Resource.Success -> {
+                        _uiState.update { 
+                            it.copy(
+                                isPatternAnalyzing = false,
+                                patternAnalysis = resource.data,
+                                patternAnalysisCount = it.patternAnalysisCount + 1,
+                                patternAnalysisError = null
+                            )
+                        }
+                    }
+                    is Resource.Error -> {
+                        _uiState.update { 
+                            it.copy(
+                                isPatternAnalyzing = false,
+                                patternAnalysisError = resource.message
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -455,7 +484,14 @@ class ChartViewModel @Inject constructor(
                 sma5Data = if (config.sma5) calculateSMA(candlestickData, 5) else emptyList(),
                 sma20Data = if (config.sma20) calculateSMA(candlestickData, 20) else emptyList(),
                 rsiData = if (config.rsi) calculateRSI(candlestickData) else emptyList(),
-                macdData = if (config.macd) calculateMACD(candlestickData) else null,
+                macdData = if (config.macd) {
+                    val macd = calculateMACD(candlestickData)
+                    android.util.Log.d("LAGO_CHART", "MACD calculated: ${macd?.macdLine?.size ?: 0} points")
+                    macd
+                } else {
+                    android.util.Log.d("LAGO_CHART", "MACD disabled in config")
+                    null
+                },
                 bollingerBands = if (config.bollingerBands) calculateBollingerBands(candlestickData) else null
             )
         }
@@ -463,9 +499,9 @@ class ChartViewModel @Inject constructor(
     
     private fun loadMockHoldings() {
         val mockHoldings = listOf(
-            HoldingItem("삼성전자", "10주", 742000, 1.09f),
-            HoldingItem("SK하이닉스", "5주", 675000, -1.46f),
-            HoldingItem("NAVER", "3주", 555000, 0.82f)
+            HoldingItem("삼성전자", "10주", 742000, 1.09f, "005930"),
+            HoldingItem("SK하이닉스", "5주", 675000, -1.46f, "000660"),
+            HoldingItem("NAVER", "3주", 555000, 0.82f, "035420")
         )
         _uiState.update { 
             it.copy(holdingItems = mockHoldings)
@@ -556,16 +592,30 @@ class ChartViewModel @Inject constructor(
     }
     
     private fun calculateMACD(data: List<CandlestickData>): MACDResult? {
-        if (data.size < 26) return null
+        android.util.Log.d("LAGO_CHART", "MACD calculation start - data size: ${data.size}")
+        if (data.size < 26) {
+            android.util.Log.d("LAGO_CHART", "MACD failed - insufficient data (need 26, got ${data.size})")
+            return null
+        }
         
         val ema12 = calculateEMA(data, 12)
         val ema26 = calculateEMA(data, 26)
         
-        if (ema12.size != ema26.size) return null
+        android.util.Log.d("LAGO_CHART", "EMA calculated - EMA12: ${ema12.size}, EMA26: ${ema26.size}")
+        
+        if (ema12.isEmpty() || ema26.isEmpty()) {
+            android.util.Log.d("LAGO_CHART", "MACD failed - EMA data is empty")
+            return null
+        }
         
         val macdLine = mutableListOf<LineData>()
-        for (i in ema12.indices) {
-            macdLine.add(LineData(ema12[i].time, ema12[i].value - ema26[i].value))
+        // EMA26이 더 늦게 시작하므로 EMA26 크기에 맞춰서 계산
+        val startOffset = ema12.size - ema26.size
+        for (i in ema26.indices) {
+            val ema12Index = i + startOffset
+            if (ema12Index < ema12.size) {
+                macdLine.add(LineData(ema26[i].time, ema12[ema12Index].value - ema26[i].value))
+            }
         }
         
         val signalLine = calculateEMAFromLineData(macdLine, 9)
@@ -580,20 +630,22 @@ class ChartViewModel @Inject constructor(
     }
     
     private fun calculateEMA(data: List<CandlestickData>, period: Int): List<LineData> {
-        if (data.isEmpty()) return emptyList()
+        if (data.isEmpty() || data.size < period) return emptyList()
         
         val emaData = mutableListOf<LineData>()
         val multiplier = 2.0 / (period + 1)
-        var ema = data[0].close.toDouble()
         
-        emaData.add(LineData(data[0].time, ema.toFloat()))
+        // 첫 번째 EMA는 SMA로 초기화
+        var sma = data.take(period).map { it.close.toDouble() }.average()
+        emaData.add(LineData(data[period - 1].time, sma.toFloat()))
         
-        for (i in 1 until data.size) {
-            ema = (data[i].close * multiplier) + (ema * (1 - multiplier))
-            emaData.add(LineData(data[i].time, ema.toFloat()))
+        // EMA 계산
+        for (i in period until data.size) {
+            sma = (data[i].close * multiplier) + (sma * (1 - multiplier))
+            emaData.add(LineData(data[i].time, sma.toFloat()))
         }
         
-        return emaData.drop(period - 1)
+        return emaData
     }
     
     private fun calculateEMAFromLineData(data: List<LineData>, period: Int): List<LineData> {

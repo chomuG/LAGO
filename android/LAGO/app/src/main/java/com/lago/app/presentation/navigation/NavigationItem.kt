@@ -53,6 +53,12 @@ sealed class NavigationItem(
         iconRes = R.drawable.my
     )
 
+    object OrderHistory : NavigationItem(
+        route = "order_history",
+        title = "나의 주문 내역",
+        iconRes = R.drawable.setting
+    )
+
 }
 
 val bottomNavigationItems = listOf(

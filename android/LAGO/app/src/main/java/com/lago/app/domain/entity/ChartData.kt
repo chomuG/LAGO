@@ -52,7 +52,7 @@ data class ChartIndicators(
     val sma60: Boolean = false,
     val sma120: Boolean = false,
     val rsi: Boolean = false,
-    val macd: Boolean = false,
+    val macd: Boolean = true,
     val bollingerBands: Boolean = false,
     val volume: Boolean = true
 )

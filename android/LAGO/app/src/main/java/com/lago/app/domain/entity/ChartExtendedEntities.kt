@@ -45,8 +45,14 @@ data class TradingItem(
 
 // Pattern Analysis Result (already referenced in ChartViewModel)
 data class PatternAnalysisResult(
-    val patternType: String,
-    val confidence: Float,
+    val patterns: List<PatternItem>,
+    val analysisTime: String,
+    val confidenceScore: Float
+)
+
+data class PatternItem(
+    val patternName: String,
     val description: String,
-    val recommendation: String
+    val confidence: Float,
+    val recommendation: String?
 )

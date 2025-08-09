@@ -18,11 +18,9 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import com.lago.app.R
 import com.lago.app.presentation.theme.MainBlue
 import com.lago.app.presentation.theme.AppBackground
@@ -31,10 +29,8 @@ import com.lago.app.presentation.theme.Gray700
 import com.lago.app.presentation.theme.HeadEb18
 import com.lago.app.presentation.theme.HeadEb20
 import com.lago.app.presentation.theme.HeadEb24
-import com.lago.app.presentation.theme.HeadEb28
 import com.lago.app.presentation.theme.LagoTheme
 import com.lago.app.presentation.theme.SubtitleSb14
-import com.lago.app.presentation.theme.SubtitleSb16
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,16 +72,71 @@ fun LearnScreen(
                                 MainBlue,
                                 Color.White
                             ),
-                            startY = -10f,  // 더 위에서 시작
+                            startY = -10f,
                             endY = 400f
                         ),
                         shape = RoundedCornerShape(16.dp)
                     )
-                    .padding(20.dp)
                     .clickable { onDailyQuizClick() }
             ) {
+                // Background elements - positioned first (behind content)
+                
+                // Left cloud
+                Image(
+                    painter = painterResource(id = R.drawable.cloud),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(97.dp)
+                        .align(Alignment.TopStart)
+                        .offset(x = (-5).dp, y = (-10).dp)
+                )
+                
+                // Right cloud
+                Image(
+                    painter = painterResource(id = R.drawable.cloud),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(58.dp)
+                        .align(Alignment.TopEnd)
+                        .offset(x = 5.dp, y = 30.dp)
+                )
+                
+                // School building
+                Image(
+                    painter = painterResource(id = R.drawable.school),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(180.dp)
+                        .align(Alignment.TopCenter)
+                        .offset(x = (-50).dp, y = 0.dp)
+                )
+                
+                // Left tree
+                Image(
+                    painter = painterResource(id = R.drawable.tree),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(75.dp)
+                        .align(Alignment.TopStart)
+                        .offset(x = (-25).dp, y = 80.dp)
+                )
+                
+                // Right tree
+                Image(
+                    painter = painterResource(id = R.drawable.tree),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(75.dp)
+                        .align(Alignment.TopEnd)
+                        .offset(x = 15.dp, y = 94.dp)
+                )
+
+                
+                // Content - positioned on top
                 Column(
-                    modifier = Modifier.align(Alignment.BottomStart)
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(20.dp)
                 ) {
                     Text(
                         text = "데일리 문제 →",
@@ -99,6 +150,26 @@ fun LearnScreen(
                         style = SubtitleSb14
                     )
                 }
+                
+                // Glowing stars - positioned on top of everything
+                Image(
+                    painter = painterResource(id = R.drawable.glowing_white),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .align(Alignment.TopCenter)
+                        .offset(x = 20.dp, y = 20.dp)
+                )
+                Image(
+                    painter = painterResource(id = R.drawable.glowing_white),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .align(Alignment.CenterStart)
+                        .offset(x = 33.dp, y = (-18).dp)
+                )
+                
+                // Megaphone (top layer)
                 Image(
                     painter = painterResource(id = R.drawable.megaphone_image),
                     contentDescription = "Megaphone",
