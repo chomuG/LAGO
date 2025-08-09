@@ -3,7 +3,7 @@ package com.example.LAGO.ai.strategy;
 import com.example.LAGO.ai.sentiment.FinBertSentimentService;
 import com.example.LAGO.ai.sentiment.dto.SentimentResponseDto;
 import com.example.LAGO.ai.strategy.dto.CharacterTradingRecommendation;
-import com.example.LAGO.ai.strategy.dto.TechnicalAnalysisResult;
+import com.example.LAGO.dto.response.TechnicalAnalysisResult;
 import com.example.LAGO.ai.strategy.dto.TradingSignal;
 import com.example.LAGO.constants.TradingConstants;
 import com.example.LAGO.domain.*;
@@ -176,7 +176,7 @@ public class TradingStrategyService {
                 AiStrategy strategy = saveStrategyResult(user, stockCode, TradingConstants.CHARACTER_JEOKGEUK, 
                         signal, sentiment, technical);
 
-                log.info("적극이 전략 실행 완료: userId={}, stockCode={}, signal={}", 
+                log.info("적극이 전략 실행 완료: userId={}, stockCode={}, signal={", 
                         userId, stockCode, signal.getAction());
 
                 return CharacterTradingRecommendation.builder()
@@ -395,29 +395,42 @@ public class TradingStrategyService {
             double ma60 = calculateMovingAverage(recentData, 60);
             double rsi = calculateRSI(recentData, 14);
             
-            // 기술적 점수 계산
-            double technicalScore = calculateTechnicalScore(latestData, ma5, ma20, ma60, rsi);
-            String technicalSignal = determineTechnicalSignal(technicalScore);
+            // 기술적 점수 계산 및 신호 결정
+            double technicalScoreRaw = calculateTechnicalScore(latestData, ma5, ma20, ma60, rsi);
+            String technicalSignal = determineTechnicalSignal(technicalScoreRaw);
+
+            // overallSignal/strength로 매핑
+            String overallSignal = switch (technicalSignal) {
+                case "BULLISH" -> "BUY";
+                case "BEARISH" -> "SELL";
+                default -> "HOLD";
+            };
+            int signalStrength = (int) Math.max(1, Math.min(10, Math.round(Math.abs(technicalScoreRaw) * 10)));
 
             return TechnicalAnalysisResult.builder()
-                .currentPrice(latestData.getClosePrice())
-                .changeRate(latestData.getFluctuationRate().doubleValue())
-                .ma5(ma5)
-                .ma20(ma20)
-                .ma60(ma60)
-                .rsi(rsi)
-                .technicalScore(technicalScore)
-                .technicalSignal(technicalSignal)
-                .analysisDate(latestData.getDate())
-                .summary(generateTechnicalSummary(technicalScore, rsi, ma5, ma20))
+                .stockCode(stockCode)
+                .currentPrice((float) latestData.getClosePrice())
+                .fluctuationRate(latestData.getFluctuationRate() != null ? latestData.getFluctuationRate().floatValue() : null)
+                .ma5((float) ma5)
+                .ma20((float) ma20)
+                .ma60((float) ma60)
+                .rsi((float) rsi)
+                .overallSignal(overallSignal)
+                .signalStrength(signalStrength)
+                .signalReason(generateTechnicalSummary(technicalScoreRaw, rsi, ma5, ma20))
+                .analysisTime(LocalDateTime.now().toString())
+                .analysisVersion("1.0")
                 .build();
 
         } catch (Exception e) {
             log.error("기술적 분석 실패: stockCode={}", stockCode, e);
             return TechnicalAnalysisResult.builder()
-                .technicalScore(0.0)
-                .technicalSignal("NEUTRAL")
-                .summary("기술적 분석 실패: " + e.getMessage())
+                .stockCode(stockCode)
+                .overallSignal("HOLD")
+                .signalStrength(0)
+                .signalReason("기술적 분석 실패: " + e.getMessage())
+                .analysisTime(LocalDateTime.now().toString())
+                .analysisVersion("1.0")
                 .build();
         }
     }
@@ -528,11 +541,26 @@ public class TradingStrategyService {
     }
 
     /**
+     * 기술적 분석 결과에서 정규화된 점수 파생 (-1.0 ~ 1.0)
+     */
+    private double deriveNormalizedTechnicalScore(TechnicalAnalysisResult technical) {
+        if (technical == null || technical.getOverallSignal() == null || technical.getSignalStrength() == null) {
+            return 0.0;
+        }
+        double base = Math.max(0, Math.min(10, technical.getSignalStrength())) / 10.0; // 0.0 ~ 1.0
+        return switch (technical.getOverallSignal()) {
+            case "BUY", "BULLISH" -> base;
+            case "SELL", "BEARISH" -> -base;
+            default -> 0.0; // HOLD or unknown
+        };
+    }
+
+    /**
      * 화끈이 매매 신호 생성
      */
     private TradingSignal generateHwakkeunTradingSignal(SentimentResponseDto sentiment, TechnicalAnalysisResult technical) {
         double sentimentScore = sentiment.getSuccess() ? sentiment.getSentimentScore() : 0.0;
-        double technicalScore = technical.getTechnicalScore();
+        double technicalScore = deriveNormalizedTechnicalScore(technical);
         
         // 화끈이는 감정 점수에 1.3배 가중치
         double combinedScore = (sentimentScore * 1.3 + technicalScore) / 2.0;
@@ -562,7 +590,7 @@ public class TradingStrategyService {
      */
     private TradingSignal generateJeokgeukTradingSignal(SentimentResponseDto sentiment, TechnicalAnalysisResult technical) {
         double sentimentScore = sentiment.getSuccess() ? sentiment.getSentimentScore() : 0.0;
-        double technicalScore = technical.getTechnicalScore();
+        double technicalScore = deriveNormalizedTechnicalScore(technical);
         
         // 적극이는 기술적 분석에 1.2배 가중치
         double combinedScore = (sentimentScore + technicalScore * 1.2) / 2.0;
@@ -589,7 +617,7 @@ public class TradingStrategyService {
      */
     private TradingSignal generateGyunhyungTradingSignal(SentimentResponseDto sentiment, TechnicalAnalysisResult technical) {
         double sentimentScore = sentiment.getSuccess() ? sentiment.getSentimentScore() : 0.0;
-        double technicalScore = technical.getTechnicalScore();
+        double technicalScore = deriveNormalizedTechnicalScore(technical);
         
         // 균형이는 두 점수를 동등하게 평가하되 보수적으로
         double combinedScore = (sentimentScore + technicalScore) / 2.0 * 0.8;
@@ -615,7 +643,7 @@ public class TradingStrategyService {
      */
     private TradingSignal generateJosimTradingSignal(SentimentResponseDto sentiment, TechnicalAnalysisResult technical) {
         double sentimentScore = sentiment.getSuccess() ? sentiment.getSentimentScore() : 0.0;
-        double technicalScore = technical.getTechnicalScore();
+        double technicalScore = deriveNormalizedTechnicalScore(technical);
         
         // 조심이는 부정 신호에 1.5배 가중치
         double adjustedSentiment = sentimentScore < 0 ? sentimentScore * 1.5 : sentimentScore * 0.7;
@@ -712,9 +740,9 @@ public class TradingStrategyService {
             promptBuilder.append("FinBERT 감정 분석: 실패\n");
         }
         
-        promptBuilder.append(String.format("기술적 분석: %s (점수: %.3f)\n", 
-                technical.getTechnicalSignal(), technical.getTechnicalScore()));
-        promptBuilder.append(String.format("판단 근거: %s\n", signal.getReasoning()));
+        promptBuilder.append(String.format("기술적 분석: %s (강도: %d/10)\n", 
+                technical.getOverallSignal(), technical.getSignalStrength() != null ? technical.getSignalStrength() : 0));
+        promptBuilder.append(String.format("판단 근거: %s\n", technical.getSignalReason() != null ? technical.getSignalReason() : signal.getReasoning()));
         
         return promptBuilder.toString();
     }

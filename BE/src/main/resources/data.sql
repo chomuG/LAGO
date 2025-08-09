@@ -1,1 +1,1 @@
-select * from 1;
+-- Intentionally left empty. Use profile-specific data loaders or migrations.

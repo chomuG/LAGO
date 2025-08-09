@@ -1,5 +1,5 @@
 # 라고할때 Copilot Agent용 프로젝트 지침서
-Think of Thought으로 상세하게 절차적으로 사고하며 작업
+Chain of Thought으로 상세하게 절차적으로 사고하며 작업
 커밋은 항상 한국어로
 Java 21의 가상스레드(virtual Thread)기능을 최대한 사용한 코드 작성해줘
 vscode extention으로 연동된 EC2 db를 조회해서 항상 테이블 명을 확인하고 작업할 것
@@ -9,7 +9,7 @@ vscode extention으로 연동된 EC2 db를 조회해서 항상 테이블 명을 
 ## 📚 프로젝트 개요 및 역할
 
 - **프로젝트명:** 라고할때 (D203팀)
-- **구성:** Spring Boot 백엔드 + MySQL + Redis + Android 앱
+- **구성:** Spring Boot 백엔드 + PostgreSQL + Redis + Android 앱
 - **내 역할:** 6인 팀의 백엔드 담당 (DevOps/Infra/CI/CD/DB 설계/코드 리뷰 포함)
 - **이슈 관리:** Jira, **개발툴:** IntelliJ, **배포/인프라:** Docker/Compose, Jenkins, AWS EC2 등
 
@@ -50,8 +50,7 @@ vscode extention으로 연동된 EC2 db를 조회해서 항상 테이블 명을 
 - **뉴스/공지:** 실시간/관심종목/역사챌린지/LLM요약/감정/공지 등 (GET /api/news, /api/news/{newsId}, /api/news/interest 등)
 - **마이페이지:** 포트폴리오, 랭킹, 프로필/테두리, Recap (GET /api/users/me/portfolio, /api/frames, /api/recaps 등)
 
-> 모든 엔드포인트/입출력/파라미터/반환 타입은 **API 명세서**와 일치해야 하며, 일부라도 임의 변경 불가
-
+> 모든 엔드포인트/입출력/파라미터/반환 타입은 **API 명세서**와 일치해야 하며, 명세서에 기입 되어있지 않지만 필요한 기능,엔드포인트 라면 사용자에게 물어보고, 변경 의도를 설명 후 변경 가능
 ---
 
 ## 🪜 업무 흐름/상세 컨텍스트
@@ -89,7 +88,7 @@ GET /api/news/interest
 GET /api/users/me/portfolio
 ```
 
-- 위 API를 포함한 모든 명세의 엔드포인트/메서드/파라미터/반환타입/DTO 구조 등은 **API 명세서, 표, 본문 설명**을 정확히 따라야 함
+- 위 API를 포함한 모든 명세의 엔드포인트/메서드/파라미터/반환타입/DTO 구조 등은 **API 명세서, 표, 본문 설명**을 정확히 따라야 함. 예외가 있을경우 이유를 설명하고 수정 동의를 받은 후 수정가능
 
 ---
 
@@ -123,6 +122,164 @@ GET /api/users/me/portfolio
 **최종 업데이트: 2025-08-04**
 
 ---
+
+
+# 🏛️ LAGO 백엔드 프로젝트 구조 & 코드 컨벤션 (2025)
+
+> **팀 협업, 리뷰, AI 코딩툴 사용, 신규 파일 생성 기준!**
+>  
+> [최신 갱신일: 2025.08 / 담당: @준형박, 팀원 전체]
+
+---
+
+## 📂 1. 프로젝트 디렉터리 구조 (표준 예시)
+
+```
+src/
+  main/
+    java/
+      com/
+        example/
+          LAGO/
+            LagoApplication.java
+            config/
+            constants/
+            controller/
+            domain/
+            dto/
+              request/
+              response/
+              AccountDto.java
+            exception/
+            repository/
+            service/
+            utils/
+            ai/
+              sentiment/
+                dto/
+              strategy/
+                dto/
+    resources/
+      application.properties         # 공통 설정
+      application-dev.properties     # 개발용
+      application-prod.properties    # 배포용
+  test/
+```
+
+- **Controller/Service/Repository/Domain/Dto** 등 반드시 명확 분리
+- 요청 DTO는 `dto/request/`, 응답 DTO는 `dto/response/`, 공용 DTO만 `dto/`에
+- 소문자 파일, RequestDto/ResponseDto 등 혼용 금지
+
+---
+
+## ✨ 2. 네이밍 컨벤션 (파일/클래스)
+
+| 용도            | 예시                   | 위치          |
+|:----------------|:-----------------------|:--------------|
+| 요청 DTO        | `TradeRequest.java`    | dto/request/  |
+| 응답 DTO        | `TradeResponse.java`   | dto/response/ |
+| 내부 DTO        | `AccountDto.java`      | dto/          |
+| 예외 응답       | `ErrorResponse.java`   | exception/    |
+| 컨트롤러        | `StockController.java` | controller/   |
+| 서비스          | `StockService.java`    | service/      |
+| 엔티티          | `Stock.java`           | domain/       |
+| 레포지토리      | `StockRepository.java` | repository/   |
+
+> ❌ `RequestDto`, `ResponseDto`, `Res`, 소문자 시작 금지  
+> ❌ 같은 이름 DTO 여러 위치 중복 생성 금지  
+> ❌ Controller에서 Entity 바로 반환 금지 (항상 DTO 변환)
+
+---
+
+## 📝 3. 주석 컨벤션
+
+- 클래스/메서드에 Javadoc 필수
+```java
+/**
+ * 주식 매수 요청 DTO
+ */
+public class TradeRequest { ... }
+```
+- 중요한 로직/비즈니스 흐름만 한글 주석, TODO/FIXME 표준만 허용
+
+---
+
+## 🚦 4. PR & 코드 리뷰 규칙
+
+- DTO/Entity 등 공용 파일 수정 전 팀에 공지
+- PR 전 항상 최신 develop/backend-dev 브랜치 pull/rebase
+- 네이밍 컨벤션, 파일 위치, Request/Response 혼용 등 위반은 리뷰에서 반드시 지적
+- 코드 스타일/의존성(import)도 리뷰 범위
+
+---
+
+## 💡 5. 실전 예시
+
+### TradeRequest.java
+```java
+package com.example.LAGO.dto.request;
+
+/**
+ * 주식 매수 요청 DTO
+ */
+public class TradeRequest {
+    private Long userId;
+    private Long stockId;
+    private Integer quantity;
+}
+```
+
+### TradeResponse.java
+```java
+package com.example.LAGO.dto.response;
+
+/**
+ * 주식 매수 응답 DTO
+ */
+public class TradeResponse {
+    private Long transactionId;
+    private String status;
+    private Integer afterBalance;
+}
+```
+
+---
+
+## ⚠️ 6. 자주 발생하는 실수
+
+- Request/Response/Dto 혼용, 대소문자 혼동
+- 같은 이름 파일 여러 위치에 생성 (중복 생성 금지)
+- RequestDto, ResponseDto 등 접미사 남용
+- Controller에서 Entity/Domain 직접 반환 → 반드시 DTO로 감싸야 함!
+
+---
+
+## 🌍 8. 환경별 설정 관리
+
+| 환경 | 파일명 | 용도 | 활성화 방법 |
+|:-----|:-------|:-----|:------------|
+| 공통 | `application.properties` | 모든 환경 공통 설정 | 항상 로드 |
+| 개발 | `application-dev.properties` | 로컬 개발/디버깅 | `--spring.profiles.active=dev` (기본) |
+| 배포 | `application-prod.properties` | Docker/운영 배포 | `SPRING_PROFILES_ACTIVE=prod` |
+
+### 환경별 주요 차이점:
+- **공통:** 애플리케이션명, Swagger, Security 설정
+- **개발:** 실제 EC2 DB, 상세 로그, 로컬 Redis  
+- **배포:** 환경변수 보안, 성능 최적화, Docker 설정
+
+---
+
+## 🧑‍💻 7. 자동화/도구 추천
+
+- [ ] Checkstyle, SonarLint, EditorConfig 등 코드 스타일 자동 검사
+- [ ] Notion/README에 본 컨벤션 고정, AI 코딩툴/신규 멤버 Onboarding에 활용
+
+---
+
+# 🎯 컨벤션을 지키면 협업/리뷰/자동화가 쉬워집니다!
+- 질문/피드백/코드/구조 개선 의견 환영
+
+
 
 > Copilot은 이 .md 파일 내용만을 사용하여 코드 자동완성/설명/리팩토링/테스트/문서화 작업을 하라!
 

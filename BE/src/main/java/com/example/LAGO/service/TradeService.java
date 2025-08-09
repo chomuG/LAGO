@@ -113,7 +113,7 @@ public class TradeService {
             }
             
             // 거래 요청 유효성 검증
-            if (!request.isValidBuyRequest() && !request.isValidSellRequest()) {
+            if (!isValidTradeRequest(request)) {
                 return TradeResponse.failure(userId, request.getStockCode(), request.getTradeType(),
                         "INVALID_TRADE_REQUEST", "유효하지 않은 거래 요청입니다.");
             }
@@ -154,6 +154,28 @@ public class TradeService {
             log.error("사용자 거래 실행 오류: {}", e.getMessage(), e);
             return TradeResponse.failure(userId, request.getStockCode(), request.getTradeType(),
                     "TRADE_EXECUTION_ERROR", "거래 처리 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+    /**
+     * TradeRequest 런타임 유효성 검증
+     * - stockCode: 공백 불가
+     * - tradeType: BUY 또는 SELL
+     * - quantity: > 0
+     * - price: > 0
+     */
+    private boolean isValidTradeRequest(TradeRequest request) {
+        try {
+            if (request == null) return false;
+            if (request.getStockCode() == null || request.getStockCode().isBlank()) return false;
+            if (request.getTradeType() == null) return false;
+            String t = request.getTradeType().trim().toUpperCase();
+            if (!("BUY".equals(t) || "SELL".equals(t))) return false;
+            if (request.getQuantity() == null || request.getQuantity() <= 0) return false;
+            if (request.getPrice() == null || request.getPrice() <= 0) return false;
+            return true;
+        } catch (Exception e) {
+            log.error("거래 요청 유효성 검증 오류: {}", e.getMessage(), e);
+            return false;
         }
     }
 }
