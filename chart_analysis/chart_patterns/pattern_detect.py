@@ -2,6 +2,7 @@ import pandas as pd
 from flask import Flask, request, jsonify
 from config import HOST, PORT, DEBUG, LOG_LEVEL, LOG_FORMAT
 import logging
+import concurrent.futures
 
 # Import pattern detection functions
 from doubles import find_doubles_pattern
@@ -41,7 +42,7 @@ PATTERNS_CONFIG = [
         "name": "플래그 패턴",
         "function": find_flag_pattern,
         "params": {},
-        "result_check": lambda df: not df[df["flag_point"] > 0].empty,
+        "result_check": lambda df: not df[df["flag_point"].notna()].empty,
         "reason": "급등락 이후 평행한 추세선 사이에서 가격이 일시적으로 조정되는 패턴으로, 기존 추세의 지속 가능성을 시사합니다.",
         "display_options": {"pattern": "flag", "save": True}
     },
@@ -49,7 +50,7 @@ PATTERNS_CONFIG = [
         "name": "페넌트 패턴",
         "function": find_pennant,
         "params": {},
-        "result_check": lambda df: not df[df["pennant_point"] > 0].empty,
+        "result_check": lambda df: not df[df["pennant_point"].notna()].empty,
         "reason": "급등락 후 고점과 저점이 수렴하는 삼각형 형태로, 강한 추세 후 휴식 구간을 나타내는 지속형 패턴입니다.",
         "display_options": {"pattern": "pennant", "save": True}
     },
@@ -57,7 +58,7 @@ PATTERNS_CONFIG = [
         "name": "상승 삼각형",
         "function": find_triangle_pattern,
         "params": {"triangle_type": "ascending"},
-        "result_check": lambda df: not df[df["triangle_point"] > 0].empty,
+        "result_check": lambda df: not df[df["triangle_point"].notna()].empty,
         "reason": "고점이 일정하게 유지되고 저점이 점점 높아지는 구조로, 매수세가 점차 강해지는 패턴입니다.",
         "display_options": {"pattern": "triangle", "save": True}
     },
@@ -65,7 +66,7 @@ PATTERNS_CONFIG = [
         "name": "하락 삼각형",
         "function": find_triangle_pattern,
         "params": {"triangle_type": "descending"},
-        "result_check": lambda df: not df[df["triangle_point"] > 0].empty,
+        "result_check": lambda df: not df[df["triangle_point"].notna()].empty,
         "reason": "저점이 일정하게 유지되고 고점이 점점 낮아지는 구조로, 매도세가 강해지는 패턴입니다.",
         "display_options": {"pattern": "triangle", "save": True}
     },
@@ -73,7 +74,7 @@ PATTERNS_CONFIG = [
         "name": "대칭 삼각형",
         "function": find_triangle_pattern,
         "params": {"triangle_type": "symmetrical"},
-        "result_check": lambda df: not df[df["triangle_point"] > 0].empty,
+        "result_check": lambda df: not df[df["triangle_point"].notna()].empty,
         "reason": "고점과 저점이 점차 수렴하는 구조로, 향후 큰 방향성이 나올 가능성이 높은 패턴입니다.",
         "display_options": {"pattern": "triangle", "save": True}
     },
@@ -98,14 +99,8 @@ PATTERNS_CONFIG = [
 # --- Flask App ---
 app = Flask(__name__)
 
-def run_pattern_detection(ohlc_df):
-    """
-    주어진 OHLC 데이터프레임에 대해 모든 차트 패턴 감지를 실행합니다.
-    """
-    detected_patterns = []
-    ohlc_df = find_all_pivot_points(ohlc_df.copy())
-
-    for pattern_config in PATTERNS_CONFIG:
+def detect_single_pattern(pattern_config, ohlc_df):
+    try:
         # 각 패턴 감지 전 원본 데이터프레임 복사
         ohlc_copy = ohlc_df.copy()
         
@@ -113,26 +108,45 @@ def run_pattern_detection(ohlc_df):
         ohlc_copy = pattern_config["function"](ohlc_copy, **pattern_config["params"])
         
         # 감지 결과 확인
-        df_detected = pattern_config["result_check"](ohlc_copy)
+        is_detected = pattern_config["result_check"](ohlc_copy)
 
-        if df_detected:
-            pattern_name = pattern_config["name"]
-            logger.debug(f"'{pattern_name}' 패턴이 감지되었습니다!")
-            
+        if is_detected:
             # TODO: 감지된 패턴의 상세 정보(날짜, 신뢰도 등)를 추출하여
             #       generate_judgement_reason 함수를 호출하도록 개선할 수 있습니다.
             #       현재는 정적 이유를 사용합니다.
             result = {
-                "name": pattern_name,
+                "name": pattern_config["name"],
                 "reason": pattern_config["reason"]
             }
-            detected_patterns.append(result)
-            
-            # 차트 이미지 생성
-            display_chart_pattern(ohlc_copy, **pattern_config["display_options"])
-        else:
-            logger.debug(f"'{pattern_config['name']}' 패턴이 감지되지 않았습니다.")
-            
+            return (result, ohlc_copy, pattern_config["display_options"])
+        return None
+    except Exception as e:
+        logging.error(f"Error detecting pattern {pattern_config['name']}: {e}", exc_info=True)
+        return None
+
+def run_pattern_detection(ohlc_df):
+    detected_patterns = []
+    ohlc_df_with_pivots = find_all_pivot_points(ohlc_df.copy())
+
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        future_to_pattern = {executor.submit(detect_single_pattern, config, ohlc_df_with_pivots): config for config in PATTERNS_CONFIG}
+
+        for future in concurrent.futures.as_completed(future_to_pattern):
+            pattern_name = future_to_pattern[future]['name']
+            try:
+                result_tuple = future.result()
+                if result_tuple:
+                    result, ohlc_result_df, display_options = result_tuple
+                    logger.debug(f"'{result['pattern_name']}' 패턴이 감지되었습니다!")
+                    detected_patterns.append(result)
+
+                    # 차트 이미지 생성
+                    display_chart_pattern(ohlc_result_df, **display_options)
+                else:
+                    logger.debug(f"'{pattern_name}' 패턴이 감지되지 않았습니다.")
+            except Exception as exc:
+                logger.error(f"'{pattern_name}' 패턴 감지 중 예외 발생: {exc}")
+
     return detected_patterns
 
 @app.route('/', methods=['GET'])
@@ -226,8 +240,5 @@ def generate_judgement_reason(pattern_type, slmin, slmax, rmin, rmax, dates, dir
 
 
 if __name__ == "__main__":
-    # 서버 시작 전 모델 로드
     logger.info("Flask 서버 시작 중...")
-
-    # Flask 서버 실행
     app.run(host=HOST, port=PORT, debug=DEBUG)
