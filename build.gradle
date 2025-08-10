@@ -1,11 +1,17 @@
+// =================================================================
+// LAGO Spring Boot Build Configuration (2025-08-08)
+// Java 21, Spring Boot 3.5.4, PostgreSQL, Redis, Swagger
+// =================================================================
+
 plugins {
 	id 'java'
+	id 'application'
 	id 'org.springframework.boot' version '3.5.4'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.example'
-version = '0.0.1-SNAPSHOT'
+version = '1.0.0-SNAPSHOT'
 
 java {
 	toolchain {
@@ -24,19 +30,123 @@ repositories {
 }
 
 dependencies {
+	// Core
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+	// Swagger/OpenAPI 3
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.0'
+
+	// JSON
+	implementation 'com.fasterxml.jackson.core:jackson-databind'
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+	// WebClient
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+	// Env helper (backend-dev)
+	implementation 'io.github.cdimascio:java-dotenv:5.2.2'
+
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	// Runtime drivers
+	runtimeOnly 'org.postgresql:postgresql'
+
+	// Lombok
 	compileOnly 'org.projectlombok:lombok'
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
-	runtimeOnly 'com.h2database:h2'
-	runtimeOnly 'com.mysql:mysql-connector-j'
-	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	annotationProcessor 'org.projectlombok:lombok'
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+	// Dev tools
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.testcontainers:postgresql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
+	runtimeOnly 'com.h2database:h2'
 }
 
+// =================================================================
+// Test Configuration
+// =================================================================
 tasks.named('test') {
 	useJUnitPlatform()
+
+	// 테스트 시 H2 데이터베이스 사용 (시스템 프로퍼티로 설정)
+	systemProperty 'spring.datasource.url', 'jdbc:h2:mem:testdb'
+	systemProperty 'spring.datasource.username', 'sa'
+	systemProperty 'spring.datasource.password', ''
+	systemProperty 'spring.datasource.driver-class-name', 'org.h2.Driver'
+	systemProperty 'spring.jpa.hibernate.ddl-auto', 'create-drop'
+	systemProperty 'spring.jpa.database-platform', 'org.hibernate.dialect.H2Dialect'
+	systemProperty 'spring.h2.console.enabled', 'true'
+}
+
+// =================================================================
+// Application Configuration
+// =================================================================
+application {
+	mainClass = 'com.example.LAGO.LagoApplication'
+}
+
+// =================================================================
+// bootRun Task (개발 실행용)
+// =================================================================
+bootRun {
+	mainClass = 'com.example.LAGO.LagoApplication'
+
+	// .env 파일에서 환경변수 로드
+	doFirst {
+		def envFile = file('../.env')
+		if (envFile.exists()) {
+			println "Loading environment variables from .env file..."
+			envFile.readLines().each { line ->
+				if (line && !line.startsWith('#') && line.contains('=')) {
+					def parts = line.split('=', 2)
+					if (parts.length == 2) {
+						def key = parts[0].trim()
+						def value = parts[1].trim()
+						systemProperty(key, value)
+						println "Set ${key}=${value}"
+					}
+				}
+			}
+		} else {
+			println "No .env file found, using default settings"
+		}
+	}
+
+	// 개발환경 프로파일 강제 설정
+	systemProperty 'spring.profiles.active', 'dev'
+	systemProperty 'spring.config.location', 'classpath:application.properties,classpath:application-dev.properties'
+}
+
+// =================================================================
+// JAR Build Configuration
+// =================================================================
+jar {
+	enabled = false  // plain jar 생성 비활성화
+}
+
+bootJar {
+	archiveFileName = 'lago-backend.jar'
+
+	// JAR 실행 시 환경 정보 포함
+	manifest {
+		attributes(
+				'Implementation-Title': project.name,
+				'Implementation-Version': project.version,
+				'Built-By': System.getProperty('user.name'),
+				'Build-Timestamp': new Date(),
+				'Created-By': "Gradle ${gradle.gradleVersion}",
+				'Build-Jdk': "${System.getProperty('java.version')} (${System.getProperty('java.vendor')} ${System.getProperty('java.vm.version')})"
+		)
+	}
 }
