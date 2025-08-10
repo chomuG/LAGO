@@ -1,0 +1,1 @@
+import requests; r=requests.post("http://localhost:8000/collect/realtime", json={"limit": 1}, timeout=60); print(f"Status: {r.status_code}"); print(f"Keys: {list(r.json().keys()) if r.status_code == 200 else r.text[:200]}")

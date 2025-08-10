@@ -17,6 +17,8 @@ services:
   timescaledb:
     image: timescale/timescaledb-ha:pg14-latest
     container_name: timescaledb
+    env_file:
+      - .env
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -43,6 +45,26 @@ services:
       - ./redisdata:/data
     restart: unless-stopped
 
+  finbert-service:
+    build:
+      context: ./finbert
+      dockerfile: Dockerfile
+    container_name: finbert-service
+    ports:
+      - "8000:8000"
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=false
+    volumes:
+      - ./finbert:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s  # FinBERT 모델 로딩 시간 고려
+
   backend:
     build:
       context: ./BE
@@ -57,13 +79,14 @@ services:
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=${SPRING_REDIS_PORT:-6379}
       - REDIS_STREAM_KEY=${REDIS_STREAM_KEY:-orders-stream}
+      - FINBERT_URL=http://finbert-service:8000
     depends_on:
       timescaledb:
         condition: service_healthy
       redis:
-        # redis는 헬스체크 없이 단순 의존만
-        # (필요시 redis에도 healthcheck 추가 가능)
         condition: service_started
+      finbert-service:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
