@@ -1,6 +1,6 @@
 services:
   jenkins:
-    build: .
+    build: ../../../Downloads
     container_name: jenkins
     restart: unless-stopped
     ports:
