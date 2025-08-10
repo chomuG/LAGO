@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "\"STOCK_DAY\"")
@@ -60,5 +61,8 @@ public class StockDay {
 
     @Column(name = "volume", nullable = false)
     private Integer volume;
+
+    @Column(name = "new_date")
+    private LocalDateTime newDate;
 }
 

@@ -81,5 +81,5 @@ Thumbs.db
 # Gemini
 .gemini/
 
-# Android
-android/
+# properties
+.properties
