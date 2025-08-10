@@ -13,10 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -53,5 +50,13 @@ public class ChartController {
 
         log.info("차트 분석 응답 완료: {}개 패턴 감지", detectedPatterns.size());
         return ResponseEntity.ok(detectedPatterns);
+    }
+
+    // 임시 테스트 엔드포인트
+    @GetMapping("/test-python")
+    @Operation(summary = "Python 서버 연결 테스트")
+    public ResponseEntity<String> testPythonConnection() {
+        String response = chartAnalysisService.testPythonConnection();
+        return ResponseEntity.ok(response);
     }
 }
