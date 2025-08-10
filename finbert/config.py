@@ -4,7 +4,7 @@
 import logging
 
 # 로깅 설정
-LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 # 모델 설정
@@ -39,3 +39,7 @@ CONFIDENCE_THRESHOLDS = {
     'medium': {'min_prob': 0.5, 'min_gap': 0.2},
     'low': {'min_prob': 0.4, 'min_gap': 0.0}
 }
+# 본문 추출 임계치 & JS 렌더링 옵션
+MIN_ARTICLE_LEN = 200  # 본문 최소 길이(문자)
+RENDER_JS = True       # Selenium으로 JS 렌더링 사용 여부(서버 가능 시 True)
+JS_RENDER_TIMEOUT = 10 # JS 렌더링 대기 시간(초)

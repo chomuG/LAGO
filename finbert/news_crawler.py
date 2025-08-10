@@ -1,3 +1,4 @@
+from config import MIN_ARTICLE_LEN
 """
 뉴스 크롤링 관련 함수들
 """
@@ -313,6 +314,24 @@ def extract_news_content_with_title(url):
         # 텍스트 정제
         title = clean_text_advanced(title)
         content = clean_text_advanced(content)
+        # 본문이 너무 짧으면 선택자 확장으로 보강 시도
+        try:
+            if not content or len(content) < MIN_ARTICLE_LEN:
+                html_raw = response.text
+                soup2 = BeautifulSoup(html_raw, "html.parser")
+                for sel in ["#newsct_article", ".article-body", ".article-content", "article", ".entry-content", ".post-content"]:
+                    node = soup2.select_one(sel)
+                    if not node:
+                        continue
+                    for t in node.find_all(["script","style","nav","footer","aside"]):
+                        t.decompose()
+                    txt = node.get_text(" ", strip=True)
+                    if len(txt) >= MIN_ARTICLE_LEN:
+                        content = txt
+                        break
+        except Exception:
+            pass
+        
 
         # 핵심 문장만 추출 (너무 긴 경우)
         if len(content) > 3000:

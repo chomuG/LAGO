@@ -17,7 +17,6 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -45,29 +44,9 @@ public class NewsService {
     private final Map<String, LocalDateTime> lastCollectionTime = new ConcurrentHashMap<>();
 
     /**
-     * 실시간 뉴스 자동 수집 - 20분마다 실행
-     */
-    @Scheduled(fixedDelay = 1200000) // 20분 = 1,200,000ms
-    @Transactional
-    public void scheduledRealtimeNewsCollection() {
-        log.info("=== 스케줄된 실시간 뉴스 수집 시작 (20분 주기) ===");
-        collectRealtimeNews();
-    }
-
-    /**
-     * 관심종목 뉴스 자동 수집 - 20분마다 실행 (실시간 수집 5분 후)
-     */
-    @Scheduled(fixedDelay = 1200000, initialDelay = 300000) // 5분 후 시작, 20분마다
-    @Transactional
-    public void scheduledWatchlistNewsCollection() {
-        log.info("=== 스케줄된 관심종목 뉴스 수집 시작 (20분 주기) ===");
-        collectWatchlistNewsFromDB();
-    }
-
-    /**
      * Google RSS 실시간 뉴스 수집
+     * 스케줄링은 NewsScheduler에서 관리
      */
-    @Transactional
     public void collectRealtimeNews() {
         log.info("=== Google RSS 실시간 뉴스 수집 시작 ===");
 
@@ -99,8 +78,8 @@ public class NewsService {
 
     /**
      * DB에서 관심종목 조회 후 뉴스 수집
+     * 트랜잭션을 개별 뉴스 저장 단위로 분리하여 장시간 락 방지
      */
-    @Transactional
     public void collectWatchlistNewsFromDB() {
         log.info("=== DB 기반 관심종목 뉴스 수집 시작 ===");
 
@@ -154,7 +133,6 @@ public class NewsService {
     /**
      * 단일 관심종목 뉴스 수집
      */
-    @Transactional
     public void collectSingleWatchlistNews(String symbol, String companyName,
                                            List<String> aliases, int limit) {
         try {
@@ -227,6 +205,11 @@ public class NewsService {
                         log.debug("중복 뉴스 스킵: {}", news.getUrl());
                         continue;
                     }
+                    
+                    // URL 확인 로그
+                    log.info("뉴스 저장 준비 - 제목: {}, URL: {}", 
+                            news.getTitle().substring(0, Math.min(news.getTitle().length(), 50)),
+                            news.getUrl());
 
                     // StockInfo 연결 (종목 코드가 있는 경우)
                     if (news.getStockCode() != null && !news.getStockCode().isEmpty()) {
@@ -403,7 +386,6 @@ public class NewsService {
     /**
      * 역사적 챌린지 뉴스 수집 (날짜만 지정 - 기본 종목들)
      */
-    @Transactional
     public void collectHistoricalNews(String date) {
         log.info("=== Google RSS 역사적 챌린지 뉴스 수집 시작 (기본 종목): {} ===", date);
         
@@ -429,7 +411,6 @@ public class NewsService {
     /**
      * 특정 종목의 역사적 뉴스 수집
      */
-    @Transactional
     public void collectHistoricalNewsForStock(String symbol, String companyName, 
                                               String date, List<String> aliases) {
         try {
@@ -465,8 +446,8 @@ public class NewsService {
     
     /**
      * 오래된 뉴스 정리 (30일 이상)
+     * 스케줄링은 NewsScheduler에서 관리
      */
-    @Scheduled(cron = "0 0 3 * * ?") // 매일 새벽 3시 실행
     @Transactional
     public int cleanupOldNews() {
         LocalDateTime cutoffDate = LocalDateTime.now().minusDays(30);
@@ -506,9 +487,19 @@ public class NewsService {
             }
         }
 
+        // URL 처리 - 실제 URL 사용 (RSS URL이 아닌)
         String url = getStringValue(newsData, "url");
+        String originalUrl = getStringValue(newsData, "original_url");
+        
+        // 디버깅용 로그 추가
+        if (url != null && originalUrl != null) {
+            log.debug("URL 매핑 - 실제 URL: {}, RSS URL: {}", url, originalUrl);
+        }
+        
         if (url == null || url.trim().isEmpty()) {
-            url = "";
+            // url이 없으면 original_url이라도 사용 (fallback)
+            url = originalUrl != null ? originalUrl : "";
+            log.warn("실제 URL이 없어 RSS URL 사용: {}", url);
         }
 
         // 길이 제한 적용

@@ -90,6 +90,7 @@ class StrictSequentialNewsProcessor:
         """URL 유효성 검증 및 리디렉션 처리"""
         try:
             logger.info(f"🔗 [{index}/{total}] URL 검증 및 리디렉션 중...")
+            logger.debug(f"   원본 RSS URL: {url}")
 
             response = requests.head(url, allow_redirects=True, timeout=self.url_redirect_timeout)
             final_url = response.url
@@ -98,7 +99,14 @@ class StrictSequentialNewsProcessor:
                 logger.error(f"❌ [{index}/{total}] URL 접근 실패 (HTTP {response.status_code})")
                 return None
 
-            logger.info(f"✅ [{index}/{total}] URL 리디렉션 완료")
+            # URL이 변경되었는지 확인
+            if final_url != url:
+                logger.info(f"✅ [{index}/{total}] URL 리디렉션 완료")
+                logger.info(f"   RSS URL: {url[:80]}...")
+                logger.info(f"   실제 URL: {final_url[:80]}...")
+            else:
+                logger.info(f"✅ [{index}/{total}] URL 검증 완료 (리디렉션 없음)")
+                
             return final_url
 
         except requests.exceptions.Timeout:
@@ -185,7 +193,7 @@ class StrictSequentialNewsProcessor:
 
     def generate_claude_summary_strict(self, title: str, content: str,
                                        index: int, total: int) -> List[str]:
-        """엄격한 Claude 요약 생성"""
+        """엄격한 Claude 요약 생성 (타임아웃 및 재시도 로직 포함)"""
         try:
             self.wait_for_claude_rate_limit()
 
@@ -200,20 +208,38 @@ class StrictSequentialNewsProcessor:
 
             headers = {"Content-Type": "application/json"}
 
-            response = requests.post(
-                spring_boot_url,
-                json=payload,
-                headers=headers,
-                timeout=15
-            )
-
-            response.raise_for_status()
+            # 재시도 로직 추가 (최대 2회 시도)
+            max_retries = 2
+            for attempt in range(max_retries):
+                try:
+                    response = requests.post(
+                        spring_boot_url,
+                        json=payload,
+                        headers=headers,
+                        timeout=30  # Claude API 타임아웃 30초로 증가
+                    )
+                    
+                    response.raise_for_status()
+                    break  # 성공 시 루프 종료
+                    
+                except requests.exceptions.Timeout:
+                    if attempt < max_retries - 1:
+                        logger.warning(f"⏰ [{index}/{total}] Claude API 타임아웃, 재시도 {attempt+1}/{max_retries-1}")
+                        time.sleep(2)  # 재시도 전 2초 대기
+                        continue
+                    else:
+                        logger.error(f"❌ [{index}/{total}] Claude API 타임아웃 (모든 재시도 실패)")
+                        return self._generate_fallback_summary(title, content)
+                        
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"❌ [{index}/{total}] Claude API 요청 실패: {e}")
+                    return self._generate_fallback_summary(title, content)
 
             summary_text = response.text.strip()
 
             if not summary_text:
                 logger.warning(f"⚠️ [{index}/{total}] Claude 응답이 비어있음")
-                return []
+                return self._generate_fallback_summary(title, content)
 
             sentences = [
                 s.strip() for s in summary_text.replace('\n', '.').split('.')
@@ -226,6 +252,29 @@ class StrictSequentialNewsProcessor:
 
         except Exception as e:
             logger.error(f"❌ [{index}/{total}] Claude 요약 실패: {e}")
+            return self._generate_fallback_summary(title, content)
+    
+    def _generate_fallback_summary(self, title: str, content: str) -> List[str]:
+        """Claude API 실패 시 기본 요약 생성"""
+        try:
+            # 제목과 컨텐츠 첫 부분을 활용한 간단한 요약
+            summary = []
+            
+            # 제목 활용
+            if title:
+                summary.append(title[:100])
+            
+            # 컨텐츠 첫 200자 활용
+            if content and len(content) > 50:
+                first_sentence = content[:200].split('.')[0]
+                if first_sentence:
+                    summary.append(first_sentence.strip())
+            
+            logger.info(f"ℹ️ Fallback 요약 생성 완료")
+            return summary[:2]  # 최대 2개 문장 반환
+            
+        except Exception as e:
+            logger.error(f"Fallback 요약 생성 실패: {e}")
             return []
 
     def process_single_news_strict(self, news_item: NewsItem, content_parser: ContentBlockParser,
@@ -260,10 +309,13 @@ class StrictSequentialNewsProcessor:
             )
 
             # STEP 5: 최종 결과 구성
+            # 실제 URL과 RSS URL 명확히 구분
+            logger.debug(f"📦 [{index}/{total}] 최종 URL 설정 - 실제: {final_url[:80]}..., RSS: {news_item.url[:80]}...")
+            
             result = {
                 'title': content_data['title'],
-                'url': final_url,
-                'original_url': news_item.url,
+                'url': final_url,  # 실제 뉴스 페이지 URL (리디렉션 후)
+                'original_url': news_item.url,  # RSS에서 제공한 원본 URL
                 'source': news_item.source,
                 'published_at': news_item.published_at.isoformat(),
                 'category': news_item.category,
@@ -439,8 +491,50 @@ def collect_realtime_news():
 def collect_single_watchlist_news():
     """단일 관심종목 뉴스 수집 API (Spring Boot에서 호출)"""
     try:
-        data = request.get_json()
+        logger.info("📥 관심종목 뉴스 수집 API 호출됨")
+        logger.info(f"Request headers: {dict(request.headers)}")
+        logger.info(f"Request data: {request.data}")
+        logger.info(f"Request content type: {request.content_type}")
+        
+        # 한글 인코딩 문제 해결 - 여러 인코딩 방식 시도
+        data = None
+        try:
+            data = request.get_json(force=True)
+            logger.info(f"Parsed JSON data: {data}")
+        except Exception as json_error:
+            logger.error(f"JSON 파싱 오류: {json_error}")
+            # 여러 인코딩 방식으로 시도
+            encoding_attempts = ['utf-8', 'euc-kr', 'cp949', 'iso-8859-1']
+            
+            for encoding in encoding_attempts:
+                try:
+                    import json
+                    raw_data = request.data.decode(encoding)
+                    logger.info(f"Raw data with {encoding}: {raw_data}")
+                    data = json.loads(raw_data)
+                    logger.info(f"Successfully parsed with {encoding}: {data}")
+                    break
+                except Exception as enc_error:
+                    logger.debug(f"인코딩 {encoding} 실패: {enc_error}")
+                    continue
+            
+            if data is None:
+                # 마지막 시도: bytes를 직접 처리
+                try:
+                    import json
+                    # raw bytes를 Latin-1로 디코딩한 후 다시 UTF-8로 인코딩/디코딩
+                    raw_bytes = request.data
+                    temp_str = raw_bytes.decode('latin-1')
+                    final_str = temp_str.encode('latin-1').decode('utf-8')
+                    logger.info(f"Final attempt data: {final_str}")
+                    data = json.loads(final_str)
+                    logger.info(f"Final attempt success: {data}")
+                except Exception as final_error:
+                    logger.error(f"모든 인코딩 시도 실패: {final_error}")
+                    return jsonify({'error': f'JSON parsing failed with all encoding attempts: {str(json_error)}'}), 400
+        
         if not data:
+            logger.error("❌ JSON data가 비어있음")
             return jsonify({'error': 'JSON data required'}), 400
 
         symbol = data.get('symbol')

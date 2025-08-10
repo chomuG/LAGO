@@ -1,1 +1,0 @@
-import requests; print("Testing FinBERT realtime collection..."); r=requests.post("http://localhost:8000/collect/realtime", json={"limit": 1}, timeout=120); print(f"Status: {r.status_code}"); print("Response:", r.text[:200] if r.status_code \!= 200 else f"Count: {r.json().get(\"count\", 0)}")

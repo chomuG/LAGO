@@ -1,1 +1,0 @@
-import requests; import json; r=requests.post("http://localhost:8000/analyze-text", json={"text": "삼성전자가 AI 반도체에 투자한다"}, timeout=30); print(f"Status: {r.status_code}"); result=r.json(); print("Keys:", list(result.keys())); print("Label:", result.get("label")); print("Confidence:", result.get("confidence"))

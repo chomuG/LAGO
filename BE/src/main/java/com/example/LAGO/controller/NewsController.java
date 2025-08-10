@@ -185,46 +185,6 @@ public class NewsController {
         }
     }
 
-    @PostMapping("/collect/stock")
-    @Operation(
-            summary = "특정 종목 뉴스 수동 수집",
-            description = "특정 종목의 뉴스를 즉시 수집합니다."
-    )
-    public ResponseEntity<Map<String, Object>> collectStockNews(
-            @Parameter(description = "종목코드", example = "005930")
-            @RequestParam String symbol,
-
-            @Parameter(description = "회사명", example = "삼성전자")
-            @RequestParam String companyName,
-
-            @Parameter(description = "검색 별칭 (선택)", example = "삼성,Samsung")
-            @RequestParam(required = false) String aliases,
-
-            @Parameter(description = "수집 개수", example = "10")
-            @RequestParam(defaultValue = "10") int limit
-    ) {
-        try {
-            List<String> aliasList = aliases != null ?
-                    Arrays.asList(aliases.split(",")) : null;
-
-            newsService.collectSingleWatchlistNews(symbol, companyName, aliasList, limit);
-
-            return ResponseEntity.ok(Map.of(
-                    "message", String.format("%s (%s) 뉴스 수집을 시작했습니다.", companyName, symbol),
-                    "stockCode", symbol,
-                    "companyName", companyName,
-                    "status", "STARTED"
-            ));
-
-        } catch (Exception e) {
-            log.error("특정 종목 뉴스 수집 실패: {}", e.getMessage());
-            return ResponseEntity.internalServerError()
-                    .body(Map.of(
-                            "error", "특정 종목 뉴스 수집에 실패했습니다",
-                            "message", e.getMessage()
-                    ));
-        }
-    }
 
     @PostMapping("/collect/historical")
     @Operation(
