@@ -30,6 +30,9 @@ public class InvestmentTermDto {
     
     @Schema(description = "설명", example = "기업의 가치를 평가하는 대표적인 지표로 PER이라고도 불립니다. 낮을수록 저평가된 주식으로 여겨집니다.")
     private String description;
+    
+    @Schema(description = "사용자가 이 용어를 아는지 여부 (userId 제공 시만)", example = "true")
+    private Boolean knowStatus;
 
     /**
      * Entity -> DTO 변환 생성자
