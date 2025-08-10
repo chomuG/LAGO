@@ -71,9 +71,6 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testRuntimeOnly 'com.h2database:h2'
 	runtimeOnly 'com.h2database:h2'
-
-	// Kotlin reflection for SpringDoc
-    implementation 'org.jetbrains.kotlin:kotlin-reflect:1.9.10' 추가하고 재빌드하면
 }
 
 // =================================================================
