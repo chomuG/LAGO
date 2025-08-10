@@ -1,8 +1,10 @@
 package com.example.LAGO.service;
 
 import com.example.LAGO.domain.Quiz;
+import com.example.LAGO.domain.KnowTerm;
 import com.example.LAGO.dto.QuizDto;
 import com.example.LAGO.repository.QuizRepository;
+import com.example.LAGO.repository.KnowTermRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ import java.util.Random;
 public class QuizService {
 
     private final QuizRepository quizRepository;
+    private final KnowTermRepository knowTermRepository;
     private final Random random = new Random();
 
     /**
@@ -96,5 +99,104 @@ public class QuizService {
         return quizzes.stream()
                 .map(QuizDto::new)
                 .toList();
+    }
+
+    /**
+     * 랜덤 퀴즈 풀이
+     *
+     * @param userId 사용자 ID (선택사항)
+     * @param quizId 퀴즈 ID
+     * @param userAnswer 사용자 답변
+     * @return 풀이 결과
+     */
+    @Transactional
+    public RandomQuizResult solveRandomQuiz(Integer userId, Integer quizId, Boolean userAnswer) {
+        log.debug("랜덤 퀴즈 풀이 요청 - userId: {}, quizId: {}, userAnswer: {}", userId, quizId, userAnswer);
+        
+        Quiz quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new RuntimeException("Quiz not found"));
+
+        boolean isCorrect = quiz.getAnswer().equals(userAnswer);
+        int score = isCorrect ? 100 : 0;
+
+        // userId가 있을 때만 관련 용어 know_term 업데이트
+        if (userId != null) {
+            updateKnowTerm(userId, quiz.getTermId(), isCorrect);
+        }
+
+        log.info("랜덤 퀴즈 풀이 완료 - userId: {}, quizId: {}, correct: {}, score: {}, know_term_updated: {}", 
+            userId, quizId, isCorrect, score, userId != null);
+
+        return RandomQuizResult.builder()
+                .correct(isCorrect)
+                .score(score)
+                .explanation(quiz.getExplanation())
+                .build();
+    }
+
+    /**
+     * 사용자의 용어 이해도 업데이트
+     */
+    private void updateKnowTerm(Integer userId, Integer termId, boolean correct) {
+        Optional<KnowTerm> existingKnowTerm = knowTermRepository.findByUserIdAndTermId(userId, termId);
+        
+        if (existingKnowTerm.isPresent()) {
+            KnowTerm knowTerm = existingKnowTerm.get();
+            knowTerm.setCorrect(correct);
+            knowTermRepository.save(knowTerm);
+            log.debug("Updated know_term for user {} term {} correct {}", userId, termId, correct);
+        } else {
+            KnowTerm newKnowTerm = KnowTerm.builder()
+                    .knowId(generateKnowId())
+                    .userId(userId)
+                    .termId(termId)
+                    .correct(correct)
+                    .build();
+            knowTermRepository.save(newKnowTerm);
+            log.debug("Created new know_term for user {} term {} correct {}", userId, termId, correct);
+        }
+    }
+
+    private Integer generateKnowId() {
+        return (int) System.currentTimeMillis();
+    }
+
+    public static class RandomQuizResult {
+        public boolean correct;
+        public int score;
+        public String explanation;
+
+        public static RandomQuizResultBuilder builder() {
+            return new RandomQuizResultBuilder();
+        }
+
+        public static class RandomQuizResultBuilder {
+            private boolean correct;
+            private int score;
+            private String explanation;
+
+            public RandomQuizResultBuilder correct(boolean correct) {
+                this.correct = correct;
+                return this;
+            }
+
+            public RandomQuizResultBuilder score(int score) {
+                this.score = score;
+                return this;
+            }
+
+            public RandomQuizResultBuilder explanation(String explanation) {
+                this.explanation = explanation;
+                return this;
+            }
+
+            public RandomQuizResult build() {
+                RandomQuizResult result = new RandomQuizResult();
+                result.correct = this.correct;
+                result.score = this.score;
+                result.explanation = this.explanation;
+                return result;
+            }
+        }
     }
 }

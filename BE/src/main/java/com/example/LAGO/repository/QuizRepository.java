@@ -49,4 +49,12 @@ public interface QuizRepository extends JpaRepository<Quiz, Integer> {
      * @return 해당 용어와 관련된 퀴즈들
      */
     List<Quiz> findByTermId(Integer termId);
+
+    /**
+     * 데일리 퀴즈로 사용되지 않은 퀴즈들 조회 (daily_date가 null인 것들)
+     *
+     * @return daily_date가 null인 퀴즈 리스트
+     */
+    @Query("SELECT q FROM Quiz q WHERE q.dailyDate IS NULL")
+    List<Quiz> findAvailableForDailyQuiz();
 }

@@ -3,6 +3,7 @@ package com.example.LAGO.controller;
 import com.example.LAGO.domain.DailyQuizSchedule;
 import com.example.LAGO.repository.DailyQuizScheduleRepository;
 import com.example.LAGO.repository.QuizRepository;
+import com.example.LAGO.service.PushNotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class AdminController {
 
     private final DailyQuizScheduleRepository dailyQuizScheduleRepository;
     private final QuizRepository quizRepository;
+    private final PushNotificationService pushNotificationService;
     private final Random random = new Random();
 
     @PostMapping("/daily-quiz/schedule-today")
@@ -49,6 +51,20 @@ public class AdminController {
 
         dailyQuizScheduleRepository.save(schedule);
         
-        return ResponseEntity.ok("Today's quiz scheduled: " + selectedQuiz.getQuestion());
+        // 수동 생성시 즉시 푸시 알림 발송
+        String notificationTitle = selectedQuiz.getQuestion();
+        if (notificationTitle.length() > 50) {
+            notificationTitle = notificationTitle.substring(0, 50) + "...";
+        }
+        pushNotificationService.sendDailyQuizNotificationToAll(notificationTitle);
+        
+        return ResponseEntity.ok("Today's quiz scheduled and notification sent: " + selectedQuiz.getQuestion());
+    }
+
+    @PostMapping("/test-push")
+    @Operation(summary = "테스트 푸시 알림 발송", description = "테스트용: 푸시 알림을 즉시 발송합니다.")
+    public ResponseEntity<String> testPush() {
+        pushNotificationService.sendTestNotification("테스트 알림", "푸시 알림 테스트입니다!");
+        return ResponseEntity.ok("Test push notification sent!");
     }
 }
