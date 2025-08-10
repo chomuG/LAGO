@@ -4,6 +4,10 @@
 # Docker/DB/Redis 볼륨(실제 데이터)
 /dbdata/
 /redisdata/
+dbdata/
+redisdata/
+BE/dbdata/
+BE/redisdata/
 
 # 기타 임시/캐시
 *.tmp
@@ -12,8 +16,6 @@
 
 # node, frontend 등 추가시
 node_modules/
-
-# 기타 팀/실무 환경에 따라 필요시 추가
 
 # Java/Spring Boot 빌드 파일
 /build/
@@ -70,19 +72,11 @@ Thumbs.db
 .env
 .env.*
 
-# Docker/DB/Redis 볼륨(실제 데이터)
-dbdata/
-redisdata/
-BE/dbdata/
-BE/redisdata/
-
-# 기타 임시/캐시
-*.tmp
-*.temp
-*.cache
-
-# node, frontend 등 추가시
-node_modules/
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.tgz
 
 # Gemini
 .gemini/

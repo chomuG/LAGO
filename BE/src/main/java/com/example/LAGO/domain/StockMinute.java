@@ -16,7 +16,7 @@ public class StockMinute {
     @Column(name = "stock_mid_id")
     private Integer stockMidId;
 
-    // 외래키
+    // 외래키: STOCK_INFO 참조
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stock_info_id")
     private StockInfo stockInfo;
