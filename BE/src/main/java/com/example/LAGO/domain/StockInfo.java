@@ -36,19 +36,31 @@ public class StockInfo {
      * 종목 코드 (예: 005930)
      */
     @Column(name = "code", length = 20)
-    private String code;
+    private String stockCode;
 
     /**
      * 종목명 (예: 삼성전자)
      */
     @Column(name = "name", length = 100)
-    private String name;
+    private String companyName;
 
     /**
      * 시장 구분 (KOSPI/KOSDAQ)
      */
     @Column(name = "market", length = 20)
     private String market;
+    
+    /**
+     * 영문 회사명 (선택적 - 검색 별칭용)
+     */
+    @Column(name = "name_en", length = 200)
+    private String companyNameEn;
+    
+    /**
+     * 시가총액 (정렬용)
+     */
+    @Column(name = "market_cap")
+    private Long marketCap;
 
     // STOCK_MINUTE과의 관계
     @OneToMany(mappedBy = "stockInfo", fetch = FetchType.LAZY)
@@ -56,10 +68,19 @@ public class StockInfo {
 
 
     // 생성자
-    public StockInfo(String code, String name, String market) {
-        this.code = code;
-        this.name = name;
+    public StockInfo(String stockCode, String companyName, String market) {
+        this.stockCode = stockCode;
+        this.companyName = companyName;
         this.market = market;
+    }
+    
+    // 코드 호환성을 위한 getter 별칭
+    public String getCode() {
+        return stockCode;
+    }
+    
+    public String getName() {
+        return companyName;
     }
 
 }

@@ -52,6 +52,11 @@ dependencies {
 
 	// WebClient
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	
+	// OkHttp for stable HTTP client
+	implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+	
+	// Apache HttpComponents 제거 - OkHttp 사용
 
 	// Env helper (backend-dev)
 	implementation 'io.github.cdimascio:java-dotenv:5.2.2'

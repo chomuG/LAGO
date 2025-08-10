@@ -15,13 +15,23 @@ public interface StockInfoRepository extends JpaRepository<StockInfo, Integer> {
      * @param code 종목 코드 (예: 005930)
      * @return 주식 정보
      */
+    Optional<StockInfo> findByStockCode(String stockCode);
+    
+    /**
+     * 종목 코드로 주식 정보 조회 (호환성)
+     */
     Optional<StockInfo> findByCode(String code);
 
     /**
      * 종목명으로 주식 정보 조회
      *
-     * @param name 종목명
+     * @param companyName 종목명
      * @return 주식 정보
+     */
+    Optional<StockInfo> findByCompanyName(String companyName);
+    
+    /**
+     * 종목명으로 주식 정보 조회 (호환성)
      */
     Optional<StockInfo> findByName(String name);
 
@@ -34,13 +44,24 @@ public interface StockInfoRepository extends JpaRepository<StockInfo, Integer> {
     java.util.List<StockInfo> findByMarket(String market);
 
     // 종목코드로 stock_info_id만 직접 조회 (성능 최적화)
+    @Query("SELECT s.stockInfoId FROM StockInfo s WHERE s.stockCode = :stockCode")
+    Optional<Integer> findStockInfoIdByStockCode(@Param("stockCode") String stockCode);
+    
+    // 종목코드로 stock_info_id만 직접 조회 (호환성)
     @Query("SELECT s.stockInfoId FROM StockInfo s WHERE s.code = :code")
     Optional<Integer> findStockInfoIdByCode(@Param("code") String code);
 
     // 캐싱을 위한 존재 여부 확인
+    @Query("SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END FROM StockInfo s WHERE s.stockCode = :stockCode")
+    boolean existsByStockCode(@Param("stockCode") String stockCode);
+    
+    // 캐싱을 위한 존재 여부 확인 (호환성)
     @Query("SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END FROM StockInfo s WHERE s.code = :code")
     boolean existsByCode(@Param("code") String code);
     
     // 상위 20개 주요 종목 조회 (뉴스 수집용)
     List<StockInfo> findTop20ByOrderByStockInfoIdAsc();
+    
+    // 시가총액 상위 10개 종목 조회 (역사적 뉴스 수집용)
+    List<StockInfo> findTop10ByOrderByMarketCapDesc();
 }

@@ -18,23 +18,23 @@ public class NewsScheduler {
     private final NewsService newsService;
     
     @Scheduled(fixedRate = 1200000) // 20분마다 실행 (1200000ms = 20분)
-    public void collectNews() {
-        log.info("=== 뉴스 수집 스케줄러 시작 - {} ===", LocalDateTime.now());
+    public void collectGoogleRssNews() {
+        log.info("=== Google RSS 뉴스 수집 스케줄러 시작 - {} ===", LocalDateTime.now());
         
         try {
-            // 일반 투자 뉴스 수집
-            newsService.collectAndSaveGeneralNews();
+            // FinBERT 서비스를 통한 실시간 뉴스 수집
+            newsService.collectRealtimeNews();
             
-            // 잠시 대기 (API 호출 제한 고려)
-            Thread.sleep(5000);
+            // 잠시 대기 
+            Thread.sleep(3000);
             
-            // 관심종목 뉴스 수집
-            newsService.collectAndSaveStockNews();
+            // 주요 관심종목 뉴스 수집
+            newsService.collectWatchlistNewsFromDB();
             
-            log.info("=== 뉴스 수집 스케줄러 완료 - {} ===", LocalDateTime.now());
+            log.info("=== Google RSS 뉴스 수집 스케줄러 완료 - {} ===", LocalDateTime.now());
             
         } catch (Exception e) {
-            log.error("뉴스 수집 스케줄러 실행 중 오류 발생: {}", e.getMessage(), e);
+            log.error("Google RSS 뉴스 수집 스케줄러 실행 중 오류 발생: {}", e.getMessage(), e);
         }
     }
     
@@ -44,10 +44,9 @@ public class NewsScheduler {
         log.info("=== 오래된 뉴스 정리 시작 - {} ===", LocalDateTime.now());
         
         try {
-            // 30일 이상 된 뉴스 삭제 로직 (필요시 구현)
-            // newsRepository.deleteByCreatedAtBefore(LocalDateTime.now().minusDays(30));
-            
-            log.info("=== 오래된 뉴스 정리 완료 - {} ===", LocalDateTime.now());
+            // NewsService에 구현된 정리 메서드 호출
+            int deletedCount = newsService.cleanupOldNews();
+            log.info("=== 오래된 뉴스 {}개 정리 완료 - {} ===", deletedCount, LocalDateTime.now());
             
         } catch (Exception e) {
             log.error("오래된 뉴스 정리 중 오류 발생: {}", e.getMessage(), e);

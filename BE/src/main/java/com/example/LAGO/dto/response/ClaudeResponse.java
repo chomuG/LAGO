@@ -1,5 +1,6 @@
 package com.example.LAGO.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
@@ -26,6 +27,9 @@ public class ClaudeResponse {
     @JsonProperty("stop_reason")
     private String stopReason;
     
+    @JsonProperty("stop_sequence")
+    private String stopSequence;
+    
     @JsonProperty("usage")
     private Usage usage;
     
@@ -39,11 +43,18 @@ public class ClaudeResponse {
     }
     
     @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)  // 알 수 없는 필드 무시 (service_tier 등)
     public static class Usage {
         @JsonProperty("input_tokens")
         private Integer inputTokens;
         
         @JsonProperty("output_tokens")
         private Integer outputTokens;
+        
+        @JsonProperty("cache_creation_input_tokens")
+        private Integer cacheCreationInputTokens;
+        
+        @JsonProperty("cache_read_input_tokens")
+        private Integer cacheReadInputTokens;
     }
 }

@@ -3,359 +3,605 @@ package com.example.LAGO.service;
 import com.example.LAGO.ai.sentiment.FinBertSentimentService;
 import com.example.LAGO.domain.News;
 import com.example.LAGO.domain.StockInfo;
-import com.example.LAGO.dto.response.FinBertResponse;
-import com.example.LAGO.dto.response.NaverNewsResponse;
-import com.example.LAGO.dto.response.NewsAnalysisResult;
+import com.example.LAGO.domain.WatchList;  // 관심종목 엔티티
+import com.example.LAGO.dto.response.NewsResponse;
 import com.example.LAGO.repository.NewsRepository;
 import com.example.LAGO.repository.StockInfoRepository;
+import com.example.LAGO.repository.WatchListRepository;  // 관심종목 Repository
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class NewsService {
-    
+
     private final NewsRepository newsRepository;
     private final StockInfoRepository stockInfoRepository;
-    private final NaverNewsClient naverNewsClient;
-    private final NaverFinanceNewsClient naverFinanceNewsClient;
-    private final ClaudeClient claudeClient;
-    private final FinBertSentimentService finBertSentimentService;
-    
-    // 일반 투자 뉴스 키워드
-    private static final List<String> GENERAL_KEYWORDS = Arrays.asList(
-            "주식", "투자", "증권", "코스피", "코스닥", "경제"
-    );
-    
+    private final WatchListRepository watchListRepository;  // 관심종목 Repository
+    private final RestTemplate restTemplate;
+    private final NewsSaver newsSaver;
+
+    @Value("${finbert.url:http://localhost:8000}")
+    private String finbertUrl;
+
+    // 수집 상태 추적용
+    private final Map<String, LocalDateTime> lastCollectionTime = new ConcurrentHashMap<>();
+
+    /**
+     * 실시간 뉴스 자동 수집 - 20분마다 실행
+     */
+    @Scheduled(fixedDelay = 1200000) // 20분 = 1,200,000ms
     @Transactional
-    public void collectAndSaveGeneralNews() {
-        log.info("=== 일반 투자 뉴스 수집 시작 (네이버 증권 페이지) ===");
-        
+    public void scheduledRealtimeNewsCollection() {
+        log.info("=== 스케줄된 실시간 뉴스 수집 시작 (20분 주기) ===");
+        collectRealtimeNews();
+    }
+
+    /**
+     * 관심종목 뉴스 자동 수집 - 20분마다 실행 (실시간 수집 5분 후)
+     */
+    @Scheduled(fixedDelay = 1200000, initialDelay = 300000) // 5분 후 시작, 20분마다
+    @Transactional
+    public void scheduledWatchlistNewsCollection() {
+        log.info("=== 스케줄된 관심종목 뉴스 수집 시작 (20분 주기) ===");
+        collectWatchlistNewsFromDB();
+    }
+
+    /**
+     * Google RSS 실시간 뉴스 수집
+     */
+    @Transactional
+    public void collectRealtimeNews() {
+        log.info("=== Google RSS 실시간 뉴스 수집 시작 ===");
+
         try {
-            log.info("네이버 증권 페이지 크롤링 시작...");
-            // 네이버 증권 페이지에서 직접 크롤링
-            NaverNewsResponse response = naverFinanceNewsClient.crawlFinanceNews(30);
-            
-            if (response.getItems() != null) {
-                int savedCount = 0;
-                
-                for (NaverNewsResponse.NewsItem item : response.getItems()) {
-                    if (!newsRepository.existsByUrl(item.getLink())) {
-                        News news = convertToGeneralNews(item);
-                        if (news != null) {
-                            newsRepository.save(news);
-                            savedCount++;
-                        }
-                    }
-                }
-                
-                log.info("일반 투자 뉴스 {}개 수집 완료", savedCount);
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Content-Type", "application/json");
+
+            Map<String, Object> requestBody = Map.of("limit", 20);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    finbertUrl + "/collect/realtime",
+                    HttpMethod.POST,
+                    entity,
+                    Map.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                processNewsResponse(response.getBody(), "REALTIME", null);
+                lastCollectionTime.put("REALTIME", LocalDateTime.now());
+            } else {
+                log.warn("Google RSS 실시간 뉴스 수집 실패: {}", response.getStatusCode());
             }
+
         } catch (Exception e) {
-            log.error("일반 투자 뉴스 수집 실패: {}", e.getMessage());
+            log.error("Google RSS 실시간 뉴스 수집 중 오류 발생: {}", e.getMessage(), e);
         }
     }
-    
+
+    /**
+     * DB에서 관심종목 조회 후 뉴스 수집
+     */
     @Transactional
-    public void collectAndSaveStockNews() {
-        log.info("=== 관심종목 뉴스 수집 시작 ===");
-        
+    public void collectWatchlistNewsFromDB() {
+        log.info("=== DB 기반 관심종목 뉴스 수집 시작 ===");
+
         try {
-            // 상위 20개 주요 종목 가져오기
-            List<StockInfo> majorStocks = stockInfoRepository.findTop20ByOrderByStockInfoIdAsc();
-            
-            if (majorStocks.isEmpty()) {
-                log.warn("STOCK_INFO 테이블에 데이터가 없어 관심종목 뉴스 수집을 건너뜁니다.");
+            // 사용자가 하트 누른 관심종목 조회
+            List<WatchList> watchListItems = watchListRepository.findAllActive();
+
+            if (watchListItems.isEmpty()) {
+                log.info("활성화된 관심종목이 없습니다.");
                 return;
             }
-            
-            int totalSaved = 0;
-            
-            for (StockInfo stock : majorStocks) {
+
+            log.info("관심종목 {}개 발견", watchListItems.size());
+
+            // 종목별로 순차 처리
+            for (WatchList watchItem : watchListItems) {
                 try {
-                    NaverNewsResponse response = naverNewsClient.searchStockNews(stock.getName(), 10, 1);
-                    
-                    if (response.getItems() != null) {
-                        for (NaverNewsResponse.NewsItem item : response.getItems()) {
-                            if (!newsRepository.existsByUrl(item.getLink())) {
-                                News news = convertToStockNews(item, stock);
-                                if (news != null) {
-                                    newsRepository.save(news);
-                                    totalSaved++;
-                                }
-                            }
-                        }
+                    StockInfo stock = watchItem.getStock();
+
+                    if (stock == null) {
+                        log.warn("관심종목에 연결된 종목 정보가 없습니다: {}", watchItem.getId());
+                        continue;
                     }
-                    
-                    // API 호출 제한을 위한 잠시 대기
-                    Thread.sleep(100);
-                    
+
+                    log.info("관심종목 뉴스 수집: {} ({})", stock.getCompanyName(), stock.getStockCode());
+
+                    collectSingleWatchlistNews(
+                            stock.getStockCode(),
+                            stock.getCompanyName(),
+                            getAliasesForStock(stock),
+                            5  // 종목당 5개 뉴스
+                    );
+
+                    // API 부하 방지를 위한 지연
+                    Thread.sleep(2000); // 2초 대기
+
                 } catch (Exception e) {
-                    log.warn("종목 {} 뉴스 수집 실패: {}", stock.getName(), e.getMessage());
+                    log.error("관심종목 뉴스 수집 실패 - ID: {}, 오류: {}",
+                            watchItem.getId(), e.getMessage());
                 }
             }
-            
-            log.info("관심종목 뉴스 {}개 수집 완료", totalSaved);
-            
+
+            lastCollectionTime.put("WATCHLIST", LocalDateTime.now());
+            log.info("=== DB 기반 관심종목 뉴스 수집 완료 ===");
+
         } catch (Exception e) {
-            log.error("관심종목 뉴스 수집 실패: {}", e.getMessage());
+            log.error("관심종목 뉴스 수집 중 오류 발생: {}", e.getMessage(), e);
         }
     }
-    
-    private News convertToGeneralNews(NaverNewsResponse.NewsItem item) {
-        try {
-            String cleanTitle = cleanHtmlTags(item.getTitle());
-            String cleanDescription = cleanHtmlTags(item.getDescription());
-            
-            // 네이버 증권 페이지에서 가져온 뉴스는 이미 금융 뉴스이므로 필터링 제거
-            
-            // FinBERT URL 기반 종합 분석 (본문 + 이미지 + 감정분석)
-            NewsAnalysisResult analysisResult;
-            try {
-                log.info("FinBERT URL 기반 분석 시작: {}", item.getLink());
-                analysisResult = finBertSentimentService.analyzeNewsByUrl(item.getLink());
-                log.info("FinBERT URL 분석 완료 - 제목: {}, 본문: {}자, 이미지: {}개, 감정: {}", 
-                    analysisResult.getTitle() != null ? analysisResult.getTitle().substring(0, Math.min(30, analysisResult.getTitle().length())) : "없음",
-                    analysisResult.getContent() != null ? analysisResult.getContent().length() : 0,
-                    analysisResult.getImages() != null ? analysisResult.getImages().size() : 0,
-                    analysisResult.getLabel());
-            } catch (Exception e) {
-                log.warn("FinBERT URL 분석 실패, 기본값 사용: {}", e.getMessage());
-                // 기본값 설정
-                analysisResult = createDefaultNewsAnalysisResult();
-            }
-            
-            // 실제 추출된 제목과 본문이 있으면 사용, 없으면 네이버 API 데이터 사용
-            String finalTitle = (analysisResult.getTitle() != null && !analysisResult.getTitle().isEmpty()) ? 
-                analysisResult.getTitle() : cleanTitle;
-            String finalContent = (analysisResult.getContent() != null && !analysisResult.getContent().isEmpty()) ? 
-                analysisResult.getContent() : cleanDescription;
-            
-            // Claude로 요약 생성 - 서비스 실패시 기본값 사용
-            String summary;
-            try {
-                summary = claudeClient.summarizeNews(finalTitle, finalContent);
-            } catch (Exception e) {
-                log.warn("Claude API 호출 실패, 기본 요약 사용: {}", e.getMessage());
-                summary = finalContent.length() > 200 ? finalContent.substring(0, 200) + "..." : finalContent;
-            }
-            
-            return News.builder()
-                    .title(finalTitle)
-                    .content(finalContent)
-                    .summary(summary)
-                    .url(item.getLink())
-                    .publishedDate(parsePublishedDate(item.getPubDate()))
-                    .source(extractSource(item.getLink()))
-                    .stockCode(null) // 일반 뉴스는 특정 종목 없음
-                    .stockName(null)
-                    .keywords(String.join(", ", GENERAL_KEYWORDS))
-                    .images(analysisResult.getImages()) // FinBERT에서 추출한 이미지들
-                    // FinBERT 감정분석 핵심 결과만 저장
-                    .sentiment(analysisResult.getLabel()) // 호재악재 표시
-                    .confidenceLevel(analysisResult.getConfidenceLevel()) // 신뢰도
-                    .tradingSignal(analysisResult.getTradingSignal()) // 거래신호
-                    .build();
-                    
-        } catch (Exception e) {
-            log.warn("일반 뉴스 변환 실패: {}", e.getMessage());
-            return null;
-        }
-    }
-    
-    private News convertToStockNews(NaverNewsResponse.NewsItem item, StockInfo stock) {
-        try {
-            String cleanTitle = cleanHtmlTags(item.getTitle());
-            String cleanDescription = cleanHtmlTags(item.getDescription());
-            
-            // FinBERT URL 기반 종합 분석 (본문 + 이미지 + 감정분석)
-            NewsAnalysisResult analysisResult;
-            try {
-                log.info("FinBERT URL 기반 분석 시작: {}", item.getLink());
-                analysisResult = finBertSentimentService.analyzeNewsByUrl(item.getLink());
-                log.info("FinBERT URL 분석 완료 - 제목: {}, 본문: {}자, 이미지: {}개, 감정: {}", 
-                    analysisResult.getTitle() != null ? analysisResult.getTitle().substring(0, Math.min(30, analysisResult.getTitle().length())) : "없음",
-                    analysisResult.getContent() != null ? analysisResult.getContent().length() : 0,
-                    analysisResult.getImages() != null ? analysisResult.getImages().size() : 0,
-                    analysisResult.getLabel());
-            } catch (Exception e) {
-                log.warn("FinBERT URL 분석 실패, 기본값 사용: {}", e.getMessage());
-                // 기본값 설정
-                analysisResult = createDefaultNewsAnalysisResult();
-            }
-            
-            // 실제 추출된 제목과 본문이 있으면 사용, 없으면 네이버 API 데이터 사용
-            String finalTitle = (analysisResult.getTitle() != null && !analysisResult.getTitle().isEmpty()) ? 
-                analysisResult.getTitle() : cleanTitle;
-            String finalContent = (analysisResult.getContent() != null && !analysisResult.getContent().isEmpty()) ? 
-                analysisResult.getContent() : cleanDescription;
-            
-            // Claude로 요약 생성 - 서비스 실패시 기본값 사용
-            String summary;
-            try {
-                summary = claudeClient.summarizeNews(finalTitle, finalContent);
-            } catch (Exception e) {
-                log.warn("Claude API 호출 실패, 기본 요약 사용: {}", e.getMessage());
-                summary = finalContent.length() > 200 ? finalContent.substring(0, 200) + "..." : finalContent;
-            }
-            
-            return News.builder()
-                    .title(finalTitle)
-                    .content(finalContent)
-                    .summary(summary)
-                    .url(item.getLink())
-                    .publishedDate(parsePublishedDate(item.getPubDate()))
-                    .source(extractSource(item.getLink()))
-                    .stockCode(stock.getCode())
-                    .stockName(stock.getName())
-                    .stockInfo(stock) // StockInfo 관계 설정
-                    .keywords(stock.getName() + ", 주식")
-                    .images(analysisResult.getImages()) // FinBERT에서 추출한 이미지들
-                    // FinBERT 감정분석 핵심 결과만 저장
-                    .sentiment(analysisResult.getLabel()) // 호재악재 표시
-                    .confidenceLevel(analysisResult.getConfidenceLevel()) // 신뢰도
-                    .tradingSignal(analysisResult.getTradingSignal()) // 거래신호
-                    .build();
-                    
-        } catch (Exception e) {
-            log.warn("종목 뉴스 변환 실패: {}", e.getMessage());
-            return null;
-        }
-    }
-    
-    private String cleanHtmlTags(String text) {
-        if (text == null) return "";
-        return text.replaceAll("<[^>]*>", "").trim();
-    }
-    
-    private LocalDateTime parsePublishedDate(String pubDate) {
-        try {
-            // 네이버 API 날짜 형식: "Mon, 08 Aug 2025 10:30:00 +0900"
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z");
-            return LocalDateTime.parse(pubDate, formatter);
-        } catch (DateTimeParseException e) {
-            log.warn("날짜 파싱 실패: {} - 현재 시간으로 설정", pubDate);
-            return LocalDateTime.now();
-        }
-    }
-    
-    private String extractSource(String url) {
-        try {
-            if (url.contains("naver.com")) return "네이버뉴스";
-            if (url.contains("chosun.com")) return "조선일보";
-            if (url.contains("joongang.co.kr")) return "중앙일보";
-            if (url.contains("donga.com")) return "동아일보";
-            if (url.contains("hani.co.kr")) return "한겨레";
-            if (url.contains("mk.co.kr")) return "매일경제";
-            if (url.contains("hankyung.com")) return "한국경제";
-            if (url.contains("newsis.com")) return "뉴시스";
-            if (url.contains("yonhapnews.co.kr")) return "연합뉴스";
-            return "기타언론사";
-        } catch (Exception e) {
-            return "알수없음";
-        }
-    }
-    
-    // 뉴스 조회 메서드들
-    public Page<News> getGeneralInvestmentNews(Pageable pageable) {
-        return newsRepository.findGeneralInvestmentNews(
-                "%주식%", "%투자%", "%증권%", "%코스피%", "%코스닥%", "%경제%", pageable);
-    }
-    
-    public Page<News> getStockNews(List<String> stockCodes, Pageable pageable) {
-        return newsRepository.findByStockCodesOrderByPublishedDateDesc(stockCodes, pageable);
-    }
-    
-    public Page<News> searchNews(String keyword, Pageable pageable) {
-        return newsRepository.findByKeywordSearch(keyword, pageable);
-    }
-    
+
     /**
-     * FinBERT 서비스 호출 실패 시 사용할 기본값 생성
+     * 단일 관심종목 뉴스 수집
      */
-    private FinBertResponse createDefaultSentimentResult() {
-        FinBertResponse response = new FinBertResponse();
-        response.setLabel("NEUTRAL");
-        response.setScore(0.0);
-        response.setRawScore(0.0);
-        response.setKeywordAdjustment(0.0);
-        response.setConfidence(0.5);
-        response.setConfidenceLevel("medium");
-        response.setTradingSignal("HOLD");
-        response.setSignalStrength(0.0);
-        return response;
+    @Transactional
+    public void collectSingleWatchlistNews(String symbol, String companyName,
+                                           List<String> aliases, int limit) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Content-Type", "application/json");
+
+            Map<String, Object> requestBody = Map.of(
+                    "symbol", symbol,
+                    "company_name", companyName,
+                    "aliases", aliases != null ? aliases : new ArrayList<>(),
+                    "limit", limit
+            );
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    finbertUrl + "/collect/watchlist",
+                    HttpMethod.POST,
+                    entity,
+                    Map.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                processNewsResponse(response.getBody(), "WATCHLIST", symbol);
+                log.info("관심종목 {} 뉴스 수집 성공", companyName);
+            } else {
+                log.warn("관심종목 {} 뉴스 수집 실패: {}", companyName, response.getStatusCode());
+            }
+
+        } catch (Exception e) {
+            log.error("관심종목 {} 뉴스 수집 중 오류: {}", companyName, e.getMessage());
+        }
     }
-    
+
     /**
-     * FinBERT URL 분석 실패 시 사용할 기본값 생성
+     * 뉴스 응답 처리 및 DB 저장
      */
-    private NewsAnalysisResult createDefaultNewsAnalysisResult() {
-        NewsAnalysisResult result = new NewsAnalysisResult();
-        result.setTitle("제목을 가져올 수 없습니다");
-        result.setContent("본문을 가져올 수 없습니다");
-        result.setImages(new ArrayList<>());
-        result.setLabel("NEUTRAL");
-        result.setScore(0.0);
-        result.setConfidence(0.5);
-        result.setTradingSignal("HOLD");
-        result.setConfidenceLevel("medium");
-        return result;
+    private void processNewsResponse(Map<String, Object> responseBody,
+                                     String collectionType, String stockCode) {
+        if (responseBody == null) {
+            log.warn("응답 본문이 null입니다.");
+            return;
+        }
+
+        Integer count = (Integer) responseBody.get("count");
+
+        if (responseBody.get("news") instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> newsList = (List<Map<String, Object>>) responseBody.get("news");
+
+            int savedCount = 0;
+            int duplicateCount = 0;
+            int failedCount = 0;
+
+            for (Map<String, Object> newsData : newsList) {
+                try {
+                    // 종목 코드 설정 (관심종목인 경우)
+                    if (stockCode != null) {
+                        newsData.put("symbol", stockCode);
+                    }
+
+                    // 수집 타입 태깅
+                    newsData.put("collection_type", collectionType);
+
+                    News news = convertToNewsEntity(newsData);
+
+                    // 중복 체크 (URL 기반)
+                    if (isDuplicateNews(news.getUrl())) {
+                        duplicateCount++;
+                        log.debug("중복 뉴스 스킵: {}", news.getUrl());
+                        continue;
+                    }
+
+                    // StockInfo 연결 (종목 코드가 있는 경우)
+                    if (news.getStockCode() != null && !news.getStockCode().isEmpty()) {
+                        stockInfoRepository.findByStockCode(news.getStockCode())
+                                .ifPresent(news::setStock);
+                    }
+
+                    // 독립 트랜잭션으로 저장
+                    boolean saved = newsSaver.upsertNews(news);
+                    if (saved) {
+                        savedCount++;
+                    } else {
+                        failedCount++;
+                    }
+
+                } catch (Exception e) {
+                    failedCount++;
+                    log.error("뉴스 처리 실패 - URL: {}, 오류: {}",
+                            getStringValue(newsData, "url"), e.getMessage());
+                }
+            }
+
+            log.info("[{}] 뉴스 처리 완료 - 성공: {}, 중복: {}, 실패: {} (전체: {})",
+                    collectionType, savedCount, duplicateCount, failedCount, newsList.size());
+        }
     }
-    
+
     /**
-     * 뉴스가 금융/경제 관련 내용인지 확인
+     * 중복 뉴스 체크
      */
-    private boolean isFinanceRelated(String text) {
-        if (text == null || text.isEmpty()) {
+    private boolean isDuplicateNews(String url) {
+        if (url == null || url.isEmpty()) {
             return false;
         }
+        return newsRepository.existsByUrl(url);
+    }
+
+    /**
+     * 종목별 검색 별칭 조회
+     */
+    private List<String> getAliasesForStock(StockInfo stock) {
+        List<String> aliases = new ArrayList<>();
+
+        // 회사명 변형 추가
+        String companyName = stock.getCompanyName();
+        if (companyName != null) {
+            // 기본 회사명
+            aliases.add(companyName);
+
+            // 영문명이 있으면 추가
+            if (stock.getCompanyNameEn() != null) {
+                aliases.add(stock.getCompanyNameEn());
+            }
+
+            // 일반적인 약칭 생성
+            if (companyName.endsWith("전자")) {
+                aliases.add(companyName.replace("전자", ""));
+            }
+            if (companyName.endsWith("화학")) {
+                aliases.add(companyName.replace("화학", ""));
+            }
+            if (companyName.endsWith("홀딩스")) {
+                aliases.add(companyName.replace("홀딩스", ""));
+            }
+            if (companyName.endsWith("에너지솔루션")) {
+                aliases.add(companyName.replace("에너지솔루션", "에너지"));
+            }
+        }
+
+        // 중복 제거
+        return aliases.stream().distinct().collect(Collectors.toList());
+    }
+
+    /**
+     * 종목별 뉴스 조회
+     */
+    public Page<NewsResponse> getNewsByStock(String stockCode, Pageable pageable) {
+        Page<News> newsPage = newsRepository.findByStockCodeOrderByPublishedDateDesc(stockCode, pageable);
+        return newsPage.map(NewsResponse::from);
+    }
+
+    /**
+     * 관심종목 뉴스 조회
+     */
+    public Page<NewsResponse> getWatchlistNews(Long userId, Pageable pageable) {
+        // 사용자의 관심종목 코드 조회
+        List<String> stockCodes = watchListRepository.findActiveStockCodesByUserId(userId);
+
+        if (stockCodes.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        // 관심종목 뉴스 조회
+        Page<News> newsPage = newsRepository.findByStockCodeInOrderByPublishedDateDesc(stockCodes, pageable);
+        return newsPage.map(NewsResponse::from);
+    }
+
+    /**
+     * 뉴스 목록 조회 (페이징)
+     */
+    public Page<NewsResponse> getNewsList(Pageable pageable) {
+        Page<News> newsPage = newsRepository.findAllByOrderByCreatedAtDesc(pageable);
+        return newsPage.map(NewsResponse::from);
+    }
+
+    /**
+     * 특정 뉴스 조회
+     */
+    public NewsResponse getNewsById(Long id) {
+        News news = newsRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("뉴스를 찾을 수 없습니다: " + id));
+
+        return NewsResponse.from(news);
+    }
+
+    /**
+     * 감성별 뉴스 통계 (종목별 옵션)
+     */
+    public Map<String, Object> getNewsSentimentStats(String stockCode) {
+        List<News> newsList;
+
+        if (stockCode != null && !stockCode.isEmpty()) {
+            newsList = newsRepository.findByStockCode(stockCode);
+        } else {
+            newsList = newsRepository.findAll();
+        }
+
+        long positive = newsList.stream().filter(n -> "POSITIVE".equals(n.getSentiment())).count();
+        long negative = newsList.stream().filter(n -> "NEGATIVE".equals(n.getSentiment())).count();
+        long neutral = newsList.stream().filter(n -> "NEUTRAL".equals(n.getSentiment())).count();
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("positive", positive);
+        stats.put("negative", negative);
+        stats.put("neutral", neutral);
+        stats.put("total", (long) newsList.size());
+
+        if (stockCode != null) {
+            stats.put("stockCode", stockCode);
+        }
+
+        // 감성 점수 계산 (긍정 비율)
+        if (!newsList.isEmpty()) {
+            double sentimentScore = (double) positive / newsList.size() * 100;
+            stats.put("sentimentScore", String.format("%.1f", sentimentScore));
+        }
+
+        return stats;
+    }
+
+    /**
+     * 수집 상태 조회
+     */
+    public Map<String, Object> getCollectionStatus() {
+        Map<String, Object> status = new HashMap<>();
+
+        status.put("lastRealtimeCollection", lastCollectionTime.get("REALTIME"));
+        status.put("lastWatchlistCollection", lastCollectionTime.get("WATCHLIST"));
+
+        // 다음 수집 예정 시간
+        if (lastCollectionTime.containsKey("REALTIME")) {
+            LocalDateTime nextRealtime = lastCollectionTime.get("REALTIME").plusMinutes(20);
+            status.put("nextRealtimeCollection", nextRealtime);
+        }
+
+        if (lastCollectionTime.containsKey("WATCHLIST")) {
+            LocalDateTime nextWatchlist = lastCollectionTime.get("WATCHLIST").plusMinutes(20);
+            status.put("nextWatchlistCollection", nextWatchlist);
+        }
+
+        return status;
+    }
+
+    /**
+     * 역사적 챌린지 뉴스 수집 (날짜만 지정 - 기본 종목들)
+     */
+    @Transactional
+    public void collectHistoricalNews(String date) {
+        log.info("=== Google RSS 역사적 챌린지 뉴스 수집 시작 (기본 종목): {} ===", date);
         
-        String lowerText = text.toLowerCase();
+        // DB에서 주요 종목들 조회 (시가총액 상위 10개)
+        List<StockInfo> majorStocks = stockInfoRepository.findTop10ByOrderByMarketCapDesc();
         
-        // 금융/경제 관련 키워드
-        String[] financeKeywords = {
-            "경제", "증권", "금융", "투자", "주식", "주가", "코스피", "코스닥", 
-            "증시", "상승", "하락", "거래", "매수", "매도", "시장", "환율",
-            "금리", "채권", "펀드", "자산", "수익", "손실", "배당", "상장",
-            "기업", "실적", "매출", "영업이익", "순이익", "적자", "흑자",
-            "은행", "보험", "증권사", "정부", "정책", "부동산", "원자재",
-            "달러", "엔화", "위안", "유로", "원화", "통화", "인플레이션",
-            "gdp", "경기", "침체", "회복", "성장", "수출", "수입", "무역"
-        };
-        
-        // 제외할 키워드 (패션, 연예 등 - 스포츠는 경제 섹션에 포함될 수 있으므로 제외)
-        String[] excludeKeywords = {
-            "패션", "스타일", "메이크업", "화장", "뷰티", "코스메틱",
-            "연예", "드라마", "영화", "가수", "배우", "아이돌", "셀럽", "연예인",
-            "요리", "레시피", "맛집", "카페"
-        };
-        
-        // 제외 키워드가 포함되어 있으면 false
-        for (String keyword : excludeKeywords) {
-            if (lowerText.contains(keyword)) {
-                return false;
+        for (StockInfo stock : majorStocks) {
+            try {
+                collectHistoricalNewsForStock(stock.getStockCode(), stock.getCompanyName(), 
+                                            date, getAliasesForStock(stock));
+                
+                // API 부하 방지를 위한 지연
+                Thread.sleep(2000);
+            } catch (Exception e) {
+                log.error("역사적 뉴스 수집 실패 - 종목: {}, 오류: {}", 
+                         stock.getCompanyName(), e.getMessage());
             }
         }
         
-        // 금융 키워드가 포함되어 있으면 true
-        for (String keyword : financeKeywords) {
-            if (lowerText.contains(keyword)) {
-                return true;
+        log.info("=== Google RSS 역사적 챌린지 뉴스 수집 완료: {} ===", date);
+    }
+    
+    /**
+     * 특정 종목의 역사적 뉴스 수집
+     */
+    @Transactional
+    public void collectHistoricalNewsForStock(String symbol, String companyName, 
+                                              String date, List<String> aliases) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Content-Type", "application/json");
+            
+            Map<String, Object> requestBody = Map.of(
+                "symbol", symbol,
+                "company_name", companyName,
+                "date", date,
+                "aliases", aliases != null ? aliases : new ArrayList<>(),
+                "limit", 10
+            );
+            
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            
+            ResponseEntity<Map> response = restTemplate.exchange(
+                finbertUrl + "/collect/historical",
+                HttpMethod.POST,
+                entity,
+                Map.class
+            );
+            
+            if (response.getStatusCode().is2xxSuccessful()) {
+                processNewsResponse(response.getBody(), "HISTORICAL", symbol);
+                log.info("역사적 뉴스 수집 성공: {} ({}) - {}", companyName, symbol, date);
+            }
+            
+        } catch (Exception e) {
+            log.error("역사적 뉴스 수집 실패: {} - {}", companyName, e.getMessage());
+        }
+    }
+    
+    /**
+     * 오래된 뉴스 정리 (30일 이상)
+     */
+    @Scheduled(cron = "0 0 3 * * ?") // 매일 새벽 3시 실행
+    @Transactional
+    public int cleanupOldNews() {
+        LocalDateTime cutoffDate = LocalDateTime.now().minusDays(30);
+        List<News> oldNews = newsRepository.findByCreatedAtBefore(cutoffDate);
+
+        if (!oldNews.isEmpty()) {
+            newsRepository.deleteAll(oldNews);
+            log.info("{}개의 오래된 뉴스를 정리했습니다", oldNews.size());
+            return oldNews.size();
+        }
+
+        return 0;
+    }
+
+    /**
+     * FinBERT 데이터를 News 엔티티로 변환
+     */
+    private News convertToNewsEntity(Map<String, Object> newsData) {
+        // NOT NULL 필드들에 대한 기본값 보정
+        String title = getStringValue(newsData, "title");
+        if (title == null || title.trim().isEmpty()) {
+            title = "제목 없음";
+        }
+
+        String contentText = getStringValue(newsData, "content_text");
+        String summaryText = getStringValue(newsData, "summary_text");
+
+        String content = null;
+        if (contentText != null && !contentText.trim().isEmpty()) {
+            content = contentText;
+        } else if (summaryText != null && !summaryText.trim().isEmpty()) {
+            content = summaryText;
+        } else {
+            content = getStringValue(newsData, "content");
+            if (content == null || content.trim().isEmpty()) {
+                content = "내용 없음";
             }
         }
-        
-        return false;
+
+        String url = getStringValue(newsData, "url");
+        if (url == null || url.trim().isEmpty()) {
+            url = "";
+        }
+
+        // 길이 제한 적용
+        if (title.length() > 500) {
+            title = title.substring(0, 497) + "...";
+        }
+
+        if (url.length() > 1000) {
+            url = url.substring(0, 1000);
+        }
+
+        String mainImageUrl = getStringValue(newsData, "main_image_url");
+
+        News news = News.builder()
+                .title(title)
+                .content(content)
+                .summary(getStringArrayAsString(newsData, "summary_lines"))
+                .url(url)
+                .source(getStringValue(newsData, "source"))
+                .publishedDate(parsePublishedDate(newsData))
+                .stockCode(getStringValue(newsData, "symbol"))
+                .sentiment(getStringValue(newsData, "label"))
+                .confidenceLevel(getStringValue(newsData, "confidence_level"))
+                .tradingSignal(getStringValue(newsData, "trading_signal"))
+                .images(getStringArray(newsData, "images"))
+                .collectionType(getStringValue(newsData, "collection_type"))
+                .build();
+
+        return news;
+    }
+
+    /**
+     * Map에서 String 값 안전하게 추출
+     */
+    private String getStringValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        return value != null ? value.toString() : null;
+    }
+
+    /**
+     * Map에서 String 배열을 하나의 문자열로 변환
+     */
+    private String getStringArrayAsString(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<String> list = (List<String>) value;
+            return String.join(" ", list);
+        }
+        return value != null ? value.toString() : null;
+    }
+
+    /**
+     * Map에서 String 배열을 List<String>으로 변환
+     */
+    private List<String> getStringArray(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<String> list = (List<String>) value;
+            return list;
+        }
+        return null;
+    }
+
+    /**
+     * 다양한 날짜 형식을 파싱하여 LocalDateTime으로 변환
+     */
+    private LocalDateTime parsePublishedDate(Map<String, Object> newsData) {
+        String dateStr = getStringValue(newsData, "published_at");
+        if (dateStr == null || dateStr.trim().isEmpty()) {
+            return LocalDateTime.now();
+        }
+
+        try {
+            return java.time.OffsetDateTime.parse(dateStr).toLocalDateTime();
+        } catch (Exception e1) {
+            try {
+                return java.time.ZonedDateTime.parse(dateStr).toLocalDateTime();
+            } catch (Exception e2) {
+                try {
+                    return LocalDateTime.parse(dateStr);
+                } catch (Exception e3) {
+                    try {
+                        return java.time.Instant.parse(dateStr)
+                                .atZone(java.time.ZoneId.systemDefault())
+                                .toLocalDateTime();
+                    } catch (Exception e4) {
+                        log.warn("published_at 파싱 실패, 현재 시간으로 대체 - 입력값: {}", dateStr);
+                        return LocalDateTime.now();
+                    }
+                }
+            }
+        }
     }
 }

@@ -53,10 +53,14 @@ public class News {
     // StockInfo와의 관계 (선택적)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stock_info_id")
-    private StockInfo stockInfo;
+    private StockInfo stock;
     
     @Column(length = 200)
     private String keywords;
+    
+    // 수집 타입 (REALTIME, WATCHLIST, HISTORICAL)
+    @Column(name = "collection_type", length = 20)
+    private String collectionType;
     
     // FinBERT 감정분석 결과 (핵심만)
     @Column(length = 20)

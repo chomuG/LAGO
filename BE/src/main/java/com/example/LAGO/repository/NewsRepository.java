@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface NewsRepository extends JpaRepository<News, Long> {
@@ -47,6 +48,9 @@ public interface NewsRepository extends JpaRepository<News, Long> {
     // 중복 뉴스 체크용 (URL 기준)
     boolean existsByUrl(String url);
     
+    // URL로 뉴스 조회 (업서트용)
+    Optional<News> findByUrl(String url);
+    
     // 특정 기간 뉴스
     @Query("SELECT n FROM News n WHERE n.publishedDate BETWEEN :startDate AND :endDate " +
            "ORDER BY n.publishedDate DESC")
@@ -60,4 +64,16 @@ public interface NewsRepository extends JpaRepository<News, Long> {
            "(n.title LIKE %:keyword% OR n.content LIKE %:keyword% OR n.keywords LIKE %:keyword%) " +
            "ORDER BY n.publishedDate DESC")
     Page<News> findByKeywordSearch(@Param("keyword") String keyword, Pageable pageable);
+    
+    // 생성일 기준 최신순 조회 (Google RSS용)
+    Page<News> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    
+    // 오래된 뉴스 조회 (정리용)
+    List<News> findByCreatedAtBefore(LocalDateTime cutoffDate);
+    
+    // 종목별 뉴스 조회
+    List<News> findByStockCode(String stockCode);
+    
+    // 종목 코드 리스트로 뉴스 조회 (관심종목)
+    Page<News> findByStockCodeInOrderByPublishedDateDesc(List<String> stockCodes, Pageable pageable);
 }
