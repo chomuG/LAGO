@@ -2,12 +2,15 @@ package com.example.LAGO.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
 /**
  * 역사챌린지 엔티티
  */
+
+@EntityListeners(AuditingEntityListener.class)
 @Entity
 @Table(name = "\"HISTORY_CHALLENGE\"")
 @Getter
@@ -35,4 +38,7 @@ public class HistoryChallenge {
 
     @Column(name = "end_date")
     private LocalDateTime endDate;
+
+    @Column(name = "origin_date")
+    private LocalDateTime originDate;
 }

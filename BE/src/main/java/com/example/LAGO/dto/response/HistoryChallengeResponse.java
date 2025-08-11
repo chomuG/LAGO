@@ -31,6 +31,9 @@ public class HistoryChallengeResponse {
     @Schema(description = "종료일시", example = "2025-08-20 21:00:00")
     private LocalDateTime endDate;
 
+    @Schema(description = "과거일시", example = "2020-06-01 09:00:00")
+    private LocalDateTime originDate;
+
     @Schema(description = "현재 주가", example = "204730")
     private Integer currentPrice;
 
@@ -56,6 +59,7 @@ public class HistoryChallengeResponse {
         this.stockCode = challenge.getStockCode();
         this.startDate = challenge.getStartDate();
         this.endDate = challenge.getEndDate();
+        this.originDate = challenge.getOriginDate();
         this.currentPrice = currentData.getClosePrice();
         this.fluctuationPrice = currentData.getClosePrice() - currentData.getOpenPrice();
         this.fluctuationRate = currentData.getFluctuationRate();

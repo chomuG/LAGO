@@ -27,8 +27,8 @@ public class HistoryChallengeData {
     @Column(name = "challenge_id")
     private Integer challengeId;
 
-    @Column(name = "event_date")
-    private LocalDateTime eventDate;
+    @Column(name = "date")
+    private LocalDateTime date;
 
     @Column(name = "open_price", nullable = false)
     private Integer openPrice;
@@ -47,13 +47,4 @@ public class HistoryChallengeData {
 
     @Column(name = "volume", nullable = false)
     private Integer volume;
-
-    @Column(name = "interval_type")
-    private String intervalType;
-
-    @Column(name = "start_origin_date")
-    private LocalDateTime startOriginDate;
-
-    @Column(name = "end_origin_date")
-    private LocalDateTime endOriginDate;
 }

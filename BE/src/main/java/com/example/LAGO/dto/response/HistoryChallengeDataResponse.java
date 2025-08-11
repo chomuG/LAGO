@@ -7,6 +7,8 @@ import jakarta.persistence.Column;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 @Getter
@@ -20,7 +22,7 @@ public class HistoryChallengeDataResponse {
     private Integer challengeId;
 
     @Schema(description = "일시", example = "2025-08-09 15:10:00")
-    private LocalDateTime eventDate;
+    private LocalDateTime date;
 
     @Schema(description = "시가")
     private Integer openPrice;
@@ -34,35 +36,24 @@ public class HistoryChallengeDataResponse {
     @Schema(description = "종가")
     private Integer closePrice;
 
+    @Schema(description = "거래량")
+    private Long volume;
+
+    @Schema(name = "fluctuation_price")
+    private Integer fluctuationPrice;
+
     @Schema(name = "fluctuation_rate")
     private Float fluctuationRate;
 
-    @Schema(description = "거래량")
-    private Integer volume;
-
-    @Schema(description = "간격", example = "10M")
-    private String intervalType;
-
-    @Schema(description = "과거 시작일시", example = "2020-06-01 00:00:00")
-    private LocalDateTime startOriginDate;
-
-    @Schema(description = "과거 종료일시", example = "2020-06-01 00:00:00")
-    private LocalDateTime endOriginDate;
-
-
-    // StockDay 엔티티를 받는 생성자
-    public HistoryChallengeDataResponse(HistoryChallengeData entity) {
-        this.challengeDataId = entity.getChallengeDataId();
-        this.challengeId = entity.getChallengeId();
-        this.eventDate = entity.getEventDate();
-        this.openPrice = entity.getOpenPrice();
-        this.highPrice = entity.getHighPrice();
-        this.lowPrice = entity.getLowPrice();
-        this.closePrice = entity.getClosePrice();
-        this.fluctuationRate = entity.getFluctuationRate();
-        this.volume = entity.getVolume();
-        this.intervalType = entity.getIntervalType();
-        this.startOriginDate = entity.getStartOriginDate();
-        this.endOriginDate = entity.getEndOriginDate();
+    public HistoryChallengeDataResponse(Object[] aggregatedData) {
+        this.date = ((Timestamp) aggregatedData[0]).toLocalDateTime();
+        this.openPrice = ((Integer) aggregatedData[1]);
+        this.highPrice = ((Integer) aggregatedData[2]);
+        this.lowPrice = ((Integer) aggregatedData[3]);
+        this.closePrice = ((Integer) aggregatedData[4]);
+        this.volume = ((Long) aggregatedData[5]);
+        this.fluctuationPrice = ((Integer) aggregatedData[6]);
+        BigDecimal bd = (BigDecimal) aggregatedData[7];
+        this.fluctuationRate = bd == null ? null : bd.floatValue();
     }
 }

@@ -32,6 +32,7 @@ public class HistoryChallengeController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "역사챌린지 조회 성공"),
+            @ApiResponse(responseCode = "204", description = "진행 중인 역사챌린지 없음"),
             @ApiResponse(responseCode = "500", description = "서버 내부 오류")
     })
     public ResponseEntity<HistoryChallengeResponse> getHistoryChallenge() {
