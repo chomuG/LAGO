@@ -31,34 +31,9 @@ public class HistoryChallengeServiceImpl implements HistoryChallengeService {
     private final HistoryChallengeRepository historyChallengeRepository;
     private final HistoryChallengeDataRepository historyChallengeDataRepository;
 
-    @Override
-    public HistoryChallengeResponse getHistoryChallenge() {
-
-        LocalDateTime now = LocalDateTime.now();
-
-        // 1. 현재 날짜로 진행 중인 챌린지 조회
-        HistoryChallenge challenge = historyChallengeRepository.findByDate(now);
-        if (challenge == null) {
-            throw new NoContentException("현재 진행 중인 역사 챌린지가 없습니다.");
-        }
-
-        // 2. 해당 챌린지의 가장 최신 주가 데이터 조회
-        HistoryChallengeData currentData = historyChallengeDataRepository.findTopByChallengeIdOrderByEventDateDesc(challenge.getChallengeId(), now);
-
-        // 3. 두 엔티티를 사용하여 응답 DTO 생성 및 반환
-        return new HistoryChallengeResponse(challenge, currentData);
-    }
-
-    @Override
-    public List<HistoryChallengeDataResponse> getHistoryChallengeData(Integer challengeId, ChallengeInterval interval) {
-
-        // 0. 챌린지 정보 조회
-        HistoryChallenge challenge = historyChallengeRepository.findById(challengeId)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid challenge ID: " + challengeId));
+    private LocalDateTime convertToPastDate(LocalDateTime eventStartDate, LocalDateTime originStartDate) {
 
         // 0. 챌린지 정보 세팅
-        LocalDateTime eventStartDate = challenge.getStartDate(); // 게임 시작(실제) 시각
-        LocalDateTime originStartDate = challenge.getOriginDate(); // 과거 데이터 시작 시각
         LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
 
         LocalTime eventStartTime = LocalTime.of(15, 0);   // 하루 이벤트 시작시간
@@ -75,7 +50,6 @@ public class HistoryChallengeServiceImpl implements HistoryChallengeService {
         LocalTime nowTime = now.toLocalTime();
         int todayMinutesPassed;
         if (nowTime.isBefore(eventStartTime)) { // 3시 이전
-            log.info("nowTime: {}", nowTime);
             todayMinutesPassed = 0;
         } else if (nowTime.isAfter(eventEndTime)) { // 10시 이후
             todayMinutesPassed = 7 * 60;
@@ -85,7 +59,7 @@ public class HistoryChallengeServiceImpl implements HistoryChallengeService {
 
         log.info("todayMinutesPassed: {}", todayMinutesPassed);
 
-        LocalDate pastDate = originStartDate.toLocalDate().plusDays(eventDayCount * 7 + (int)(todayMinutesPassed / 60));
+        LocalDate pastDate = originStartDate.toLocalDate().plusDays(eventDayCount * 7 + todayMinutesPassed / 60);
         LocalTime pastTime = LocalTime.of(9, 0).plusMinutes((todayMinutesPassed % 60) * 24);
         LocalDateTime pastDateTime = LocalDateTime.of(pastDate, pastTime);
 
@@ -93,20 +67,56 @@ public class HistoryChallengeServiceImpl implements HistoryChallengeService {
         log.info("pastTime: {}", pastTime);
         log.info("pastDateTime: {}", pastDateTime);
 
-        // 8. interval 문자열 매핑
+        return pastDateTime;
+    }
+
+    @Override
+    public HistoryChallengeResponse getHistoryChallenge() {
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // 1. 현재 날짜로 진행 중인 챌린지 조회
+        HistoryChallenge challenge = historyChallengeRepository.findByDate(now);
+        if (challenge == null) {
+            throw new NoContentException("현재 진행 중인 역사 챌린지가 없습니다.");
+        }
+
+        // 과거 시점으로 변환
+        LocalDateTime pastDateTime = convertToPastDate(challenge.getStartDate(), challenge.getOriginDate());
+
+        // 2. 해당 챌린지의 가장 최신 주가 데이터 조회
+        HistoryChallengeData currentData = historyChallengeDataRepository.findTopByChallengeIdOrderByEventDateDesc(challenge.getChallengeId(), pastDateTime);
+
+        // 3. 두 엔티티를 사용하여 응답 DTO 생성 및 반환
+        return new HistoryChallengeResponse(challenge, currentData);
+    }
+
+    @Override
+    public List<HistoryChallengeDataResponse> getHistoryChallengeData(Integer challengeId, ChallengeInterval interval) {
+
+        // 0. 챌린지 정보 조회
+        HistoryChallenge challenge = historyChallengeRepository.findById(challengeId)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid challenge ID: " + challengeId));
+
+        // 1. 과거 시점 변환
+        LocalDateTime pastDateTime = convertToPastDate(challenge.getStartDate(), challenge.getOriginDate());
+
+        // 2. interval 문자열 매핑
         String intervalString = switch (interval) {
             case MINUTE -> "24 minute";
+            case MINUTE3 -> "72 minute";
             case MINUTE5 -> "2 hour";
             case MINUTE10 -> "4 hour";
+            case MINUTE15 -> "6 hour";
             case MINUTE30 -> "12 hour";
-            case HOUR -> "1 day";
+            case MINUTE60 -> "1 day";
             case DAY -> "1 week";
             case WEEK -> "7 week";
             case MONTH -> "1 month";
             case YEAR -> "1 year";
         };
 
-        // 9. DB 조회 (가상 현재 시간까지)
+        // 3. DB 조회 (가상 현재 시간까지)
         List<Object[]> aggregatedData = historyChallengeDataRepository.findAggregatedByChallengeIdAndDate(
                 challengeId,
                 pastDateTime,

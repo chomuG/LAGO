@@ -53,6 +53,6 @@ public class HistoryChallengeResponse {
         this.originDate = challenge.getOriginDate();
         this.currentPrice = currentData.getClosePrice();
         this.fluctuationPrice = currentData.getClosePrice() - currentData.getOpenPrice();
-        this.fluctuationRate = currentData.getFluctuationRate();
+        this.fluctuationRate = this.getFluctuationPrice().floatValue() / currentData.getOpenPrice() * 100;
     }
 }

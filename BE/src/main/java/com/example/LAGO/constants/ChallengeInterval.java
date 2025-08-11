@@ -10,10 +10,12 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public enum ChallengeInterval {
     MINUTE("1m"),
+    MINUTE3("3m"),
     MINUTE5("5m"),
     MINUTE10("10m"),
+    MINUTE15("15m"),
     MINUTE30("30m"),
-    HOUR("1h"),
+    MINUTE60("60m"),
     DAY("1D"),
     WEEK("1W"),
     MONTH("1M"),
