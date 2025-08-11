@@ -13,8 +13,8 @@ import lombok.*;
 public class StockMinute {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "stock_mid_id")
-    private Integer stockMidId;
+    @Column(name = "stock_min_id")
+    private Integer stockMinId;
 
     // 외래키: STOCK_INFO 참조
     @ManyToOne(fetch = FetchType.LAZY)

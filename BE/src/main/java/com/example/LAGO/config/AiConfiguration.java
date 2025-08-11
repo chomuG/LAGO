@@ -24,40 +24,26 @@ public class AiConfiguration {
 
     /**
      * FinBERT 서버 통신용 RestTemplate Bean
-     * 
+     * <p>
      * 설정:
      * - 연결 타임아웃: 5초
      * - 읽기 타임아웃: 10초
      * - Java 21 Virtual Thread와 호환
-     * 
+     *
      * @return RestTemplate 인스턴스
      */
     @Bean
     public RestTemplate restTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        
+
         // 타임아웃 설정
         factory.setConnectTimeout(5000);  // 연결 타임아웃: 5초
         factory.setReadTimeout(10000);    // 읽기 타임아웃: 10초
-        
+
         RestTemplate restTemplate = new RestTemplate(factory);
-        
+
         log.info("RestTemplate Bean 생성 완료 - FinBERT 서버 통신용");
-        
         return restTemplate;
     }
 
-    /**
-     * JSON 파싱용 ObjectMapper Bean
-     * 
-     * @return ObjectMapper 인스턴스
-     */
-    @Bean
-    public ObjectMapper objectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        
-        log.info("ObjectMapper Bean 생성 완료 - JSON 파싱용");
-        
-        return mapper;
-    }
 }
