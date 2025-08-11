@@ -10,6 +10,8 @@ import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import javax.inject.Inject
 
 @HiltViewModel
@@ -23,6 +25,9 @@ class ChartViewModel @Inject constructor(
     val uiState: StateFlow<ChartUiState> = _uiState.asStateFlow()
     
     private val _uiEvent = MutableSharedFlow<ChartUiEvent>()
+    
+    // 안전 타임아웃을 위한 Job
+    private var chartLoadingTimeoutJob: Job? = null
     
     // Mock 데이터 (서버 연결 전 임시 사용)
     private val stockInfoMap = mapOf(
@@ -92,7 +97,13 @@ class ChartViewModel @Inject constructor(
     
     private fun changeStock(stockCode: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            _uiState.update { 
+                it.copy(
+                    isLoading = true, 
+                    chartLoadingStage = ChartLoadingStage.DATA_LOADING,
+                    errorMessage = null
+                ) 
+            }
             
             // 서버 연결 시도, 실패하면 Mock 데이터 사용
             try {
@@ -102,7 +113,8 @@ class ChartViewModel @Inject constructor(
                             _uiState.update { 
                                 it.copy(
                                     currentStock = resource.data ?: StockInfo("", "", 0f, 0f, 0f),
-                                    config = it.config.copy(stockCode = stockCode)
+                                    config = it.config.copy(stockCode = stockCode),
+                                    chartLoadingStage = ChartLoadingStage.DATA_LOADING
                                 )
                             }
                             
@@ -115,7 +127,12 @@ class ChartViewModel @Inject constructor(
                             useMockStockData(stockCode)
                         }
                         is Resource.Loading -> {
-                            _uiState.update { it.copy(isLoading = true) }
+                            _uiState.update { 
+                                it.copy(
+                                    isLoading = true, 
+                                    chartLoadingStage = ChartLoadingStage.DATA_LOADING
+                                ) 
+                            }
                         }
                     }
                 }
@@ -181,7 +198,12 @@ class ChartViewModel @Inject constructor(
                 loadMockData()
             }
             
-            _uiState.update { it.copy(isLoading = false) }
+            _uiState.update { 
+                it.copy(
+                    isLoading = false,
+                    chartLoadingStage = ChartLoadingStage.JS_READY
+                ) 
+            }
         }
     }
     
@@ -490,6 +512,53 @@ class ChartViewModel @Inject constructor(
         _uiState.update { 
             it.copy(errorMessage = null)
         }
+    }
+    
+    // 3단계 로딩 시스템을 위한 새로운 함수들
+    fun onChartLoadingChanged(isLoading: Boolean) {
+        if (isLoading) {
+            // 웹뷰 로딩 시작 시 안전 타임아웃 설정 (10초)
+            startChartLoadingTimeout()
+            _uiState.update { 
+                it.copy(
+                    isLoading = true,
+                    chartLoadingStage = ChartLoadingStage.WEBVIEW_LOADING
+                )
+            }
+        } else {
+            // 로딩 종료 시 타임아웃 취소
+            cancelChartLoadingTimeout()
+        }
+    }
+    
+    fun onChartReady() {
+        // 차트 렌더링 완료 시 타임아웃 취소
+        cancelChartLoadingTimeout()
+        _uiState.update { 
+            it.copy(
+                isLoading = false,
+                chartLoadingStage = ChartLoadingStage.CHART_READY
+            )
+        }
+    }
+    
+    private fun startChartLoadingTimeout() {
+        cancelChartLoadingTimeout()
+        chartLoadingTimeoutJob = viewModelScope.launch {
+            delay(5000) // 5초 타임아웃으로 단축
+            _uiState.update { 
+                it.copy(
+                    isLoading = false,
+                    chartLoadingStage = ChartLoadingStage.CHART_READY,
+                    errorMessage = "차트 로딩 시간이 초과되었습니다. 네트워크 상태를 확인해주세요."
+                )
+            }
+        }
+    }
+    
+    private fun cancelChartLoadingTimeout() {
+        chartLoadingTimeoutJob?.cancel()
+        chartLoadingTimeoutJob = null
     }
     
     // ===== MOCK DATA METHODS (Fallback) =====

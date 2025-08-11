@@ -1,13 +1,10 @@
 package com.lago.app.presentation.ui.chart.v5
 
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.webkit.JavascriptInterface
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.viewinterop.AndroidView
+import com.lago.app.presentation.ui.chart.WebChartScreen
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -137,10 +134,10 @@ fun MultiPanelChart(
     modifier: Modifier = Modifier,
     onChartReady: (() -> Unit)? = null,
     onDataPointClick: ((String, Double, String) -> Unit)? = null,
-    onCrosshairMove: ((String?, Double?, String?) -> Unit)? = null
+    onCrosshairMove: ((String?, Double?, String?) -> Unit)? = null,
+    onChartLoading: ((Boolean) -> Unit)? = null,
+    onLoadingProgress: ((Int) -> Unit)? = null
 ) {
-    val context = LocalContext.current
-    var webView by remember { mutableStateOf<WebView?>(null) }
     
     // Create chart options with timeFrame-specific timeScale
     val finalChartOptions = remember(timeFrame, chartOptions) {
@@ -153,76 +150,24 @@ fun MultiPanelChart(
         generateMultiPanelHtml(data, finalChartOptions)
     }
     
-    AndroidView(
-        factory = { context ->
-            val webView = WebView(context)
-            
-            // WebView 디버깅 활성화 (개발 중에만)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
-                WebView.setWebContentsDebuggingEnabled(true)
-            }
-            
-            webView.settings.apply {
-                javaScriptEnabled = true
-                domStorageEnabled = true
-                allowFileAccess = true
-                allowContentAccess = true
-                
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
-                    allowFileAccessFromFileURLs = true
-                    allowUniversalAccessFromFileURLs = true
-                }
-                
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-                    mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                }
-                
-                cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
-            }
-            
-            webView.webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    super.onPageFinished(view, url)
-                    onChartReady?.invoke()
-                }
-            }
-            
-            // Add JavaScript interface for callbacks using reflection
-            try {
-                val method = webView.javaClass.getMethod(
-                    "addJavascriptInterface", 
-                    Any::class.java, 
-                    String::class.java
-                )
-                method.invoke(
-                    webView,
-                    MultiPanelJavaScriptInterface(
-                        onDataPointClick = onDataPointClick,
-                        onCrosshairMove = onCrosshairMove
-                    ),
-                    "Android"
-                )
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            
-            webView
-        },
-        update = { view ->
-            view.loadDataWithBaseURL(
-                "https://unpkg.com/",
-                htmlContent,
-                "text/html",
-                "UTF-8",
-                null
-            )
-        },
-        modifier = modifier.fillMaxSize()
+    // Use WebChartScreen with dark mode optimization
+    WebChartScreen(
+        htmlContent = htmlContent,
+        modifier = modifier,
+        onChartReady = onChartReady,
+        onChartLoading = onChartLoading,
+        onLoadingProgress = onLoadingProgress,
+        additionalJavaScriptInterface = MultiPanelJavaScriptInterface(
+            onDataPointClick = onDataPointClick,
+            onCrosshairMove = onCrosshairMove
+        ),
+        interfaceName = "ChartInterface"
     )
 }
 
 /**
  * JavaScript interface for handling multi-panel chart events
+ * Note: Basic chart ready/loading events are handled by WebChartScreen
  */
 class MultiPanelJavaScriptInterface(
     private val onDataPointClick: ((String, Double, String) -> Unit)?,
@@ -277,6 +222,7 @@ private fun generateMultiPanelHtml(
             margin: 0;
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #FFFFFF;
         }
         .legend {
             position: absolute;
@@ -309,14 +255,10 @@ private fun generateMultiPanelHtml(
         #chart-container {
             width: 100%;
             height: 100vh;
+            background-color: #FFFFFF;
         }
         #loading {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            font-size: 18px;
-            color: #666;
+            display: none;
         }
     </style>
 </head>
@@ -337,7 +279,9 @@ private fun generateMultiPanelHtml(
             script.onload = callback;
             script.onerror = function() {
                 console.error('Failed to load script:', src);
-                document.getElementById('loading').innerHTML = 'Failed to load chart library';
+                if (typeof Android !== 'undefined' && Android.onChartError) {
+                    Android.onChartError('Failed to load chart library');
+                }
             };
             document.head.appendChild(script);
         }
@@ -584,11 +528,24 @@ private fun generateMultiPanelHtml(
                 
                 console.log('LAGO Multi-Panel Chart v5 initialized successfully');
                 
+                // ✅ 빠른 차트 로딩: Android 신호를 빠르게 전송
+                setTimeout(() => {
+                    if (typeof Android !== 'undefined' && Android.onChartReady) {
+                        console.log('LAGO: Chart ready - sending Android.onChartReady signal');
+                        Android.onChartReady();
+                    }
+                }, 100); // 로딩 시간 대폭 단축
+                
             } catch (error) {
                 console.error('LAGO Multi-panel chart initialization error:', error);
                 document.getElementById('loading').innerHTML = 'Chart initialization failed: ' + error.message;
                 document.getElementById('loading').style.display = 'block';
                 document.getElementById('chart-container').style.display = 'none';
+                
+                // 에러 발생 시에도 Android에 신호
+                if (typeof Android !== 'undefined' && Android.onChartError) {
+                    Android.onChartError(error.message);
+                }
             }
         }
         
@@ -809,13 +766,13 @@ private fun generateMultiPanelHtml(
         function setupEventHandlers() {
             chart.subscribeCrosshairMove(param => {
                 try {
-                    if (typeof Android !== 'undefined' && Android.onCrosshairMoved) {
+                    if (typeof ChartInterface !== 'undefined' && ChartInterface.onCrosshairMoved) {
                         const time = param.time ? param.time.toString() : null;
                         const mainSeriesData = series.find(s => s.paneIndex === 0);
                         const value = param.seriesData && mainSeriesData && param.seriesData.get(mainSeriesData.series) 
                             ? param.seriesData.get(mainSeriesData.series) 
                             : null;
-                        Android.onCrosshairMoved(time, value, 'lago-multi-panel');
+                        ChartInterface.onCrosshairMoved(time, value, 'lago-multi-panel');
                     }
                 } catch (e) {
                     console.error('LAGO Crosshair event error:', e);
@@ -824,12 +781,12 @@ private fun generateMultiPanelHtml(
             
             chart.subscribeClick(param => {
                 try {
-                    if (typeof Android !== 'undefined' && Android.onDataPointClicked && param.time && param.seriesData) {
+                    if (typeof ChartInterface !== 'undefined' && ChartInterface.onDataPointClicked && param.time && param.seriesData) {
                         const mainSeriesData = series.find(s => s.paneIndex === 0);
                         if (mainSeriesData) {
                             const value = param.seriesData.get(mainSeriesData.series);
                             if (value !== undefined) {
-                                Android.onDataPointClicked(param.time.toString(), value, 'lago-multi-panel');
+                                ChartInterface.onDataPointClicked(param.time.toString(), value, 'lago-multi-panel');
                             }
                         }
                     }

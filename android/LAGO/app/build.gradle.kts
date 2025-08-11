@@ -114,6 +114,9 @@ dependencies {
     // Lottie for Compose
     implementation("com.airbnb.android:lottie-compose:6.4.0")
 
+    // WebView Webkit for dark mode fix
+    implementation("androidx.webkit:webkit:1.11.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
