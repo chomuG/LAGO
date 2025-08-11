@@ -38,7 +38,7 @@ public class OpenApiConfig {
                 .title("라고할때 (LAGO) API Documentation")
                 .description("...생략(기존 텍스트 유지)...")
                 .version(appVersion)
-                .contact(new Contact().name("D203팀 백엔드 개발자")
+                .contact(new Contact().name("D203팀 박준형")
                         .email("ssafy.d203@example.com")
                         .url("https://github.com/ssafy-d203"))
                 .license(new License().name("MIT License")
