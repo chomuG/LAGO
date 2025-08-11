@@ -2,6 +2,7 @@ package com.example.LAGO.controller;
 
 import com.example.LAGO.service.ClaudeClient;
 import com.example.LAGO.service.ClaudeClientOkHttp;
+import com.example.LAGO.service.GptClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,7 @@ public class ClaudeController {
     
     private final ClaudeClient claudeClient;
     private final ClaudeClientOkHttp claudeClientOkHttp;
+    private final GptClient gptClient;
     
     @PostMapping("/summarize")
     public ResponseEntity<String> summarizeNews(@RequestBody Map<String, String> request) {
@@ -36,8 +38,8 @@ public class ClaudeController {
             
             log.info("뉴스 요약 요청 - 제목: {}", newsTitle.length() > 30 ? newsTitle.substring(0, 30) + "..." : newsTitle);
             
-            // 🚀 OkHttp 클라이언트 사용으로 전환
-            String summary = claudeClientOkHttp.summarizeNews(newsTitle, newsContent);
+            // 🚀 GPT 클라이언트 사용으로 전환
+            String summary = gptClient.summarizeNews(newsTitle, newsContent);
             
             log.info("뉴스 요약 완료");
             return ResponseEntity.ok(summary);

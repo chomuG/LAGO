@@ -53,9 +53,13 @@ public class NewsSaver {
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public boolean upsertNews(News news) {
         try {
+            log.info("뉴스 저장 시작 - URL: {}, 제목: {}", news.getUrl(), news.getTitle());
+            
             // URL로 기존 뉴스 확인
             if (news.getUrl() != null && !news.getUrl().trim().isEmpty()) {
+                log.debug("중복 체크 시작 - URL: {}", news.getUrl());
                 News existing = newsRepository.findByUrl(news.getUrl()).orElse(null);
+                log.debug("중복 체크 완료 - 기존 뉴스: {}", existing != null ? "존재함" : "없음");
                 
                 if (existing != null) {
                     // 기존 뉴스 업데이트 (필요한 필드만)
@@ -71,8 +75,9 @@ public class NewsSaver {
             }
             
             // 새로운 뉴스 저장
+            log.debug("새로운 뉴스 저장 시도 - 제목: {}", news.getTitle());
             News saved = newsRepository.saveAndFlush(news);
-            log.debug("새 뉴스 저장 완료: {} (ID: {})", news.getTitle(), saved.getId());
+            log.info("새 뉴스 저장 완료: {} (ID: {})", news.getTitle(), saved.getId());
             return true;
             
         } catch (Exception e) {

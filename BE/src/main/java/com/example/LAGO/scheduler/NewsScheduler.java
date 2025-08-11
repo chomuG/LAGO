@@ -28,8 +28,8 @@ public class NewsScheduler {
             // 잠시 대기 
             Thread.sleep(3000);
             
-            // 주요 관심종목 뉴스 수집
-            newsService.collectWatchlistNewsFromDB();
+            // 주요 관심종목 뉴스 수집 (비활성화)
+            // newsService.collectWatchlistNewsFromDB();
             
             log.info("=== Google RSS 뉴스 수집 스케줄러 완료 - {} ===", LocalDateTime.now());
             
