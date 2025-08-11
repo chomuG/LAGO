@@ -1,6 +1,7 @@
 package com.lago.app.data.repository
 
 import com.lago.app.data.local.prefs.UserPreferences
+import com.lago.app.data.local.cache.ChartCacheManager
 import com.lago.app.data.mapper.ChartDataMapper
 import com.lago.app.data.mapper.ChartDataMapper.toCandlestickDataList
 import com.lago.app.data.mapper.ChartDataMapper.toDomain
@@ -22,15 +23,30 @@ import javax.inject.Singleton
 @Singleton
 class ChartRepositoryImpl @Inject constructor(
     private val apiService: ChartApiService,
-    private val userPreferences: UserPreferences
+    private val userPreferences: UserPreferences,
+    private val cacheManager: ChartCacheManager
 ) : ChartRepository {
 
     override suspend fun getStockInfo(stockCode: String): Flow<Resource<StockInfo>> = flow {
         try {
             emit(Resource.Loading())
+            
+            // 1. 캐시에서 먼저 확인
+            val cachedData = cacheManager.getCachedStockInfo(stockCode)
+            if (cachedData != null) {
+                emit(Resource.Success(cachedData))
+                return@flow
+            }
+            
+            // 2. 캐시에 없으면 API 호출
             val response = apiService.getStockInfo(stockCode)
             if (response.success) {
-                emit(Resource.Success(response.data.toDomain()))
+                val stockInfo = response.data.toDomain()
+                
+                // 3. 캐시에 저장
+                cacheManager.cacheStockInfo(stockInfo)
+                
+                emit(Resource.Success(stockInfo))
             } else {
                 emit(Resource.Error("Failed to fetch stock info"))
             }
@@ -50,9 +66,23 @@ class ChartRepositoryImpl @Inject constructor(
     ): Flow<Resource<List<CandlestickData>>> = flow {
         try {
             emit(Resource.Loading())
+            
+            // 1. 캐시에서 먼저 확인
+            val cachedData = cacheManager.getCachedCandlestickData(stockCode, timeFrame, period)
+            if (cachedData != null) {
+                emit(Resource.Success(cachedData))
+                return@flow
+            }
+            
+            // 2. 캐시에 없으면 API 호출
             val response = apiService.getCandlestickData(stockCode, timeFrame, period)
             if (response.success) {
-                emit(Resource.Success(response.data.toCandlestickDataList()))
+                val candlestickData = response.data.toCandlestickDataList()
+                
+                // 3. 캐시에 저장
+                cacheManager.cacheCandlestickData(stockCode, timeFrame, period, candlestickData)
+                
+                emit(Resource.Success(candlestickData))
             } else {
                 emit(Resource.Error("Failed to fetch candlestick data"))
             }
@@ -72,9 +102,23 @@ class ChartRepositoryImpl @Inject constructor(
     ): Flow<Resource<List<VolumeData>>> = flow {
         try {
             emit(Resource.Loading())
+            
+            // 1. 캐시에서 먼저 확인
+            val cachedData = cacheManager.getCachedVolumeData(stockCode, timeFrame, period)
+            if (cachedData != null) {
+                emit(Resource.Success(cachedData))
+                return@flow
+            }
+            
+            // 2. 캐시에 없으면 API 호출
             val response = apiService.getVolumeData(stockCode, timeFrame, period)
             if (response.success) {
-                emit(Resource.Success(response.data.toVolumeDataList()))
+                val volumeData = response.data.toVolumeDataList()
+                
+                // 3. 캐시에 저장
+                cacheManager.cacheVolumeData(stockCode, timeFrame, period, volumeData)
+                
+                emit(Resource.Success(volumeData))
             } else {
                 emit(Resource.Error("Failed to fetch volume data"))
             }
@@ -95,6 +139,15 @@ class ChartRepositoryImpl @Inject constructor(
     ): Flow<Resource<ChartIndicatorData>> = flow {
         try {
             emit(Resource.Loading())
+            
+            // 1. 캐시에서 먼저 확인
+            val cachedData = cacheManager.getCachedIndicators(stockCode, timeFrame, indicators, period)
+            if (cachedData != null) {
+                emit(Resource.Success(cachedData))
+                return@flow
+            }
+            
+            // 2. 캐시에 없으면 API 호출
             val indicatorsQuery = indicators.joinToString(",")
             val response = apiService.getIndicators(stockCode, indicatorsQuery, timeFrame, period)
             
@@ -109,6 +162,10 @@ class ChartRepositoryImpl @Inject constructor(
                     macd = data.macd?.toDomain(),
                     bollingerBands = data.bollingerBands?.toDomain()
                 )
+                
+                // 3. 캐시에 저장
+                cacheManager.cacheIndicators(stockCode, timeFrame, indicators, period, indicatorData)
+                
                 emit(Resource.Success(indicatorData))
             } else {
                 emit(Resource.Error("Failed to fetch indicators"))

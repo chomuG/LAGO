@@ -97,7 +97,10 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideRealtimeDataManager(webSocketClient: WebSocketClient): RealtimeDataManager {
-        return RealtimeDataManager(webSocketClient)
+    fun provideRealtimeDataManager(
+        webSocketClient: WebSocketClient,
+        cacheManager: com.lago.app.data.local.cache.ChartCacheManager
+    ): RealtimeDataManager {
+        return RealtimeDataManager(webSocketClient, cacheManager)
     }
 }

@@ -2,6 +2,7 @@ package com.lago.app.data.remote.websocket
 
 import android.util.Log
 import com.lago.app.data.remote.dto.*
+import com.lago.app.data.local.cache.ChartCacheManager
 import com.lago.app.domain.entity.CandlestickData
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -10,7 +11,8 @@ import javax.inject.Singleton
 
 @Singleton
 class RealtimeDataManager @Inject constructor(
-    private val webSocketClient: WebSocketClient
+    private val webSocketClient: WebSocketClient,
+    private val cacheManager: ChartCacheManager
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
@@ -134,6 +136,11 @@ class RealtimeDataManager @Inject constructor(
             is WebSocketEvent.CandlestickReceived -> {
                 _realtimeCandlestick.emit(event.data)
                 Log.d(TAG, "Candlestick received: ${event.data.symbol} - ${event.data.close}")
+                
+                // 실시간 데이터 수신 시 관련 캐시 무효화
+                scope.launch {
+                    cacheManager.invalidateStockCache(event.data.symbol, event.data.timeframe)
+                }
             }
             
             is WebSocketEvent.TickReceived -> {
