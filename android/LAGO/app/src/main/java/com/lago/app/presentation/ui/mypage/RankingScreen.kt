@@ -48,10 +48,13 @@ data class PodiumUser(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RankingScreen(
+    userPreferences: com.lago.app.data.local.prefs.UserPreferences,
     onBackClick: () -> Unit = {},
     onUserClick: () -> Unit = {},
-    onAiPortfolioClick: () -> Unit = {}
+    onAiPortfolioClick: () -> Unit = {},
+    onLoginClick: () -> Unit = {}
 ) {
+    val isLoggedIn = userPreferences.getAuthToken() != null
     val currentUser = RankingUser(
         rank = 17,
         name = "박두철철철",
@@ -95,11 +98,17 @@ fun RankingScreen(
             Spacer(modifier = Modifier.height(Spacing.sm))
 
             // 현재 사용자 랭킹 카드
-            RankingCard(
-                user = currentUser,
-                isCurrentUser = true,
-                onUserClick = onUserClick
-            )
+            if (isLoggedIn) {
+                RankingCard(
+                    user = currentUser,
+                    isCurrentUser = true,
+                    onUserClick = onUserClick
+                )
+            } else {
+                LoginPromptCard(
+                    onLoginClick = onLoginClick
+                )
+            }
 
             // 포디움 섹션
             PodiumSection(
@@ -281,6 +290,45 @@ fun PodiumSection(
 }
 
 @Composable
+fun LoginPromptCard(
+    onLoginClick: () -> Unit = {}
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(70.dp)
+            .clickable { onLoginClick() }
+            .shadow(
+                elevation = 4.dp,
+                shape = RoundedCornerShape(Radius.lg),
+                ambientColor = ShadowColor,
+                spotColor = ShadowColor
+            ),
+        shape = RoundedCornerShape(Radius.lg),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .border(
+                    width = 2.dp,
+                    color = Gray100,
+                    shape = RoundedCornerShape(Radius.lg)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "로그인 해주세요.",
+                style = TitleB18,
+                color = Gray600
+            )
+        }
+    }
+}
+
+@Composable
 fun PodiumUser(
     user: PodiumUser,
     circleSize: androidx.compose.ui.unit.Dp,
@@ -344,7 +392,31 @@ fun PodiumUser(
 @Preview(showBackground = true)
 @Composable
 fun RankingScreenPreview() {
+    val mockSharedPrefs = object : android.content.SharedPreferences {
+        override fun getAll(): MutableMap<String, *> = mutableMapOf<String, Any>()
+        override fun getString(key: String?, defValue: String?): String? = defValue
+        override fun getStringSet(key: String?, defValues: MutableSet<String>?): MutableSet<String>? = defValues
+        override fun getInt(key: String?, defValue: Int): Int = defValue
+        override fun getLong(key: String?, defValue: Long): Long = defValue
+        override fun getFloat(key: String?, defValue: Float): Float = defValue
+        override fun getBoolean(key: String?, defValue: Boolean): Boolean = defValue
+        override fun contains(key: String?): Boolean = false
+        override fun edit(): android.content.SharedPreferences.Editor = object : android.content.SharedPreferences.Editor {
+            override fun putString(key: String?, value: String?) = this
+            override fun putStringSet(key: String?, values: MutableSet<String>?) = this
+            override fun putInt(key: String?, value: Int) = this
+            override fun putLong(key: String?, value: Long) = this
+            override fun putFloat(key: String?, value: Float) = this
+            override fun putBoolean(key: String?, value: Boolean) = this
+            override fun remove(key: String?) = this
+            override fun clear() = this
+            override fun commit() = true
+            override fun apply() {}
+        }
+        override fun registerOnSharedPreferenceChangeListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener?) {}
+        override fun unregisterOnSharedPreferenceChangeListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener?) {}
+    }
     MaterialTheme {
-        RankingScreen()
+        RankingScreen(userPreferences = com.lago.app.data.local.prefs.UserPreferences(mockSharedPrefs))
     }
 }
