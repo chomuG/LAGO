@@ -66,8 +66,9 @@ fun NavGraph(
 
         composable(NavigationItem.Investment.route) {
             StockListScreen(
-                onStockClick = { stockCode ->
-                    navController.navigate("chart/$stockCode")
+                onStockClick = { stockCode, stockName, currentPrice, priceChange, priceChangePercent ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    navController.navigate("chart/$stockCode/$encodedName/$currentPrice/$priceChange/$priceChangePercent")
                 },
                 onHistoryChallengeStockClick = { stockCode ->
                     navController.navigate("history_challenge_chart/$stockCode")
@@ -100,17 +101,35 @@ fun NavGraph(
             )
         }
 
-        // Chart Screen with stock code parameter
+        // Chart Screen with stock parameters
         composable(
-            route = "chart/{stockCode}",
+            route = "chart/{stockCode}/{stockName}/{currentPrice}/{priceChange}/{priceChangePercent}",
             arguments = listOf(
-                navArgument("stockCode") { type = NavType.StringType }
+                navArgument("stockCode") { type = NavType.StringType },
+                navArgument("stockName") { type = NavType.StringType },
+                navArgument("currentPrice") { type = NavType.IntType },
+                navArgument("priceChange") { type = NavType.IntType },
+                navArgument("priceChangePercent") { type = NavType.FloatType }
             )
         ) { backStackEntry ->
             val stockCode = backStackEntry.arguments?.getString("stockCode") ?: "005930"
+            val stockName = java.net.URLDecoder.decode(
+                backStackEntry.arguments?.getString("stockName") ?: "삼성전자", 
+                "UTF-8"
+            )
+            val currentPrice = backStackEntry.arguments?.getInt("currentPrice") ?: 74200
+            val priceChange = backStackEntry.arguments?.getInt("priceChange") ?: 0
+            val priceChangePercent = backStackEntry.arguments?.getFloat("priceChangePercent") ?: 0f
 
             ChartScreen(
                 stockCode = stockCode,
+                initialStockInfo = com.lago.app.domain.entity.StockInfo(
+                    code = stockCode,
+                    name = stockName,
+                    currentPrice = currentPrice.toFloat(),
+                    priceChange = priceChange.toFloat(),
+                    priceChangePercent = priceChangePercent
+                ),
                 onNavigateToStockPurchase = { stockCode, action ->
                     navController.navigate("stock_purchase/$stockCode/$action")
                 },
@@ -161,7 +180,37 @@ fun NavGraph(
                     navController.navigate("ranking")
                 },
                 onStockClick = { stockCode ->
-                    navController.navigate("chart/$stockCode")
+                    // MyPage에서는 기본 방식으로 네비게이션 (backward compatibility)
+                    navController.navigate("chart_simple/$stockCode")
+                }
+            )
+        }
+
+        // Simple chart route for backward compatibility (MyPage, Portfolio, etc)
+        composable(
+            route = "chart_simple/{stockCode}",
+            arguments = listOf(
+                navArgument("stockCode") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val stockCode = backStackEntry.arguments?.getString("stockCode") ?: "005930"
+
+            ChartScreen(
+                stockCode = stockCode,
+                onNavigateToStockPurchase = { stockCode, action ->
+                    navController.navigate("stock_purchase/$stockCode/$action")
+                },
+                onNavigateToAIDialog = {
+                    navController.navigate(NavigationItem.AIDialog.route)
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToStock = { selectedStockCode ->
+                    navController.navigate("chart_simple/$selectedStockCode") {
+                        popUpTo("chart_simple") { inclusive = true }
+                        launchSingleTop = true
+                    }
                 }
             )
         }
@@ -183,7 +232,7 @@ fun NavGraph(
         composable("portfolio") {
             PortfolioScreen(
                 onStockClick = { stockCode ->
-                    navController.navigate("chart/$stockCode")
+                    navController.navigate("chart_simple/$stockCode")
                 },
                 onBackClick = {
                     navController.popBackStack()
@@ -198,7 +247,7 @@ fun NavGraph(
                     navController.popBackStack()
                 },
                 onStockClick = { stockCode ->
-                    navController.navigate("chart/$stockCode")
+                    navController.navigate("chart_simple/$stockCode")
                 },
                 onOrderHistoryClick = {
                     navController.navigate(NavigationItem.OrderHistory.route)

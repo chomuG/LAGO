@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -38,11 +40,31 @@ import com.lago.app.presentation.ui.components.NewsCard
 @Composable
 fun StockListScreen(
     viewModel: StockListViewModel = hiltViewModel(),
-    onStockClick: (String) -> Unit,
-    onHistoryChallengeStockClick: (String) -> Unit = { onStockClick(it) },
+    onStockClick: (String, String, Int, Int, Double) -> Unit,
+    onHistoryChallengeStockClick: (String) -> Unit = {},
     onNewsClick: (Int) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val listState = rememberLazyListState()
+    
+    // 가시 영역 종목 추적
+    val visibleStocks by remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            layoutInfo.visibleItemsInfo.mapNotNull { itemInfo ->
+                if (itemInfo.index < uiState.filteredStocks.size) {
+                    uiState.filteredStocks[itemInfo.index].code
+                } else null
+            }
+        }
+    }
+    
+    // 가시 영역이 변경될 때마다 WebSocket 구독 업데이트
+    LaunchedEffect(visibleStocks) {
+        if (uiState.selectedTab == 0 && visibleStocks.isNotEmpty()) {
+            viewModel.updateVisibleStocks(visibleStocks)
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -70,13 +92,23 @@ fun StockListScreen(
                     )
                     Box(modifier = Modifier.fillMaxSize()) {
                         LazyColumn(
+                            state = listState,
                             modifier = Modifier.fillMaxSize()
                         ) {
                             items(uiState.filteredStocks.size) { index ->
+                                val stock = uiState.filteredStocks[index]
                                 StockItemCard(
-                                    stock = uiState.filteredStocks[index],
-                                    onFavoriteClick = { viewModel.toggleFavorite(uiState.filteredStocks[index].code) },
-                                    onClick = { onStockClick(uiState.filteredStocks[index].code) }
+                                    stock = stock,
+                                    onFavoriteClick = { viewModel.toggleFavorite(stock.code) },
+                                    onClick = { 
+                                        onStockClick(
+                                            stock.code,
+                                            stock.name,
+                                            stock.currentPrice,
+                                            stock.priceChange,
+                                            stock.priceChangePercent
+                                        )
+                                    }
                                 )
                                 
                                 // 마지막 아이템이 아닌 경우에만 디바이더 표시

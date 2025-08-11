@@ -3,9 +3,7 @@ package com.lago.app.di
 import android.content.Context
 import androidx.room.Room
 import com.lago.app.data.local.LagoDatabase
-import com.lago.app.data.local.dao.ChartCacheDao
-import com.lago.app.data.local.cache.ChartCacheManager
-import com.google.gson.Gson
+import com.lago.app.data.cache.ChartMemoryCache
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -32,22 +30,8 @@ object DatabaseModule {
     }
     
     @Provides
-    fun provideChartCacheDao(database: LagoDatabase): ChartCacheDao {
-        return database.chartCacheDao()
-    }
-    
-    @Provides
     @Singleton
-    fun provideChartCacheManager(
-        chartCacheDao: ChartCacheDao,
-        gson: Gson
-    ): ChartCacheManager {
-        return ChartCacheManager(chartCacheDao, gson)
-    }
-    
-    @Provides
-    @Singleton
-    fun provideGson(): Gson {
-        return Gson()
+    fun provideChartMemoryCache(): ChartMemoryCache {
+        return ChartMemoryCache()
     }
 }

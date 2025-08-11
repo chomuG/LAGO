@@ -2,6 +2,7 @@ package com.lago.app.presentation.viewmodel.chart
 
 sealed class ChartUiEvent {
     data class ChangeStock(val stockCode: String) : ChartUiEvent()
+    data class ChangeStockWithInfo(val stockCode: String, val stockInfo: com.lago.app.domain.entity.StockInfo) : ChartUiEvent()
     data class ChangeTimeFrame(val timeFrame: String) : ChartUiEvent()
     data class ToggleIndicator(val indicatorType: String, val enabled: Boolean) : ChartUiEvent()
     object RefreshData : ChartUiEvent()

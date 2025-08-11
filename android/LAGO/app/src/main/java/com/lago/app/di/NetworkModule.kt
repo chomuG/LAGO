@@ -6,8 +6,8 @@ import com.lago.app.data.remote.StudyApiService
 import com.lago.app.util.Constants
 import com.lago.app.data.remote.api.ChartApiService
 import com.lago.app.data.remote.api.HistoryChallengeApiService
-import com.lago.app.data.remote.websocket.WebSocketClient
-import com.lago.app.data.remote.websocket.RealtimeDataManager
+import com.lago.app.data.remote.websocket.StockWebSocketService
+import com.google.gson.Gson
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -91,16 +91,13 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideWebSocketClient(): WebSocketClient {
-        return WebSocketClient()
+    fun provideGson(): Gson {
+        return Gson()
     }
-
+    
     @Provides
     @Singleton
-    fun provideRealtimeDataManager(
-        webSocketClient: WebSocketClient,
-        cacheManager: com.lago.app.data.local.cache.ChartCacheManager
-    ): RealtimeDataManager {
-        return RealtimeDataManager(webSocketClient, cacheManager)
+    fun provideStockWebSocketService(gson: Gson): StockWebSocketService {
+        return StockWebSocketService(gson)
     }
 }

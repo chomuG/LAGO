@@ -117,9 +117,15 @@ dependencies {
     // WebView Webkit for dark mode fix
     implementation("androidx.webkit:webkit:1.11.0")
 
-    // WebSocket for real-time data
+    // WebSocket for real-time data - STOMP with RxJava2 (라이브러리가 RxJava2 사용)
+    implementation("com.github.NaikSoftware:StompProtocolAndroid:1.6.6")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
+    implementation("io.reactivex.rxjava2:rxjava:2.2.21")
+    implementation("io.reactivex.rxjava2:rxandroid:2.1.1")
+    
+    
+    // Memory Cache
+    implementation("androidx.collection:collection-ktx:1.4.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

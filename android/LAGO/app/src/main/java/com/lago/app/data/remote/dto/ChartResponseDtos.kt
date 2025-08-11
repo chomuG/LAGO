@@ -199,3 +199,44 @@ data class SimpleStockDto(
     @SerializedName("name") val name: String,
     @SerializedName("market") val market: String
 )
+
+// New API DTOs based on Swagger spec
+data class StockDayDto(
+    @SerializedName("date") val date: String,
+    @SerializedName("openPrice") val openPrice: Int,
+    @SerializedName("highPrice") val highPrice: Int,
+    @SerializedName("lowPrice") val lowPrice: Int,
+    @SerializedName("closePrice") val closePrice: Int,
+    @SerializedName("volume") val volume: Int,
+    @SerializedName("fluctuationRate") val fluctuationRate: Float
+)
+
+data class StockMinuteDto(
+    @SerializedName("stockInfoId") val stockInfoId: Int,
+    @SerializedName("date") val date: String,
+    @SerializedName("openPrice") val openPrice: Int,
+    @SerializedName("highPrice") val highPrice: Int,
+    @SerializedName("lowPrice") val lowPrice: Int,
+    @SerializedName("closePrice") val closePrice: Int,
+    @SerializedName("volume") val volume: Int
+)
+
+data class StockMonthDto(
+    @SerializedName("date") val date: Int,
+    @SerializedName("openPrice") val openPrice: Int,
+    @SerializedName("highPrice") val highPrice: Int,
+    @SerializedName("lowPrice") val lowPrice: Int,
+    @SerializedName("closePrice") val closePrice: Int,
+    @SerializedName("volume") val volume: Int,
+    @SerializedName("fluctuationRate") val fluctuationRate: Float
+)
+
+data class StockYearDto(
+    @SerializedName("date") val date: Int,
+    @SerializedName("openPrice") val openPrice: Int,
+    @SerializedName("highPrice") val highPrice: Int,
+    @SerializedName("lowPrice") val lowPrice: Int,
+    @SerializedName("closePrice") val closePrice: Int,
+    @SerializedName("volume") val volume: Int,
+    @SerializedName("fluctuationRate") val fluctuationRate: Float
+)

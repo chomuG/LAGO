@@ -6,8 +6,12 @@ import com.lago.app.domain.entity.*
 import com.lago.app.domain.repository.ChartRepository
 import com.lago.app.domain.usecase.AnalyzeChartPatternUseCase
 import com.lago.app.data.local.prefs.UserPreferences
-import com.lago.app.data.remote.websocket.RealtimeDataManager
+import com.lago.app.data.remote.websocket.StockWebSocketService
+import com.lago.app.data.remote.websocket.SmartStockWebSocketService
+import com.lago.app.data.scheduler.SmartUpdateScheduler
+import com.lago.app.domain.entity.ScreenType
 import com.lago.app.data.remote.dto.WebSocketConnectionState
+import com.lago.app.data.cache.ChartMemoryCache
 import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -21,7 +25,10 @@ class ChartViewModel @Inject constructor(
     private val chartRepository: ChartRepository,
     private val analyzeChartPatternUseCase: AnalyzeChartPatternUseCase,
     private val userPreferences: UserPreferences,
-    private val realtimeDataManager: RealtimeDataManager
+    private val webSocketService: StockWebSocketService,
+    private val smartWebSocketService: SmartStockWebSocketService,
+    private val smartUpdateScheduler: SmartUpdateScheduler,
+    private val memoryCache: ChartMemoryCache
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ChartUiState())
@@ -32,23 +39,39 @@ class ChartViewModel @Inject constructor(
     // 안전 타임아웃을 위한 Job
     private var chartLoadingTimeoutJob: Job? = null
     
-    // Mock 데이터 (서버 연결 전 임시 사용)
-    private val stockInfoMap = mapOf(
-        "005930" to StockInfo("005930", "삼성전자", 74200f, 800f, 1.09f),
-        "000660" to StockInfo("000660", "SK하이닉스", 135000f, -2000f, -1.46f),
-        "035420" to StockInfo("035420", "NAVER", 185000f, 1500f, 0.82f),
-        "035720" to StockInfo("035720", "카카오", 45300f, -700f, -1.52f),
-        "373220" to StockInfo("373220", "LG에너지솔루션", 420000f, 8000f, 1.94f)
-    )
     
     init {
         loadInitialData()
         initializeWebSocket()
+        setupSmartRealTimeUpdates()
+    }
+    
+    private fun setupSmartRealTimeUpdates() {
+        viewModelScope.launch {
+            // 차트용 고빈도 실시간 업데이트 구독 (60fps)
+            smartUpdateScheduler.chartUpdates.collect { updates ->
+                val currentStock = _uiState.value.currentStock
+                val realTimeData = updates[currentStock.code]
+                
+                if (realTimeData != null) {
+                    _uiState.update { 
+                        it.copy(
+                            currentStock = currentStock.copy(
+                                currentPrice = realTimeData.currentPrice.toFloat(),
+                                priceChange = realTimeData.priceChange.toFloat(),
+                                priceChangePercent = realTimeData.priceChangePercent.toFloat()
+                            )
+                        )
+                    }
+                }
+            }
+        }
     }
     
     fun onEvent(event: ChartUiEvent) {
         when (event) {
             is ChartUiEvent.ChangeStock -> changeStock(event.stockCode)
+            is ChartUiEvent.ChangeStockWithInfo -> changeStockWithInfo(event.stockCode, event.stockInfo)
             is ChartUiEvent.ChangeTimeFrame -> changeTimeFrame(event.timeFrame)
             is ChartUiEvent.ToggleIndicator -> toggleIndicator(event.indicatorType, event.enabled)
             is ChartUiEvent.RefreshData -> refreshData()
@@ -96,7 +119,6 @@ class ChartViewModel @Inject constructor(
         changeStock(defaultStockCode)
         loadUserHoldings()
         loadTradingHistory()
-        loadMockData()
     }
     
     private fun changeStock(stockCode: String) {
@@ -109,34 +131,41 @@ class ChartViewModel @Inject constructor(
                 ) 
             }
             
-            // 서버 연결 시도, 실패하면 Mock 데이터 사용
+            // 실제 서버에서 주식 정보 가져오기
             try {
                 chartRepository.getStockInfo(stockCode).collect { resource ->
                     when (resource) {
                         is Resource.Success -> {
-                            _uiState.update { 
-                                it.copy(
-                                    currentStock = resource.data ?: StockInfo("", "", 0f, 0f, 0f),
-                                    config = it.config.copy(stockCode = stockCode),
-                                    chartLoadingStage = ChartLoadingStage.DATA_LOADING
-                                )
+                            resource.data?.let { serverStockInfo ->
+                                _uiState.update { 
+                                    it.copy(
+                                        currentStock = serverStockInfo,
+                                        config = it.config.copy(stockCode = stockCode),
+                                        chartLoadingStage = ChartLoadingStage.DATA_LOADING,
+                                        isLoading = false
+                                    )
+                                }
+                                
+                                // 주식 정보 로드 후 차트 데이터 로드
+                                loadChartData(stockCode, _uiState.value.config.timeFrame)
+                                checkFavoriteStatus(stockCode)
+                                
+                                // 실시간 데이터 구독 시작
+                                updateRealtimeSubscription(stockCode, _uiState.value.config.timeFrame)
                             }
-                            
-                            // Load chart data after stock info is loaded
-                            loadChartData(stockCode, _uiState.value.config.timeFrame)
-                            checkFavoriteStatus(stockCode)
-                            
-                            // 실시간 데이터 구독 시작
-                            updateRealtimeSubscription(stockCode, _uiState.value.config.timeFrame)
                         }
                         is Resource.Error -> {
-                            // Fallback to mock data
-                            useMockStockData(stockCode)
+                            _uiState.update { 
+                                it.copy(
+                                    isLoading = false,
+                                    errorMessage = "주식 정보를 불러올 수 없습니다: ${resource.message}"
+                                )
+                            }
                         }
                         is Resource.Loading -> {
                             _uiState.update { 
                                 it.copy(
-                                    isLoading = true, 
+                                    isLoading = true,
                                     chartLoadingStage = ChartLoadingStage.DATA_LOADING
                                 ) 
                             }
@@ -144,25 +173,39 @@ class ChartViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                // Fallback to mock data
-                useMockStockData(stockCode)
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "네트워크 연결 실패: ${e.localizedMessage}"
+                    )
+                }
             }
         }
     }
     
-    private fun useMockStockData(stockCode: String) {
-        val stockInfo = stockInfoMap[stockCode] ?: stockInfoMap["005930"]!!
-        _uiState.update { 
-            it.copy(
-                currentStock = stockInfo,
-                config = it.config.copy(stockCode = stockCode),
-                isLoading = false
-            )
+    private fun changeStockWithInfo(stockCode: String, stockInfo: StockInfo) {
+        viewModelScope.launch {
+            // 즉시 StockList에서 가져온 정보로 UI 업데이트
+            _uiState.update { 
+                it.copy(
+                    currentStock = stockInfo,
+                    config = it.config.copy(stockCode = stockCode),
+                    isLoading = true,
+                    chartLoadingStage = ChartLoadingStage.DATA_LOADING,
+                    errorMessage = null
+                ) 
+            }
+            
+            // 스마트 웹소켓에 차트 종목 변경 알림 (HOT 우선순위)
+            smartWebSocketService.updateChartStock(stockCode)
+            
+            // 차트 데이터는 여전히 서버에서 가져와야 함
+            loadChartData(stockCode, _uiState.value.config.timeFrame)
+            checkFavoriteStatus(stockCode)
+            
+            // 기존 실시간 데이터 구독도 유지 (호환성)
+            updateRealtimeSubscription(stockCode, _uiState.value.config.timeFrame)
         }
-        loadMockData()
-        
-        // Mock 데이터 사용 시에도 실시간 데이터 구독
-        updateRealtimeSubscription(stockCode, _uiState.value.config.timeFrame)
     }
     
     private fun loadChartData(stockCode: String, timeFrame: String) {
@@ -178,8 +221,12 @@ class ChartViewModel @Inject constructor(
                                 }
                             }
                             is Resource.Error -> {
-                                // Fallback to mock data
-                                loadMockData()
+                                _uiState.update { 
+                                    it.copy(
+                                        errorMessage = "차트 데이터를 불러올 수 없습니다: ${resource.message}",
+                                        isLoading = false
+                                    )
+                                }
                             }
                             is Resource.Loading -> {}
                         }
@@ -195,7 +242,14 @@ class ChartViewModel @Inject constructor(
                                     it.copy(volumeData = resource.data ?: emptyList())
                                 }
                             }
-                            is Resource.Error -> {}
+                            is Resource.Error -> {
+                                _uiState.update { 
+                                    it.copy(
+                                        errorMessage = "거래량 데이터를 불러올 수 없습니다: ${resource.message}",
+                                        isLoading = false
+                                    )
+                                }
+                            }
                             is Resource.Loading -> {}
                         }
                     }
@@ -205,7 +259,12 @@ class ChartViewModel @Inject constructor(
                 loadIndicators(stockCode, timeFrame)
                 
             } catch (e: Exception) {
-                loadMockData()
+                _uiState.update { 
+                    it.copy(
+                        errorMessage = "차트 데이터 로드 실패: ${e.localizedMessage}",
+                        isLoading = false
+                    )
+                }
             }
             
             _uiState.update { 
@@ -584,10 +643,10 @@ class ChartViewModel @Inject constructor(
     private fun initializeWebSocket() {
         viewModelScope.launch {
             // 웹소켓 연결
-            realtimeDataManager.connect()
+            webSocketService.connect()
             
             // 연결 상태 모니터링
-            realtimeDataManager.connectionState.collect { state ->
+            webSocketService.connectionState.collect { state ->
                 android.util.Log.d("ChartViewModel", "WebSocket connection state: $state")
                 // UI 상태에 연결 상태 반영 가능
             }
@@ -595,7 +654,7 @@ class ChartViewModel @Inject constructor(
         
         viewModelScope.launch {
             // 실시간 캔들스틱 데이터 구독
-            realtimeDataManager.realtimeCandlestick.collect { realtimeData ->
+            webSocketService.realtimeCandlestick.collect { realtimeData ->
                 android.util.Log.d("ChartViewModel", "Realtime candlestick: ${realtimeData.symbol} - ${realtimeData.close}")
                 updateRealtimeCandlestick(realtimeData)
             }
@@ -603,7 +662,7 @@ class ChartViewModel @Inject constructor(
         
         viewModelScope.launch {
             // 실시간 틱 데이터 구독 (주가 정보 업데이트용)
-            realtimeDataManager.realtimeTick.collect { tickData ->
+            webSocketService.realtimeTick.collect { tickData ->
                 android.util.Log.d("ChartViewModel", "Realtime tick: ${tickData.symbol} - ${tickData.price}")
                 updateRealtimeTick(tickData)
             }
@@ -611,7 +670,7 @@ class ChartViewModel @Inject constructor(
         
         viewModelScope.launch {
             // 에러 처리
-            realtimeDataManager.errors.collect { error ->
+            webSocketService.errors.collect { error ->
                 android.util.Log.e("ChartViewModel", "WebSocket error", error)
                 _uiState.update { 
                     it.copy(errorMessage = "실시간 데이터 연결 오류: ${error.message}")
@@ -631,8 +690,6 @@ class ChartViewModel @Inject constructor(
             return
         }
         
-        // 새로운 캔들스틱 데이터를 기존 데이터에 추가하거나 마지막 데이터 업데이트
-        val currentCandlestickData = _uiState.value.candlestickData.toMutableList()
         val newCandlestick = CandlestickData(
             time = realtimeData.timestamp,
             open = realtimeData.open,
@@ -642,28 +699,18 @@ class ChartViewModel @Inject constructor(
             volume = realtimeData.volume
         )
         
-        // 마지막 캔들의 시간과 비교하여 업데이트 또는 추가
-        if (currentCandlestickData.isNotEmpty()) {
-            val lastCandle = currentCandlestickData.last()
-            
-            // 같은 시간대라면 업데이트, 다른 시간대라면 추가
-            val timeframe = _uiState.value.config.timeFrame
-            if (isSameTimeframe(lastCandle.time, newCandlestick.time, timeframe)) {
-                // 마지막 캔들 업데이트
-                currentCandlestickData[currentCandlestickData.size - 1] = newCandlestick
-            } else {
-                // 새 캔들 추가
-                currentCandlestickData.add(newCandlestick)
-            }
-        } else {
-            currentCandlestickData.add(newCandlestick)
-        }
+        // 메모리 캐시에 실시간 데이터 추가
+        memoryCache.appendCandlestickData(realtimeData.symbol, realtimeData.timeframe, newCandlestick)
+        
+        // UI 상태 업데이트를 위해 캐시에서 최신 데이터 가져오기
+        val updatedData = memoryCache.getCandlestickData(realtimeData.symbol, realtimeData.timeframe) 
+            ?: _uiState.value.candlestickData
         
         _uiState.update { 
             it.copy(
-                candlestickData = currentCandlestickData,
+                candlestickData = updatedData,
                 // 거래량 데이터도 함께 업데이트
-                volumeData = currentCandlestickData.map { candle ->
+                volumeData = updatedData.map { candle ->
                     VolumeData(
                         time = candle.time,
                         value = candle.volume.toFloat(),
@@ -724,14 +771,18 @@ class ChartViewModel @Inject constructor(
      * 주식 변경 시 실시간 데이터 구독 업데이트
      */
     private fun updateRealtimeSubscription(stockCode: String, timeframe: String) {
-        realtimeDataManager.subscribeToChart(stockCode, timeframe)
+        webSocketService.subscribeToCandlestickData(stockCode, timeframe)
+        webSocketService.subscribeToTickData(stockCode)
     }
     
     override fun onCleared() {
         super.onCleared()
         // 웹소켓 리소스 정리
-        realtimeDataManager.disconnect()
-        realtimeDataManager.cleanup()
+        webSocketService.disconnect()
+        webSocketService.cleanup()
+        
+        // 메모리 캐시 정리
+        memoryCache.clearExpired()
     }
     
     // ===== MOCK DATA METHODS (Fallback) =====

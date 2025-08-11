@@ -145,6 +145,7 @@ data class SafeZones(
 @Composable
 fun ChartScreen(
     stockCode: String? = null,
+    initialStockInfo: StockInfo? = null,
     viewModel: ChartViewModel = hiltViewModel(),
     onNavigateToStockPurchase: (String, String) -> Unit = { _, _ -> },
     onNavigateToAIDialog: () -> Unit = {},
@@ -230,9 +231,13 @@ fun ChartScreen(
     var showCharacterDialog by remember { mutableStateOf(false) }
 
     // 투자 탭에서 선택된 주식 코드로 차트 데이터 로드
-    LaunchedEffect(stockCode) {
+    LaunchedEffect(stockCode, initialStockInfo) {
         stockCode?.let { code ->
-            viewModel.onEvent(ChartUiEvent.ChangeStock(code))
+            if (initialStockInfo != null) {
+                viewModel.onEvent(ChartUiEvent.ChangeStockWithInfo(code, initialStockInfo))
+            } else {
+                viewModel.onEvent(ChartUiEvent.ChangeStock(code))
+            }
         }
     }
 
