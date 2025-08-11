@@ -1,18 +1,4 @@
 services:
-  jenkins:
-    build: .
-    container_name: jenkins
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-      - "50000:50000"
-    volumes:
-      - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-    group_add:
-      - "${DOCKER_GID:-999}"  # Docker 그룹 ID
-    environment:
-      - JAVA_OPTS=-Djenkins.install.runSetupWizard=true
 
   timescaledb:
     image: timescale/timescaledb-ha:pg14-latest
@@ -26,6 +12,13 @@ services:
     volumes:
       - timescale_data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} || exit 1'
+      interval: 5s
+      timeout: 3s
+      retries: 30
 
   redis:
     image: redis:7.2
@@ -42,19 +35,21 @@ services:
       dockerfile: Dockerfile
     container_name: spring-backend
     ports:
-      - "8081:8080"  # EC2에서는 8081 포트로 접근 (Jenkins는 8080 사용)
+      - "8081:9000"  # EC2에서는 8081 포트로 접근 (Jenkins는 8080 사용)
     env_file:
       - .env
     environment:
-      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
-      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
-      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
-      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_PROFILES_ACTIVE=dev
       - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_PORT=${SPRING_REDIS_PORT:-6379}
+      - REDIS_STREAM_KEY=${REDIS_STREAM_KEY:-orders-stream}
     depends_on:
-      - timescaledb
-      - redis
+      timescaledb:
+        condition: service_healthy
+      redis:
+        # redis는 헬스체크 없이 단순 의존만
+        # (필요시 redis에도 healthcheck 추가 가능)
+        condition: service_started
     restart: unless-stopped
 
 volumes:

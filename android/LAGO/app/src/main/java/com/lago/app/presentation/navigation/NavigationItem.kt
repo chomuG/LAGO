@@ -3,47 +3,63 @@ package com.lago.app.presentation.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
+import com.lago.app.R
 
 sealed class NavigationItem(
     val route: String,
     val title: String,
-    val icon: ImageVector
+    val iconRes: Int
 ) {
     object Home : NavigationItem(
         route = "home",
         title = "홈",
-        icon = Icons.Default.Home
+        iconRes = R.drawable.home
     )
     
     object Investment : NavigationItem(
         route = "investment",
         title = "투자",
-        icon = Icons.Default.TrendingUp
+        iconRes = R.drawable.stock
     )
-    
+
+    object Chart : NavigationItem(
+        route = "chart",
+        title = "차트",
+        iconRes = R.drawable.stock
+    )
+
     object Learn : NavigationItem(
         route = "learn",
         title = "학습",
-        icon = Icons.Default.School
+        iconRes = R.drawable.scholar
     )
     
     object News : NavigationItem(
         route = "news",
         title = "뉴스",
-        icon = Icons.Default.Newspaper
+        iconRes = R.drawable.news
     )
     
-    object Portfolio : NavigationItem(
-        route = "portfolio",
-        title = "포트폴리오",
-        icon = Icons.Default.AccountBalanceWallet
+    object MyPage : NavigationItem(
+        route = "mypage",
+        title = "마이",
+        iconRes = R.drawable.my
     )
+
+    object AIDialog : NavigationItem(
+        route = "ai_dialog",
+        title = "AI 차트 분석",
+        iconRes = R.drawable.my
+    )
+
 }
 
 val bottomNavigationItems = listOf(
     NavigationItem.Home,
     NavigationItem.Investment,
     NavigationItem.Learn,
+    NavigationItem.Chart,
     NavigationItem.News,
-    NavigationItem.Portfolio
+    NavigationItem.MyPage
 )
