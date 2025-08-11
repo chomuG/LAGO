@@ -291,8 +291,15 @@ fun ChartScreen(
         }
     }
 
-    // Animatable로 부드러운 애니메이션 처리
-    val sheetAnimY = remember { Animatable(sheetPositions.collapsed) }
+    // Animatable로 부드러운 애니메이션 처리 - 현재 상태에 맞는 초기 위치로 설정
+    val sheetAnimY = remember(bottomSheetState, sheetPositions) { 
+        val initialY = when (bottomSheetState) {
+            BottomSheetState.COLLAPSED -> sheetPositions.collapsed
+            BottomSheetState.HALF_EXPANDED -> sheetPositions.halfExpanded
+            BottomSheetState.EXPANDED -> sheetPositions.expanded
+        }
+        Animatable(initialY) 
+    }
 
     // 바텀시트 상태가 변경될 때 애니메이션
     LaunchedEffect(bottomSheetState) {
@@ -833,7 +840,7 @@ private fun TopAppBar(
             }
         ) {
             Icon(
-                painter = painterResource(R.drawable.setting),
+                painter = painterResource(R.drawable.chart_setting),
                 contentDescription = null,
                 tint = Gray900,
                 modifier = Modifier.size(24.dp)

@@ -139,13 +139,8 @@ class StockListViewModel @Inject constructor(
     fun onSearchQueryChange(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
         
-        if (query.isNotEmpty()) {
-            // 검색 API 호출
-            searchStocks(query)
-        } else {
-            // 검색어가 비어있으면 기본 목록으로 복원
-            refreshStocks()
-        }
+        // 로컬 데이터에서 검색 필터링
+        filterStocks()
     }
 
     private fun searchStocks(query: String) {
@@ -279,6 +274,15 @@ class StockListViewModel @Inject constructor(
     private fun filterStocks() {
         _uiState.update { state ->
             var filtered = state.stocks
+
+            // 검색어 필터
+            if (state.searchQuery.isNotEmpty()) {
+                val query = state.searchQuery.lowercase()
+                filtered = filtered.filter { stock ->
+                    stock.name.lowercase().contains(query) || 
+                    stock.code.lowercase().contains(query)
+                }
+            }
 
             // 관심목록 필터
             if (state.showFavoritesOnly) {

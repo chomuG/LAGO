@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.lago.app.domain.entity.*
 import com.lago.app.domain.repository.ChartRepository
 import com.lago.app.domain.usecase.AnalyzeChartPatternUseCase
+import com.lago.app.data.local.prefs.UserPreferences
 import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -14,7 +15,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ChartViewModel @Inject constructor(
     private val chartRepository: ChartRepository,
-    private val analyzeChartPatternUseCase: AnalyzeChartPatternUseCase
+    private val analyzeChartPatternUseCase: AnalyzeChartPatternUseCase,
+    private val userPreferences: UserPreferences
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ChartUiState())
@@ -55,6 +57,32 @@ class ChartViewModel @Inject constructor(
     }
     
     private fun loadInitialData() {
+        // 저장된 설정 불러오기
+        val savedTimeFrame = userPreferences.getChartTimeFrame()
+        val savedIndicators = userPreferences.getChartIndicators()
+        
+        // ChartIndicators 객체 생성
+        val chartIndicators = ChartIndicators(
+            sma5 = savedIndicators.contains("sma5"),
+            sma20 = savedIndicators.contains("sma20"),
+            sma60 = savedIndicators.contains("sma60"),
+            sma120 = savedIndicators.contains("sma120"),
+            rsi = savedIndicators.contains("rsi"),
+            macd = savedIndicators.contains("macd"),
+            bollingerBands = savedIndicators.contains("bollingerBands"),
+            volume = savedIndicators.contains("volume")
+        )
+        
+        // 초기 상태에 저장된 설정 적용
+        _uiState.update { currentState ->
+            currentState.copy(
+                config = currentState.config.copy(
+                    timeFrame = savedTimeFrame,
+                    indicators = chartIndicators
+                )
+            )
+        }
+        
         val defaultStockCode = "005930" // Samsung Electronics
         changeStock(defaultStockCode)
         loadUserHoldings()
@@ -209,6 +237,9 @@ class ChartViewModel @Inject constructor(
             )
         }
         
+        // 설정 저장
+        userPreferences.setChartTimeFrame(timeFrame)
+        
         // Reload chart data with new timeframe
         loadChartData(_uiState.value.currentStock.code, timeFrame)
     }
@@ -232,6 +263,18 @@ class ChartViewModel @Inject constructor(
                 config = currentConfig.copy(indicators = updatedIndicators)
             )
         }
+        
+        // 설정 저장
+        val indicatorSet = mutableSetOf<String>()
+        if (updatedIndicators.sma5) indicatorSet.add("sma5")
+        if (updatedIndicators.sma20) indicatorSet.add("sma20")
+        if (updatedIndicators.sma60) indicatorSet.add("sma60")
+        if (updatedIndicators.sma120) indicatorSet.add("sma120")
+        if (updatedIndicators.rsi) indicatorSet.add("rsi")
+        if (updatedIndicators.macd) indicatorSet.add("macd")
+        if (updatedIndicators.bollingerBands) indicatorSet.add("bollingerBands")
+        if (updatedIndicators.volume) indicatorSet.add("volume")
+        userPreferences.setChartIndicators(indicatorSet)
         
         // Reload indicators with updated configuration
         loadIndicators(_uiState.value.currentStock.code, _uiState.value.config.timeFrame)

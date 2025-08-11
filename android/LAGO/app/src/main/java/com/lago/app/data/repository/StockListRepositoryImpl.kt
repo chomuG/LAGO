@@ -3,6 +3,8 @@ package com.lago.app.data.repository
 import com.lago.app.data.local.prefs.UserPreferences
 import com.lago.app.data.mapper.ChartDataMapper.toDomain
 import com.lago.app.data.mapper.ChartDataMapper.toStockItemList
+import com.lago.app.data.mapper.ChartDataMapper.toStockItemListFromSimple
+import com.lago.app.data.mapper.ChartDataMapper.toStockListPage
 import com.lago.app.data.remote.api.ChartApiService
 import com.lago.app.domain.entity.StockItem
 import com.lago.app.domain.entity.StockListPage
@@ -31,11 +33,7 @@ class StockListRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             val response = apiService.getStockList(category, page, size, sort, search)
-            if (response.success) {
-                emit(Resource.Success(response.data.toDomain()))
-            } else {
-                emit(Resource.Error("Failed to fetch stock list"))
-            }
+            emit(Resource.Success(response.toStockListPage()))
         } catch (e: HttpException) {
             emit(Resource.Error("Network error: ${e.localizedMessage}"))
         } catch (e: IOException) {
@@ -49,11 +47,7 @@ class StockListRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             val response = apiService.getTrendingStocks(limit)
-            if (response.success) {
-                emit(Resource.Success(response.data.content.toStockItemList()))
-            } else {
-                emit(Resource.Error("Failed to fetch trending stocks"))
-            }
+            emit(Resource.Success(response.toStockItemListFromSimple()))
         } catch (e: HttpException) {
             emit(Resource.Error("Network error: ${e.localizedMessage}"))
         } catch (e: IOException) {
@@ -71,11 +65,7 @@ class StockListRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             val response = apiService.searchStocks(query, page, size)
-            if (response.success) {
-                emit(Resource.Success(response.data.toDomain()))
-            } else {
-                emit(Resource.Error("Failed to search stocks"))
-            }
+            emit(Resource.Success(response.toStockListPage()))
         } catch (e: HttpException) {
             emit(Resource.Error("Network error: ${e.localizedMessage}"))
         } catch (e: IOException) {
@@ -169,11 +159,7 @@ class StockListRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             val response = apiService.getStockList("favorites", page, size)
-            if (response.success) {
-                emit(Resource.Success(response.data.toDomain()))
-            } else {
-                emit(Resource.Error("Failed to fetch favorite stocks"))
-            }
+            emit(Resource.Success(response.toStockListPage()))
         } catch (e: HttpException) {
             when (e.code()) {
                 401 -> emit(Resource.Error("Authentication failed"))

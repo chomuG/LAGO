@@ -191,3 +191,11 @@ data class PatternResultDto(
     @SerializedName("confidence") val confidence: Float,
     @SerializedName("recommendation") val recommendation: String?
 )
+
+// Simple Stock Response (actual API format)
+data class SimpleStockDto(
+    @SerializedName("stockInfoId") val stockInfoId: Int,
+    @SerializedName("code") val code: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("market") val market: String
+)

@@ -4,7 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -33,6 +36,12 @@ fun StockPurchaseScreen(
     val isPurchaseType = action == "buy"
     val uiState by viewModel.uiState.collectAsState()
     var showConfirmDialog by remember { mutableStateOf(false) }
+    
+    // 화면 크기 및 밀도 정보
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val screenHeight = configuration.screenHeightDp.dp
+    val isCompactScreen = screenHeight < 700.dp // 작은 화면 기기 대응
 
     LaunchedEffect(stockCode, isPurchaseType) {
         viewModel.loadStockInfo(stockCode, isPurchaseType)
@@ -47,7 +56,8 @@ fun StockPurchaseScreen(
             PurchaseTopBar(
                 stockName = uiState.stockName,
                 transactionType = if (isPurchaseType) "구매" else "판매",
-                onBackClick = onNavigateBack
+                onBackClick = onNavigateBack,
+                isCompactScreen = isCompactScreen
             )
         },
         containerColor = Color.White,
@@ -58,13 +68,16 @@ fun StockPurchaseScreen(
                     .fillMaxWidth()
                     .background(Color.White)
                     .windowInsetsPadding(WindowInsets.navigationBars) // 시스템 네비게이션 바 패딩
-                    .padding(16.dp)
+                    .padding(
+                        horizontal = 16.dp,
+                        vertical = if (isCompactScreen) 12.dp else 16.dp
+                    )
             ) {
                 Button(
                     onClick = { showConfirmDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(64.dp),
+                        .height(if (isCompactScreen) 56.dp else 64.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isPurchaseType) MainPink else MainBlue
                     ),
@@ -84,10 +97,11 @@ fun StockPurchaseScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .windowInsetsPadding(WindowInsets.statusBars) // 상태표시줄 패딩 추가
                 .background(Color.White)
                 .padding(horizontal = 16.dp)
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(if (isCompactScreen) 12.dp else 16.dp))
 
             // 종목 정보
             StockInfoCard(
@@ -98,7 +112,7 @@ fun StockPurchaseScreen(
                 holdingQuantity = uiState.holdingQuantity
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(if (isCompactScreen) 16.dp else 20.dp))
 
             // 수정된 주 수 기반 입력
             TransactionShareInput(
@@ -113,7 +127,7 @@ fun StockPurchaseScreen(
                 currentPrice = currentPrice
             )
 
-            Spacer(modifier = Modifier.height(24.dp)) // bottom bar 여유 (네비게이션 바 없음)
+            Spacer(modifier = Modifier.height(if (isCompactScreen) 16.dp else 24.dp)) // bottom bar 여유
         }
     }
 
@@ -138,13 +152,17 @@ fun StockPurchaseScreen(
 private fun PurchaseTopBar(
     stockName: String,
     transactionType: String,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    isCompactScreen: Boolean = false
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.White)
-            .padding(vertical = 16.dp, horizontal = 16.dp),
+            .padding(
+                vertical = if (isCompactScreen) 12.dp else 16.dp, 
+                horizontal = 16.dp
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBackClick) {

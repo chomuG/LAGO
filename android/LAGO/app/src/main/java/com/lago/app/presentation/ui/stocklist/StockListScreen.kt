@@ -68,43 +68,137 @@ fun StockListScreen(
                         onFilterChange = { viewModel.onFilterChange(it) },
                         modifier = Modifier.padding(horizontal = Spacing.md)
                     )
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(Spacing.md),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.sm + Spacing.xs)
-                    ) {
-                        items(uiState.filteredStocks) { stock ->
-                            StockItemCard(
-                                stock = stock,
-                                onFavoriteClick = { viewModel.toggleFavorite(stock.code) },
-                                onClick = { onStockClick(stock.code) }
-                            )
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(uiState.filteredStocks.size) { index ->
+                                StockItemCard(
+                                    stock = uiState.filteredStocks[index],
+                                    onFavoriteClick = { viewModel.toggleFavorite(uiState.filteredStocks[index].code) },
+                                    onClick = { onStockClick(uiState.filteredStocks[index].code) }
+                                )
+                                
+                                // 마지막 아이템이 아닌 경우에만 디바이더 표시
+                                if (index < uiState.filteredStocks.size - 1) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = Spacing.md),
+                                        thickness = 1.dp,
+                                        color = Gray200
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // 로딩 상태
+                        if (uiState.isLoading && uiState.filteredStocks.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                        
+                        // 에러 상태
+                        if (uiState.errorMessage != null && uiState.filteredStocks.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "데이터를 불러오는데 실패했습니다",
+                                        style = SB_18,
+                                        color = Gray700
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = uiState.errorMessage ?: "",
+                                        style = R_14,
+                                        color = Gray500
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(
+                                        onClick = { viewModel.refreshStocks() }
+                                    ) {
+                                        Text("다시 시도")
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 빈 상태
+                        if (!uiState.isLoading && uiState.errorMessage == null && uiState.filteredStocks.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "종목이 없습니다",
+                                        style = SB_18,
+                                        color = Gray700
+                                    )
+                                    if (uiState.showFavoritesOnly) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "관심종목을 추가해보세요",
+                                            style = R_14,
+                                            color = Gray500
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
                 1 -> {
                     // 역사 챌린지 화면 - 종목 리스트 + 관련 뉴스
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(Spacing.md),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.sm + Spacing.xs)
+                        modifier = Modifier.fillMaxSize()
                     ) {
                         // 역사 챌린지 종목들
-                        items(uiState.historyChallengeStocks) { stock ->
+                        items(uiState.historyChallengeStocks.size) { index ->
                             HistoryChallengeStockItem(
-                                stock = stock,
-                                onClick = { onHistoryChallengeStockClick(stock.stockCode) }
+                                stock = uiState.historyChallengeStocks[index],
+                                onClick = { onHistoryChallengeStockClick(uiState.historyChallengeStocks[index].stockCode) }
                             )
+                            
+                            // 마지막 종목이 아닌 경우에만 디바이더 표시
+                            if (index < uiState.historyChallengeStocks.size - 1) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = Spacing.md),
+                                    thickness = 1.dp,
+                                    color = Gray200
+                                )
+                            }
+                        }
+                        
+                        // 종목과 뉴스 사이 구분선
+                        if (uiState.historyChallengeStocks.isNotEmpty()) {
+                            item {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = Spacing.md),
+                                    thickness = 1.dp,
+                                    color = Gray300
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
                         }
                         
                         // 관련 뉴스 섹션 제목
                         item {
-                            Spacer(modifier = Modifier.height(24.dp))
                             Text(
                                 text = "관련 뉴스",
                                 style = SB_18,
                                 color = Gray900,
-                                modifier = Modifier.padding(bottom = 16.dp)
+                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = 8.dp)
                             )
                         }
                         
@@ -136,11 +230,20 @@ fun StockListScreen(
                             )
                         )
                         
-                        items(dummyNews) { news ->
+                        items(dummyNews.size) { index ->
                             NewsCard(
-                                news = news,
-                                onClick = { onNewsClick(news.newsId) }
+                                news = dummyNews[index],
+                                onClick = { onNewsClick(dummyNews[index].newsId) }
                             )
+                            
+                            // 마지막 뉴스가 아닌 경우에만 디바이더 표시
+                            if (index < dummyNews.size - 1) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = Spacing.md),
+                                    thickness = 1.dp,
+                                    color = Gray200
+                                )
+                            }
                         }
                     }
                 }
@@ -234,33 +337,18 @@ private fun FilterChips(
     onFilterChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val filters = listOf("이름", "현재가", "등락률", "관심목록")
+    val filters = listOf("이름", "현재가", "등락률")
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
         filters.forEach { filter ->
             when (filter) {
-                "관심목록" -> {
-                    // 관심목록은 화살표 없이 필터링만
-                    FilterChip(
-                        selected = showFavoritesOnly,
-                        onClick = { onFilterChange(filter) },
-                        border = BorderStroke(1.dp, Gray600),
-                        label = {
-                            Text(
-                                filter,
-                                style = SubtitleSb14
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MainPink,
-                            selectedLabelColor = Color.White,
-                            containerColor = MaterialTheme.colorScheme.surface
-                        ),
-                    )
-                }
                 else -> {
                     // 정렬 버튼 (화살표 포함)
                     val sortDirection = when (filter) {
@@ -289,6 +377,19 @@ private fun FilterChips(
                     )
                 }
             }
+        }
+        }
+        
+        // 오른쪽: 관심목록 필터 하트 아이콘
+        IconButton(
+            onClick = { onFilterChange("관심목록") }
+        ) {
+            Icon(
+                painter = if (showFavoritesOnly) painterResource(R.drawable.pink_heart) else painterResource(R.drawable.blank_heart),
+                contentDescription = "관심목록 필터",
+                tint = Color.Unspecified,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -367,7 +468,6 @@ private fun StockItemCard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
             .clickable { onClick() }
             .padding(Spacing.md),
         verticalAlignment = Alignment.CenterVertically
@@ -413,7 +513,7 @@ private fun StockItemCard(
                 val changeSign = if (isPositive) "+" else ""
                 
                 Text(
-                    text = "${changeSign}${String.format("%,d", stock.priceChange)}(${changeSign}${String.format("%.2f", stock.priceChangePercent)}%)",
+                    text = "${changeSign}${String.format("%,d", stock.priceChange)}(${String.format("%.2f", kotlin.math.abs(stock.priceChangePercent))}%)",
                     style = R_12,
                     color = changeColor
                 )
@@ -425,7 +525,7 @@ private fun StockItemCard(
             Icon(
                 painter = if (stock.isFavorite) painterResource(R.drawable.pink_heart) else painterResource(R.drawable.blank_heart),
                 contentDescription = "관심종목",
-                tint = if (stock.isFavorite) Color.Unspecified else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = Color.Unspecified,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -441,7 +541,6 @@ private fun HistoryChallengeStockItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
             .clickable { onClick() }
             .padding(Spacing.md),
         verticalAlignment = Alignment.CenterVertically
@@ -488,21 +587,13 @@ private fun HistoryChallengeStockItem(
                 val changeAmount = (stock.currentPrice * stock.fluctuationRate / 100).toInt()
                 
                 Text(
-                    text = "${changeSign}${String.format("%,d", kotlin.math.abs(changeAmount))}(${changeSign}${String.format("%.2f", stock.fluctuationRate)}%)",
+                    text = "${changeSign}${String.format("%,d", kotlin.math.abs(changeAmount))}(${String.format("%.2f", kotlin.math.abs(stock.fluctuationRate))}%)",
                     style = R_12,
                     color = changeColor
                 )
             }
         }
 
-        // 즐겨찾기 버튼 (역사챌린지에서는 빈 하트로 고정)
-        IconButton(onClick = { onFavoriteClick?.invoke() }) {
-            Icon(
-                painter = painterResource(R.drawable.blank_heart),
-                contentDescription = "관심종목",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+        // 역사챌린지에서는 하트 아이콘 없음
     }
 }

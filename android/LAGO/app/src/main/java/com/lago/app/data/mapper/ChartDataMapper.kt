@@ -133,4 +133,35 @@ object ChartDataMapper {
     fun List<StockItemDto>.toStockItemList(): List<StockItem> {
         return map { it.toDomain() }
     }
+
+    // Simple Stock mappers (actual API format)
+    fun SimpleStockDto.toDomain(): StockItem {
+        return StockItem(
+            code = code,
+            name = name,
+            market = market,
+            currentPrice = 0, // API에서 제공하지 않음, 기본값
+            priceChange = 0, // API에서 제공하지 않음, 기본값
+            priceChangePercent = 0.0, // API에서 제공하지 않음, 기본값
+            volume = 0L, // API에서 제공하지 않음, 기본값
+            marketCap = null,
+            sector = null,
+            isFavorite = false, // 기본값
+            updatedAt = "" // API에서 제공하지 않음, 기본값
+        )
+    }
+
+    fun List<SimpleStockDto>.toStockItemListFromSimple(): List<StockItem> {
+        return map { it.toDomain() }
+    }
+
+    fun List<SimpleStockDto>.toStockListPage(): StockListPage {
+        return StockListPage(
+            content = map { it.toDomain() },
+            page = 0,
+            size = size,
+            totalElements = size.toLong(),
+            totalPages = 1
+        )
+    }
 }

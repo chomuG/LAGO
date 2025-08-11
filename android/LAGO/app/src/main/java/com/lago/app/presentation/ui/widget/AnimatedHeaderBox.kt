@@ -87,7 +87,7 @@ fun AnimatedHeaderBox(
 
                 // 가격과 수익률을 한 줄에 배치
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Bottom
                 ) {
                     Text(
                         text = "${String.format("%.0f", stockInfo.currentPrice)}원",
@@ -95,16 +95,14 @@ fun AnimatedHeaderBox(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     
-                    Spacer(modifier = Modifier.width(Spacing.sm + Spacing.xs))
+                    Spacer(modifier = Modifier.width(Spacing.sm))
                     
                     val isPositive = stockInfo.priceChange >= 0
                     val changeText = if (isPositive) {
-                        "+${String.format("%.0f", stockInfo.priceChange)}원 (${String.format("%.2f", stockInfo.priceChangePercent)}%)"
+                        "+${String.format("%.0f", stockInfo.priceChange)}(${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%)"
                     } else {
-                        "${String.format("%.0f", stockInfo.priceChange)}원 (${String.format("%.2f", stockInfo.priceChangePercent)}%)"
+                        "${String.format("%.0f", stockInfo.priceChange)}(${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%)"
                     }
-                    
-                    Spacer(modifier = Modifier.width(Spacing.sm))
                     
                     Text(
                         text = changeText,

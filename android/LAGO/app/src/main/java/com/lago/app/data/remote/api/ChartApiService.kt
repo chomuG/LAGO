@@ -96,7 +96,7 @@ interface ChartApiService {
         @Query("size") size: Int = 20,
         @Query("sort") sort: String = "code", // "code", "name", "price", "changeRate"
         @Query("search") search: String? = null
-    ): StockListResponse
+    ): List<SimpleStockDto>
 
     /**
      * 인기 주식 목록 조회
@@ -104,7 +104,7 @@ interface ChartApiService {
     @GET("api/stocks/trending")
     suspend fun getTrendingStocks(
         @Query("limit") limit: Int = 20
-    ): StockListResponse
+    ): List<SimpleStockDto>
 
     /**
      * 주식 검색
@@ -114,7 +114,7 @@ interface ChartApiService {
         @Query("query") query: String,
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20
-    ): StockListResponse
+    ): List<SimpleStockDto>
 
     /**
      * 차트 패턴 분석

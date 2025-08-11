@@ -784,7 +784,7 @@ private fun TopAppBar(
             }
         ) {
             Icon(
-                painter = painterResource(R.drawable.setting),
+                painter = painterResource(R.drawable.chart_setting),
                 contentDescription = null,
                 tint = Gray900,
                 modifier = Modifier.size(24.dp)
@@ -1690,3 +1690,4 @@ private fun IndicatorSettingsDialog(
         }
     )
 }
+

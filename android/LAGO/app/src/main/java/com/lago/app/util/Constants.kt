@@ -3,7 +3,7 @@ package com.lago.app.util
 object Constants {
     
     // API Constants
-    const val BASE_URL = "https://api.lago.com/"
+    const val BASE_URL = "http://i13d203.p.ssafy.io:8081/"
     const val API_VERSION = "v1"
     const val TIMEOUT_SECONDS = 30L
     
