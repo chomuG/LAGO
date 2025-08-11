@@ -51,14 +51,10 @@ public interface HistoryChallengeDataRepository extends JpaRepository<HistoryCha
     /**
      * 특정 챌린지의 지정된 과거 내의 모든 주가 데이터를 조회합니다.
      * @param challengeId 챌린지 ID
-     * @param virtualEndDate 조회할 과거 종료 시간
+     * @param virtualCurrentTime 과거 시간
+     * @param interval 조회 간격
      * @return 해당 시간 범위의 주가 데이터 목록 (시간순)
      */
-    List<HistoryChallengeData> findByChallengeIdAndDateLessThanOrderByDateAsc(
-            Integer challengeId,
-            LocalDateTime virtualEndDate
-    );
-
     @Query(value = "SELECT " +
             "time_bucket(CAST(:interval AS INTERVAL), hcd.date) AS bucket, " +
             "FIRST(hcd.open_price, hcd.date) AS open, " +

@@ -93,26 +93,6 @@ public class HistoryChallengeServiceImpl implements HistoryChallengeService {
         log.info("pastTime: {}", pastTime);
         log.info("pastDateTime: {}", pastDateTime);
 
-//        // 3. 총 진행 슬롯 수 = (지난 이벤트일 * slotsPerDay) + 오늘 진행된 슬롯 수
-//        int totalSlotsPassed = (int) (eventDayCount * slotsPerDay + (todayMinutesPassed / minutesPerSlot));
-//
-//        // 4. 하루 7슬롯이 5거래일에 매핑 → 총 진행 거래일 수 계산
-//        int tradingDaysPassed = (totalSlotsPassed * 7) / slotsPerDay;
-//
-//        // 5. 과거 시작일 기준으로 거래일 수 더하기 (주말 건너뛰기 필요 없다면 plusDays 사용)
-//        // LocalDate virtualDate = addTradingDays(originDate.toLocalDate(), tradingDaysPassed);
-//        LocalDate virtualDate = originStartDate.toLocalDate().plusDays(tradingDaysPassed);
-//
-//        // 6. 하루 중 진행 중인 슬롯의 시간 계산
-//        int slotInDay = totalSlotsPassed % slotsPerDay;
-//        LocalTime virtualTime = eventStartTime.plusMinutes(slotInDay * minutesPerSlot);
-//
-//        // 7. 최종 가상 현재 시각
-//        LocalDateTime virtualCurrentTime = LocalDateTime.of(virtualDate, virtualTime);
-//
-//        log.info("가상 현재 시간: {}, 실제 경과일: {}, 오늘 진행 분: {}, 총 슬롯: {}, 총 거래일 진행: {}",
-//                virtualCurrentTime, eventDayCount, todayMinutesPassed, totalSlotsPassed, tradingDaysPassed);
-
         // 8. interval 문자열 매핑
         String intervalString = switch (interval) {
             case MINUTE -> "24 minute";

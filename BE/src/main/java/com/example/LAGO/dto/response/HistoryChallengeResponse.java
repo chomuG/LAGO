@@ -43,15 +43,6 @@ public class HistoryChallengeResponse {
     @Schema(description = "등락률", example = "2.14")
     private Float fluctuationRate;
 
-    public HistoryChallengeResponse(HistoryChallenge entity) {
-        this.challengeId = entity.getChallengeId();
-        this.theme = entity.getTheme();
-        this.stockName = entity.getStockName();
-        this.stockCode = entity.getStockCode();
-        this.startDate = entity.getStartDate();
-        this.endDate = entity.getEndDate();
-    }
-
     public HistoryChallengeResponse(HistoryChallenge challenge, HistoryChallengeData currentData) {
         this.challengeId = challenge.getChallengeId();
         this.theme = challenge.getTheme();

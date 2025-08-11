@@ -1,9 +1,6 @@
 package com.example.LAGO.dto.response;
 
-import com.example.LAGO.domain.HistoryChallengeData;
-import com.example.LAGO.domain.StockDay; // StockDay 사용
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.persistence.Column;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -17,9 +14,6 @@ public class HistoryChallengeDataResponse {
 
     @Schema(description = "챌린지 주가 데이터 ID", example = "1")
     private Integer challengeDataId;
-
-    @Schema(description = "챌린지 ID", example = "1")
-    private Integer challengeId;
 
     @Schema(description = "일시", example = "2025-08-09 15:10:00")
     private LocalDateTime date;
