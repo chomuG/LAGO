@@ -6,6 +6,8 @@ import com.lago.app.data.remote.StudyApiService
 import com.lago.app.util.Constants
 import com.lago.app.data.remote.api.ChartApiService
 import com.lago.app.data.remote.api.HistoryChallengeApiService
+import com.lago.app.data.remote.websocket.WebSocketClient
+import com.lago.app.data.remote.websocket.RealtimeDataManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -85,5 +87,17 @@ object NetworkModule {
     @Singleton
     fun provideHistoryChallengeApiService(retrofit: Retrofit): HistoryChallengeApiService {
         return retrofit.create(HistoryChallengeApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideWebSocketClient(): WebSocketClient {
+        return WebSocketClient()
+    }
+
+    @Provides
+    @Singleton
+    fun provideRealtimeDataManager(webSocketClient: WebSocketClient): RealtimeDataManager {
+        return RealtimeDataManager(webSocketClient)
     }
 }

@@ -6,6 +6,8 @@ import com.lago.app.domain.entity.*
 import com.lago.app.domain.repository.ChartRepository
 import com.lago.app.domain.usecase.AnalyzeChartPatternUseCase
 import com.lago.app.data.local.prefs.UserPreferences
+import com.lago.app.data.remote.websocket.RealtimeDataManager
+import com.lago.app.data.remote.dto.WebSocketConnectionState
 import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -18,7 +20,8 @@ import javax.inject.Inject
 class ChartViewModel @Inject constructor(
     private val chartRepository: ChartRepository,
     private val analyzeChartPatternUseCase: AnalyzeChartPatternUseCase,
-    private val userPreferences: UserPreferences
+    private val userPreferences: UserPreferences,
+    private val realtimeDataManager: RealtimeDataManager
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ChartUiState())
@@ -40,6 +43,7 @@ class ChartViewModel @Inject constructor(
     
     init {
         loadInitialData()
+        initializeWebSocket()
     }
     
     fun onEvent(event: ChartUiEvent) {
@@ -121,6 +125,9 @@ class ChartViewModel @Inject constructor(
                             // Load chart data after stock info is loaded
                             loadChartData(stockCode, _uiState.value.config.timeFrame)
                             checkFavoriteStatus(stockCode)
+                            
+                            // 실시간 데이터 구독 시작
+                            updateRealtimeSubscription(stockCode, _uiState.value.config.timeFrame)
                         }
                         is Resource.Error -> {
                             // Fallback to mock data
@@ -153,6 +160,9 @@ class ChartViewModel @Inject constructor(
             )
         }
         loadMockData()
+        
+        // Mock 데이터 사용 시에도 실시간 데이터 구독
+        updateRealtimeSubscription(stockCode, _uiState.value.config.timeFrame)
     }
     
     private fun loadChartData(stockCode: String, timeFrame: String) {
@@ -253,6 +263,8 @@ class ChartViewModel @Inject constructor(
     }
     
     private fun changeTimeFrame(timeFrame: String) {
+        val stockCode = _uiState.value.currentStock.code
+        
         _uiState.update { 
             it.copy(
                 config = it.config.copy(timeFrame = timeFrame)
@@ -263,7 +275,10 @@ class ChartViewModel @Inject constructor(
         userPreferences.setChartTimeFrame(timeFrame)
         
         // Reload chart data with new timeframe
-        loadChartData(_uiState.value.currentStock.code, timeFrame)
+        loadChartData(stockCode, timeFrame)
+        
+        // 실시간 구독도 새로운 타임프레임으로 업데이트
+        updateRealtimeSubscription(stockCode, timeFrame)
     }
     
     private fun toggleIndicator(indicatorType: String, enabled: Boolean) {
@@ -559,6 +574,164 @@ class ChartViewModel @Inject constructor(
     private fun cancelChartLoadingTimeout() {
         chartLoadingTimeoutJob?.cancel()
         chartLoadingTimeoutJob = null
+    }
+    
+    // ===== WEBSOCKET METHODS =====
+    
+    /**
+     * 웹소켓 초기화 및 실시간 데이터 구독
+     */
+    private fun initializeWebSocket() {
+        viewModelScope.launch {
+            // 웹소켓 연결
+            realtimeDataManager.connect()
+            
+            // 연결 상태 모니터링
+            realtimeDataManager.connectionState.collect { state ->
+                android.util.Log.d("ChartViewModel", "WebSocket connection state: $state")
+                // UI 상태에 연결 상태 반영 가능
+            }
+        }
+        
+        viewModelScope.launch {
+            // 실시간 캔들스틱 데이터 구독
+            realtimeDataManager.realtimeCandlestick.collect { realtimeData ->
+                android.util.Log.d("ChartViewModel", "Realtime candlestick: ${realtimeData.symbol} - ${realtimeData.close}")
+                updateRealtimeCandlestick(realtimeData)
+            }
+        }
+        
+        viewModelScope.launch {
+            // 실시간 틱 데이터 구독 (주가 정보 업데이트용)
+            realtimeDataManager.realtimeTick.collect { tickData ->
+                android.util.Log.d("ChartViewModel", "Realtime tick: ${tickData.symbol} - ${tickData.price}")
+                updateRealtimeTick(tickData)
+            }
+        }
+        
+        viewModelScope.launch {
+            // 에러 처리
+            realtimeDataManager.errors.collect { error ->
+                android.util.Log.e("ChartViewModel", "WebSocket error", error)
+                _uiState.update { 
+                    it.copy(errorMessage = "실시간 데이터 연결 오류: ${error.message}")
+                }
+            }
+        }
+    }
+    
+    /**
+     * 실시간 캔들스틱 데이터로 차트 업데이트
+     */
+    private fun updateRealtimeCandlestick(realtimeData: com.lago.app.data.remote.dto.RealtimeCandlestickDto) {
+        val currentStockCode = _uiState.value.currentStock.code
+        
+        // 현재 보고 있는 주식의 데이터인지 확인
+        if (realtimeData.symbol != currentStockCode) {
+            return
+        }
+        
+        // 새로운 캔들스틱 데이터를 기존 데이터에 추가하거나 마지막 데이터 업데이트
+        val currentCandlestickData = _uiState.value.candlestickData.toMutableList()
+        val newCandlestick = CandlestickData(
+            time = realtimeData.timestamp,
+            open = realtimeData.open,
+            high = realtimeData.high,
+            low = realtimeData.low,
+            close = realtimeData.close,
+            volume = realtimeData.volume
+        )
+        
+        // 마지막 캔들의 시간과 비교하여 업데이트 또는 추가
+        if (currentCandlestickData.isNotEmpty()) {
+            val lastCandle = currentCandlestickData.last()
+            
+            // 같은 시간대라면 업데이트, 다른 시간대라면 추가
+            val timeframe = _uiState.value.config.timeFrame
+            if (isSameTimeframe(lastCandle.time, newCandlestick.time, timeframe)) {
+                // 마지막 캔들 업데이트
+                currentCandlestickData[currentCandlestickData.size - 1] = newCandlestick
+            } else {
+                // 새 캔들 추가
+                currentCandlestickData.add(newCandlestick)
+            }
+        } else {
+            currentCandlestickData.add(newCandlestick)
+        }
+        
+        _uiState.update { 
+            it.copy(
+                candlestickData = currentCandlestickData,
+                // 거래량 데이터도 함께 업데이트
+                volumeData = currentCandlestickData.map { candle ->
+                    VolumeData(
+                        time = candle.time,
+                        value = candle.volume.toFloat(),
+                        color = if (candle.close >= candle.open) "#ef5350" else "#26a69a"
+                    )
+                }
+            )
+        }
+    }
+    
+    /**
+     * 실시간 틱 데이터로 주식 정보 업데이트
+     */
+    private fun updateRealtimeTick(tickData: com.lago.app.data.remote.dto.RealtimeTickDto) {
+        val currentStockCode = _uiState.value.currentStock.code
+        
+        // 현재 보고 있는 주식의 데이터인지 확인
+        if (tickData.symbol != currentStockCode) {
+            return
+        }
+        
+        // 주식 정보 실시간 업데이트
+        val updatedStock = _uiState.value.currentStock.copy(
+            currentPrice = tickData.price,
+            priceChange = tickData.change,
+            priceChangePercent = tickData.changePercent
+        )
+        
+        _uiState.update { 
+            it.copy(currentStock = updatedStock)
+        }
+    }
+    
+    /**
+     * 타임프레임에 따라 같은 시간대인지 판단
+     */
+    private fun isSameTimeframe(time1: Long, time2: Long, timeframe: String): Boolean {
+        val diff = kotlin.math.abs(time1 - time2)
+        
+        return when (timeframe) {
+            "1" -> diff < 60 * 1000L // 1분
+            "3" -> diff < 3 * 60 * 1000L // 3분
+            "5" -> diff < 5 * 60 * 1000L // 5분
+            "15" -> diff < 15 * 60 * 1000L // 15분
+            "30" -> diff < 30 * 60 * 1000L // 30분
+            "60" -> diff < 60 * 60 * 1000L // 1시간
+            "D" -> {
+                val cal1 = java.util.Calendar.getInstance().apply { timeInMillis = time1 }
+                val cal2 = java.util.Calendar.getInstance().apply { timeInMillis = time2 }
+                cal1.get(java.util.Calendar.DAY_OF_YEAR) == cal2.get(java.util.Calendar.DAY_OF_YEAR) &&
+                cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR)
+            }
+            else -> false
+        }
+    }
+    
+    /**
+     * 주식 변경 시 실시간 데이터 구독 업데이트
+     */
+    private fun updateRealtimeSubscription(stockCode: String, timeframe: String) {
+        realtimeDataManager.subscribeToChart(stockCode, timeframe)
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        // 웹소켓 리소스 정리
+        realtimeDataManager.disconnect()
+        realtimeDataManager.cleanup()
     }
     
     // ===== MOCK DATA METHODS (Fallback) =====
