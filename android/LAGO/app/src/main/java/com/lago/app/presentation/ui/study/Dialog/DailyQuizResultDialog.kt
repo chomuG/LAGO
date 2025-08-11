@@ -26,6 +26,7 @@ fun DailyQuizResultDialog(
     isCorrect: Boolean,
     rank: Int,
     reward: Int,
+    explanation: String = "",
     onDismiss: () -> Unit = {},
     onReceiveReward: () -> Unit = {}
 ) {
@@ -56,75 +57,77 @@ fun DailyQuizResultDialog(
                     .padding(24.dp),
                 horizontalAlignment = Alignment.Start
             ) {
-                // 보상 금액 표시
-                Card(
-                    modifier = Modifier.padding(bottom = 16.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color.Transparent
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(
-                        2.dp, 
-                        MainBlue
-                    )
-                ) {
-                    Text(
-                        text = "+${NumberFormat.getNumberInstance(Locale.KOREA).format(reward)}원",
-                        style = SubtitleSb16,
-                        color = MainBlue,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
+                // 보상 금액 표시 (정답일 때만)
+                if (isCorrect && reward > 0) {
+                    Card(
+                        modifier = Modifier.padding(bottom = 16.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.Transparent
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            2.dp, 
+                            MainBlue
+                        )
+                    ) {
+                        Text(
+                            text = "+${NumberFormat.getNumberInstance(Locale.KOREA).format(reward)}원",
+                            style = SubtitleSb16,
+                            color = MainBlue,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
                 }
                 
                 // 등수 표시
                 Text(
-                    text = "${rank}등으로\n정답을 맞췄어요.",
+                    text = if (isCorrect) "${rank}등으로\n정답을 맞췄어요." else "아쉽게도\n틀렸어요.",
                     style = HeadEb28,
-                    color = MainBlue,
+                    color = if (isCorrect) MainBlue else Color(0xFFFF6669),
                     textAlign = TextAlign.Left,
                     modifier = Modifier.padding(bottom = 32.dp)
                 )
 
                 // 메달 아이콘
-                val medalIcon = when {
-                    rank == 1 -> R.drawable.first_place_medal
-                    rank in 2..3 -> R.drawable.second_place_medal
-                    rank <= 10 -> R.drawable.third_place_medal
-                    else -> R.drawable.troph
+                if (isCorrect) {
+                    val medalIcon = when {
+                        rank == 1 -> R.drawable.first_place_medal
+                        rank in 2..3 -> R.drawable.second_place_medal
+                        rank <= 10 -> R.drawable.third_place_medal
+                        else -> R.drawable.troph
+                    }
+                    
+                    Image(
+                        painter = painterResource(id = medalIcon),
+                        contentDescription = "${rank}등 메달",
+                        modifier = Modifier
+                            .size(132.dp)
+                            .align(Alignment.CenterHorizontally)
+                            .padding(bottom = 32.dp)
+                    )
+                } else {
+                    // 틀렸을 때 슬픈 표정 아이콘
+                    Image(
+                        painter = painterResource(id = R.drawable.sad_face),
+                        contentDescription = "틀림",
+                        modifier = Modifier
+                            .size(132.dp)
+                            .align(Alignment.CenterHorizontally)
+                            .padding(bottom = 32.dp)
+                    )
                 }
                 
-                Image(
-                    painter = painterResource(id = medalIcon),
-                    contentDescription = "${rank}등 메달",
-                    modifier = Modifier
-                        .size(132.dp)
-                        .align(Alignment.CenterHorizontally)
-                        .padding(bottom = 32.dp)
-                )
-                
-                // 설명 텍스트
-                Text(
-                    text = "PERO이 높으면 기업의 성장 가능성이 높아요.",
-                    style = TitleB20,
-                    color = Color.Black,
-                    textAlign = TextAlign.Left,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                HorizontalDivider(
-                    thickness = 2.dp,
-                    color = Color(0xFFF2F2F2),
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-                
-                Text(
-                    text = "PERO이 높다는 것은 주가가 주당순이익 대비 높게 형성되어 있다는 의미입니다. 이는 투자자들이 미래 성장을 기대하고 있음을 나타내지만, 동시에 주가가 과대 평가되었을 가능성도 있습니다.",
-                    style = BodyR14,
-                    color = Gray700,
-                    lineHeight = 20.sp,
-                    textAlign = TextAlign.Left,
-                    modifier = Modifier.padding(bottom = 32.dp)
-                )
+                // 설명 텍스트 (API에서 받은 설명이 있을 때만 표시)
+                if (explanation.isNotEmpty()) {
+                    Text(
+                        text = explanation,
+                        style = BodyR14,
+                        color = Gray700,
+                        lineHeight = 20.sp,
+                        textAlign = TextAlign.Left,
+                        modifier = Modifier.padding(bottom = 32.dp)
+                    )
+                }
                 
                 // 보상 받기 버튼
                 Button(
@@ -133,12 +136,12 @@ fun DailyQuizResultDialog(
                         .fillMaxWidth()
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MainBlue
+                        containerColor = if (isCorrect) MainBlue else Color(0xFFFF6669)
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = "${NumberFormat.getNumberInstance(Locale.KOREA).format(reward)}원 받기",
+                        text = if (isCorrect) "${NumberFormat.getNumberInstance(Locale.KOREA).format(reward)}원 받기" else "확인",
                         style = SubtitleSb16,
                         color = Color.White
                     )

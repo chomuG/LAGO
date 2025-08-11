@@ -2,8 +2,11 @@ package com.lago.app.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lago.app.domain.entity.DailyQuizResult
+import com.lago.app.domain.entity.DailyQuizStatus
 import com.lago.app.domain.entity.Quiz
 import com.lago.app.domain.usecase.GetDailyQuizUseCase
+import com.lago.app.domain.usecase.SolveDailyQuizUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,28 +16,41 @@ import javax.inject.Inject
 
 sealed class DailyQuizUiState {
     object Loading : DailyQuizUiState()
-    data class Success(val quiz: Quiz) : DailyQuizUiState()
+    data class Success(val status: DailyQuizStatus) : DailyQuizUiState()
     data class Error(val message: String) : DailyQuizUiState()
+}
+
+sealed class DailyQuizSolveUiState {
+    object Idle : DailyQuizSolveUiState()
+    object Loading : DailyQuizSolveUiState()
+    data class Success(val result: DailyQuizResult) : DailyQuizSolveUiState()
+    data class Error(val message: String) : DailyQuizSolveUiState()
 }
 
 @HiltViewModel
 class DailyQuizViewModel @Inject constructor(
-    private val getDailyQuizUseCase: GetDailyQuizUseCase
+    private val getDailyQuizUseCase: GetDailyQuizUseCase,
+    private val solveDailyQuizUseCase: SolveDailyQuizUseCase
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow<DailyQuizUiState>(DailyQuizUiState.Loading)
     val uiState: StateFlow<DailyQuizUiState> = _uiState.asStateFlow()
     
-    init {
-        loadDailyQuiz()
-    }
+    private val _solveState = MutableStateFlow<DailyQuizSolveUiState>(DailyQuizSolveUiState.Idle)
+    val solveState: StateFlow<DailyQuizSolveUiState> = _solveState.asStateFlow()
     
-    private fun loadDailyQuiz() {
+    private var currentQuizId: Int = 0
+    private var startTime: Long = 0
+    
+    fun loadDailyQuiz(userId: Int = 1) {
         viewModelScope.launch {
             _uiState.value = DailyQuizUiState.Loading
-            getDailyQuizUseCase()
-                .onSuccess { quiz ->
-                    _uiState.value = DailyQuizUiState.Success(quiz)
+            startTime = System.currentTimeMillis()
+            
+            getDailyQuizUseCase(userId)
+                .onSuccess { status ->
+                    _uiState.value = DailyQuizUiState.Success(status)
+                    currentQuizId = status.quiz?.quizId ?: 0
                 }
                 .onFailure { error ->
                     _uiState.value = DailyQuizUiState.Error(error.message ?: "Unknown error")
@@ -42,7 +58,29 @@ class DailyQuizViewModel @Inject constructor(
         }
     }
     
-    fun retryLoadQuiz() {
-        loadDailyQuiz()
+    fun solveQuiz(userId: Int = 1, userAnswer: Boolean) {
+        if (currentQuizId == 0) return
+        
+        val solvedTimeSeconds = ((System.currentTimeMillis() - startTime) / 1000).toInt()
+        
+        viewModelScope.launch {
+            _solveState.value = DailyQuizSolveUiState.Loading
+            
+            solveDailyQuizUseCase(userId, currentQuizId, userAnswer, solvedTimeSeconds)
+                .onSuccess { result ->
+                    _solveState.value = DailyQuizSolveUiState.Success(result)
+                }
+                .onFailure { error ->
+                    _solveState.value = DailyQuizSolveUiState.Error(error.message ?: "Unknown error")
+                }
+        }
+    }
+    
+    fun resetSolveState() {
+        _solveState.value = DailyQuizSolveUiState.Idle
+    }
+    
+    fun retryLoadQuiz(userId: Int = 1) {
+        loadDailyQuiz(userId)
     }
 }
