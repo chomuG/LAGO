@@ -295,14 +295,17 @@ fun ChartScreen(
         }
     }
 
-    // Animatable로 부드러운 애니메이션 처리 - 현재 상태에 맞는 초기 위치로 설정
-    val sheetAnimY = remember(bottomSheetState, sheetPositions) { 
-        val initialY = when (bottomSheetState) {
+    // Animatable로 부드러운 애니메이션 처리 - 재생성 방지
+    val sheetAnimY = remember { Animatable(sheetPositions.collapsed) }
+    
+    // 바텀시트 상태 변경 시 초기 위치 설정 (애니메이션 없이)
+    LaunchedEffect(sheetPositions) {
+        val currentY = when (bottomSheetState) {
             BottomSheetState.COLLAPSED -> sheetPositions.collapsed
             BottomSheetState.HALF_EXPANDED -> sheetPositions.halfExpanded
             BottomSheetState.EXPANDED -> sheetPositions.expanded
         }
-        Animatable(initialY) 
+        sheetAnimY.snapTo(currentY)
     }
 
     // 바텀시트 상태가 변경될 때 애니메이션
