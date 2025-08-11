@@ -72,6 +72,8 @@ public interface HistoryChallengeDataRepository extends JpaRepository<HistoryCha
             "END AS change_rate " +
             "FROM \"HISTORY_CHALLENGE_DATA\" hcd " +
             "WHERE hcd.challenge_id = :challengeId AND hcd.date < :virtualCurrentTime " +
+                "AND hcd.date::time >= '09:00:00' " +
+                "AND hcd.date::time <= '15:00:00' " +
             "GROUP BY bucket " +
             "ORDER BY bucket", nativeQuery = true)
     List<Object[]> findAggregatedByChallengeIdAndDate(
