@@ -25,11 +25,11 @@ class WordbookViewModel @Inject constructor(
     private val _termsState = MutableStateFlow<TermsUiState>(TermsUiState.Loading)
     val termsState: StateFlow<TermsUiState> = _termsState.asStateFlow()
     
-    fun loadTerms() {
+    fun loadTerms(userId: Int? = null) {
         viewModelScope.launch {
             _termsState.value = TermsUiState.Loading
             
-            getTermsUseCase().fold(
+            getTermsUseCase(userId).fold(
                 onSuccess = { terms ->
                     _termsState.value = TermsUiState.Success(terms)
                 },

@@ -3,7 +3,7 @@ package com.lago.app.util
 object Constants {
     
     // API Constants
-    const val BASE_URL = "https://api.lago.com/"
+    const val BASE_URL = "http://10.180.64.39:8081/"
     const val API_VERSION = "v1"
     const val TIMEOUT_SECONDS = 30L
     
@@ -25,7 +25,8 @@ object Constants {
     // UI Constants
     const val ANIMATION_DURATION = 300
     const val DEBOUNCE_TIME = 500L
-    
+
+
     // Business Logic Constants
     const val MIN_PASSWORD_LENGTH = 8
     const val MAX_RETRY_ATTEMPTS = 3

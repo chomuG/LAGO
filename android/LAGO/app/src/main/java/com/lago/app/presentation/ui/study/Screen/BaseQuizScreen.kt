@@ -43,7 +43,8 @@ fun BaseQuizScreen(
     quizType: QuizType,
     currentQuiz: QuizItem? = null,
     onBackClick: () -> Unit = {},
-    onQuizResult: (QuizResult) -> Unit = {}
+    onQuizResult: (QuizResult) -> Unit = {},
+    onAnswerSelected: ((Boolean) -> Unit)? = null // 사용자가 선택한 답안 (true/false)
 ) {
     val defaultQuizList = listOf(
         QuizItem("주식의 PER이 높으면 기업의 성장 가능성이 높다?", true),
@@ -106,19 +107,27 @@ fun BaseQuizScreen(
                     modifier = Modifier.weight(1f),
                     onClick = { 
                         val isCorrect = quiz.correctAnswer == false
-                        when (quizType) {
-                            QuizType.DAILY -> {
-                                val rank = (1..12).random()
-                                val reward = when {
-                                    rank == 1 -> 100000
-                                    rank <= 3 -> 50000
-                                    rank <= 10 -> 10000
-                                    else -> 2000
+                        val userAnswer = false
+                        
+                        // API 연동이 있는 경우 사용자 답안을 전달
+                        if (onAnswerSelected != null) {
+                            onAnswerSelected(userAnswer)
+                        } else {
+                            // 기존 로직 (오프라인 모드)
+                            when (quizType) {
+                                QuizType.DAILY -> {
+                                    val rank = (1..12).random()
+                                    val reward = when {
+                                        rank == 1 -> 100000
+                                        rank <= 3 -> 50000
+                                        rank <= 10 -> 10000
+                                        else -> 2000
+                                    }
+                                    onQuizResult(QuizResult(isCorrect, rank, reward))
                                 }
-                                onQuizResult(QuizResult(isCorrect, rank, reward))
-                            }
-                            QuizType.RANDOM -> {
-                                onQuizResult(QuizResult(isCorrect))
+                                QuizType.RANDOM -> {
+                                    onQuizResult(QuizResult(isCorrect))
+                                }
                             }
                         }
                     }
@@ -131,19 +140,27 @@ fun BaseQuizScreen(
                     modifier = Modifier.weight(1f),
                     onClick = { 
                         val isCorrect = quiz.correctAnswer == true
-                        when (quizType) {
-                            QuizType.DAILY -> {
-                                val rank = (1..12).random()
-                                val reward = when {
-                                    rank == 1 -> 100000
-                                    rank <= 3 -> 50000
-                                    rank <= 10 -> 10000
-                                    else -> 2000
+                        val userAnswer = true
+                        
+                        // API 연동이 있는 경우 사용자 답안을 전달
+                        if (onAnswerSelected != null) {
+                            onAnswerSelected(userAnswer)
+                        } else {
+                            // 기존 로직 (오프라인 모드)
+                            when (quizType) {
+                                QuizType.DAILY -> {
+                                    val rank = (1..12).random()
+                                    val reward = when {
+                                        rank == 1 -> 100000
+                                        rank <= 3 -> 50000
+                                        rank <= 10 -> 10000
+                                        else -> 2000
+                                    }
+                                    onQuizResult(QuizResult(isCorrect, rank, reward))
                                 }
-                                onQuizResult(QuizResult(isCorrect, rank, reward))
-                            }
-                            QuizType.RANDOM -> {
-                                onQuizResult(QuizResult(isCorrect))
+                                QuizType.RANDOM -> {
+                                    onQuizResult(QuizResult(isCorrect))
+                                }
                             }
                         }
                     }

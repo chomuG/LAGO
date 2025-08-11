@@ -7,5 +7,5 @@ import javax.inject.Inject
 class GetRandomQuizUseCase @Inject constructor(
     private val repository: StudyRepository
 ) {
-    suspend operator fun invoke(): Result<Quiz> = repository.getRandomQuiz()
+    suspend operator fun invoke(excludeQuizId: Int = 0): Result<Quiz> = repository.getRandomQuiz(excludeQuizId)
 }
