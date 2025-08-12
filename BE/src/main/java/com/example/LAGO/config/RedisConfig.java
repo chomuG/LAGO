@@ -6,6 +6,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericToStringSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 
 @Configuration
 public class RedisConfig {
@@ -32,6 +33,27 @@ public class RedisConfig {
         
         // Stream 메시지의 필드와 값을 위한 serializer
         template.setDefaultSerializer(stringSerializer);
+        
+        template.afterPropertiesSet();
+        return template;
+    }
+
+    /**
+     * Object 타입을 위한 RedisTemplate 설정
+     * 토큰 관리 및 임시 데이터 저장용
+     */
+    @Bean
+    public RedisTemplate<String, Object> redisObjectTemplate(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+        
+        StringRedisSerializer stringSerializer = new StringRedisSerializer();
+        GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer();
+        
+        template.setKeySerializer(stringSerializer);
+        template.setHashKeySerializer(stringSerializer);
+        template.setValueSerializer(jsonSerializer);
+        template.setHashValueSerializer(stringSerializer); // Hash 값은 String으로
         
         template.afterPropertiesSet();
         return template;
