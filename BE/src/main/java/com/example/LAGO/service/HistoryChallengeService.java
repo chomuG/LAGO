@@ -2,6 +2,7 @@ package com.example.LAGO.service;
 
 import com.example.LAGO.constants.Interval;
 import com.example.LAGO.dto.response.HistoryChallengeDataResponse;
+import com.example.LAGO.dto.response.HistoryChallengeNewsResponse;
 import com.example.LAGO.dto.response.HistoryChallengeResponse;
 
 import java.time.LocalDateTime;
@@ -25,4 +26,8 @@ public interface HistoryChallengeService {
      * @return 역사챌린지 주가 정보 목록
      */
     List<HistoryChallengeDataResponse> getHistoryChallengeData(Integer challengeId, Interval interval, LocalDateTime fromDateTime, LocalDateTime toDateTime);
+
+    List<HistoryChallengeNewsResponse> getChallengeNewsList(Integer challengeId, LocalDateTime targetDateTime);
+
+    HistoryChallengeNewsResponse getChallengeNews(Integer challengeId, Integer challengeNewsId);
 }

@@ -1,7 +1,9 @@
-package com.example.LAGO.service;
+package com.example.LAGO.scheduler;
 
 import com.example.LAGO.dto.response.HistoryChallengeDataResponse;
 import com.example.LAGO.exception.ErrorResponse;
+import com.example.LAGO.service.HistoryChallengeService;
+import com.example.LAGO.service.HistoryChallengeServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
