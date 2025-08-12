@@ -121,7 +121,9 @@
       "Bash(timeout 10 docker logs finbert-service -f --tail 5)",
       "Bash(timeout 5 docker logs finbert-service --tail 10)",
       "Bash(git rm:*)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }

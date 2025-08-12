@@ -15,11 +15,11 @@ import java.util.Optional;
 @Repository
 public interface NewsRepository extends JpaRepository<News, Long> {
     
-    // 일반 투자 뉴스 (종목 특정되지 않은 일반 뉴스)
+    // 일반 투자 뉴스 (종목 특정되지 않은 일반 뉴스) - PostgreSQL 최적화
     @Query("SELECT n FROM News n WHERE n.stockCode IS NULL " +
-           "AND (n.keywords LIKE :keyword1 OR n.keywords LIKE :keyword2 OR " +
-           "     n.keywords LIKE :keyword3 OR n.keywords LIKE :keyword4 OR " +
-           "     n.keywords LIKE :keyword5 OR n.keywords LIKE :keyword6) " +
+           "AND (LOWER(n.keywords) LIKE LOWER(:keyword1) OR LOWER(n.keywords) LIKE LOWER(:keyword2) OR " +
+           "     LOWER(n.keywords) LIKE LOWER(:keyword3) OR LOWER(n.keywords) LIKE LOWER(:keyword4) OR " +
+           "     LOWER(n.keywords) LIKE LOWER(:keyword5) OR LOWER(n.keywords) LIKE LOWER(:keyword6)) " +
            "ORDER BY n.publishedDate DESC")
     Page<News> findGeneralInvestmentNews(
         @Param("keyword1") String keyword1,
@@ -59,9 +59,11 @@ public interface NewsRepository extends JpaRepository<News, Long> {
         @Param("endDate") LocalDateTime endDate
     );
     
-    // 키워드 검색
+    // 키워드 검색 - PostgreSQL ILIKE 사용 (대소문자 무시)
     @Query("SELECT n FROM News n WHERE " +
-           "(n.title LIKE %:keyword% OR n.content LIKE %:keyword% OR n.keywords LIKE %:keyword%) " +
+           "(LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           " LOWER(n.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           " LOWER(n.keywords) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
            "ORDER BY n.publishedDate DESC")
     Page<News> findByKeywordSearch(@Param("keyword") String keyword, Pageable pageable);
     
@@ -76,4 +78,23 @@ public interface NewsRepository extends JpaRepository<News, Long> {
     
     // 종목 코드 리스트로 뉴스 조회 (관심종목)
     Page<News> findByStockCodeInOrderByPublishedDateDesc(List<String> stockCodes, Pageable pageable);
+    
+    // PostgreSQL 전용: 감정 분석 통계 (전체)
+    @Query(value = "SELECT sentiment, COUNT(*) as count FROM \"NEWS\" " +
+                   "WHERE sentiment IS NOT NULL " +
+                   "GROUP BY sentiment", nativeQuery = true)
+    List<Object[]> getSentimentStatistics();
+    
+    // PostgreSQL 전용: 종목별 감정 분석 통계  
+    @Query(value = "SELECT sentiment, COUNT(*) as count FROM \"NEWS\" " +
+                   "WHERE stock_code = :stockCode AND sentiment IS NOT NULL " +
+                   "GROUP BY sentiment", nativeQuery = true)
+    List<Object[]> getSentimentStatisticsByStockCode(@Param("stockCode") String stockCode);
+    
+    // PostgreSQL 전용: 최근 7일 뉴스 수 집계
+    @Query(value = "SELECT DATE(created_at) as date, COUNT(*) as count FROM \"NEWS\" " +
+                   "WHERE created_at >= NOW() - INTERVAL '7 days' " +
+                   "GROUP BY DATE(created_at) " +
+                   "ORDER BY date DESC", nativeQuery = true)
+    List<Object[]> getRecentNewsCountByDate();
 }

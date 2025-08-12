@@ -39,9 +39,15 @@ public class StockInfo {
     private String stockCode;
 
     /**
-     * 종목명 (예: 삼성전자)
+     * 종목명 (예: 삼성전자) - JPA 메소드 호환성을 위해 name 필드 추가
      */
     @Column(name = "name", length = 100)
+    private String name;
+    
+    /**
+     * 종목명 (예: 삼성전자) - 별칭
+     */
+    @Transient
     private String companyName;
 
     /**
@@ -68,9 +74,10 @@ public class StockInfo {
 
 
     // 생성자
-    public StockInfo(String stockCode, String companyName, String market) {
+    public StockInfo(String stockCode, String name, String market) {
         this.stockCode = stockCode;
-        this.companyName = companyName;
+        this.name = name;
+        this.companyName = name; // 별칭 동기화
         this.market = market;
     }
     
@@ -79,8 +86,19 @@ public class StockInfo {
         return stockCode;
     }
     
-    public String getName() {
-        return companyName;
+    public String getCompanyName() {
+        return name; // name 필드를 기준으로 반환
+    }
+    
+    // name 필드 설정 시 companyName도 동기화
+    public void setName(String name) {
+        this.name = name;
+        this.companyName = name;
+    }
+    
+    public void setCompanyName(String companyName) {
+        this.name = companyName;
+        this.companyName = companyName;
     }
 
 }
