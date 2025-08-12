@@ -49,4 +49,6 @@ public interface StockInfoRepository extends JpaRepository<StockInfo, Integer> {
     // 캐싱을 위한 존재 여부 확인
     @Query("SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END FROM StockInfo s WHERE s.code = :code")
     boolean existsByCode(@Param("code") String code);
+
+
 }

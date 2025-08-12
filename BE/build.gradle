@@ -77,6 +77,9 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testRuntimeOnly 'com.h2database:h2'
 	runtimeOnly 'com.h2database:h2'
+
+	// Zstd
+	implementation 'com.github.luben:zstd-jni:1.5.6-10'
 }
 
 // =================================================================
