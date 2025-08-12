@@ -40,6 +40,9 @@ dependencies {
 	// Swagger/OpenAPI 3
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9'
 
+	// Kotlin reflection for SpringDoc
+	implementation 'org.jetbrains.kotlin:kotlin-reflect:1.9.10'
+
 	// JSON
 	implementation 'com.fasterxml.jackson.core:jackson-databind'
 	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
@@ -51,6 +54,9 @@ dependencies {
 	implementation 'io.github.cdimascio:java-dotenv:5.2.2'
 
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	// Firebase Admin SDK
+	implementation 'com.google.firebase:firebase-admin:9.2.0'
 
 	// Runtime drivers
 	runtimeOnly 'org.postgresql:postgresql'
