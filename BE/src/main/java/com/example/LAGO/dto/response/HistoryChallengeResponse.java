@@ -3,14 +3,16 @@ package com.example.LAGO.dto.response;
 import com.example.LAGO.domain.HistoryChallenge;
 import com.example.LAGO.domain.HistoryChallengeData;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
+@Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class HistoryChallengeResponse {
 
     @Schema(description = "챌린지 ID", example = "1")

@@ -9,6 +9,6 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addFormatters(FormatterRegistry registry) {
-        registry.addConverter(new StringToChallengeIntervalConverter());
+        registry.addConverter(new StringToIntervalConverter());
     }
 }

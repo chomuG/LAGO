@@ -27,8 +27,11 @@ public class HistoryChallengeData {
     @Column(name = "challenge_id")
     private Integer challengeId;
 
-    @Column(name = "date")
-    private LocalDateTime date;
+    @Column(name = "event_date_time")
+    private LocalDateTime eventDateTime;
+
+    @Column(name = "origin_date_time")
+    private LocalDateTime originDateTime;
 
     @Column(name = "open_price", nullable = false)
     private Integer openPrice;
@@ -41,9 +44,6 @@ public class HistoryChallengeData {
 
     @Column(name = "close_price", nullable = false)
     private Integer closePrice;
-
-    @Column(name = "fluctuation_rate", nullable = false)
-    private Float fluctuationRate;
 
     @Column(name = "volume", nullable = false)
     private Integer volume;

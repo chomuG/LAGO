@@ -1,9 +1,9 @@
 package com.example.LAGO.dto.response;
 
+import com.example.LAGO.domain.HistoryChallengeData;
 import com.example.LAGO.service.HistoryChallengeServiceImpl;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -13,14 +13,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Getter
+@Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class HistoryChallengeDataResponse {
 
     @Schema(description = "행 번호", example = "1")
     private Long rowId;
 
-    @Schema(description = "일시", example = "2025-08-09 15:10:00")
-    private LocalDateTime date;
+    @Schema(description = "챌린지 일시", example = "2025-08-09 15:10:00")
+    private LocalDateTime eventDateTime;
+
+    @Schema(description = "과거 일시", example = "2020-07-08 15:10:00")
+    private LocalDateTime originDateTime;
 
     @Schema(description = "시가")
     private Integer openPrice;
@@ -45,15 +51,28 @@ public class HistoryChallengeDataResponse {
 
     private static final Logger log = LoggerFactory.getLogger(HistoryChallengeServiceImpl.class);
 
+    public HistoryChallengeDataResponse(HistoryChallengeData entity) {
+        this.eventDateTime = entity.getEventDateTime();
+        this.originDateTime = entity.getOriginDateTime();
+        this.openPrice = entity.getOpenPrice();
+        this.highPrice = entity.getHighPrice();
+        this.lowPrice = entity.getLowPrice();
+        this.closePrice = entity.getClosePrice();
+        this.volume = entity.getVolume().longValue();
+        this.fluctuationPrice = this.getClosePrice() - this.getOpenPrice();
+        this.fluctuationRate = this.getFluctuationPrice().floatValue() / this.getOpenPrice() * 100;
+    }
+
     public HistoryChallengeDataResponse(Object[] aggregatedData) {
         this.rowId = ((Long) aggregatedData[0]);
-        this.date = ((Timestamp) aggregatedData[1]).toLocalDateTime();
-        this.openPrice = ((Integer) aggregatedData[2]);
-        this.highPrice = ((Integer) aggregatedData[3]);
-        this.lowPrice = ((Integer) aggregatedData[4]);
-        this.closePrice = ((Integer) aggregatedData[5]);
-        this.volume = ((Long) aggregatedData[6]);
-        this.fluctuationPrice = ((Integer) aggregatedData[7]);
+        this.eventDateTime = ((Timestamp) aggregatedData[1]).toLocalDateTime();
+        this.originDateTime = ((Timestamp) aggregatedData[2]).toLocalDateTime();
+        this.openPrice = ((Integer) aggregatedData[3]);
+        this.highPrice = ((Integer) aggregatedData[4]);
+        this.lowPrice = ((Integer) aggregatedData[5]);
+        this.closePrice = ((Integer) aggregatedData[6]);
+        this.volume = ((Long) aggregatedData[7]);
+        this.fluctuationPrice = this.getClosePrice() - this.getOpenPrice();
         this.fluctuationRate = this.getFluctuationPrice().floatValue() / this.getOpenPrice() * 100;
     }
 }
