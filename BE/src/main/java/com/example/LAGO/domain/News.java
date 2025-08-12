@@ -2,6 +2,7 @@ package com.example.LAGO.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.example.LAGO.converter.StringListConverter;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,65 +18,94 @@ public class News {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "news_id")
+    private Long newsId;
     
-    @Column(nullable = false, length = 500)
+    @Column(columnDefinition = "TEXT")
     private String title;
     
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String content;
     
     @Column(columnDefinition = "TEXT")
     private String summary;
     
-    @Column(nullable = false, length = 1000)
-    private String url;
+    @Column(columnDefinition = "TEXT")
+    private String sentiment;  // 감정 분석 결과
     
+    @Column(name = "published_at")
+    private LocalDateTime publishedAt;
     
+    @Column(columnDefinition = "TEXT")
+    private String type;  // 뉴스 타입
+    
+    // Additional fields expected by the service
     @Column(name = "published_date")
     private LocalDateTime publishedDate;
     
-    @Column(length = 200)
-    private String source;
-    
-    // 종목 정보 연결 (기존 STOCK_INFO 테이블과 관계)
-    @Column(name = "stock_code", length = 20)
-    private String stockCode;
-    
-    // DB 스키마에 맞춰 추가된 필드들
-    @Column(length = 200)
-    private String keywords;
-    
-    @Column(name = "stock_info_id")
-    private Long stockInfoId;
-    
-    @Column(name = "stock_name", length = 200)
-    private String stockName;
-    
-    // 수집 타입 (REALTIME, WATCHLIST, HISTORICAL)
-    @Column(name = "collection_type", length = 50)
-    private String collectionType;
-    
-    // FinBERT 감정분석 결과 (핵심만)
-    @Column(length = 20)
-    private String sentiment;  // 호재악재 표시용: POSITIVE, NEGATIVE, NEUTRAL
-    
-    @Column(name = "confidence_level", length = 20)
-    private String confidenceLevel;  // 신뢰도: very_high, high, medium, low
-    
-    @Column(name = "trading_signal", length = 20)
-    private String tradingSignal;  // 거래신호: BUY, WEAK_BUY, HOLD, WEAK_SELL, SELL
-    
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
     
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
     
+    @Column(columnDefinition = "TEXT")
+    private String url;
+    
+    @Column(columnDefinition = "TEXT")
+    private String source;
+    
+    @Column(name = "stock_code")
+    private String stockCode;
+    
+    @Column(name = "confidence_level")
+    private String confidenceLevel;
+    
+    @Column(name = "trading_signal")
+    private String tradingSignal;
+    
+    @Column(columnDefinition = "TEXT")
+    private String keywords;
+    
+    @Column(name = "collection_type")
+    private String collectionType;
+    
+    @Column(name = "stock_info_id")
+    private Long stockInfoId;
+    
+    @Convert(converter = StringListConverter.class)
+    @Column(columnDefinition = "TEXT")
+    private List<String> images;
+    
+    // Stock relationship
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stock_info_id", insertable = false, updatable = false)
+    private StockInfo stock;
+    
+    // Getter method for ID (for backward compatibility)
+    public Long getId() {
+        return newsId;
+    }
+    
+    // Getter method for stock name
+    public String getStockName() {
+        return stock != null ? stock.getCompanyName() : null;
+    }
+    
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (updatedAt == null) {
+            updatedAt = LocalDateTime.now();
+        }
+        if (publishedAt == null) {
+            publishedAt = LocalDateTime.now();
+        }
+        if (publishedDate == null) {
+            publishedDate = publishedAt;
+        }
     }
     
     @PreUpdate

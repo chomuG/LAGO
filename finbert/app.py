@@ -490,9 +490,9 @@ def collect_realtime_news():
     """실시간 뉴스 수집 API"""
     try:
         data = request.get_json() or {}
-        requested_limit = data.get('limit', 20)
+        requested_limit = data.get('limit', 10)
 
-        limit = min(requested_limit, 15)
+        limit = min(requested_limit, 10)
 
         logger.info(f"🚀 실시간 뉴스 순차 수집 시작 (요청: {requested_limit}, 실제: {limit})")
 

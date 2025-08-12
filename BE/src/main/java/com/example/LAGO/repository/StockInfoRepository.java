@@ -21,7 +21,7 @@ public interface StockInfoRepository extends JpaRepository<StockInfo, Integer> {
     /**
      * 종목 코드로 주식 정보 조회
      *
-     * @param code 종목 코드 (예: 005930)
+     * @param stockCode 종목 코드 (예: 005930)
      * @return 주식 정보
      */
     Optional<StockInfo> findByStockCode(String stockCode);

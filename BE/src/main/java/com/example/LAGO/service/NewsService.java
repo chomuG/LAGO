@@ -213,8 +213,11 @@ public class NewsService {
 
                     // StockInfo 연결 (종목 코드가 있는 경우)
                     if (news.getStockCode() != null && !news.getStockCode().isEmpty()) {
-                        stockInfoRepository.findByStockCode(news.getStockCode())
-                                .ifPresent(news::setStock);
+                        stockInfoRepository.findByCode(news.getStockCode())
+                                .ifPresent(stockInfo -> {
+                                    news.setStock(stockInfo);
+                                    news.setStockInfoId(stockInfo.getStockInfoId().longValue());
+                                });
                     }
 
                     // 독립 트랜잭션으로 저장
