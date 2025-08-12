@@ -6,22 +6,44 @@ import retrofit2.http.*
 interface ChartApiService {
     
     /**
-     * 주식 기본 정보 조회
+     * 일별 주식 정보 조회
      */
-    @GET("api/stock/{stockCode}")
-    suspend fun getStockInfo(
-        @Path("stockCode") stockCode: String
-    ): StockInfoResponse
+    @GET("api/charts/stock-day/{stockId}")
+    suspend fun getStockDayData(
+        @Path("stockId") stockId: Int,
+        @Query("start") startDate: String,
+        @Query("end") endDate: String
+    ): List<StockDayDto>
 
     /**
-     * 차트 데이터 조회 (캔들스틱)
+     * 분봉 주식 정보 조회
      */
-    @GET("api/stock/{stockCode}/chart")
-    suspend fun getCandlestickData(
-        @Path("stockCode") stockCode: String,
-        @Query("timeFrame") timeFrame: String,
-        @Query("period") period: Int = 100
-    ): CandlestickResponse
+    @GET("api/charts/stock-minute/{stockId}")
+    suspend fun getStockMinuteData(
+        @Path("stockId") stockId: Int,
+        @Query("start") startDateTime: String,
+        @Query("end") endDateTime: String
+    ): List<StockMinuteDto>
+
+    /**
+     * 월별 주식 정보 조회
+     */
+    @GET("api/charts/stock-month/{stockId}")
+    suspend fun getStockMonthData(
+        @Path("stockId") stockId: Int,
+        @Query("start") startMonth: Int,
+        @Query("end") endMonth: Int
+    ): List<StockMonthDto>
+
+    /**
+     * 년도별 주식 정보 조회
+     */
+    @GET("api/charts/stock-year/{stockId}")
+    suspend fun getStockYearData(
+        @Path("stockId") stockId: Int,
+        @Query("start") startYear: Int,
+        @Query("end") endYear: Int
+    ): List<StockYearDto>
 
     /**
      * 거래량 데이터 조회
@@ -96,7 +118,7 @@ interface ChartApiService {
         @Query("size") size: Int = 20,
         @Query("sort") sort: String = "code", // "code", "name", "price", "changeRate"
         @Query("search") search: String? = null
-    ): StockListResponse
+    ): List<SimpleStockDto>
 
     /**
      * 인기 주식 목록 조회
@@ -104,7 +126,7 @@ interface ChartApiService {
     @GET("api/stocks/trending")
     suspend fun getTrendingStocks(
         @Query("limit") limit: Int = 20
-    ): StockListResponse
+    ): List<SimpleStockDto>
 
     /**
      * 주식 검색
@@ -114,7 +136,7 @@ interface ChartApiService {
         @Query("query") query: String,
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20
-    ): StockListResponse
+    ): List<SimpleStockDto>
 
     /**
      * 차트 패턴 분석

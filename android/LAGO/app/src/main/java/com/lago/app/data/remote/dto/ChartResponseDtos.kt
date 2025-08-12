@@ -191,3 +191,52 @@ data class PatternResultDto(
     @SerializedName("confidence") val confidence: Float,
     @SerializedName("recommendation") val recommendation: String?
 )
+
+// Simple Stock Response (actual API format)
+data class SimpleStockDto(
+    @SerializedName("stockInfoId") val stockInfoId: Int,
+    @SerializedName("code") val code: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("market") val market: String
+)
+
+// New API DTOs based on Swagger spec
+data class StockDayDto(
+    @SerializedName("date") val date: String,
+    @SerializedName("openPrice") val openPrice: Int,
+    @SerializedName("highPrice") val highPrice: Int,
+    @SerializedName("lowPrice") val lowPrice: Int,
+    @SerializedName("closePrice") val closePrice: Int,
+    @SerializedName("volume") val volume: Int,
+    @SerializedName("fluctuationRate") val fluctuationRate: Float
+)
+
+data class StockMinuteDto(
+    @SerializedName("stockInfoId") val stockInfoId: Int,
+    @SerializedName("date") val date: String,
+    @SerializedName("openPrice") val openPrice: Int,
+    @SerializedName("highPrice") val highPrice: Int,
+    @SerializedName("lowPrice") val lowPrice: Int,
+    @SerializedName("closePrice") val closePrice: Int,
+    @SerializedName("volume") val volume: Int
+)
+
+data class StockMonthDto(
+    @SerializedName("date") val date: Int,
+    @SerializedName("openPrice") val openPrice: Int,
+    @SerializedName("highPrice") val highPrice: Int,
+    @SerializedName("lowPrice") val lowPrice: Int,
+    @SerializedName("closePrice") val closePrice: Int,
+    @SerializedName("volume") val volume: Int,
+    @SerializedName("fluctuationRate") val fluctuationRate: Float
+)
+
+data class StockYearDto(
+    @SerializedName("date") val date: Int,
+    @SerializedName("openPrice") val openPrice: Int,
+    @SerializedName("highPrice") val highPrice: Int,
+    @SerializedName("lowPrice") val lowPrice: Int,
+    @SerializedName("closePrice") val closePrice: Int,
+    @SerializedName("volume") val volume: Int,
+    @SerializedName("fluctuationRate") val fluctuationRate: Float
+)

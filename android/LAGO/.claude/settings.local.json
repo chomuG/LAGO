@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(./gradlew:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(.gradlew assembleDebug)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(find:*)",
+      "Bash(rm app/src/main/res/drawable/blank_heart.png app/src/main/res/drawable/pink_heart.png)",
+      "Bash(git restore:*)"
     ],
     "deny": []
   }

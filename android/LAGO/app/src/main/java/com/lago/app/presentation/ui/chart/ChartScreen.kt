@@ -84,6 +84,7 @@ import com.lago.app.presentation.viewmodel.chart.ChartViewModel
 import com.lago.app.presentation.viewmodel.chart.ChartUiEvent
 import com.lago.app.presentation.viewmodel.chart.HoldingItem
 import com.lago.app.presentation.viewmodel.chart.TradingItem
+import com.lago.app.presentation.viewmodel.chart.ChartLoadingStage
 import com.skydoves.flexible.core.pxToDp
 // Chart imports - v5 Multi-Panel Chart
 import com.lago.app.presentation.ui.chart.v5.MultiPanelChart
@@ -144,6 +145,7 @@ data class SafeZones(
 @Composable
 fun ChartScreen(
     stockCode: String? = null,
+    initialStockInfo: StockInfo? = null,
     viewModel: ChartViewModel = hiltViewModel(),
     onNavigateToStockPurchase: (String, String) -> Unit = { _, _ -> },
     onNavigateToAIDialog: () -> Unit = {},
@@ -156,6 +158,9 @@ fun ChartScreen(
     val screenHeight = configuration.screenHeightDp.dp
     val screenWidth = configuration.screenWidthDp.dp
     val coroutineScope = rememberCoroutineScope()
+    
+    // 로딩 진행도 상태
+    var loadingProgress by remember { mutableStateOf(0) }
     
     // Device classification
     val isCompactScreen = screenWidth < 400.dp || screenHeight < 700.dp
@@ -226,9 +231,13 @@ fun ChartScreen(
     var showCharacterDialog by remember { mutableStateOf(false) }
 
     // 투자 탭에서 선택된 주식 코드로 차트 데이터 로드
-    LaunchedEffect(stockCode) {
+    LaunchedEffect(stockCode, initialStockInfo) {
         stockCode?.let { code ->
-            viewModel.onEvent(ChartUiEvent.ChangeStock(code))
+            if (initialStockInfo != null) {
+                viewModel.onEvent(ChartUiEvent.ChangeStockWithInfo(code, initialStockInfo))
+            } else {
+                viewModel.onEvent(ChartUiEvent.ChangeStock(code))
+            }
         }
     }
 
@@ -291,8 +300,18 @@ fun ChartScreen(
         }
     }
 
-    // Animatable로 부드러운 애니메이션 처리
+    // Animatable로 부드러운 애니메이션 처리 - 재생성 방지
     val sheetAnimY = remember { Animatable(sheetPositions.collapsed) }
+    
+    // 바텀시트 상태 변경 시 초기 위치 설정 (애니메이션 없이)
+    LaunchedEffect(sheetPositions) {
+        val currentY = when (bottomSheetState) {
+            BottomSheetState.COLLAPSED -> sheetPositions.collapsed
+            BottomSheetState.HALF_EXPANDED -> sheetPositions.halfExpanded
+            BottomSheetState.EXPANDED -> sheetPositions.expanded
+        }
+        sheetAnimY.snapTo(currentY)
+    }
 
     // 바텀시트 상태가 변경될 때 애니메이션
     LaunchedEffect(bottomSheetState) {
@@ -498,7 +517,16 @@ fun ChartScreen(
                         .fillMaxSize()
                         .padding(horizontal = Spacing.md),
                     onChartReady = {
-                        // Chart ready callback
+                        // 차트 렌더링 완료 콜백
+                        viewModel.onChartReady()
+                    },
+                    onChartLoading = { isLoading ->
+                        // 웹뷰 로딩 상태 콜백
+                        viewModel.onChartLoadingChanged(isLoading)
+                    },
+                    onLoadingProgress = { progress ->
+                        // 로딩 진행도 콜백
+                        loadingProgress = progress
                     },
                     onDataPointClick = { time, value, panelId ->
                         // Handle data point click
@@ -743,7 +771,7 @@ fun ChartScreen(
             )
         }
 
-        // 로딩 상태
+        // 로딩 인디케이터 (텍스트 없이)
         if (uiState.isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -833,7 +861,7 @@ private fun TopAppBar(
             }
         ) {
             Icon(
-                painter = painterResource(R.drawable.setting),
+                painter = painterResource(R.drawable.chart_setting),
                 contentDescription = null,
                 tint = Gray900,
                 modifier = Modifier.size(24.dp)

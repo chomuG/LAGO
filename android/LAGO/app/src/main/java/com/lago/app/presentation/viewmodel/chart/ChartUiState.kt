@@ -25,6 +25,7 @@ data class ChartUiState(
     val sma120Data: List<LineData> = emptyList(),
     val bollingerBands: BollingerBandsResult? = null,
     val isLoading: Boolean = false,
+    val chartLoadingStage: ChartLoadingStage = ChartLoadingStage.INITIAL,
     val errorMessage: String? = null,
     val isFavorite: Boolean = false,
     val holdingItems: List<HoldingItem> = emptyList(),
@@ -37,6 +38,14 @@ data class ChartUiState(
     val patternAnalysisError: String? = null,
     val showIndicatorSettings: Boolean = false
 )
+
+enum class ChartLoadingStage {
+    INITIAL,        // 초기 상태
+    DATA_LOADING,   // 데이터 로딩 중
+    WEBVIEW_LOADING,// WebView HTML 로딩 중
+    JS_READY,       // JavaScript 준비 완료
+    CHART_READY     // 차트 렌더링 완료
+}
 
 data class HoldingItem(
     val name: String,

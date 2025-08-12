@@ -6,6 +6,9 @@ import com.lago.app.domain.entity.StockItem
 import com.lago.app.domain.entity.HistoryChallengeStock
 import com.lago.app.domain.repository.StockListRepository
 import com.lago.app.domain.repository.HistoryChallengeRepository
+import com.lago.app.data.remote.websocket.SmartStockWebSocketService
+import com.lago.app.data.scheduler.SmartUpdateScheduler
+import com.lago.app.domain.entity.ScreenType
 import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,7 +45,9 @@ data class StockListUiState(
 @HiltViewModel
 class StockListViewModel @Inject constructor(
     private val stockListRepository: StockListRepository,
-    private val historyChallengeRepository: HistoryChallengeRepository
+    private val historyChallengeRepository: HistoryChallengeRepository,
+    private val smartWebSocketService: SmartStockWebSocketService,
+    private val smartUpdateScheduler: SmartUpdateScheduler
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StockListUiState())
@@ -51,6 +56,77 @@ class StockListViewModel @Inject constructor(
     init {
         loadStocks()
         loadHistoryChallengeStocks()
+        setupRealTimeUpdates()
+    }
+    
+    private fun setupRealTimeUpdates() {
+        viewModelScope.launch {
+            // 종목리스트용 실시간 업데이트 구독
+            smartUpdateScheduler.stockListUpdates.collect { updates ->
+                updateStocksWithRealTimeData(updates)
+            }
+        }
+    }
+    
+    private fun updateStocksWithRealTimeData(updates: Map<String, com.lago.app.domain.entity.StockRealTimeData>) {
+        _uiState.update { currentState ->
+            val updatedStocks = currentState.stocks.map { stock ->
+                val realTimeData = updates[stock.code]
+                if (realTimeData != null) {
+                    stock.copy(
+                        currentPrice = realTimeData.currentPrice.toInt(),
+                        priceChange = realTimeData.priceChange.toInt(),
+                        priceChangePercent = realTimeData.priceChangePercent,
+                        volume = realTimeData.volume,
+                        updatedAt = java.time.Instant.ofEpochMilli(realTimeData.timestamp).toString()
+                    )
+                } else {
+                    stock
+                }
+            }
+            
+            currentState.copy(
+                stocks = updatedStocks,
+                filteredStocks = applyFiltersAndSort(updatedStocks)
+            )
+        }
+    }
+    
+    // 가시 영역 종목 업데이트 (LazyColumn 스크롤 시 호출)
+    fun updateVisibleStocks(visibleStockCodes: List<String>) {
+        smartWebSocketService.updateVisibleStocks(visibleStockCodes)
+    }
+    
+    private fun applyFiltersAndSort(stocks: List<StockItem>): List<StockItem> {
+        val currentState = _uiState.value
+        var filtered = stocks
+
+        // 검색어 필터
+        if (currentState.searchQuery.isNotEmpty()) {
+            val query = currentState.searchQuery.lowercase()
+            filtered = filtered.filter { stock ->
+                stock.name.lowercase().contains(query) || 
+                stock.code.lowercase().contains(query)
+            }
+        }
+
+        // 관심목록 필터
+        if (currentState.showFavoritesOnly) {
+            filtered = filtered.filter { it.isFavorite }
+        }
+
+        // 정렬 적용
+        filtered = when (currentState.currentSortType) {
+            SortType.NAME_ASC -> filtered.sortedBy { it.name }
+            SortType.NAME_DESC -> filtered.sortedByDescending { it.name }
+            SortType.PRICE_ASC -> filtered.sortedBy { it.currentPrice }
+            SortType.PRICE_DESC -> filtered.sortedByDescending { it.currentPrice }
+            SortType.CHANGE_ASC -> filtered.sortedBy { it.priceChangePercent }
+            SortType.CHANGE_DESC -> filtered.sortedByDescending { it.priceChangePercent }
+            SortType.NONE -> filtered
+        }
+
+        return filtered
     }
 
     private fun loadStocks(isRefresh: Boolean = false) {
@@ -139,13 +215,8 @@ class StockListViewModel @Inject constructor(
     fun onSearchQueryChange(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
         
-        if (query.isNotEmpty()) {
-            // 검색 API 호출
-            searchStocks(query)
-        } else {
-            // 검색어가 비어있으면 기본 목록으로 복원
-            refreshStocks()
-        }
+        // 로컬 데이터에서 검색 필터링
+        filterStocks()
     }
 
     private fun searchStocks(query: String) {
@@ -279,6 +350,15 @@ class StockListViewModel @Inject constructor(
     private fun filterStocks() {
         _uiState.update { state ->
             var filtered = state.stocks
+
+            // 검색어 필터
+            if (state.searchQuery.isNotEmpty()) {
+                val query = state.searchQuery.lowercase()
+                filtered = filtered.filter { stock ->
+                    stock.name.lowercase().contains(query) || 
+                    stock.code.lowercase().contains(query)
+                }
+            }
 
             // 관심목록 필터
             if (state.showFavoritesOnly) {

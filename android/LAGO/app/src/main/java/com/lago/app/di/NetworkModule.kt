@@ -6,6 +6,8 @@ import com.lago.app.data.remote.StudyApiService
 import com.lago.app.util.Constants
 import com.lago.app.data.remote.api.ChartApiService
 import com.lago.app.data.remote.api.HistoryChallengeApiService
+import com.lago.app.data.remote.websocket.StockWebSocketService
+import com.google.gson.Gson
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -85,5 +87,17 @@ object NetworkModule {
     @Singleton
     fun provideHistoryChallengeApiService(retrofit: Retrofit): HistoryChallengeApiService {
         return retrofit.create(HistoryChallengeApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideGson(): Gson {
+        return Gson()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideStockWebSocketService(gson: Gson): StockWebSocketService {
+        return StockWebSocketService(gson)
     }
 }

@@ -63,6 +63,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Edge-to-edge 설정
+        enableEdgeToEdge()
+        
+        // 상태표시줄과 네비게이션 바 설정
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
         // 다크모드 비활성화
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
 
@@ -197,9 +203,13 @@ fun LagoApp(userPreferences: UserPreferences) {
             NavGraph(
                 navController = navController,
                 modifier = if (showBottomBarWithDelay) {
-                    Modifier.padding(innerPadding)
+                    Modifier
+                        .padding(innerPadding)
+                        .windowInsetsPadding(WindowInsets.statusBars)
                 } else {
-                    Modifier.windowInsetsPadding(WindowInsets.navigationBars)
+                    Modifier
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .windowInsetsPadding(WindowInsets.navigationBars)
                 },
                 userPreferences = userPreferences,
             )
