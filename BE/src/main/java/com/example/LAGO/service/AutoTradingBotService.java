@@ -181,7 +181,7 @@ public class AutoTradingBotService {
         try {
             return accountRepository.findByUserIdAndType(
                 aiBot.getUserId(), 
-                TradingConstants.ACCOUNT_TYPE_CURRENT
+                TradingConstants.ACCOUNT_TYPE_MOCK_TRADING
             ).isPresent();
             
         } catch (Exception e) {
@@ -261,7 +261,7 @@ public class AutoTradingBotService {
         try {
             return accountRepository.findByUserIdAndType(
                 aiBot.getUserId(), 
-                TradingConstants.ACCOUNT_TYPE_CURRENT
+                TradingConstants.ACCOUNT_TYPE_MOCK_TRADING
             ).orElse(null);
             
         } catch (Exception e) {

@@ -40,8 +40,8 @@ public class AiBotAccountResponse {
     @Schema(description = "수익률", example = "50.5")
     private Float profitRate;
 
-    @Schema(description = "계좌 타입", example = "ai_bot")
-    private String type;
+    @Schema(description = "계좌 타입 (0:모의투자, 1:역사챌린지)", example = "0")
+    private Integer type;
 
     @Schema(description = "거래 횟수", example = "25")
     private Long tradeCount;

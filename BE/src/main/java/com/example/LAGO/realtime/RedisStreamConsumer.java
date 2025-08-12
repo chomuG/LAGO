@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.time.LocalDateTime;
 
 @Slf4j
-@Component
+//@Component
 public class RedisStreamConsumer {
     
     @Autowired

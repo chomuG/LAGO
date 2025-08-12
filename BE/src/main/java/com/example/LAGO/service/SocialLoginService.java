@@ -26,6 +26,7 @@ public class SocialLoginService {
     private final JwtTokenService jwtTokenService;
     private final UserRepository userRepository;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final AccountService accountService;
 
     public Map<String, Object> processSocialLogin(String provider, String accessToken) {
         try {
@@ -106,12 +107,15 @@ public class SocialLoginService {
             String email = (String) tempData.get("email");
             String profileImage = (String) tempData.get("profileImage");
 
+            // 캐릭터명을 설명형으로 변환 (조심이 -> 안정추구형)
+            String personalityDescription = convertToDescription(personality);
+
             User newUser = User.builder()
                     .email(email)
                     .socialLoginId(socialLoginId)
                     .loginType(provider)
                     .nickname(nickname)
-                    .personality(personality)
+                    .personality(personalityDescription)
                     .profileImg(profileImage != null && !profileImage.isEmpty() ? profileImage : null)
                     .createdAt(LocalDateTime.now())
                     .isAi(false)
@@ -119,6 +123,10 @@ public class SocialLoginService {
 
             User savedUser = userRepository.save(newUser);
             log.info("신규 사용자 회원가입 완료: {}", savedUser.getEmail());
+
+            // 신규 사용자용 계좌 생성 (모의투자 + 역사챌린지)
+            accountService.createInitialAccountsForUser(savedUser.getUserId());
+            log.info("신규 사용자 초기 계좌 생성 완료: userId={}", savedUser.getUserId());
 
             redisTemplate.delete(redisKey);
 
@@ -161,6 +169,28 @@ public class SocialLoginService {
         userResponse.put("profileImg", user.getProfileImg());
         userResponse.put("loginType", user.getLoginType());
         return userResponse;
+    }
+
+    /**
+     * 캐릭터명을 설명형으로 변환
+     */
+    private String convertToDescription(String personality) {
+        if (personality == null || personality.trim().isEmpty()) {
+            return "위험중립형"; // 기본값
+        }
+        
+        return switch (personality.trim()) {
+            case "조심이" -> "안정추구형";
+            case "균형이" -> "위험중립형";  
+            case "적극이" -> "적극투자형";
+            case "화끈이" -> "공격투자형";
+            // 이미 설명형이면 그대로 반환
+            case "안정추구형", "위험중립형", "적극투자형", "공격투자형" -> personality.trim();
+            default -> {
+                log.warn("알 수 없는 성향: {}, 기본값(위험중립형) 사용", personality);
+                yield "위험중립형";
+            }
+        };
     }
 
     public Map<String, Object> refreshToken(String refreshToken) {

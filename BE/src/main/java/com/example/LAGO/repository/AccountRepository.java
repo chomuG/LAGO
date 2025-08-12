@@ -16,7 +16,7 @@ public interface AccountRepository extends JpaRepository<Account, Integer> {
     /**
      * 사용자 ID와 계좌 타입으로 조회 (기존 메서드)
      */
-    Optional<Account> findByUserIdAndType(Integer userId, String type);
+    Optional<Account> findByUserIdAndType(Integer userId, Integer type);
 
     /**
      * 사용자 ID로 계좌 목록 조회

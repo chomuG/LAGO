@@ -23,6 +23,8 @@ import java.time.LocalDateTime;
 public class Account {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "account_seq")
+    @SequenceGenerator(name = "account_seq", sequenceName = "accounts_account_id_seq", allocationSize = 1)
     @Column(name = "account_id")
     private Integer accountId;
 
@@ -45,7 +47,7 @@ public class Account {
     private LocalDateTime createdAt;
 
     @Column(name = "type", nullable = false)
-    private String type; // 계좌구분(현시점/역사챌린지/ai_bot)
+    private Integer type; // 계좌구분(0:모의투자, 1:역사챌린지)
 
     @PrePersist
     protected void onCreate() {

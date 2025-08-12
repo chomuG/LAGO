@@ -40,6 +40,6 @@ public class AccountDto {
 	@Schema(description = "생성일")
 	private LocalDateTime createdAt;
 
-	@Schema(description = "계좌구분(현시점/역사챌린지/ai_bot)")
-	private String type;
+	@Schema(description = "계좌구분(0:모의투자, 1:역사챌린지)")
+	private Integer type;
 }

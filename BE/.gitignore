@@ -44,3 +44,8 @@ out/
 *.tar
 *.tar.gz
 *.tgz
+
+
+#properties
+.properties
+*.properties
