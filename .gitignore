@@ -75,6 +75,10 @@ Thumbs.db
 .env.development
 !.env.example
 
+# Docker Compose Override (EC2 배포용)
+docker-compose.override.yml
+!docker-compose.override.yml.example
+
 # Archives
 *.zip
 *.tar
