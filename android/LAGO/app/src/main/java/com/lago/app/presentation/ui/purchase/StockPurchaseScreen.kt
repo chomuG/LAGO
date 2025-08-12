@@ -6,6 +6,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,11 +41,18 @@ fun StockPurchaseScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showConfirmDialog by remember { mutableStateOf(false) }
     
-    // 화면 크기 및 밀도 정보
+    // 화면 크기별 적응형 설정
     val configuration = LocalConfiguration.current
-    val density = LocalDensity.current
     val screenHeight = configuration.screenHeightDp.dp
-    val isCompactScreen = screenHeight < 700.dp // 작은 화면 기기 대응
+    val isCompactScreen = screenHeight < 700.dp
+    val isVeryCompactScreen = screenHeight < 600.dp
+    
+    // 화면 크기에 따른 버튼 높이 조절
+    val buttonHeight = when {
+        isVeryCompactScreen -> 48.dp  // 매우 작은 화면: 48dp
+        isCompactScreen -> 52.dp      // 작은 화면: 52dp  
+        else -> 64.dp                 // 일반 화면: 64dp
+    }
 
     LaunchedEffect(stockCode, isPurchaseType) {
         viewModel.loadStockInfo(stockCode, isPurchaseType)
@@ -57,7 +68,8 @@ fun StockPurchaseScreen(
                 stockName = uiState.stockName,
                 transactionType = if (isPurchaseType) "구매" else "판매",
                 onBackClick = onNavigateBack,
-                isCompactScreen = isCompactScreen
+                isCompactScreen = isCompactScreen,
+                isVeryCompactScreen = isVeryCompactScreen
             )
         },
         containerColor = Color.White,
@@ -70,14 +82,18 @@ fun StockPurchaseScreen(
                     .windowInsetsPadding(WindowInsets.navigationBars) // 시스템 네비게이션 바 패딩
                     .padding(
                         horizontal = 16.dp,
-                        vertical = if (isCompactScreen) 12.dp else 16.dp
+                        vertical = when {
+                            isVeryCompactScreen -> 8.dp
+                            isCompactScreen -> 10.dp
+                            else -> 16.dp
+                        }
                     )
             ) {
                 Button(
                     onClick = { showConfirmDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(if (isCompactScreen) 56.dp else 64.dp),
+                        .height(buttonHeight),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isPurchaseType) MainPink else MainBlue
                     ),
@@ -124,7 +140,9 @@ fun StockPurchaseScreen(
                 },
                 isPurchaseType = isPurchaseType,
                 holdingQuantity = uiState.holdingQuantity,
-                currentPrice = currentPrice
+                currentPrice = currentPrice,
+                isCompactScreen = isCompactScreen,
+                isVeryCompactScreen = isVeryCompactScreen
             )
 
             Spacer(modifier = Modifier.height(if (isCompactScreen) 16.dp else 24.dp)) // bottom bar 여유
@@ -139,7 +157,7 @@ fun StockPurchaseScreen(
             currentPrice = currentPrice,
             isPurchaseType = isPurchaseType,
             onConfirm = {
-                viewModel.purchaseStock()
+                viewModel.executeTrade()
                 showConfirmDialog = false
                 onTransactionComplete()
             },
@@ -153,14 +171,19 @@ private fun PurchaseTopBar(
     stockName: String,
     transactionType: String,
     onBackClick: () -> Unit,
-    isCompactScreen: Boolean = false
+    isCompactScreen: Boolean = false,
+    isVeryCompactScreen: Boolean = false
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.White)
             .padding(
-                vertical = if (isCompactScreen) 12.dp else 16.dp, 
+                vertical = when {
+                    isVeryCompactScreen -> 8.dp
+                    isCompactScreen -> 10.dp
+                    else -> 16.dp
+                }, 
                 horizontal = 16.dp
             ),
         verticalAlignment = Alignment.CenterVertically
@@ -232,7 +255,9 @@ private fun TransactionShareInput(
     onShareChange: (Long) -> Unit,
     isPurchaseType: Boolean,
     holdingQuantity: Int,
-    currentPrice: Int
+    currentPrice: Int,
+    isCompactScreen: Boolean = false,
+    isVeryCompactScreen: Boolean = false
 ) {
     val pricePerShare = currentPrice.toLong()
 
@@ -331,13 +356,15 @@ private fun TransactionShareInput(
             }
         }
 
-        // 숫자 키패드 (주 수 입력)
+        // 숫자 키패드 (주 수 입력) - 화면 크기별 버튼 높이 전달
         NumberKeypad(
             currentValue = shareCount.toString(),
             onValueChange = { newSharesString ->
                 val parsed = newSharesString.toLongOrNull() ?: 0L
                 onShareChange(parsed.coerceAtMost(maxShares))
-            }
+            },
+            isCompactScreen = isCompactScreen,
+            isVeryCompactScreen = isVeryCompactScreen
         )
     }
 }
@@ -345,7 +372,9 @@ private fun TransactionShareInput(
 @Composable
 private fun NumberKeypad(
     currentValue: String,
-    onValueChange: (String) -> Unit
+    onValueChange: (String) -> Unit,
+    isCompactScreen: Boolean = false,
+    isVeryCompactScreen: Boolean = false
 ) {
     val keys = listOf(
         listOf("1", "2", "3"),
@@ -354,8 +383,21 @@ private fun NumberKeypad(
         listOf("C", "0", "⌫")
     )
 
+    // 화면 크기별 키패드 버튼 높이 설정
+    val keypadButtonHeight = when {
+        isVeryCompactScreen -> 44.dp  // 매우 작은 화면: 44dp
+        isCompactScreen -> 48.dp      // 작은 화면: 48dp
+        else -> 56.dp                 // 일반 화면: 56dp
+    }
+    
+    val keypadSpacing = when {
+        isVeryCompactScreen -> 4.dp   // 매우 작은 화면: 4dp
+        isCompactScreen -> 5.dp       // 작은 화면: 5dp
+        else -> 6.dp                  // 일반 화면: 6dp
+    }
+
     Column(
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(keypadSpacing)
     ) {
         keys.forEach { row ->
             Row(
@@ -385,7 +427,7 @@ private fun NumberKeypad(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(56.dp),
+                            .height(keypadButtonHeight),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = when (key) {
                                 "C" -> Gray400

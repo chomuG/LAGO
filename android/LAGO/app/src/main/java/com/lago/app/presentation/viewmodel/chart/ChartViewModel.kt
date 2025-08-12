@@ -163,8 +163,7 @@ class ChartViewModel @Inject constructor(
                                 loadChartData(stockCode, _uiState.value.config.timeFrame)
                                 checkFavoriteStatus(stockCode)
                                 
-                                // 실시간 데이터 구독 시작
-                                updateRealtimeSubscription(stockCode, _uiState.value.config.timeFrame)
+                                // 실시간 데이터 구독은 SmartStockWebSocketService에서 자동 관리됨
                             }
                         }
                         is Resource.Error -> {
@@ -196,7 +195,7 @@ class ChartViewModel @Inject constructor(
         }
     }
     
-    private fun changeStockWithInfo(stockCode: String, stockInfo: StockInfo) {
+    private fun changeStockWithInfo(stockCode: String, stockInfo: ChartStockInfo) {
         viewModelScope.launch {
             // 즉시 StockList에서 가져온 정보로 UI 업데이트
             _uiState.update { 
@@ -216,8 +215,7 @@ class ChartViewModel @Inject constructor(
             loadChartData(stockCode, _uiState.value.config.timeFrame)
             checkFavoriteStatus(stockCode)
             
-            // 기존 실시간 데이터 구독도 유지 (호환성)
-            updateRealtimeSubscription(stockCode, _uiState.value.config.timeFrame)
+            // 실시간 데이터 구독은 SmartStockWebSocketService에서 자동 관리됨
         }
     }
     
@@ -349,8 +347,7 @@ class ChartViewModel @Inject constructor(
         // Reload chart data with new timeframe
         loadChartData(stockCode, timeFrame)
         
-        // 실시간 구독도 새로운 타임프레임으로 업데이트
-        updateRealtimeSubscription(stockCode, timeFrame)
+        // 실시간 구독은 SmartStockWebSocketService에서 자동 관리됨
     }
     
     private fun toggleIndicator(indicatorType: String, enabled: Boolean) {
@@ -666,27 +663,21 @@ class ChartViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            // 실시간 캔들스틱 데이터 구독
-            smartWebSocketService.realtimeCandlestick.collect { realtimeData ->
-                android.util.Log.d("ChartViewModel", "Realtime candlestick: ${realtimeData.symbol} - ${realtimeData.close}")
-                updateRealtimeCandlestick(realtimeData)
-            }
-        }
-
-        viewModelScope.launch {
-            // 실시간 틱 데이터 구독 (주가 정보 업데이트용)
-            smartWebSocketService.realtimeTick.collect { tickData ->
-                android.util.Log.d("ChartViewModel", "Realtime tick: ${tickData.symbol} - ${tickData.price}")
-                updateRealtimeTick(tickData)
-            }
-        }
-
-        viewModelScope.launch {
-            // 에러 처리
-            smartWebSocketService.errors.collect { error ->
-                android.util.Log.e("ChartViewModel", "WebSocket error", error)
-                _uiState.update {
-                    it.copy(errorMessage = "실시간 데이터 연결 오류: ${error.message}")
+            // SmartStockWebSocketService 연결 상태 모니터링
+            smartWebSocketService.connectionState.collect { state ->
+                android.util.Log.d("ChartViewModel", "WebSocket connection state: $state")
+                when (state) {
+                    WebSocketConnectionState.CONNECTED -> {
+                        // 연결 성공 시 필요한 처리
+                    }
+                    WebSocketConnectionState.ERROR -> {
+                        _uiState.update {
+                            it.copy(errorMessage = "실시간 데이터 연결 오류")
+                        }
+                    }
+                    else -> {
+                        // 다른 상태 처리
+                    }
                 }
             }
         }
@@ -1098,13 +1089,40 @@ class ChartViewModel @Inject constructor(
     }
     
     private fun generateMockTradingSignals(): List<TradingSignal> {
+        val calendar = java.util.Calendar.getInstance()
+        val currentTime = calendar.time
+        
+        // 10일 전
+        calendar.add(java.util.Calendar.DAY_OF_MONTH, -10)
+        val time10DaysAgo = calendar.time
+        
+        // 5일 전  
+        calendar.time = currentTime
+        calendar.add(java.util.Calendar.DAY_OF_MONTH, -5)
+        val time5DaysAgo = calendar.time
+        
+        // 8일 전
+        calendar.time = currentTime
+        calendar.add(java.util.Calendar.DAY_OF_MONTH, -8) 
+        val time8DaysAgo = calendar.time
+        
+        // 3일 전
+        calendar.time = currentTime
+        calendar.add(java.util.Calendar.DAY_OF_MONTH, -3)
+        val time3DaysAgo = calendar.time
+        
+        // 6일 전
+        calendar.time = currentTime
+        calendar.add(java.util.Calendar.DAY_OF_MONTH, -6)
+        val time6DaysAgo = calendar.time
+        
         return listOf(
             TradingSignal(
                 id = "signal_1",
                 stockCode = "005930",
                 signalType = SignalType.BUY,
                 signalSource = SignalSource.USER,
-                timestamp = java.time.LocalDateTime.now().minusDays(10),
+                timestamp = time10DaysAgo,
                 price = 72000.0,
                 message = "사용자 매수"
             ),
@@ -1113,7 +1131,7 @@ class ChartViewModel @Inject constructor(
                 stockCode = "005930",
                 signalType = SignalType.SELL,
                 signalSource = SignalSource.USER,
-                timestamp = java.time.LocalDateTime.now().minusDays(5),
+                timestamp = time5DaysAgo,
                 price = 74500.0,
                 message = "사용자 매도"
             ),
@@ -1122,7 +1140,7 @@ class ChartViewModel @Inject constructor(
                 stockCode = "005930", 
                 signalType = SignalType.BUY,
                 signalSource = SignalSource.AI_BLUE,
-                timestamp = java.time.LocalDateTime.now().minusDays(8),
+                timestamp = time8DaysAgo,
                 price = 71500.0,
                 message = "AI 파랑 매수"
             ),
@@ -1131,7 +1149,7 @@ class ChartViewModel @Inject constructor(
                 stockCode = "005930",
                 signalType = SignalType.SELL, 
                 signalSource = SignalSource.AI_GREEN,
-                timestamp = java.time.LocalDateTime.now().minusDays(3),
+                timestamp = time3DaysAgo,
                 price = 75000.0,
                 message = "AI 초록 매도"
             ),
@@ -1140,7 +1158,7 @@ class ChartViewModel @Inject constructor(
                 stockCode = "005930",
                 signalType = SignalType.BUY,
                 signalSource = SignalSource.AI_RED,
-                timestamp = java.time.LocalDateTime.now().minusDays(6),
+                timestamp = time6DaysAgo,
                 price = 73200.0,
                 message = "AI 빨강 매수"
             )

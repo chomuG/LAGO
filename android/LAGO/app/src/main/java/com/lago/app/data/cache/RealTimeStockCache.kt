@@ -31,6 +31,8 @@ class RealTimeStockCache @Inject constructor() {
         require(stockCode.isNotBlank()) { "stockCode cannot be null or blank" }
         require(data.stockCode.isNotBlank()) { "data.stockCode cannot be null or blank" }
         
+        android.util.Log.v("RealTimeStockCache", "📥 캐시 업데이트 요청: $stockCode = ${data.price.toInt()}원")
+        
         // StateFlow 업데이트 (UI 자동 갱신의 핵심!)
         _quotes.update { oldMap ->
             val currentData = oldMap[stockCode]
@@ -38,8 +40,11 @@ class RealTimeStockCache @Inject constructor() {
             if (currentData?.closePrice == data.closePrice && 
                 currentData?.volume == data.volume &&
                 currentData?.price == data.price) {
+                android.util.Log.v("RealTimeStockCache", "⏭️ $stockCode: 동일한 데이터 스킵")
                 return@update oldMap
             }
+            
+            android.util.Log.d("RealTimeStockCache", "✅ 캐시 업데이트: $stockCode = ${data.price.toInt()}원 (캐시 크기: ${oldMap.size + 1})")
             
             // 새 맵 생성하여 반환 (immutability 유지)
             oldMap.toMutableMap().apply { 

@@ -1,27 +1,26 @@
 package com.lago.app.util
 
-import android.os.Build
-import androidx.annotation.RequiresApi
-import java.time.Instant
-import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
+import java.util.*
 
-@RequiresApi(Build.VERSION_CODES.O)
 fun formatTimeAgo(publishedAt: String): String {
     return try {
-        val publishedTime = Instant.parse(publishedAt)
-        val now = Instant.now()
-        val duration = java.time.Duration.between(publishedTime, now)
+        val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
+        val outputFormat = SimpleDateFormat("yyyy.MM.dd", Locale.getDefault())
+        
+        val publishedTime = inputFormat.parse(publishedAt) ?: return publishedAt
+        val now = Date()
+        val diffMillis = now.time - publishedTime.time
+        
+        val diffDays = diffMillis / (24 * 60 * 60 * 1000)
+        val diffHours = diffMillis / (60 * 60 * 1000)
+        val diffMinutes = diffMillis / (60 * 1000)
         
         when {
-            duration.toDays() > 7 -> {
-                val zonedDateTime = ZonedDateTime.ofInstant(publishedTime, ZoneId.systemDefault())
-                zonedDateTime.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"))
-            }
-            duration.toDays() > 0 -> "${duration.toDays()}일 전"
-            duration.toHours() > 0 -> "${duration.toHours()}시간 전"
-            duration.toMinutes() > 0 -> "${duration.toMinutes()}분 전"
+            diffDays > 7 -> outputFormat.format(publishedTime)
+            diffDays > 0 -> "${diffDays}일 전"
+            diffHours > 0 -> "${diffHours}시간 전" 
+            diffMinutes > 0 -> "${diffMinutes}분 전"
             else -> "방금 전"
         }
     } catch (e: Exception) {

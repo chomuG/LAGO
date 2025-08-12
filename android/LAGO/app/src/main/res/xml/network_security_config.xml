@@ -9,8 +9,8 @@
         <domain includeSubdomains="false">211.107.153.145</domain>
     </domain-config>
     
-    <!-- 운영 서버는 HTTPS 유지 -->
-    <domain-config cleartextTrafficPermitted="false">
+    <!-- EC2 운영 서버 HTTP 허용 (개발/테스트용) -->
+    <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">i13d203.p.ssafy.io</domain>
     </domain-config>
 </network-security-config>

@@ -36,6 +36,7 @@ import com.lago.app.domain.entity.StockItem
 import com.lago.app.domain.entity.News
 import com.lago.app.domain.entity.HistoryChallengeStock
 import com.lago.app.presentation.ui.components.NewsCard
+import com.lago.app.presentation.ui.components.SimpleNewsCard
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -264,18 +265,23 @@ fun StockListScreen(
                         )
                         
                         items(dummyNews.size) { index ->
-                            NewsCard(
-                                news = dummyNews[index],
-                                onClick = { onNewsClick(dummyNews[index].newsId) }
-                            )
-                            
-                            // 마지막 뉴스가 아닌 경우에만 디바이더 표시
-                            if (index < dummyNews.size - 1) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(horizontal = Spacing.md),
-                                    thickness = 1.dp,
-                                    color = Gray200
+                            Box(modifier = Modifier.padding(horizontal = Spacing.md)) {
+                                SimpleNewsCard(
+                                    news = dummyNews[index],
+                                    onClick = { onNewsClick(dummyNews[index].newsId) }
                                 )
+                            }
+                            
+                            // 뉴스 카드 간격
+                            if (index < dummyNews.size - 1) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+                        }
+                        
+                        // 마지막 뉴스 하단 여백
+                        if (dummyNews.isNotEmpty()) {
+                            item {
+                                Spacer(modifier = Modifier.height(16.dp))
                             }
                         }
                     }

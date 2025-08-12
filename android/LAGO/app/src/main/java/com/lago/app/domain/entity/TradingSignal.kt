@@ -5,7 +5,7 @@ import com.tradingview.lightweightcharts.api.series.enums.SeriesMarkerShape
 import com.tradingview.lightweightcharts.api.series.models.SeriesMarker
 import com.tradingview.lightweightcharts.api.series.models.Time
 import com.tradingview.lightweightcharts.api.chart.models.color.IntColor
-import java.time.LocalDateTime
+import java.util.*
 
 /**
  * 매수/매도 신호 데이터 엔티티
@@ -15,7 +15,7 @@ data class TradingSignal(
     val stockCode: String,
     val signalType: SignalType,
     val signalSource: SignalSource,
-    val timestamp: LocalDateTime,
+    val timestamp: Date,
     val price: Double,
     val message: String? = null
 )
@@ -47,11 +47,12 @@ enum class SignalSource(
  * TradingSignal을 TradingView SeriesMarker로 변환하는 확장 함수
  */
 fun TradingSignal.toSeriesMarker(): SeriesMarker {
+    val calendar = Calendar.getInstance().apply { time = timestamp }
     return SeriesMarker(
         time = Time.BusinessDay(
-            year = timestamp.year,
-            month = timestamp.monthValue,
-            day = timestamp.dayOfMonth
+            year = calendar.get(Calendar.YEAR),
+            month = calendar.get(Calendar.MONTH) + 1, // Calendar.MONTH는 0부터 시작
+            day = calendar.get(Calendar.DAY_OF_MONTH)
         ),
         position = when (signalType) {
             SignalType.BUY -> SeriesMarkerPosition.BELOW_BAR

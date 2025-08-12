@@ -81,38 +81,85 @@ class StockListViewModel @Inject constructor(
             realTimeCache.quotes
                 .sample(250.milliseconds) // 250ms마다 샘플링 (렌더링 빈도 제한)
                 .collect { quotesMap ->
+                    android.util.Log.d("StockListViewModel", "📊 캐시 업데이트 수신: ${quotesMap.size}개 종목")
                     if (quotesMap.isNotEmpty()) {
+                        quotesMap.forEach { (code, data) ->
+                            android.util.Log.v("StockListViewModel", "  - $code: ${data.price.toInt()}원")
+                        }
                         android.util.Log.w("StockListViewModel", "🔥 캐시에서 ${quotesMap.size}개 종목 업데이트")
                         updateStocksWithCachedData(quotesMap)
+                    } else {
+                        android.util.Log.d("StockListViewModel", "📊 캐시가 비어있음")
                     }
                 }
         }
     }
     
     private fun updateStocksWithCachedData(quotesMap: Map<String, com.lago.app.domain.entity.StockRealTimeData>) {
+        android.util.Log.d("StockListViewModel", "🔄 UI 업데이트 시작: ${quotesMap.size}개 실시간 데이터 처리")
+        
         _uiState.update { currentState ->
+            android.util.Log.d("StockListViewModel", "🔄 현재 ${currentState.stocks.size}개 종목이 UI에 있음")
+            
+            var updateCount = 0
             val updatedStocks = currentState.stocks.map { stock ->
                 val realTimeData = quotesMap[stock.code]
-                if (realTimeData != null && 
-                    (stock.currentPrice != realTimeData.price.toInt() ||
-                     stock.volume != (realTimeData.volume ?: 0L))) {
+                if (realTimeData != null) {
+                    android.util.Log.v("StockListViewModel", "🔍 ${stock.code}: 실시간 데이터 있음 (${realTimeData.price.toInt()}원)")
                     
-                    android.util.Log.d("StockListViewModel", "💰 ${stock.code}: ${stock.currentPrice}→${realTimeData.price.toInt()}원")
-                    
-                    stock.copy(
-                        currentPrice = realTimeData.price.toInt(),
-                        priceChange = realTimeData.priceChange.toInt(),
-                        priceChangePercent = realTimeData.priceChangePercent,
-                        volume = realTimeData.volume ?: 0L
-                    )
+                    if (stock.currentPrice != realTimeData.price.toInt() ||
+                        stock.volume != (realTimeData.volume ?: 0L)) {
+                        
+                        android.util.Log.d("StockListViewModel", "💰 ${stock.code}: ${stock.currentPrice}→${realTimeData.price.toInt()}원")
+                        updateCount++
+                        
+                        stock.copy(
+                            currentPrice = realTimeData.price.toInt(),
+                            priceChange = realTimeData.priceChange.toInt(),
+                            priceChangePercent = realTimeData.priceChangePercent,
+                            volume = realTimeData.volume ?: 0L
+                        )
+                    } else {
+                        android.util.Log.v("StockListViewModel", "🔍 ${stock.code}: 가격 변화 없음")
+                        stock
+                    }
                 } else {
+                    android.util.Log.v("StockListViewModel", "🔍 ${stock.code}: 실시간 데이터 없음")
                     stock
                 }
             }
             
+            // 역사적 챌린지 종목도 업데이트
+            var historyUpdateCount = 0
+            val updatedHistoryStocks = currentState.historyChallengeStocks.map { historyStock ->
+                val realTimeData = quotesMap[historyStock.stockCode]
+                if (realTimeData != null && 
+                    historyStock.currentPrice != realTimeData.price.toFloat()) {
+                    
+                    val newPrice = realTimeData.price.toFloat()
+                    val basePrice = historyStock.openPrice
+                    val newFluctuationRate = if (basePrice > 0) {
+                        ((newPrice - basePrice) / basePrice) * 100
+                    } else 0f
+                    
+                    android.util.Log.d("StockListViewModel", "📈 역사 챌린지 ${historyStock.stockCode}: ${historyStock.currentPrice.toInt()}→${newPrice.toInt()}원 (변동률: ${String.format("%.2f", newFluctuationRate)}%)")
+                    historyUpdateCount++
+                    
+                    historyStock.copy(
+                        currentPrice = newPrice,
+                        fluctuationRate = newFluctuationRate
+                    )
+                } else {
+                    historyStock
+                }
+            }
+            
+            android.util.Log.d("StockListViewModel", "✅ UI 업데이트 완료: 일반 ${updateCount}개, 역사챌린지 ${historyUpdateCount}개 종목 변경됨")
+            
             currentState.copy(
                 stocks = updatedStocks,
-                filteredStocks = applyFiltersAndSort(updatedStocks)
+                filteredStocks = applyFiltersAndSort(updatedStocks),
+                historyChallengeStocks = updatedHistoryStocks
             )
         }
     }
@@ -535,8 +582,10 @@ class StockListViewModel @Inject constructor(
      * 실제 운영시에는 주석 처리
      */
     private fun testRealTimeData() {
+        android.util.Log.w("StockListViewModel", "🚀 테스트 실시간 데이터 생성 시작!")
         viewModelScope.launch {
             delay(2000) // 2초 후 테스트 데이터 주입
+            android.util.Log.w("StockListViewModel", "⏰ 2초 대기 완료, 테스트 데이터 주입 시작")
             
             // 여러 종목 테스트 데이터
             val testStocks = listOf(
@@ -573,7 +622,10 @@ class StockListViewModel @Inject constructor(
                 
                 // 랜덤하게 2-3개 종목 선택하여 업데이트
                 val updateCount = (2..3).random()
-                testStocks.shuffled().take(updateCount).forEach { (code, name, basePrice) ->
+                val selectedStocks = testStocks.shuffled().take(updateCount)
+                android.util.Log.d("StockListViewModel", "🎯 ${updateCount}개 종목 업데이트: ${selectedStocks.map { it.second }.joinToString(", ")}")
+                
+                selectedStocks.forEach { (code, name, basePrice) ->
                     val currentData = realTimeCache.getStockData(code)
                     val newPrice = if (currentData != null) {
                         // 현재 가격에서 -1% ~ +1% 변동

@@ -15,7 +15,9 @@
       "Bash(cp:*)",
       "Bash(mv:*)",
       "Bash(rm:*)",
-      "Bash(gradlew.bat :app:compileDebugKotlin:*)"
+      "Bash(gradlew.bat :app:compileDebugKotlin:*)",
+      "Bash(.gradlew:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }

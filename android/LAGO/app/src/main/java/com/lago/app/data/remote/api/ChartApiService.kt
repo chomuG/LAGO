@@ -86,22 +86,7 @@ interface ChartApiService {
     ): TradingHistoryResponse
 
     /**
-     * 관심종목 추가/제거
-     */
-    @POST("api/account/favorites/{stockCode}")
-    suspend fun addToFavorites(
-        @Header("Authorization") token: String,
-        @Path("stockCode") stockCode: String
-    ): BaseResponse
-
-    @DELETE("api/account/favorites/{stockCode}")
-    suspend fun removeFromFavorites(
-        @Header("Authorization") token: String,
-        @Path("stockCode") stockCode: String
-    ): BaseResponse
-
-    /**
-     * 관심종목 목록 조회
+     * 관심종목 목록 조회 (기존 API)
      */
     @GET("api/account/favorites")
     suspend fun getFavorites(
@@ -155,4 +140,128 @@ interface ChartApiService {
         @Path("stockCode") stockCode: String,
         @Body request: PatternAnalysisRequest
     ): PatternAnalysisResponse
+
+    // =================================================
+    // 모의투자 관련 API (실제 DB 스키마 기반)
+    // =================================================
+
+    /**
+     * 주식 매수 주문 (MOCK_TRADE 테이블에 INSERT)
+     */
+    @POST("api/mock-trade/buy")
+    suspend fun buyStock(
+        @Header("Authorization") token: String,
+        @Body request: MockTradeRequest
+    ): BaseResponse<MockTradeResponse>
+
+    /**
+     * 주식 매도 주문 (MOCK_TRADE 테이블에 INSERT)
+     */
+    @POST("api/mock-trade/sell")
+    suspend fun sellStock(
+        @Header("Authorization") token: String,
+        @Body request: MockTradeRequest
+    ): BaseResponse<MockTradeResponse>
+
+    /**
+     * 계좌 잔고 정보 조회 (ACCOUNTS 테이블)
+     */
+    @GET("api/accounts/balance")
+    suspend fun getAccountBalance(
+        @Header("Authorization") token: String
+    ): AccountBalanceResponse
+
+    /**
+     * 보유 주식 현황 조회 (STOCK_HOLDING + STOCK_INFO + TICKS 조인)
+     */
+    @GET("api/accounts/holdings")
+    suspend fun getStockHoldings(
+        @Header("Authorization") token: String
+    ): StockHoldingsResponse
+
+    /**
+     * 거래 내역 조회 (MOCK_TRADE 테이블 페이징)
+     */
+    @GET("api/accounts/transactions")
+    suspend fun getMockTradeHistory(
+        @Header("Authorization") token: String,
+        @Query("stockCode") stockCode: String? = null,
+        @Query("buySell") buySell: String? = null, // "BUY" or "SELL"
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20
+    ): MockTradeHistoryResponse
+
+    /**
+     * 주식 목록 조회 (STOCK_INFO + TICKS 조인, 실시간 가격 포함)
+     */
+    @GET("api/stocks/list")
+    suspend fun getStockListWithRealtime(
+        @Query("market") market: String? = null, // "KOSPI", "KOSDAQ"
+        @Query("category") category: String? = null, // "trending", "volume"
+        @Query("sort") sort: String = "code",
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20
+    ): StockListResponse
+
+    /**
+     * 개별 주식 정보 조회 (실시간 가격 포함)
+     */
+    @GET("api/stocks/{stockCode}")
+    suspend fun getStockInfoWithRealtime(
+        @Path("stockCode") stockCode: String
+    ): StockInfoResponse
+
+    /**
+     * 주식 검색 (종목명/종목코드 검색)
+     */
+    @GET("api/stocks/search")
+    suspend fun searchStocksWithRealtime(
+        @Query("query") query: String,
+        @Query("market") market: String? = null,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20
+    ): StockListResponse
+
+    /**
+     * 관심종목 추가 (INTEREST 테이블에 INSERT)
+     */
+    @POST("api/stocks/favorites")
+    suspend fun addToFavorites(
+        @Header("Authorization") token: String,
+        @Body request: FavoriteStockRequest
+    ): SimpleBaseResponse
+
+    /**
+     * 관심종목 삭제 (INTEREST 테이블에서 DELETE)
+     */
+    @DELETE("api/stocks/favorites/{stockCode}")
+    suspend fun removeFromFavorites(
+        @Header("Authorization") token: String,
+        @Path("stockCode") stockCode: String
+    ): SimpleBaseResponse
+
+    /**
+     * 관심종목 목록 조회 (INTEREST + STOCK_INFO + TICKS 조인)
+     */
+    @GET("api/stocks/favorites")
+    suspend fun getFavoriteStocks(
+        @Header("Authorization") token: String
+    ): FavoriteStocksResponse
+
+    /**
+     * 계좌 초기화 (신규 가입시 ACCOUNTS 테이블 생성)
+     */
+    @POST("api/accounts/initialize")
+    suspend fun initializeAccount(
+        @Header("Authorization") token: String,
+        @Body request: InitializeAccountRequest
+    ): AccountBalanceResponse
+
+    /**
+     * 모의투자 리셋 (계좌 초기화)
+     */
+    @POST("api/accounts/reset")
+    suspend fun resetAccount(
+        @Header("Authorization") token: String
+    ): AccountResetResponse
 }

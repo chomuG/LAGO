@@ -3,7 +3,7 @@ package com.lago.app.presentation.viewmodel.chart
 import com.lago.app.domain.entity.*
 
 data class ChartUiState(
-    val currentStock: StockInfo = StockInfo(
+    val currentStock: ChartStockInfo = ChartStockInfo(
         code = "005930",
         name = "삼성전자",
         currentPrice = 74200f,

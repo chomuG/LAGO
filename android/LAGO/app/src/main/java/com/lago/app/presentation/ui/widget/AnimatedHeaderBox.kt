@@ -13,12 +13,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.lago.app.domain.entity.StockInfo
+import com.lago.app.domain.entity.ChartStockInfo
 import com.lago.app.presentation.theme.*
 
 @Composable
 fun AnimatedHeaderBox(
-    stockInfo: StockInfo,
+    stockInfo: ChartStockInfo,
     headerAlignmentProgress: Float, // 0f to 1f (30% ~ 40% 범위에서 0f to 1f로 변환됨)
     contentOffsetY: Float,
     modifier: Modifier = Modifier

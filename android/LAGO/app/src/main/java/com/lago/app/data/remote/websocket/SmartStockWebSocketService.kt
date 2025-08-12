@@ -7,6 +7,7 @@ import com.lago.app.data.remote.dto.WebSocketConnectionState
 import com.lago.app.domain.entity.StockRealTimeData
 import com.lago.app.domain.entity.StockPriority
 import com.lago.app.domain.entity.ScreenType
+import com.lago.app.util.Constants
 import com.google.gson.Gson
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -44,7 +45,7 @@ class SmartStockWebSocketService @Inject constructor(
     
     companion object {
         private const val TAG = "SmartStockWebSocket"
-        private const val WS_URL = "ws://192.168.100.162:8081/ws-stock/websocket"
+        private val WS_URL = Constants.WS_STOCK_URL
         private const val RECONNECT_DELAY = 3000L
         private const val MAX_RECONNECT_ATTEMPTS = 5
         // 서버 지원에 따라 변경 가능한 토픽들

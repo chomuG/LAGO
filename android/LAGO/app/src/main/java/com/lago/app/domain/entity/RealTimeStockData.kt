@@ -47,28 +47,28 @@ data class StockRealTimeData(
     @SerializedName("currentPrice") 
     val currentPrice: Long? = null,
     
+    // 가격 변동 정보
+    @SerialName("changePrice")
+    @SerializedName("changePrice")
+    val changePrice: Long? = null,
+    
+    @SerialName("changeRate")
+    @SerializedName("changeRate")
+    val changeRate: Double? = null,
+    
+    @SerialName("change")
+    @SerializedName("change")
+    val change: Long? = null,
+    
+    @SerialName("rate")
+    @SerializedName("rate")
+    val rate: Double? = null,
+    
     val timestamp: Long = System.currentTimeMillis()
 ) {
     // 실제 가격 계산 (우선순위: tradePrice > currentPrice > closePrice)
     val price: Double
         get() = (tradePrice ?: currentPrice ?: closePrice ?: 0L).toDouble()
-    
-    // 가격 변동 정보 추가
-    @SerialName("changePrice")
-    @SerializedName("changePrice")
-    val changePrice: Long? = null
-    
-    @SerialName("changeRate")
-    @SerializedName("changeRate")
-    val changeRate: Double? = null
-    
-    @SerialName("change")
-    @SerializedName("change")
-    val change: Long? = null
-    
-    @SerialName("rate")
-    @SerializedName("rate")
-    val rate: Double? = null
     
     // 호환성을 위한 기존 필드들
     val priceChange: Double

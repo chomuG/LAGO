@@ -22,7 +22,7 @@ class ChartMemoryCache @Inject constructor() {
     }
     
     // 주식 기본 정보 캐시
-    private val stockInfoCache = LruCache<String, CachedStockInfo>(STOCK_INFO_CACHE_SIZE)
+    private val stockInfoCache = LruCache<String, CachedChartStockInfo>(STOCK_INFO_CACHE_SIZE)
     
     // 캔들스틱 데이터 캐시 (stockCode_timeFrame 키)
     private val candlestickCache = LruCache<String, CachedCandlestickData>(CANDLESTICK_CACHE_SIZE)
@@ -35,7 +35,7 @@ class ChartMemoryCache @Inject constructor() {
     
     // ===== STOCK INFO CACHE =====
     
-    fun getStockInfo(stockCode: String): StockInfo? {
+    fun getChartStockInfo(stockCode: String): ChartStockInfo? {
         val cached = stockInfoCache.get(stockCode)
         return if (cached != null && !cached.isExpired()) {
             cached.data
@@ -45,8 +45,8 @@ class ChartMemoryCache @Inject constructor() {
         }
     }
     
-    fun putStockInfo(stockCode: String, stockInfo: StockInfo, ttlMinutes: Int = 5) {
-        val cached = CachedStockInfo(
+    fun putChartStockInfo(stockCode: String, stockInfo: ChartStockInfo, ttlMinutes: Int = 5) {
+        val cached = CachedChartStockInfo(
             data = stockInfo,
             cachedAt = System.currentTimeMillis(),
             ttlMillis = ttlMinutes * 60 * 1000L
@@ -292,8 +292,8 @@ class ChartMemoryCache @Inject constructor() {
 
 // ===== CACHED DATA MODELS =====
 
-data class CachedStockInfo(
-    val data: StockInfo,
+data class CachedChartStockInfo(
+    val data: ChartStockInfo,
     val cachedAt: Long,
     val ttlMillis: Long
 ) {
