@@ -68,9 +68,12 @@ Thumbs.db
 *.swo
 *~
 
-# 환경변수/시크릿
+# 환경변수/시크릿 (템플릿 제외)
 .env
-.env.*
+.env.local
+.env.production
+.env.development
+!.env.example
 
 # Archives
 *.zip
