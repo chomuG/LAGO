@@ -9,6 +9,15 @@ import java.util.Optional;
 import java.util.List;
 
 public interface StockInfoRepository extends JpaRepository<StockInfo, Integer> {
+
+    /**
+     * 종목 코드로 주식 정보 조회
+     *
+     * @param stockInfoId ID
+     * @return 주식 정보
+     */
+    Optional<StockInfo> findByStockInfoId(int stockInfoId);
+
     /**
      * 종목 코드로 주식 정보 조회
      *

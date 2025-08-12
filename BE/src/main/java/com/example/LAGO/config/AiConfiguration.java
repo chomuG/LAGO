@@ -42,18 +42,4 @@ public class AiConfiguration {
         log.info("FinBERT용 RestTemplate Bean 생성 완료 - 타임아웃: 연결 30초, 읽기 5분");
         return restTemplate;
     }
-
-    /**
-     * JSON 파싱용 ObjectMapper Bean
-     * 
-     * @return ObjectMapper 인스턴스
-     */
-    @Bean
-    public ObjectMapper objectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        
-        log.info("ObjectMapper Bean 생성 완료 - JSON 파싱용");
-        
-        return mapper;
-    }
 }

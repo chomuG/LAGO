@@ -1,18 +1,4 @@
 services:
-  jenkins:
-    build: .
-    container_name: jenkins
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-      - "50000:50000"
-    volumes:
-      - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-    group_add:
-      - "${DOCKER_GID:-999}"  # Docker 그룹 ID
-    environment:
-      - JAVA_OPTS=-Djenkins.install.runSetupWizard=true
 
   timescaledb:
     image: timescale/timescaledb-ha:pg14-latest
@@ -23,15 +9,15 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGDATA=/home/postgres/pgdata/data          # ⬅️ 이 이미지의 실제 데이터 경로
     ports:
       - "5432:5432"
     volumes:
-      - timescale_data:/var/lib/postgresql/data
+      - timescale_data:/home/postgres/pgdata/data  # ⬅️ 여기에 마운트해야 영속화됨
+      - ./initdb:/docker-entrypoint-initdb.d:ro   # (선택) 최초 1회만 사용하고 빼두기
     restart: unless-stopped
     healthcheck:
-      test:
-        - CMD-SHELL
-        - 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} || exit 1'
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -41,8 +27,6 @@ services:
     container_name: redis
     ports:
       - "6379:6379"
-    volumes:
-      - ./redisdata:/data
     restart: unless-stopped
 
   finbert-service:
@@ -71,7 +55,7 @@ services:
       dockerfile: Dockerfile
     container_name: spring-backend
     ports:
-      - "8081:9000"  # EC2에서는 8081 포트로 접근 (Jenkins는 8080 사용)
+      - "8081:9000"
     env_file:
       - .env
     environment:
