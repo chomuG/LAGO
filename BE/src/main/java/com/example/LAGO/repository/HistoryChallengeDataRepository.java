@@ -25,7 +25,8 @@ public interface HistoryChallengeDataRepository extends JpaRepository<HistoryCha
     /**
      * 특정 챌린지의 지정된 과거 내의 모든 주가 데이터를 조회합니다.
      * @param challengeId 챌린지 ID
-     * @param currentTime 과거 시간
+     * @param fromDateTime 조회 시작구간
+     * @param toDateTime 조회 종료구간
      * @param interval 조회 간격
      * @return 해당 시간 범위의 주가 데이터 목록 (시간순)
      */

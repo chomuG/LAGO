@@ -49,8 +49,6 @@ public class HistoryChallengeDataResponse {
     @Schema(name = "fluctuation_rate")
     private Float fluctuationRate;
 
-    private static final Logger log = LoggerFactory.getLogger(HistoryChallengeServiceImpl.class);
-
     public HistoryChallengeDataResponse(HistoryChallengeData entity) {
         this.eventDateTime = entity.getEventDateTime();
         this.originDateTime = entity.getOriginDateTime();
