@@ -3,14 +3,16 @@ package com.lago.app.data.cache
 import android.util.LruCache
 import com.lago.app.domain.entity.StockRealTimeData
 import com.lago.app.domain.entity.StockPriority
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class RealTimeStockCache @Inject constructor() {
+    
+    // 핵심: 단일 StateFlow로 모든 종목 데이터 관리
+    private val _quotes = MutableStateFlow<Map<String, StockRealTimeData>>(emptyMap())
+    val quotes: StateFlow<Map<String, StockRealTimeData>> = _quotes.asStateFlow()
     
     // L1: 즉시 접근 (현재 화면) - 50개
     private val hotCache = LruCache<String, StockRealTimeData>(50)
@@ -24,45 +26,52 @@ class RealTimeStockCache @Inject constructor() {
     // 종목별 우선순위 추적
     private val stockPriorities = mutableMapOf<String, StockPriority>()
     
-    // 실시간 업데이트 스트림
-    private val _stockUpdates = MutableSharedFlow<StockRealTimeData>()
-    val stockUpdates: SharedFlow<StockRealTimeData> = _stockUpdates.asSharedFlow()
-    
-    // 포트폴리오용 특별 스트림
-    private val _portfolioUpdates = MutableSharedFlow<StockRealTimeData>()
-    val portfolioUpdates: SharedFlow<StockRealTimeData> = _portfolioUpdates.asSharedFlow()
-    
-    // 차트용 고빈도 스트림
-    private val _chartUpdates = MutableSharedFlow<StockRealTimeData>()
-    val chartUpdates: SharedFlow<StockRealTimeData> = _chartUpdates.asSharedFlow()
-    
     fun updateStock(stockCode: String, data: StockRealTimeData) {
-        val priority = stockPriorities[stockCode] ?: StockPriority.COLD
+        // NPE 방지 검증
+        require(stockCode.isNotBlank()) { "stockCode cannot be null or blank" }
+        require(data.stockCode.isNotBlank()) { "data.stockCode cannot be null or blank" }
         
-        // 우선순위에 따라 적절한 캐시에 저장
-        when (priority) {
-            StockPriority.HOT -> {
-                hotCache.put(stockCode, data)
-                _chartUpdates.tryEmit(data)
+        // StateFlow 업데이트 (UI 자동 갱신의 핵심!)
+        _quotes.update { oldMap ->
+            val currentData = oldMap[stockCode]
+            // 값이 동일하면 스킵 (불필요한 리렌더링 방지)
+            if (currentData?.closePrice == data.closePrice && 
+                currentData?.volume == data.volume &&
+                currentData?.price == data.price) {
+                return@update oldMap
             }
-            StockPriority.WARM -> {
-                warmCache.put(stockCode, data)
-                _portfolioUpdates.tryEmit(data)
-            }
-            StockPriority.COLD -> {
-                coldCache.put(stockCode, data)
+            
+            // 새 맵 생성하여 반환 (immutability 유지)
+            oldMap.toMutableMap().apply { 
+                put(stockCode, data) 
             }
         }
         
-        // 모든 구독자에게 알림
-        _stockUpdates.tryEmit(data)
+        // 우선순위별 캐시 저장은 유지
+        val priority = stockPriorities[stockCode] ?: StockPriority.COLD
+        when (priority) {
+            StockPriority.HOT -> hotCache.put(stockCode, data)
+            StockPriority.WARM -> warmCache.put(stockCode, data)
+            StockPriority.COLD -> coldCache.put(stockCode, data)
+        }
     }
     
     fun getStockData(stockCode: String): StockRealTimeData? {
-        return hotCache.get(stockCode)
+        // StateFlow에서 먼저 확인 (최신 데이터)
+        return _quotes.value[stockCode]
+            ?: hotCache.get(stockCode)
             ?: warmCache.get(stockCode)
             ?: coldCache.get(stockCode)
     }
+    
+    // 특정 종목의 Flow 반환 (차트용)
+    fun symbolFlow(stockCode: String): Flow<StockRealTimeData> =
+        quotes.mapNotNull { it[stockCode] }
+            .distinctUntilChanged { old, new ->
+                old.closePrice == new.closePrice && 
+                old.volume == new.volume &&
+                old.price == new.price
+            }
     
     fun setStockPriority(stockCode: String, priority: StockPriority) {
         stockPriorities[stockCode] = priority

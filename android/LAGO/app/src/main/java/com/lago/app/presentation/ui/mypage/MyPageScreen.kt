@@ -22,9 +22,14 @@ import com.lago.app.presentation.theme.*
 
 @Composable
 fun MyPageScreen(
+    userPreferences: com.lago.app.data.local.prefs.UserPreferences,
     onRankingClick: () -> Unit = {},
-    onStockClick: (String) -> Unit = {}
+    onStockClick: (String) -> Unit = {},
+    onLoginClick: () -> Unit = {},
+    onLogoutComplete: () -> Unit = {}
 ) {
+    val isLoggedIn = userPreferences.getAuthToken() != null
+    val username = userPreferences.getUsername() ?: "게스트"
     val stockList = listOf(
         StockInfo("삼성전자", "1주 평균 42,232원", "40.7%", MainBlue, "005930"),
         StockInfo("한화생명", "1주 평균 52,232원", "25.4%", MainPink, "088350"),
@@ -48,26 +53,32 @@ fun MyPageScreen(
         item { Spacer(modifier = Modifier.height(16.dp)) }
 
         // 헤더 섹션
-        item { HeaderSection() }
+        item { HeaderSection(isLoggedIn = isLoggedIn, username = username, onLoginClick = onLoginClick) }
 
         // 자산 현황 타이틀 섹션
         item { AssetTitleSectionWithRanking(onRankingClick = onRankingClick) }
 
         // 자산 현황 섹션
-        item { AssetStatusSection() }
+        item { AssetStatusSection(isLoggedIn = isLoggedIn) }
 
         // 포트폴리오 차트 및 주식 리스트 통합 섹션
-        item { PortfolioSection(pieChartData, stockList, onStockClick) }
+        item { PortfolioSection(pieChartData, stockList, onStockClick, isLoggedIn = isLoggedIn) }
 
         // 로그아웃 버튼
-        item { LogoutButton() }
+        if (isLoggedIn) {
+            item { LogoutButton(userPreferences = userPreferences, onLogoutComplete = onLogoutComplete) }
+        }
 
         item { Spacer(modifier = Modifier.height(8.dp)) }
     }
 }
 
 @Composable
-fun HeaderSection() {
+fun HeaderSection(
+    isLoggedIn: Boolean = true,
+    username: String = "",
+    onLoginClick: () -> Unit = {}
+) {
     Box(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -75,6 +86,7 @@ fun HeaderSection() {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable(enabled = !isLoggedIn) { onLoginClick() }
                 .shadow(
                     elevation = 0.dp,
                     shape = RoundedCornerShape(16.dp),
@@ -99,62 +111,78 @@ fun HeaderSection() {
                     .padding(16.dp)
             ) {
                 // 왼쪽 컨텐츠
-                Column {
-                    // 위험중립형 태그
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                BlueLight,
-                                RoundedCornerShape(16.dp)
+                if (isLoggedIn) {
+                    Column {
+                        // 위험중립형 태그
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    BlueLight,
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "위험중립형",
+                                style = BodyR12,
+                                color = BlueNormal
                             )
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "위험중립형",
-                            style = BodyR12,
-                            color = BlueNormal
-                        )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // 사용자 이름
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                        ) {
+                            Text(
+                                text = username,
+                                style = TitleB24,
+                                color = Black
+                            )
+                        }
                     }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // 사용자 이름
+                } else {
+                    // 로그인 안된 상태
                     Box(
-                        modifier = Modifier
-                            .padding(horizontal = 4.dp)
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "박두칠",
+                            text = "로그인 해주세요.",
                             style = TitleB24,
-                            color = Black
+                            color = Gray600
                         )
                     }
                 }
 
-                // 프로필 사진
-                Box(
-                    modifier = Modifier
-                        .size(74.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFDEEFFE))
-                        .align(Alignment.CenterEnd)
-                )
-
-                // 카드 내부 하얀 설정 아이콘 버튼 (카드 위에서 74dp, 오른쪽에서 32dp, 큰 원 아래쪽에 위치)
-                Box(
-                    modifier = Modifier
-                        .size(22.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .align(Alignment.BottomEnd),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.setting),
-                        contentDescription = "설정",
-                        modifier = Modifier.size(12.dp),
-                        tint = Black
+                if (isLoggedIn) {
+                    // 프로필 사진
+                    Box(
+                        modifier = Modifier
+                            .size(74.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFDEEFFE))
+                            .align(Alignment.CenterEnd)
                     )
+
+                    // 카드 내부 하얀 설정 아이콘 버튼 (카드 위에서 74dp, 오른쪽에서 32dp, 큰 원 아래쪽에 위치)
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .align(Alignment.BottomEnd),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.setting),
+                            contentDescription = "설정",
+                            modifier = Modifier.size(12.dp),
+                            tint = Black
+                        )
+                    }
                 }
             }
         }
@@ -199,13 +227,20 @@ fun AssetTitleSectionWithRanking(
 }
 
 @Composable
-fun LogoutButton() {
+fun LogoutButton(
+    userPreferences: com.lago.app.data.local.prefs.UserPreferences,
+    onLogoutComplete: () -> Unit = {}
+) {
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
         TextButton(
-            onClick = { /* 로그아웃 로직 */ }
+            onClick = {
+                showLogoutDialog = true
+            }
         ) {
             Text(
                 text = "로그아웃",
@@ -214,12 +249,88 @@ fun LogoutButton() {
             )
         }
     }
+    
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showLogoutDialog = false
+            },
+            title = {
+                Text(
+                    text = "로그아웃",
+                    style = TitleB18,
+                    color = Black
+                )
+            },
+            text = {
+                Text(
+                    text = "로그아웃 하시겠습니까?",
+                    style = BodyR14,
+                    color = Black
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // 모든 사용자 데이터 삭제
+                        userPreferences.clearAllData()
+                        showLogoutDialog = false
+                        // 홈 화면으로 이동
+                        onLogoutComplete()
+                    }
+                ) {
+                    Text(
+                        text = "예",
+                        style = SubtitleSb14,
+                        color = MainBlue
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                    }
+                ) {
+                    Text(
+                        text = "아니오",
+                        style = SubtitleSb14,
+                        color = Gray600
+                    )
+                }
+            }
+        )
+    }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun MyPageScreenPreview() {
+    val mockSharedPrefs = object : android.content.SharedPreferences {
+        override fun getAll(): MutableMap<String, *> = mutableMapOf<String, Any>()
+        override fun getString(key: String?, defValue: String?): String? = defValue
+        override fun getStringSet(key: String?, defValues: MutableSet<String>?): MutableSet<String>? = defValues
+        override fun getInt(key: String?, defValue: Int): Int = defValue
+        override fun getLong(key: String?, defValue: Long): Long = defValue
+        override fun getFloat(key: String?, defValue: Float): Float = defValue
+        override fun getBoolean(key: String?, defValue: Boolean): Boolean = defValue
+        override fun contains(key: String?): Boolean = false
+        override fun edit(): android.content.SharedPreferences.Editor = object : android.content.SharedPreferences.Editor {
+            override fun putString(key: String?, value: String?) = this
+            override fun putStringSet(key: String?, values: MutableSet<String>?) = this
+            override fun putInt(key: String?, value: Int) = this
+            override fun putLong(key: String?, value: Long) = this
+            override fun putFloat(key: String?, value: Float) = this
+            override fun putBoolean(key: String?, value: Boolean) = this
+            override fun remove(key: String?) = this
+            override fun clear() = this
+            override fun commit() = true
+            override fun apply() {}
+        }
+        override fun registerOnSharedPreferenceChangeListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener?) {}
+        override fun unregisterOnSharedPreferenceChangeListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener?) {}
+    }
     MaterialTheme {
-        MyPageScreen()
+        MyPageScreen(userPreferences = com.lago.app.data.local.prefs.UserPreferences(mockSharedPrefs))
     }
 }

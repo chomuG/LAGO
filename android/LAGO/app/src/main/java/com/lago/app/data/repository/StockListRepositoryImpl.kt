@@ -32,13 +32,24 @@ class StockListRepositoryImpl @Inject constructor(
     ): Flow<Resource<StockListPage>> = flow {
         try {
             emit(Resource.Loading())
+            android.util.Log.d("StockListRepo", "API 요청: category=$category, page=$page, size=$size")
             val response = apiService.getStockList(category, page, size, sort, search)
-            emit(Resource.Success(response.toStockListPage()))
+            android.util.Log.d("StockListRepo", "API 응답 받음: ${response.size}개 종목")
+            response.forEach { stock ->
+                android.util.Log.d("StockListRepo", "📋 받은 종목: ${stock.code} (${stock.name})")
+            }
+            
+            // SimpleStockDto 리스트를 StockListPage로 변환 (원래 방식)
+            val stockListPage = response.toStockListPage()
+            emit(Resource.Success(stockListPage))
         } catch (e: HttpException) {
-            emit(Resource.Error("Network error: ${e.localizedMessage}"))
+            android.util.Log.e("StockListRepo", "HTTP 에러: ${e.code()} - ${e.message()}")
+            emit(Resource.Error("Network error: ${e.code()} ${e.message()}"))
         } catch (e: IOException) {
-            emit(Resource.Error("Network connection failed"))
+            android.util.Log.e("StockListRepo", "네트워크 연결 실패", e)
+            emit(Resource.Error("Network connection failed: ${e.localizedMessage}"))
         } catch (e: Exception) {
+            android.util.Log.e("StockListRepo", "예상치 못한 에러", e)
             emit(Resource.Error("Unexpected error: ${e.localizedMessage}"))
         }
     }

@@ -30,6 +30,7 @@ import com.lago.app.presentation.ui.mypage.AiPortfolioScreen
 import com.lago.app.presentation.ui.stocklist.StockListScreen
 import com.lago.app.data.local.prefs.UserPreferences
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.lago.app.domain.entity.StockInfo
 import com.lago.app.presentation.ui.personalitytest.PersonalityTestNavigation
 import com.lago.app.presentation.ui.login.LoginScreen
 
@@ -123,7 +124,7 @@ fun NavGraph(
 
             ChartScreen(
                 stockCode = stockCode,
-                initialStockInfo = com.lago.app.domain.entity.StockInfo(
+                initialStockInfo = StockInfo(
                     code = stockCode,
                     name = stockName,
                     currentPrice = currentPrice.toFloat(),
@@ -176,6 +177,7 @@ fun NavGraph(
         
         composable(NavigationItem.MyPage.route) {
             MyPageScreen(
+                userPreferences = userPreferences,
                 onRankingClick = {
                     navController.navigate("ranking")
                 },
@@ -215,8 +217,10 @@ fun NavGraph(
             )
         }
 
+
         composable("ranking") {
             RankingScreen(
+                userPreferences = userPreferences,
                 onBackClick = {
                     navController.popBackStack()
                 },
@@ -225,6 +229,9 @@ fun NavGraph(
                 },
                 onAiPortfolioClick = {
                     navController.navigate("ai_portfolio")
+                },
+                onLoginClick = {
+                    navController.navigate("login")
                 }
             )
         }

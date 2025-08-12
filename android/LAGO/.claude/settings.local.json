@@ -14,7 +14,8 @@
       "Bash(copy:*)",
       "Bash(cp:*)",
       "Bash(mv:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(gradlew.bat :app:compileDebugKotlin:*)"
     ],
     "deny": []
   }

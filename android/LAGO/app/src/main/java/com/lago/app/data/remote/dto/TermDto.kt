@@ -3,17 +3,19 @@ package com.lago.app.data.remote.dto
 import com.lago.app.domain.entity.Term
 
 data class TermDto(
-    val term_id: Int,
+    val termId: Int,
     val term: String,
+    val definition: String,
     val description: String,
-    val know: Boolean?
+    val knowStatus: Boolean?
 )
 
 fun TermDto.toEntity(): Term {
     return Term(
-        termId = term_id,
+        termId = termId,
         term = term,
+        definition = definition,
         description = description,
-        know = know
+        knowStatus = knowStatus
     )
 }

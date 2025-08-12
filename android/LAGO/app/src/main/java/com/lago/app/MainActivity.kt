@@ -1,14 +1,19 @@
 package com.lago.app
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatDelegate
+import com.google.firebase.messaging.FirebaseMessaging
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -43,6 +48,16 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var userPreferences: UserPreferences
+    
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Log.d("FCM", "✅ Notification permission granted")
+        } else {
+            Log.w("FCM", "❌ Notification permission denied")
+        }
+    }
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,10 +72,67 @@ class MainActivity : ComponentActivity() {
         // 다크모드 비활성화
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
 
+        // 알림 권한 요청 (Android 13+)
+        requestNotificationPermission()
+        
+        // FCM 초기화 및 토픽 구독
+        initializeFCM()
+
         setContent {
             LagoTheme {
                 LagoApp(userPreferences = userPreferences)
             }
+        }
+    }
+    
+    private fun initializeFCM() {
+        Log.d("FCM", "=== Initializing FCM ===")
+        
+        // FCM 토큰 가져오기
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w("FCM", "❌ Fetching FCM registration token failed", task.exception)
+                return@addOnCompleteListener
+            }
+
+            // 새로운 FCM 등록 토큰 가져오기
+            val token = task.result
+            Log.d("FCM", "✅ FCM Registration Token: $token")
+            Log.d("FCM", "📋 Copy this token for testing: $token")
+
+            // TODO: 토큰을 서버에 전송 (필요시)
+            // sendTokenToServer(token)
+        }
+        
+        // 데일리 퀴즈 토픽 구독
+        FirebaseMessaging.getInstance().subscribeToTopic("daily_quiz")
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    Log.d("FCM", "✅ Successfully subscribed to 'daily_quiz' topic")
+                } else {
+                    Log.e("FCM", "❌ Failed to subscribe to 'daily_quiz' topic", task.exception)
+                }
+            }
+            
+        Log.d("FCM", "=== FCM Initialization Complete ===")
+    }
+    
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            when {
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED -> {
+                    Log.d("FCM", "✅ Notification permission already granted")
+                }
+                else -> {
+                    Log.d("FCM", "🔔 Requesting notification permission...")
+                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+        } else {
+            Log.d("FCM", "✅ Notification permission not required (Android < 13)")
         }
     }
 }

@@ -14,6 +14,7 @@ import com.lago.app.presentation.theme.AppBackground
 import com.lago.app.presentation.theme.LagoTheme
 import com.lago.app.presentation.theme.MainBlue
 import com.lago.app.presentation.ui.study.Dialog.DailyQuizResultDialog
+import com.lago.app.presentation.viewmodel.DailyQuizSolveUiState
 import com.lago.app.presentation.viewmodel.DailyQuizUiState
 import com.lago.app.presentation.viewmodel.DailyQuizViewModel
 
@@ -22,42 +23,77 @@ fun DailyQuizScreen(
     onBackClick: () -> Unit = {},
     viewModel: DailyQuizViewModel = hiltViewModel()
 ) {
+    val dailyQuizState by viewModel.uiState.collectAsStateWithLifecycle()
+    val solveState by viewModel.solveState.collectAsStateWithLifecycle()
+    
     var showResult by remember { mutableStateOf(false) }
     var quizResult by remember { mutableStateOf<QuizResult?>(null) }
+    var currentQuizItem by remember { mutableStateOf<QuizItem?>(null) }
+    var dailyQuizResult by remember { mutableStateOf<com.lago.app.domain.entity.DailyQuizResult?>(null) }
     
-    val dailyQuizState by viewModel.uiState.collectAsStateWithLifecycle()
-    
-    var currentQuizItem by remember { 
-        mutableStateOf(QuizItem("주식의 PER이 높다는 것은 그 기업의 성장 가능성을 높게 본다는 뜻이다?", true)) 
+    LaunchedEffect(Unit) {
+        viewModel.loadDailyQuiz(userId = 1)
     }
     
+    // API 응답 처리
+    LaunchedEffect(solveState) {
+        when (solveState) {
+            is DailyQuizSolveUiState.Success -> {
+                val result = (solveState as DailyQuizSolveUiState.Success).result
+                dailyQuizResult = result
+                quizResult = QuizResult(
+                    isCorrect = result.correct,
+                    rank = result.ranking,
+                    reward = result.score
+                )
+                showResult = true
+                viewModel.resetSolveState()
+            }
+            is DailyQuizSolveUiState.Error -> {
+                // 에러 처리 (필요시)
+                viewModel.resetSolveState()
+            }
+            else -> {}
+        }
+    }
+
     when(dailyQuizState) {
         is DailyQuizUiState.Loading -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(AppBackground),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = MainBlue)
-            }
+            LoadingScreen(
+                title = "데일리 퀴즈",
+                onBackClick = onBackClick
+            )
         }
         is DailyQuizUiState.Success -> {
-            currentQuizItem = QuizItem(
-                (dailyQuizState as DailyQuizUiState.Success).quiz.question,
-                (dailyQuizState as DailyQuizUiState.Success).quiz.answer
-            )
-            
-            BaseQuizScreen(
-                title = "데일리 퀴즈",
-                quizType = QuizType.DAILY,
-                currentQuiz = currentQuizItem,
-                onBackClick = onBackClick,
-                onQuizResult = { result ->
-                    quizResult = result
-                    showResult = true
-                }
-            )
+            val status = (dailyQuizState as DailyQuizUiState.Success).status
+            if (status.quiz != null && !status.alreadySolved) {
+                currentQuizItem = QuizItem(
+                    status.quiz.question,
+                    status.quiz.answer
+                )
+                
+                BaseQuizScreen(
+                    title = "데일리 퀴즈",
+                    quizType = QuizType.DAILY,
+                    currentQuiz = currentQuizItem,
+                    onBackClick = onBackClick,
+                    onAnswerSelected = { userAnswer ->
+                        // API 호출
+                        viewModel.solveQuiz(userId = 1, userAnswer = userAnswer)
+                    },
+                    onQuizResult = { result ->
+                        quizResult = result
+                        showResult = true
+                    }
+                )
+            } else if (status.alreadySolved) {
+                // 이미 풀었을 때는 완료 화면 표시
+                CompletedQuizScreen(
+                    title = "데일리 퀴즈",
+                    ranking = status.ranking ?: 0,
+                    onBackClick = onBackClick
+                )
+            }
         }
         is DailyQuizUiState.Error -> {
             BaseQuizScreen(
@@ -65,6 +101,10 @@ fun DailyQuizScreen(
                 quizType = QuizType.DAILY,
                 currentQuiz = currentQuizItem,
                 onBackClick = onBackClick,
+                onAnswerSelected = { userAnswer ->
+                    // API 호출
+                    viewModel.solveQuiz(userId = 1, userAnswer = userAnswer)
+                },
                 onQuizResult = { result ->
                     quizResult = result
                     showResult = true
@@ -79,10 +119,12 @@ fun DailyQuizScreen(
                 isCorrect = result.isCorrect,
                 rank = result.rank ?: 1,
                 reward = result.reward ?: 0,
+                explanation = dailyQuizResult?.explanation ?: "",
                 onDismiss = { showResult = false },
                 onReceiveReward = { 
-                    // 보상 수령 로직
+                    // 보상 수령 후 뒤로가기
                     showResult = false 
+                    onBackClick()
                 }
             )
         }

@@ -31,7 +31,8 @@ object Constants {
     // UI Constants
     const val ANIMATION_DURATION = 300
     const val DEBOUNCE_TIME = 500L
-    
+
+
     // Business Logic Constants
     const val MIN_PASSWORD_LENGTH = 8
     const val MAX_RETRY_ATTEMPTS = 3
