@@ -79,6 +79,7 @@ import com.lago.app.domain.entity.MACDResult
 import com.lago.app.domain.entity.BollingerBandsResult
 import com.lago.app.domain.entity.PatternAnalysisResult
 import com.lago.app.domain.entity.PatternItem
+import com.lago.app.domain.entity.SignalSource
 // ViewModel imports
 import com.lago.app.presentation.viewmodel.chart.ChartViewModel
 import com.lago.app.presentation.viewmodel.chart.ChartUiEvent
@@ -762,8 +763,12 @@ fun ChartScreen(
         if (uiState.showIndicatorSettings) {
             IndicatorSettingsDialog(
                 config = uiState.config,
+                showUserTradingSignals = uiState.showUserTradingSignals,
                 onIndicatorToggle = { indicatorType, enabled ->
                     viewModel.onEvent(ChartUiEvent.ToggleIndicator(indicatorType, enabled))
+                },
+                onTradingSignalsToggle = { enabled ->
+                    viewModel.onEvent(ChartUiEvent.ToggleUserTradingSignals(enabled))
                 },
                 onDismiss = {
                     viewModel.onEvent(ChartUiEvent.HideIndicatorSettings)
@@ -784,10 +789,23 @@ fun ChartScreen(
         // Character Selection Dialog
         if (showCharacterDialog) {
             CharacterSelectionDialog(
+                selectedAI = uiState.selectedAI,
                 onDismiss = { showCharacterDialog = false },
                 onConfirm = { character ->
-                    // 선택한 캐릭터 처리
-                    println("선택된 캐릭터: ${character.name}")
+                    // 선택한 캐릭터에 따라 AI 매매내역 표시
+                    val aiSource = when (character.name) {
+                        "캐릭터 파랑" -> SignalSource.AI_BLUE
+                        "캐릭터 초록" -> SignalSource.AI_GREEN  
+                        "캐릭터 빨강" -> SignalSource.AI_RED
+                        "캐릭터 노랑" -> SignalSource.AI_YELLOW
+                        else -> null
+                    }
+                    viewModel.onEvent(ChartUiEvent.SelectAITradingSignals(aiSource))
+                    showCharacterDialog = false
+                },
+                onClearSelection = {
+                    // AI 선택 해제
+                    viewModel.onEvent(ChartUiEvent.SelectAITradingSignals(null))
                     showCharacterDialog = false
                 }
             )
@@ -1647,7 +1665,9 @@ private fun PatternAnalysisError(
 @Composable
 private fun IndicatorSettingsDialog(
     config: ChartConfig,
+    showUserTradingSignals: Boolean,
     onIndicatorToggle: (String, Boolean) -> Unit,
+    onTradingSignalsToggle: (Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -1794,6 +1814,29 @@ private fun IndicatorSettingsDialog(
                         checked = config.indicators.bollingerBands,
                         onCheckedChange = { enabled ->
                             onIndicatorToggle("bollingerBands", enabled)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MainPink,
+                            checkedTrackColor = MainPink.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+
+                // 사용자 매매내역 표시
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "매매내역 표시",
+                        style = BodyR16,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Switch(
+                        checked = showUserTradingSignals,
+                        onCheckedChange = { enabled ->
+                            onTradingSignalsToggle(enabled)
                         },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = MainPink,

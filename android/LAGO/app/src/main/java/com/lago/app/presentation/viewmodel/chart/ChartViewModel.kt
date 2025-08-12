@@ -84,6 +84,9 @@ class ChartViewModel @Inject constructor(
             is ChartUiEvent.ShowIndicatorSettings -> showIndicatorSettings()
             is ChartUiEvent.HideIndicatorSettings -> hideIndicatorSettings()
             is ChartUiEvent.ToggleIndicatorSettings -> toggleIndicatorSettings()
+            is ChartUiEvent.LoadTradingSignals -> loadTradingSignals()
+            is ChartUiEvent.ToggleUserTradingSignals -> toggleUserTradingSignals(event.show)
+            is ChartUiEvent.SelectAITradingSignals -> selectAITradingSignals(event.aiSource)
             is ChartUiEvent.ClearError -> clearErrorMessage()
         }
     }
@@ -1025,5 +1028,112 @@ class ChartViewModel @Inject constructor(
         }
         
         return BollingerBandsResult(upperBand, middleBand, lowerBand)
+    }
+    
+    // ======================== 매매 내역 관련 함수들 ========================
+    
+    private fun loadTradingSignals() {
+        viewModelScope.launch {
+            try {
+                // 실제로는 repository에서 매매 내역을 가져올 것
+                val signals = generateMockTradingSignals()
+                _uiState.update { 
+                    it.copy(tradingSignals = signals) 
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("LAGO_CHART", "매매 내역 로드 실패", e)
+                _uiState.update { 
+                    it.copy(errorMessage = "매매 내역을 불러올 수 없습니다.") 
+                }
+            }
+        }
+    }
+    
+    private fun toggleUserTradingSignals(show: Boolean) {
+        _uiState.update { 
+            it.copy(showUserTradingSignals = show) 
+        }
+        // WebView와 통신하여 사용자 매매 마커 업데이트
+        updateChartMarkers()
+    }
+    
+    private fun selectAITradingSignals(aiSource: SignalSource?) {
+        _uiState.update { 
+            it.copy(selectedAI = aiSource) 
+        }
+        // WebView와 통신하여 AI 매매 마커 업데이트
+        updateChartMarkers()
+    }
+    
+    private fun updateChartMarkers() {
+        val currentState = _uiState.value
+        val markersToShow = mutableListOf<TradingSignal>()
+        
+        // 사용자 매매 내역 표시
+        if (currentState.showUserTradingSignals) {
+            markersToShow.addAll(
+                currentState.tradingSignals.filter { it.signalSource == SignalSource.USER }
+            )
+        }
+        
+        // 선택된 AI 매매 내역 표시
+        currentState.selectedAI?.let { selectedAI ->
+            markersToShow.addAll(
+                currentState.tradingSignals.filter { it.signalSource == selectedAI }
+            )
+        }
+        
+        // TODO: WebView와 통신하여 실제 마커 업데이트
+        android.util.Log.d("LAGO_CHART", "마커 업데이트: ${markersToShow.size}개")
+    }
+    
+    private fun generateMockTradingSignals(): List<TradingSignal> {
+        return listOf(
+            TradingSignal(
+                id = "signal_1",
+                stockCode = "005930",
+                signalType = SignalType.BUY,
+                signalSource = SignalSource.USER,
+                timestamp = java.time.LocalDateTime.now().minusDays(10),
+                price = 72000.0,
+                message = "사용자 매수"
+            ),
+            TradingSignal(
+                id = "signal_2", 
+                stockCode = "005930",
+                signalType = SignalType.SELL,
+                signalSource = SignalSource.USER,
+                timestamp = java.time.LocalDateTime.now().minusDays(5),
+                price = 74500.0,
+                message = "사용자 매도"
+            ),
+            TradingSignal(
+                id = "signal_3",
+                stockCode = "005930", 
+                signalType = SignalType.BUY,
+                signalSource = SignalSource.AI_BLUE,
+                timestamp = java.time.LocalDateTime.now().minusDays(8),
+                price = 71500.0,
+                message = "AI 파랑 매수"
+            ),
+            TradingSignal(
+                id = "signal_4",
+                stockCode = "005930",
+                signalType = SignalType.SELL, 
+                signalSource = SignalSource.AI_GREEN,
+                timestamp = java.time.LocalDateTime.now().minusDays(3),
+                price = 75000.0,
+                message = "AI 초록 매도"
+            ),
+            TradingSignal(
+                id = "signal_5",
+                stockCode = "005930",
+                signalType = SignalType.BUY,
+                signalSource = SignalSource.AI_RED,
+                timestamp = java.time.LocalDateTime.now().minusDays(6),
+                price = 73200.0,
+                message = "AI 빨강 매수"
+            )
+        )
     }
 }

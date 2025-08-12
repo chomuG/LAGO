@@ -2,9 +2,14 @@ package com.lago.app.util
 
 object Constants {
     
-    // API Constants
-    const val BASE_URL = "http://i13d203.p.ssafy.io:8081/"
-    const val WS_BASE_URL = "wss://i13d203.p.ssafy.io:8081/ws/chart"
+    // API Constants - 로컬 서버용 설정
+    const val BASE_URL = "http://10.0.2.2:8080/"  // Android 에뮬레이터용 localhost
+    // const val BASE_URL = "http://211.107.153.145:8080/"  // 실제 디바이스용 (사용자 IP)
+    // const val BASE_URL = "http://i13d203.p.ssafy.io:8081/"  // 운영 서버
+    
+    const val WS_BASE_URL = "ws://10.0.2.2:8080/ws/chart"  // WebSocket도 로컬로 변경
+    // const val WS_BASE_URL = "ws://211.107.153.145:8080/ws/chart"  // 실제 디바이스용
+    // const val WS_BASE_URL = "wss://i13d203.p.ssafy.io:8081/ws/chart"  // 운영 서버
     const val API_VERSION = "v1"
     const val TIMEOUT_SECONDS = 30L
     

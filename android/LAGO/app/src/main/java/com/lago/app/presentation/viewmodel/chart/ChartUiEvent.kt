@@ -1,5 +1,7 @@
 package com.lago.app.presentation.viewmodel.chart
 
+import com.lago.app.domain.entity.SignalSource
+
 sealed class ChartUiEvent {
     data class ChangeStock(val stockCode: String) : ChartUiEvent()
     data class ChangeStockWithInfo(val stockCode: String, val stockInfo: com.lago.app.domain.entity.StockInfo) : ChartUiEvent()
@@ -16,5 +18,8 @@ sealed class ChartUiEvent {
     object ShowIndicatorSettings : ChartUiEvent()
     object HideIndicatorSettings : ChartUiEvent()
     object ToggleIndicatorSettings : ChartUiEvent()
+    object LoadTradingSignals : ChartUiEvent()
+    data class ToggleUserTradingSignals(val show: Boolean) : ChartUiEvent()
+    data class SelectAITradingSignals(val aiSource: SignalSource?) : ChartUiEvent()
     // UpdatePanelSizes 이벤트 제거 - 단순화된 구조에서는 불필요
 }
