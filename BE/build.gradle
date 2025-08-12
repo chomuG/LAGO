@@ -77,8 +77,6 @@ dependencies {
 	testImplementation 'org.testcontainers:junit-jupiter'
 	testImplementation 'org.testcontainers:postgresql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	testRuntimeOnly 'com.h2database:h2'
-	runtimeOnly 'com.h2database:h2'
 }
 
 // =================================================================
@@ -86,15 +84,10 @@ dependencies {
 // =================================================================
 tasks.named('test') {
 	useJUnitPlatform()
-
-	// 테스트 시 H2 데이터베이스 사용 (시스템 프로퍼티로 설정)
-	systemProperty 'spring.datasource.url', 'jdbc:h2:mem:testdb'
-	systemProperty 'spring.datasource.username', 'sa'
-	systemProperty 'spring.datasource.password', ''
-	systemProperty 'spring.datasource.driver-class-name', 'org.h2.Driver'
-	systemProperty 'spring.jpa.hibernate.ddl-auto', 'create-drop'
-	systemProperty 'spring.jpa.database-platform', 'org.hibernate.dialect.H2Dialect'
-	systemProperty 'spring.h2.console.enabled', 'true'
+	
+	// 뉴스 API는 외부 의존성(PostgreSQL, Redis, FinBERT, Claude API) 때문에
+	// 개발 환경에서 수동 테스트 진행
+	enabled = false
 }
 
 // =================================================================
