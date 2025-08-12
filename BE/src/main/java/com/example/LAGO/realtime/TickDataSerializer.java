@@ -7,6 +7,11 @@ import java.nio.ByteOrder;
 import java.time.*;
 import java.util.Objects;
 
+/**
+ * 이 주석처리된 부분은
+ * 시작에 잔여바이트 가드
+ * 부분 추가했다는 것 나중에 주석 해제하고 빌드->테스트 해보기
+ */
 public final class TickDataSerializer {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
@@ -34,6 +39,13 @@ public final class TickDataSerializer {
 
     // 16B → 복원(배치 해제 시 사용; 필요하면)
     public static Decoded16B read16B(ByteBuffer buf, LocalDate baseDateKst) {
+        /**
+         *         // ✅ 잔여 16바이트 보장
+         *         if (buf.remaining() < 16) {
+         *             throw new java.nio.BufferUnderflowException();
+         *         }
+         */
+
         buf.order(ByteOrder.LITTLE_ENDIAN);
         int stockId = buf.getInt();
         int msOfDay = buf.getInt();
