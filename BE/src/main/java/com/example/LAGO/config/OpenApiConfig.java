@@ -30,7 +30,11 @@ public class OpenApiConfig {
                 .info(createApiInfo())
                 .servers(createServers())               // 서버 주소 설정
                 .components(createComponents());
+<<<<<<< HEAD
                 //.addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
+=======
+        //.addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
+>>>>>>> backend-dev
     }
 
     private Info createApiInfo() {
