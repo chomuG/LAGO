@@ -54,7 +54,7 @@ public class NewsService {
             HttpHeaders headers = new HttpHeaders();
             headers.set("Content-Type", "application/json");
 
-            Map<String, Object> requestBody = Map.of("limit", 20);
+            Map<String, Object> requestBody = Map.of("limit", 10);  // 병렬 처리 효과를 위해 10개로 증가
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
             ResponseEntity<Map> response = restTemplate.exchange(

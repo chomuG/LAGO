@@ -36,10 +36,10 @@ public class AiConfiguration {
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
         RestTemplate restTemplate = builder
             .setConnectTimeout(Duration.ofSeconds(30))  // 연결 타임아웃
-            .setReadTimeout(Duration.ofMinutes(5))      // 읽기 타임아웃 5분 (FinBERT 처리 시간 고려)
+            .setReadTimeout(Duration.ofMinutes(25))     // 읽기 타임아웃 25분 (FinBERT 처리 시간 고려)
             .build();
         
-        log.info("FinBERT용 RestTemplate Bean 생성 완료 - 타임아웃: 연결 30초, 읽기 5분");
+        log.info("FinBERT용 RestTemplate Bean 생성 완료 - 타임아웃: 연결 30초, 읽기 25분");
         return restTemplate;
     }
 }

@@ -42,4 +42,4 @@ CONFIDENCE_THRESHOLDS = {
 # 본문 추출 임계치 & JS 렌더링 옵션
 MIN_ARTICLE_LEN = 200  # 본문 최소 길이(문자)
 RENDER_JS = True       # Selenium으로 JS 렌더링 사용 여부(서버 가능 시 True)
-JS_RENDER_TIMEOUT = 10 # JS 렌더링 대기 시간(초)
+JS_RENDER_TIMEOUT = 15 # JS 렌더링 대기 시간(초) - 약간 증가

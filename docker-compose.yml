@@ -60,6 +60,9 @@ services:
       - .env
     environment:
       - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://timescaledb:5432/${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=${SPRING_REDIS_PORT:-6379}
       - REDIS_STREAM_KEY=${REDIS_STREAM_KEY:-orders-stream}

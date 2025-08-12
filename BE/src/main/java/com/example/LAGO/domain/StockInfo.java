@@ -17,12 +17,13 @@ public class StockInfo {
 /**
  * 주식 정보 엔티티
  * 연동된 EC2 DB STOCK_INFO 테이블과 완전 일치
-
+ * 
  * 테이블 구조:
  * - stock_info_id: PK (auto_increment)
  * - code: 종목 코드 (varchar(20))
  * - name: 종목명 (varchar(100))
  * - market: 시장구분 (varchar(20))
+ */
 
     /**
      * 주식 정보 고유 ID (PK)

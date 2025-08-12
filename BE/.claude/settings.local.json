@@ -123,7 +123,17 @@
       "Bash(git rm:*)",
       "Bash(true)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(docker run:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker build:*)",
+      "Bash(curl:*)",
+      "Bash(docker:*)",
+      "Bash(winpty docker exec -it timescaledb psql -U lago_user -d stock_db -c \"SELECT COUNT(*) FROM \"\"NEWS\"\";\")",
+      "Bash(taskkill:*)",
+      "Bash(python:*)",
+      "Bash(timeout:*)"
     ],
     "deny": []
   }

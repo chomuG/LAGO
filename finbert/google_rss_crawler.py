@@ -51,7 +51,7 @@ class GoogleRSSCrawler:
         
         # 스레드별 WebDriver 인스턴스 관리
         self._local = threading.local()
-        self.webdriver_timeout = 5  # Google News 페이지 로드 타임아웃을 5초로 단축
+        self.webdriver_timeout = 3  # Google News 페이지 로드 타임아웃을 3초로 단축
 
     def get_webdriver(self):
         """스레드별 WebDriver 인스턴스 반환"""
@@ -100,13 +100,13 @@ class GoogleRSSCrawler:
         try:
             logger.debug(f"Selenium으로 JavaScript 리디렉션 처리: {google_url[:80]}...")
             
-            # Google News 페이지 로드 (타임아웃 단축)
+            # Google News 페이지 로드
             logger.debug(f"페이지 로드 시작: {google_url[:80]}...")
             driver.get(google_url)
             
-            # 짧은 대기 시간으로 빠른 처리
+            # 페이지가 완전히 로드될 때까지 대기
             import time
-            time.sleep(2)  # 2초만 기다림
+            time.sleep(3)  # 3초 대기
             
             # 1차: JavaScript 실행 후 현재 URL 확인
             final_url = driver.current_url
@@ -179,7 +179,7 @@ class GoogleRSSCrawler:
         return any(indicator in url for indicator in news_indicators) and url.startswith('http')
 
     def extract_real_url_from_google(self, google_url: str) -> str:
-        """Google News URL에서 실제 뉴스 URL 추출 - 가장 확실한 방법"""
+        """Google News URL에서 실제 뉴스 URL 추출 - Smart 방법"""
         try:
             # Google News URL이 아니면 그대로 반환
             if 'news.google.com' not in google_url:
@@ -195,8 +195,55 @@ class GoogleRSSCrawler:
                 if not 'google.com' in extracted_url:
                     logger.debug(f"파라미터에서 URL 추출 성공: {extracted_url[:80]}...")
                     return extracted_url
+            
+            # Google News articles URL 패턴 처리
+            if '/articles/' in google_url:
+                # CBMi로 시작하는 base64 인코딩된 URL 찾기
+                import re
+                match = re.search(r'/articles/(CBMi[^?&/]+)', google_url)
+                if match:
+                    try:
+                        import base64
+                        encoded_part = match.group(1)
+                        # CBMi 접두사 제거하고 디코딩
+                        if encoded_part.startswith('CBMi'):
+                            encoded_part = encoded_part[4:]
+                        # base64 패딩 추가
+                        padding = 4 - (len(encoded_part) % 4)
+                        if padding != 4:
+                            encoded_part += '=' * padding
+                        decoded = base64.b64decode(encoded_part).decode('utf-8')
+                        if decoded.startswith('http') and not 'google.com' in decoded:
+                            logger.info(f"✅ base64 URL 디코딩 성공: {decoded[:80]}...")
+                            return decoded
+                    except Exception as e:
+                        logger.debug(f"base64 디코딩 실패: {e}")
 
-            # 방법 2: Selenium을 사용한 JavaScript 기반 리디렉션 (가장 확실한 방법)
+            # 방법 2: GET 요청으로 실제 리디렉션 추적 (HEAD보다 효과적)
+            try:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'ko-KR,ko;q=0.8,en-US;q=0.5,en;q=0.3',
+                    'Accept-Encoding': 'gzip, deflate',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                }
+                
+                # GET 요청으로 모든 리디렉션 자동 추적
+                response = requests.get(google_url, allow_redirects=True, timeout=10, headers=headers)
+                final_url = response.url
+                
+                # Google 도메인이 아니면 실제 뉴스 사이트 URL
+                if not any(domain in final_url for domain in ['google.com', 'googleadservices.com', 'googlesyndication.com']):
+                    logger.info(f"✅ HTTP GET 리디렉션 성공: {final_url[:80]}...")
+                    return final_url
+                else:
+                    logger.debug(f"여전히 Google 도메인: {final_url[:80]}...")
+            except Exception as e:
+                logger.debug(f"GET 리디렉션 실패: {e}")
+
+            # 방법 3: Selenium을 사용한 JavaScript 기반 리디렉션 (최후의 수단)
             logger.debug(f"Selenium 리디렉션 시도 시작: {google_url[:80]}...")
             selenium_url = self.extract_real_url_with_selenium(google_url)
             if selenium_url:

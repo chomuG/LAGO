@@ -13,6 +13,11 @@ from news_crawler import extract_news_content_with_title
 from sentiment_analysis import load_model, analyze_sentiment, is_model_loaded
 from google_rss_crawler import GoogleRSSCrawler, NewsItem
 from content_block_parser import ContentBlockParser
+from parallel_processor import ParallelNewsProcessor  # 병렬 처리 추가
+try:
+    from cache_manager import cache_manager  # Redis 기반 캐시 매니저
+except ImportError:
+    from simple_cache import cache_manager  # Redis 없을 때 메모리 캐시
 
 # 로깅 설정
 logging.basicConfig(level=LOG_LEVEL, format=LOG_FORMAT)
@@ -22,7 +27,7 @@ app = Flask(__name__)
 
 
 class StrictSequentialNewsProcessor:
-    """엄격한 순차 처리 뉴스 수집 서비스"""
+    """엄격한 순차 처리 뉴스 수집 서비스 (병렬 처리 지원)"""
 
     def __init__(self):
         self._local = threading.local()
@@ -31,6 +36,8 @@ class StrictSequentialNewsProcessor:
         self.url_redirect_timeout = 10  # URL 리디렉션 타임아웃
         self.min_content_length = 200  # 최소 콘텐츠 길이
         self.collection_stats = {}  # 수집 통계
+        self.parallel_processor = ParallelNewsProcessor(max_workers=4)  # 병렬 처리 엔진
+        self.enable_parallel = True  # 병렬 처리 활성화 플래그
 
     def get_crawler(self):
         """스레드별 크롤러 인스턴스 반환"""
@@ -87,8 +94,14 @@ class StrictSequentialNewsProcessor:
         self.last_claude_request = time.time()
 
     def verify_and_redirect_url(self, url: str, index: int, total: int) -> Optional[str]:
-        """URL 유효성 검증 및 리디렉션 처리"""
+        """URL 유효성 검증 및 리디렉션 처리 (캐싱 적용)"""
         try:
+            # 캐시 확인
+            cached_url = cache_manager.get_url_redirect_cache(url)
+            if cached_url:
+                logger.info(f"🎯 [{index}/{total}] URL 캐시 히트")
+                return cached_url if cached_url != "FAILED" else None
+            
             logger.info(f"🔗 [{index}/{total}] URL 검증 및 리디렉션 중...")
             logger.debug(f"   원본 RSS URL: {url}")
 
@@ -97,6 +110,8 @@ class StrictSequentialNewsProcessor:
 
             if response.status_code >= 400:
                 logger.error(f"❌ [{index}/{total}] URL 접근 실패 (HTTP {response.status_code})")
+                # 실패도 캐싱 (짧은 시간)
+                cache_manager.set_url_redirect_cache(url, "FAILED", ttl=300)  # 5분
                 return None
 
             # URL이 변경되었는지 확인
@@ -106,14 +121,18 @@ class StrictSequentialNewsProcessor:
                 logger.info(f"   실제 URL: {final_url[:80]}...")
             else:
                 logger.info(f"✅ [{index}/{total}] URL 검증 완료 (리디렉션 없음)")
-                
+            
+            # 성공 캐싱
+            cache_manager.set_url_redirect_cache(url, final_url, ttl=3600)  # 1시간
             return final_url
 
         except requests.exceptions.Timeout:
             logger.error(f"⏰ [{index}/{total}] URL 리디렉션 타임아웃")
+            cache_manager.set_url_redirect_cache(url, "FAILED", ttl=300)
             return None
         except Exception as e:
             logger.error(f"❌ [{index}/{total}] URL 검증 실패: {e}")
+            cache_manager.set_url_redirect_cache(url, "FAILED", ttl=300)
             return None
 
     def extract_content_strict(self, url: str, content_parser: ContentBlockParser,
@@ -166,17 +185,36 @@ class StrictSequentialNewsProcessor:
             logger.error(f"❌ [{index}/{total}] 콘텐츠 추출 실패: {e}")
             return None
 
-    def analyze_sentiment_strict(self, text: str, index: int, total: int) -> Dict:
-        """엄격한 감성 분석"""
+    def analyze_sentiment_strict(self, url: str, index: int, total: int) -> Dict:
+        """엄격한 감성 분석 (캐싱 적용) - URL 기반"""
         try:
             logger.info(f"🧠 [{index}/{total}] FinBERT 감성 분석 시작...")
 
-            if not text or len(text.strip()) < 10:
-                logger.warning(f"⚠️ [{index}/{total}] 분석할 텍스트가 너무 짧음")
-                raise ValueError("텍스트가 너무 짧음")
+            if not url or not url.startswith(('http://', 'https://')):
+                logger.warning(f"⚠️ [{index}/{total}] 분석할 URL이 유효하지 않음")
+                raise ValueError("URL이 유효하지 않음")
 
-            analysis_result = analyze_sentiment(text)
+            # 캐시 확인 (URL 기준)
+            cached_result = cache_manager.get_sentiment_cache(url)
+            if cached_result:
+                logger.info(f"🎯 [{index}/{total}] FinBERT 캐시 히트: {cached_result.get('label')}")
+                return cached_result
+
+            # FinBERT Flask 서버에 URL 전송하여 분석
+            import requests
+            finbert_url = "http://finbert-service:8000/analyze"
+            
+            payload = {"url": url}
+            headers = {"Content-Type": "application/json"}
+            
+            response = requests.post(finbert_url, json=payload, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            analysis_result = response.json()
             logger.info(f"✅ [{index}/{total}] FinBERT 분석 완료: {analysis_result.get('label')}")
+            
+            # 캐시 저장 (URL 기준)
+            cache_manager.set_sentiment_cache(url, analysis_result, ttl=86400)  # 24시간
             return analysis_result
 
         except Exception as e:
@@ -191,54 +229,74 @@ class StrictSequentialNewsProcessor:
                 'error': str(e)
             }
 
-    def generate_claude_summary_strict(self, title: str, content: str,
-                                       index: int, total: int) -> List[str]:
-        """엄격한 Claude 요약 생성 (타임아웃 및 재시도 로직 포함)"""
+    def generate_gpt_summary_strict(self, title: str, content: str,
+                                   index: int, total: int) -> List[str]:
+        """엄격한 GPT 요약 생성 (캐싱 및 재시도 로직 포함)"""
         try:
-            self.wait_for_claude_rate_limit()
+            # 캐시 확인
+            cached_summary = cache_manager.get_summary_cache(title, content)
+            if cached_summary:
+                logger.info(f"🎯 [{index}/{total}] GPT 요약 캐시 히트")
+                return cached_summary
+            
+            self.wait_for_claude_rate_limit()  # Rate limiting 유지
 
-            logger.info(f"📝 [{index}/{total}] Claude 요약 요청 시작...")
+            logger.info(f"📝 [{index}/{total}] GPT 요약 요청 시작...")
 
-            spring_boot_url = "http://backend:9000/api/claude/summarize"
+            # OpenAI GPT API 호출
+            import openai
+            
+            # API 키는 환경변수에서 가져오기 (없으면 fallback)
+            import os
+            openai.api_key = os.getenv('OPENAI_API_KEY', 'your-api-key-here')
+            
+            if openai.api_key == 'your-api-key-here':
+                logger.warning(f"⚠️ [{index}/{total}] OpenAI API 키가 설정되지 않음, Fallback 사용")
+                return self._generate_fallback_summary(title, content)
 
-            payload = {
-                "newsTitle": title[:200],
-                "newsContent": content[:1500]
-            }
+            # GPT 프롬프트 준비
+            prompt = f"""다음 뉴스를 3줄로 요약해주세요:
 
-            headers = {"Content-Type": "application/json"}
+제목: {title[:200]}
+
+내용: {content[:1500]}
+
+요구사항:
+- 3줄 이내로 요약
+- 각 줄은 완전한 문장으로 작성
+- 핵심 내용과 중요한 정보 위주로 요약
+- 투자/경제 관련 키워드 포함"""
 
             # 재시도 로직 추가 (최대 2회 시도)
             max_retries = 2
             for attempt in range(max_retries):
                 try:
-                    response = requests.post(
-                        spring_boot_url,
-                        json=payload,
-                        headers=headers,
-                        timeout=30  # Claude API 타임아웃 30초로 증가
+                    response = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": "당신은 금융 뉴스 요약 전문가입니다. 간결하고 정확한 요약을 제공합니다."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        max_tokens=200,
+                        temperature=0.3,
+                        timeout=30
                     )
                     
-                    response.raise_for_status()
                     break  # 성공 시 루프 종료
                     
-                except requests.exceptions.Timeout:
+                except Exception as e:
                     if attempt < max_retries - 1:
-                        logger.warning(f"⏰ [{index}/{total}] Claude API 타임아웃, 재시도 {attempt+1}/{max_retries-1}")
+                        logger.warning(f"⏰ [{index}/{total}] GPT API 오류, 재시도 {attempt+1}/{max_retries-1}: {e}")
                         time.sleep(2)  # 재시도 전 2초 대기
                         continue
                     else:
-                        logger.error(f"❌ [{index}/{total}] Claude API 타임아웃 (모든 재시도 실패)")
+                        logger.error(f"❌ [{index}/{total}] GPT API 실패 (모든 재시도 실패): {e}")
                         return self._generate_fallback_summary(title, content)
-                        
-                except requests.exceptions.RequestException as e:
-                    logger.error(f"❌ [{index}/{total}] Claude API 요청 실패: {e}")
-                    return self._generate_fallback_summary(title, content)
 
-            summary_text = response.text.strip()
+            summary_text = response.choices[0].message.content.strip()
 
             if not summary_text:
-                logger.warning(f"⚠️ [{index}/{total}] Claude 응답이 비어있음")
+                logger.warning(f"⚠️ [{index}/{total}] GPT 응답이 비어있음")
                 return self._generate_fallback_summary(title, content)
 
             sentences = [
@@ -247,15 +305,18 @@ class StrictSequentialNewsProcessor:
             ]
 
             result = sentences[:3] if sentences else []
-            logger.info(f"✅ [{index}/{total}] Claude 요약 성공 ({len(result)}개 문장)")
+            logger.info(f"✅ [{index}/{total}] GPT 요약 성공 ({len(result)}개 문장)")
+            
+            # 캐시 저장
+            cache_manager.set_summary_cache(title, content, result, ttl=604800)  # 7일
             return result
 
         except Exception as e:
-            logger.error(f"❌ [{index}/{total}] Claude 요약 실패: {e}")
+            logger.error(f"❌ [{index}/{total}] GPT 요약 실패: {e}")
             return self._generate_fallback_summary(title, content)
     
     def _generate_fallback_summary(self, title: str, content: str) -> List[str]:
-        """Claude API 실패 시 기본 요약 생성"""
+        """GPT API 실패 시 기본 요약 생성"""
         try:
             # 제목과 컨텐츠 첫 부분을 활용한 간단한 요약
             summary = []
@@ -284,24 +345,23 @@ class StrictSequentialNewsProcessor:
             logger.info(f"🔄 [{index}/{total}] 뉴스 처리 시작: {news_item.title[:50]}...")
             start_time = time.time()
 
-            # STEP 1: URL 검증 및 리디렉션
+            # STEP 1: URL 검증 및 리디렉션 (실패하면 스킵)
             final_url = self.verify_and_redirect_url(news_item.url, index, total)
             if not final_url:
-                logger.error(f"❌ [{index}/{total}] URL 리디렉션 실패 - 처리 중단")
+                logger.error(f"❌ [{index}/{total}] URL 리디렉션 실패 - 실제 뉴스 URL을 찾을 수 없어 스킵")
                 return None
 
-            # STEP 2: 콘텐츠 추출
+            # STEP 2: 콘텐츠 추출 (실패하면 스킵)
             content_data = self.extract_content_strict(final_url, content_parser, index, total)
             if not content_data:
-                logger.error(f"❌ [{index}/{total}] 콘텐츠 추출 실패 - 처리 중단")
+                logger.error(f"❌ [{index}/{total}] 콘텐츠 추출 실패 - 실제 뉴스 내용을 가져올 수 없어 스킵")
                 return None
 
-            # STEP 3: FinBERT 감성 분석
-            analysis_text = content_data['content_text'] or content_data['summary_text']
-            sentiment_result = self.analyze_sentiment_strict(analysis_text, index, total)
+            # STEP 3: FinBERT 감성 분석 (실제 URL 전송)
+            sentiment_result = self.analyze_sentiment_strict(final_url, index, total)
 
-            # STEP 4: Claude 요약 생성
-            summary_lines = self.generate_claude_summary_strict(
+            # STEP 4: GPT 요약 생성
+            summary_lines = self.generate_gpt_summary_strict(
                 content_data['title'],
                 content_data['content_text'],
                 index,
@@ -356,6 +416,37 @@ class StrictSequentialNewsProcessor:
         except Exception as e:
             logger.error(f"❌ [{index}/{total}] 뉴스 처리 실패: {e}")
             return None
+    
+    def process_news_batch_parallel(self, news_items: List[NewsItem], 
+                                   collection_type: str = "REALTIME") -> List[Optional[Dict]]:
+        """뉴스 배치 병렬 처리"""
+        if not news_items:
+            return []
+        
+        logger.info(f"🚀 병렬 처리 모드로 {len(news_items)}개 뉴스 처리 시작")
+        
+        # content_parser를 가져와서 전달
+        content_parser = self.get_content_parser()
+        
+        # 콘텐츠 추출 함수를 래핑
+        def extract_content_wrapper(url, idx, total):
+            return self.extract_content_strict(url, content_parser, idx, total)
+        
+        # 병렬 처리 엔진 사용
+        results = self.parallel_processor.process_news_batch(
+            news_items,
+            url_processor=self.verify_and_redirect_url,
+            content_processor=extract_content_wrapper,
+            sentiment_processor=self.analyze_sentiment_strict,
+            summary_processor=self.generate_gpt_summary_strict
+        )
+        
+        # collection_type 설정
+        for result in results:
+            if result:
+                result['collection_type'] = collection_type
+        
+        return results
 
 
 # 서비스 인스턴스
@@ -429,33 +520,46 @@ def collect_realtime_news():
 
         logger.info(f"✅ {len(news_items)}개 뉴스 URL 수집 완료")
 
-        # 각 뉴스를 순차 처리
-        results = []
-        failed_count = 0
+        # 병렬 처리 모드 확인 (현재 비활성화)
+        if False and news_processor.enable_parallel and len(news_items) >= 3:
+            # 병렬 처리 (3개 이상일 때)
+            logger.info(f"🚀 병렬 처리 모드 활성화 ({len(news_items)}개)")
+            results = news_processor.process_news_batch_parallel(news_items, "REALTIME")
+            
+            # None 제거 및 통계 계산
+            valid_results = [r for r in results if r is not None]
+            failed_count = len(results) - len(valid_results)
+            results = valid_results
+            
+        else:
+            # 순차 처리 (소량일 때)
+            logger.info(f"📝 순차 처리 모드 ({len(news_items)}개)")
+            results = []
+            failed_count = 0
 
-        for idx, news_item in enumerate(news_items, 1):
-            try:
-                logger.info(f"\n{'=' * 60}")
-                logger.info(f"⏳ [{idx}/{len(news_items)}] 처리 중...")
+            for idx, news_item in enumerate(news_items, 1):
+                try:
+                    logger.info(f"\n{'=' * 60}")
+                    logger.info(f"⏳ [{idx}/{len(news_items)}] 처리 중...")
 
-                result = news_processor.process_single_news_strict(
-                    news_item, content_parser, idx, len(news_items), "REALTIME"
-                )
+                    result = news_processor.process_single_news_strict(
+                        news_item, content_parser, idx, len(news_items), "REALTIME"
+                    )
 
-                if result:
-                    results.append(result)
-                    logger.info(f"✅ [{idx}/{len(news_items)}] 성공")
-                else:
+                    if result:
+                        results.append(result)
+                        logger.info(f"✅ [{idx}/{len(news_items)}] 성공")
+                    else:
+                        failed_count += 1
+                        logger.warning(f"⚠️ [{idx}/{len(news_items)}] 실패")
+
+                    if idx < len(news_items):
+                        time.sleep(1)
+
+                except Exception as e:
                     failed_count += 1
-                    logger.warning(f"⚠️ [{idx}/{len(news_items)}] 실패")
-
-                if idx < len(news_items):
-                    time.sleep(1)
-
-            except Exception as e:
-                failed_count += 1
-                logger.error(f"❌ [{idx}/{len(news_items)}] 예외 발생: {e}")
-                continue
+                    logger.error(f"❌ [{idx}/{len(news_items)}] 예외 발생: {e}")
+                    continue
 
         success_rate = len(results) / len(news_items) * 100 if news_items else 0
         logger.info(f"🎉 완료 - 성공: {len(results)}, 실패: {failed_count}, 성공률: {success_rate:.1f}%")
@@ -708,8 +812,21 @@ def get_collection_stats():
     """수집 통계 조회"""
     return jsonify({
         'stats': news_processor.collection_stats,
+        'cache_stats': cache_manager.get_stats(),  # 캐시 통계 추가
         'timestamp': datetime.now().isoformat()
     })
+
+@app.route('/cache/stats', methods=['GET'])
+def get_cache_stats():
+    """캐시 통계 조회 API"""
+    return jsonify(cache_manager.get_stats())
+
+@app.route('/cache/clear', methods=['POST'])
+def clear_cache():
+    """캐시 삭제 API"""
+    pattern = request.args.get('pattern', None)
+    cache_manager.clear_cache(pattern)
+    return jsonify({'message': 'Cache cleared', 'pattern': pattern})
 
 
 # 기존 분석 API들 유지

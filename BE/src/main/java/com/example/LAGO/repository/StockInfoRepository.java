@@ -33,18 +33,9 @@ public interface StockInfoRepository extends JpaRepository<StockInfo, Integer> {
     Optional<StockInfo> findByCode(@Param("code") String code);
 
     /**
-     * 종목명으로 주식 정보 조회
-     *
-     * @param companyName 종목명
-     * @return 주식 정보
+     * 종목명으로 주식 정보 조회는 현재 지원하지 않음
+     * StockInfo의 name 필드 매핑 문제로 인해 제거됨
      */
-    @Query("SELECT s FROM StockInfo s WHERE s.name = :companyName")
-    Optional<StockInfo> findByCompanyName(@Param("companyName") String companyName);
-    
-    /**
-     * 종목명으로 주식 정보 조회 (호환성)
-     */
-    Optional<StockInfo> findByName(String name);
 
     /**
      * 시장별 주식 정보 조회
