@@ -12,7 +12,9 @@ import com.lago.app.presentation.theme.LagoTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InvestmentScreen() {
+fun InvestmentScreen(
+    onNavigateToChart: () -> Unit = {}
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -35,6 +37,13 @@ fun InvestmentScreen() {
                     text = "투자 포트폴리오와 수익률을 확인하세요",
                     style = MaterialTheme.typography.bodyLarge
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onNavigateToChart,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("전문가용 차트 보기")
+                }
             }
         }
         
