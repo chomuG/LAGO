@@ -157,17 +157,29 @@ fun NavGraph(
         
         composable(NavigationItem.MyPage.route) {
             MyPageScreen(
+                userPreferences = userPreferences,
                 onRankingClick = {
                     navController.navigate("ranking")
                 },
                 onStockClick = { stockCode ->
                     navController.navigate("chart/$stockCode")
+                },
+                onLoginClick = {
+                    navController.navigate("login")
+                },
+                onLogoutComplete = {
+                    navController.navigate(NavigationItem.Home.route) {
+                        popUpTo(NavigationItem.Home.route) {
+                            inclusive = false
+                        }
+                    }
                 }
             )
         }
 
         composable("ranking") {
             RankingScreen(
+                userPreferences = userPreferences,
                 onBackClick = {
                     navController.popBackStack()
                 },
@@ -176,6 +188,9 @@ fun NavGraph(
                 },
                 onAiPortfolioClick = {
                     navController.navigate("ai_portfolio")
+                },
+                onLoginClick = {
+                    navController.navigate("login")
                 }
             )
         }
