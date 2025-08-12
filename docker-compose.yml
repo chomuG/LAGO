@@ -14,7 +14,7 @@ services:
       - "5432:5432"
     volumes:
       - timescale_data:/home/postgres/pgdata/data  # ⬅️ 여기에 마운트해야 영속화됨
-      - ./initdb:/docker-entrypoint-initdb.d:ro   # (선택) 최초 1회만 사용하고 빼두기
+      # - ./initdb:/docker-entrypoint-initdb.d:ro   # (선택) 최초 1회만 사용하고 빼두기
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} || exit 1"]
@@ -39,10 +39,22 @@ services:
     env_file:
       - .env
     environment:
-      - SPRING_PROFILES_ACTIVE=dev
-      - SPRING_REDIS_HOST=redis
+      # Spring 프로파일 설정 (EC2 배포시 prod로 변경)
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      
+      # 데이터베이스 연결 (EC2 배포시 외부 DB로 오버라이드)
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:postgresql://timescaledb:5432/stock_db}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME:-${POSTGRES_USER}}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD}}
+      
+      # Redis 연결
+      - SPRING_REDIS_HOST=${SPRING_REDIS_HOST:-redis}
       - SPRING_REDIS_PORT=${SPRING_REDIS_PORT:-6379}
       - REDIS_STREAM_KEY=${REDIS_STREAM_KEY:-orders-stream}
+      
+      # AI 서비스 연결 (EC2 배포시 외부 서비스로 변경 가능)
+      - FINBERT_SERVER_HOST=${FINBERT_SERVER_HOST:-http://chart-analysis:5000}
+      - SERVICES_CHART_ANALYSIS_URL=${SERVICES_CHART_ANALYSIS_URL:-http://chart-analysis:5000/detect-patterns}
     depends_on:
       timescaledb:
         condition: service_healthy
