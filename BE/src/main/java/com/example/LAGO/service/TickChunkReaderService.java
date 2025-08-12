@@ -46,18 +46,19 @@ public class TickChunkReaderService {
 
         // 3) 압축 해제
         byte[] raw = com.github.luben.zstd.Zstd.decompress(blob, rawBytes);
-        /**
-         *   long written = com.github.luben.zstd.Zstd.decompress(raw, blob);
-         *         if (com.github.luben.zstd.Zstd.isError(written)) {
-         *             throw new IllegalStateException("zstd error: " +
-         *                 com.github.luben.zstd.Zstd.getErrorName(written) + " id=" + chunkId);
-         *         }
-         *         // 일부 환경에선 written이 0으로 나올 수 있어 길이만 검증
-         *         if (raw.length % 16 != 0) {
-         *             throw new IllegalStateException("raw len not multiple of 16: " +
-         *                 raw.length + " id=" + chunkId);
-         *         }
-         */
+        //////////
+         long written = com.github.luben.zstd.Zstd.decompress(raw, blob);
+         if (com.github.luben.zstd.Zstd.isError(written)) {
+             throw new IllegalStateException("zstd error: " +
+                     com.github.luben.zstd.Zstd.getErrorName(written) + " id=" + chunkId);
+         }
+         // 일부 환경에선 written이 0으로 나올 수 있어 길이만 검증
+        if (raw.length % 16 != 0) {
+            throw new IllegalStateException("raw len not multiple of 16: " +
+                    raw.length + " id=" + chunkId);
+        }
+
+        /////////////
 
         // 4) 16B 반복 파싱
         ByteBuffer bb = ByteBuffer.wrap(raw).order(ByteOrder.LITTLE_ENDIAN);
