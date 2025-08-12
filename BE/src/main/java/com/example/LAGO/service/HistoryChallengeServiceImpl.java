@@ -78,9 +78,9 @@ public class HistoryChallengeServiceImpl implements HistoryChallengeService {
         // 3. DB 조회 (현재 시간까지)
         List<Object[]> aggregatedData = historyChallengeDataRepository.findAggregatedByChallengeIdAndDate(
                 challengeId,
+                intervalString,
                 fromDateTime,
-                toDateTime,
-                intervalString
+                toDateTime
         );
 
         if (aggregatedData == null || aggregatedData.isEmpty()) {

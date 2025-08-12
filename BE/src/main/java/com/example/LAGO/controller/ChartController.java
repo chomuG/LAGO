@@ -42,21 +42,14 @@ public class ChartController {
     ) {
 
         List<ChartAnalysisResponse> detectedPatterns = chartAnalysisService.analyzePatterns(
-                requestDto.getStockId(),
+                requestDto.getStockCode(),
+                requestDto.getChartMode(),
                 requestDto.getInterval(),
-                requestDto.getStartDate(),
-                requestDto.getEndDate()
+                requestDto.getFromDateTime(),
+                requestDto.getToDateTime()
         );
 
         log.info("차트 분석 응답 완료: {}개 패턴 감지", detectedPatterns.size());
         return ResponseEntity.ok(detectedPatterns);
-    }
-
-    // 임시 테스트 엔드포인트
-    @GetMapping("/test-python")
-    @Operation(summary = "Python 서버 연결 테스트")
-    public ResponseEntity<String> testPythonConnection() {
-        String response = chartAnalysisService.testPythonConnection();
-        return ResponseEntity.ok(response);
     }
 }

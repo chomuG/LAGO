@@ -25,9 +25,9 @@ public interface HistoryChallengeDataRepository extends JpaRepository<HistoryCha
     /**
      * 특정 챌린지의 지정된 과거 내의 모든 주가 데이터를 조회합니다.
      * @param challengeId 챌린지 ID
+     * @param interval 조회 간격
      * @param fromDateTime 조회 시작구간
      * @param toDateTime 조회 종료구간
-     * @param interval 조회 간격
      * @return 해당 시간 범위의 주가 데이터 목록 (시간순)
      */
     @Query(value = "SELECT \n" +
@@ -50,8 +50,36 @@ public interface HistoryChallengeDataRepository extends JpaRepository<HistoryCha
             ") sub", nativeQuery = true)
     List<Object[]> findAggregatedByChallengeIdAndDate(
             @Param("challengeId") Integer challengeId,
+            @Param("interval") String interval,
             @Param("fromDateTime") LocalDateTime fromDateTime,
-            @Param("toDateTime") LocalDateTime toDateTime,
-            @Param("interval") String interval
+            @Param("toDateTime") LocalDateTime toDateTime
+    );
+
+    /**
+     * 특정 종목 코드에 해당하는 역사챌린지 데이터를 집계하여 조회합니다.
+     * @param stockCode 종목 코드
+     * @param interval 집계 간격
+     * @param fromDateTime 조회 시작구간
+     * @param toDateTime 조회 종료구간
+     * @return 집계된 주가 데이터 목록
+     */
+    @Query(value = "SELECT \n" +
+            "    time_bucket(CAST(:interval AS INTERVAL), hcd.event_date_time) AS bucket, " +
+            "    FIRST(hcd.open_price, hcd.event_date_time) AS open, " +
+            "    MAX(hcd.high_price) AS high, " +
+            "    MIN(hcd.low_price) AS low, " +
+            "    LAST(hcd.close_price, hcd.event_date_time) AS close, " +
+            "    SUM(hcd.volume) AS volume " +
+            "FROM \"HISTORY_CHALLENGE_DATA\" hcd " +
+                "JOIN \"HISTORY_CHALLENGE\" hc ON hcd.challenge_id = hc.challenge_id " +
+            "WHERE hc.stock_code = :stockCode " +
+                "AND hcd.event_date_time BETWEEN :fromDateTime AND :toDateTime " +
+            "GROUP BY bucket " +
+            "ORDER BY bucket", nativeQuery = true)
+    List<Object[]> findAggregatedByStockCodeAndDateRangeAndInterval(
+            @Param("stockCode") String stockCode,
+            @Param("interval") String interval,
+            @Param("fromDateTime") LocalDateTime fromDateTime,
+            @Param("toDateTime") LocalDateTime toDateTime
     );
 }

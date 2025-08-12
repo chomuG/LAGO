@@ -11,7 +11,7 @@ import java.util.List;
 public interface StockInfoRepository extends JpaRepository<StockInfo, Integer> {
 
     /**
-     * 종목 코드로 주식 정보 조회
+     * 종목 ID로 주식 정보 조회
      *
      * @param stockInfoId ID
      * @return 주식 정보
