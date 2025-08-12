@@ -38,7 +38,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 
 	// Swagger/OpenAPI 3
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.0'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9'
 
 	// Kotlin reflection for SpringDoc
 	implementation 'org.jetbrains.kotlin:kotlin-reflect:1.9.10'
