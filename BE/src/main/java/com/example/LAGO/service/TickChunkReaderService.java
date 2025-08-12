@@ -14,13 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * 이 주석된 부분은
- * zstd 해제 시 메타의 rawBytes 크기만큼 정확히 복원
- * 복원 후 길이 검증(16B 배수)
- * 파싱 루프를 remaining() >= 16 기준으로 돌리기 + count와 실제 길이 중 최소값 사용
- * 위 조건을 충족하기 위해 추가한 코드 나중에 주석 풀고 다시 빌드->테스트 해보기
- */
 
 @Service
 @RequiredArgsConstructor
@@ -46,33 +39,35 @@ public class TickChunkReaderService {
 
         // 3) 압축 해제
         byte[] raw = com.github.luben.zstd.Zstd.decompress(blob, rawBytes);
-        //////////
-         long written = com.github.luben.zstd.Zstd.decompress(raw, blob);
-         if (com.github.luben.zstd.Zstd.isError(written)) {
-             throw new IllegalStateException("zstd error: " +
-                     com.github.luben.zstd.Zstd.getErrorName(written) + " id=" + chunkId);
-         }
-         // 일부 환경에선 written이 0으로 나올 수 있어 길이만 검증
+
+        // 길이 검증
+        if (raw.length != rawBytes) {
+            throw new IllegalStateException("unexpected raw length: " + raw.length +
+                    "(meta rawBytes=" + rawBytes + ") id=" + chunkId);
+        }
+        // 일부 환경에선 written이 0으로 나올 수 있어 길이만 검증
         if (raw.length % 16 != 0) {
             throw new IllegalStateException("raw len not multiple of 16: " +
                     raw.length + " id=" + chunkId);
         }
 
-        /////////////
 
         // 4) 16B 반복 파싱
         ByteBuffer bb = ByteBuffer.wrap(raw).order(ByteOrder.LITTLE_ENDIAN);
 
         /**
-         *         // ✅ meta count vs 실제 길이 교차검증
-         *         int byLenCount = raw.length / 16;
-         *         int n = Math.min(count, byLenCount);
+         * zstd 해제 시 메타의 rawBytes 크기만큼 정확히 복원
+         * 복원 후 길이 검증(16B 배수)
+         * 파싱 루프를 remaining() >= 16 기준으로 돌리기 + count와 실제 길이 중 최소값 사용
          */
+        // ✅ meta count vs 실제 길이 교차검증
+        int byLenCount = raw.length / 16;
+        int n = Math.min(count, byLenCount);
+
         List<TickDataSerializer.Decoded16B> out = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
-            /**
-             * if (bb.remaining() < 16) break; // 안전가드
-             */
+            if (bb.remaining() < 16) break; // 안전가드
+
             out.add(TickDataSerializer.read16B(bb, baseDate));
         }
         return out;
