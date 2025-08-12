@@ -56,7 +56,7 @@ public class HistoryChallengeServiceImpl implements HistoryChallengeService {
     }
 
     @Override
-    public List<HistoryChallengeDataResponse> getHistoryChallengeData(Integer challengeId, Interval interval) {
+    public List<HistoryChallengeDataResponse> getHistoryChallengeData(Integer challengeId, Interval interval, LocalDateTime fromDateTime, LocalDateTime toDateTime) {
 
         // 0. 챌린지 정보 조회
         historyChallengeRepository.findById(challengeId)
@@ -65,13 +65,17 @@ public class HistoryChallengeServiceImpl implements HistoryChallengeService {
         // 1. 현재 일시
         LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
 
+        if (now.isBefore(toDateTime)) toDateTime = now;
+        if (now.isBefore(fromDateTime)) fromDateTime = now;
+
         // 2. interval 문자열 매핑
         String intervalString = Interval.intervalToString(interval);
 
         // 3. DB 조회 (현재 시간까지)
         List<Object[]> aggregatedData = historyChallengeDataRepository.findAggregatedByChallengeIdAndDate(
                 challengeId,
-                now,
+                fromDateTime,
+                toDateTime,
                 intervalString
         );
 

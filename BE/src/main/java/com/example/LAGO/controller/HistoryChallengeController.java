@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -54,9 +55,13 @@ public class HistoryChallengeController {
             @Parameter(description = "챌린지 ID", required = true, example = "1")
             @Validated @PathVariable Integer challengeId,
             @Parameter(description = "간격", required = true, example = "1D")
-            @Validated @RequestParam Interval interval
-    ) {
-        List<HistoryChallengeDataResponse> response = historyChallengeService.getHistoryChallengeData(challengeId, interval);
+            @Validated @RequestParam Interval interval,
+            @Parameter(description = "시작일시", required = true, example = "2025-08-19T15:00:00")
+            @Validated @RequestParam LocalDateTime fromDateTime,
+            @Parameter(description = "끝일시", required = true, example = "2025-08-19T15:00:00")
+            @Validated @RequestParam LocalDateTime toDateTime
+            ) {
+        List<HistoryChallengeDataResponse> response = historyChallengeService.getHistoryChallengeData(challengeId, interval, fromDateTime, toDateTime);
         return ResponseEntity.ok(response);
     }
 

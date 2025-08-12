@@ -4,6 +4,7 @@ import com.example.LAGO.constants.Interval;
 import com.example.LAGO.dto.response.HistoryChallengeDataResponse;
 import com.example.LAGO.dto.response.HistoryChallengeResponse;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface HistoryChallengeService {
@@ -23,5 +24,5 @@ public interface HistoryChallengeService {
      * @param interval 간격
      * @return 역사챌린지 주가 정보 목록
      */
-    List<HistoryChallengeDataResponse> getHistoryChallengeData(Integer challengeId, Interval interval);
+    List<HistoryChallengeDataResponse> getHistoryChallengeData(Integer challengeId, Interval interval, LocalDateTime fromDateTime, LocalDateTime toDateTime);
 }

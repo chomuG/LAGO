@@ -42,13 +42,15 @@ public interface HistoryChallengeDataRepository extends JpaRepository<HistoryCha
                     "LAST(hcd.close_price, hcd.event_date_time) AS close, " +
                     "SUM(hcd.volume) AS volume " +
                 "FROM \"HISTORY_CHALLENGE_DATA\" hcd " +
-                "WHERE hcd.challenge_id = :challengeId AND hcd.event_date_time <= :currentTime " +
+                "WHERE hcd.challenge_id = :challengeId " +
+                    "AND hcd.event_date_time BETWEEN :fromDateTime AND :toDateTime " +
                 "GROUP BY bucket " +
                 "ORDER BY bucket " +
             ") sub", nativeQuery = true)
     List<Object[]> findAggregatedByChallengeIdAndDate(
             @Param("challengeId") Integer challengeId,
-            @Param("currentTime") LocalDateTime currentTime,
+            @Param("fromDateTime") LocalDateTime fromDateTime,
+            @Param("toDateTime") LocalDateTime toDateTime,
             @Param("interval") String interval
     );
 }
