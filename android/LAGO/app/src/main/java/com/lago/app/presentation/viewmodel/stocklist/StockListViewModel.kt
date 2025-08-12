@@ -1,5 +1,7 @@
 package com.lago.app.presentation.viewmodel.stocklist
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lago.app.domain.entity.StockItem
@@ -11,10 +13,13 @@ import com.lago.app.data.scheduler.SmartUpdateScheduler
 import com.lago.app.domain.entity.ScreenType
 import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 import javax.inject.Inject
 
 enum class SortType {
@@ -42,43 +47,63 @@ data class StockListUiState(
     val showFavoritesOnly: Boolean = false  // 관심목록 필터
 )
 
+@RequiresApi(Build.VERSION_CODES.O)
 @HiltViewModel
 class StockListViewModel @Inject constructor(
     private val stockListRepository: StockListRepository,
     private val historyChallengeRepository: HistoryChallengeRepository,
     private val smartWebSocketService: SmartStockWebSocketService,
-    private val smartUpdateScheduler: SmartUpdateScheduler
+    private val smartUpdateScheduler: SmartUpdateScheduler,
+    private val realTimeCache: com.lago.app.data.cache.RealTimeStockCache
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StockListUiState())
     val uiState: StateFlow<StockListUiState> = _uiState
 
     init {
+        // 1. WebSocket 연결
+        smartWebSocketService.connect()
+        
+        // 2. 캐시 StateFlow 구독 (자동 UI 업데이트)
+        observeRealTimeData()
+        
+        // 3. 초기 데이터 로드
         loadStocks()
         loadHistoryChallengeStocks()
-        setupRealTimeUpdates()
+        
+        // 4. 테스트용 - 장시간 외 테스트 데이터 (필요시 주석 해제)
+        testRealTimeData() // 테스트 활성화!
     }
     
-    private fun setupRealTimeUpdates() {
+    private fun observeRealTimeData() {
+        // 캐시의 StateFlow를 직접 구독 (자동 UI 업데이트)
         viewModelScope.launch {
-            // 종목리스트용 실시간 업데이트 구독
-            smartUpdateScheduler.stockListUpdates.collect { updates ->
-                updateStocksWithRealTimeData(updates)
-            }
+            realTimeCache.quotes
+                .sample(250.milliseconds) // 250ms마다 샘플링 (렌더링 빈도 제한)
+                .collect { quotesMap ->
+                    if (quotesMap.isNotEmpty()) {
+                        android.util.Log.w("StockListViewModel", "🔥 캐시에서 ${quotesMap.size}개 종목 업데이트")
+                        updateStocksWithCachedData(quotesMap)
+                    }
+                }
         }
     }
     
-    private fun updateStocksWithRealTimeData(updates: Map<String, com.lago.app.domain.entity.StockRealTimeData>) {
+    private fun updateStocksWithCachedData(quotesMap: Map<String, com.lago.app.domain.entity.StockRealTimeData>) {
         _uiState.update { currentState ->
             val updatedStocks = currentState.stocks.map { stock ->
-                val realTimeData = updates[stock.code]
-                if (realTimeData != null) {
+                val realTimeData = quotesMap[stock.code]
+                if (realTimeData != null && 
+                    (stock.currentPrice != realTimeData.price.toInt() ||
+                     stock.volume != (realTimeData.volume ?: 0L))) {
+                    
+                    android.util.Log.d("StockListViewModel", "💰 ${stock.code}: ${stock.currentPrice}→${realTimeData.price.toInt()}원")
+                    
                     stock.copy(
-                        currentPrice = realTimeData.currentPrice.toInt(),
+                        currentPrice = realTimeData.price.toInt(),
                         priceChange = realTimeData.priceChange.toInt(),
                         priceChangePercent = realTimeData.priceChangePercent,
-                        volume = realTimeData.volume,
-                        updatedAt = java.time.Instant.ofEpochMilli(realTimeData.timestamp).toString()
+                        volume = realTimeData.volume ?: 0L
                     )
                 } else {
                     stock
@@ -165,10 +190,19 @@ class StockListViewModel @Inject constructor(
                             currentState.stocks + stockListPage.content
                         }
                         
+                        android.util.Log.w("StockListViewModel", "🔥 API에서 종목 로딩 성공: ${newStocks.size}개")
+                        newStocks.forEach { stock ->
+                            android.util.Log.d("StockListViewModel", "📈 로딩된 종목: ${stock.code} (${stock.name}) = ${stock.currentPrice}원")
+                        }
+                        
+                        // 🎯 핵심: 캐시된 실시간 데이터와 병합
+                        val stocksWithRealTimeData = mergeWithCachedData(newStocks)
+                        android.util.Log.w("StockListViewModel", "🔥 캐시 병합 완료: ${stocksWithRealTimeData.count { it.currentPrice > 0 }}개 실시간 가격 적용")
+                        
                         _uiState.update {
                             it.copy(
-                                stocks = newStocks,
-                                filteredStocks = newStocks,
+                                stocks = stocksWithRealTimeData,
+                                filteredStocks = stocksWithRealTimeData,
                                 isLoading = false,
                                 errorMessage = null,
                                 currentPage = stockListPage.page,
@@ -392,6 +426,28 @@ class StockListViewModel @Inject constructor(
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
     }
+    
+    /**
+     * 캐시된 실시간 데이터와 API 종목 데이터를 병합
+     * API에서 0원으로 온 데이터에 실시간 캐시 데이터 적용
+     */
+    private fun mergeWithCachedData(stocks: List<StockItem>): List<StockItem> {
+        return stocks.map { stock ->
+            val cachedData = realTimeCache.getStockData(stock.code)
+            if (cachedData != null && stock.currentPrice == 0) {
+                android.util.Log.d("StockListViewModel", "💾 캐시 적용: ${stock.code} = ${cachedData.price}원 (기존 0원)")
+                stock.copy(
+                    currentPrice = cachedData.price.toInt(),
+                    priceChange = cachedData.priceChange.toInt(),
+                    priceChangePercent = cachedData.priceChangePercent,
+                    volume = cachedData.volume ?: 0L,
+                    updatedAt = java.time.Instant.ofEpochMilli(cachedData.timestamp).toString()
+                )
+            } else {
+                stock
+            }
+        }
+    }
 
     fun getTrendingStocks() {
         viewModelScope.launch {
@@ -469,6 +525,80 @@ class StockListViewModel @Inject constructor(
         
         _uiState.update {
             it.copy(historyChallengeStocks = mockStocks)
+        }
+    }
+    
+    // 주기적 캐시 체크는 더 이상 필요 없음 (StateFlow가 자동 처리)
+    
+    /**
+     * 테스트용 - 장시간 외에 실시간 데이터 테스트
+     * 실제 운영시에는 주석 처리
+     */
+    private fun testRealTimeData() {
+        viewModelScope.launch {
+            delay(2000) // 2초 후 테스트 데이터 주입
+            
+            // 여러 종목 테스트 데이터
+            val testStocks = listOf(
+                Triple("005930", "삼성전자", 75000L),
+                Triple("000660", "SK하이닉스", 135000L),
+                Triple("035420", "NAVER", 220000L),
+                Triple("035720", "카카오", 45000L),
+                Triple("207940", "삼성바이오로직스", 1020000L),
+                Triple("373220", "LG에너지솔루션", 450000L),
+                Triple("051910", "LG화학", 480000L),
+                Triple("006400", "삼성SDI", 430000L)
+            )
+            
+            // 초기 데이터 주입
+            testStocks.forEach { (code, name, basePrice) ->
+                val testData = com.lago.app.domain.entity.StockRealTimeData(
+                    stockCode = code,
+                    closePrice = basePrice + (Math.random() * 1000).toLong(),
+                    openPrice = basePrice,
+                    highPrice = basePrice + 2000L,
+                    lowPrice = basePrice - 2000L,
+                    volume = (Math.random() * 10000000).toLong(),
+                    changePrice = (Math.random() * 2000 - 1000).toLong(),
+                    changeRate = Math.random() * 4 - 2, // -2% ~ +2%
+                    timestamp = System.currentTimeMillis()
+                )
+                realTimeCache.updateStock(testData.stockCode, testData)
+                android.util.Log.w("StockListViewModel", "🧪 테스트 데이터 주입: $name($code) = ${testData.price}원")
+            }
+            
+            // 1초마다 랜덤하게 종목 가격 변동
+            while (true) {
+                delay(1000)
+                
+                // 랜덤하게 2-3개 종목 선택하여 업데이트
+                val updateCount = (2..3).random()
+                testStocks.shuffled().take(updateCount).forEach { (code, name, basePrice) ->
+                    val currentData = realTimeCache.getStockData(code)
+                    val newPrice = if (currentData != null) {
+                        // 현재 가격에서 -1% ~ +1% 변동
+                        val change = (currentData.closePrice ?: basePrice) * (Math.random() * 0.02 - 0.01)
+                        (currentData.closePrice ?: basePrice) + change.toLong()
+                    } else {
+                        basePrice + (Math.random() * 2000 - 1000).toLong()
+                    }
+                    
+                    val updatedData = com.lago.app.domain.entity.StockRealTimeData(
+                        stockCode = code,
+                        closePrice = newPrice,
+                        openPrice = basePrice,
+                        highPrice = maxOf(newPrice, basePrice + 2000L),
+                        lowPrice = minOf(newPrice, basePrice - 2000L),
+                        volume = (Math.random() * 10000000).toLong(),
+                        changePrice = newPrice - basePrice,
+                        changeRate = ((newPrice - basePrice).toDouble() / basePrice) * 100,
+                        timestamp = System.currentTimeMillis()
+                    )
+                    
+                    realTimeCache.updateStock(code, updatedData)
+                    android.util.Log.d("StockListViewModel", "💹 $name: ${updatedData.price.toInt()}원 (${String.format("%+.2f%%", updatedData.changeRate)})")
+                }
+            }
         }
     }
 }

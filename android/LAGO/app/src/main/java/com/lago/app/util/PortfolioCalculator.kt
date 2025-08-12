@@ -43,7 +43,7 @@ object PortfolioCalculator {
         val stockReturns = holdings.mapNotNull { holding ->
             val realTimeData = realTimePrices[holding.stockCode]
             if (realTimeData != null) {
-                calculateStockReturn(holding, realTimeData.currentPrice)
+                calculateStockReturn(holding, realTimeData.price)
             } else null
         }
         
@@ -71,7 +71,7 @@ object PortfolioCalculator {
         return holdings.associate { holding ->
             val realTimeData = realTimePrices[holding.stockCode]
             val portfolioReturn = if (realTimeData != null) {
-                calculateStockReturn(holding, realTimeData.currentPrice)
+                calculateStockReturn(holding, realTimeData.price)
             } else {
                 // 실시간 데이터가 없으면 기존 가격으로 계산
                 val quantity = parseQuantity(holding.quantity)

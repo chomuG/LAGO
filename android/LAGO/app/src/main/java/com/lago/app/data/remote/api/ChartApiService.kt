@@ -109,9 +109,9 @@ interface ChartApiService {
     ): FavoritesResponse
 
     /**
-     * 주식 목록 조회 (카테고리별)
+     * 주식 목록 조회 (전체) - 임시로 원래대로 복원
      */
-    @GET("api/stocks")
+    @GET("api/stocks/info")
     suspend fun getStockList(
         @Query("category") category: String? = null, // "kospi", "kosdaq", "favorites", "trending"
         @Query("page") page: Int = 0,
@@ -121,7 +121,15 @@ interface ChartApiService {
     ): List<SimpleStockDto>
 
     /**
-     * 인기 주식 목록 조회
+     * 종목 코드로 주식 종목 조회
+     */
+    @GET("api/stocks/info/{code}")
+    suspend fun getStockInfo(
+        @Path("code") stockCode: String
+    ): SimpleStockDto
+
+    /**
+     * 인기 주식 목록 조회 - 원래대로 복원
      */
     @GET("api/stocks/trending")
     suspend fun getTrendingStocks(
@@ -129,7 +137,7 @@ interface ChartApiService {
     ): List<SimpleStockDto>
 
     /**
-     * 주식 검색
+     * 주식 검색 - 원래대로 복원  
      */
     @GET("api/stocks/search")
     suspend fun searchStocks(

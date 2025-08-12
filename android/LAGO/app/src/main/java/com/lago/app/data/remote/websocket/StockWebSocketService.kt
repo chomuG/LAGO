@@ -20,10 +20,11 @@ class StockWebSocketService @Inject constructor(
     
     companion object {
         private const val TAG = "StockWebSocketService"
-        private const val WS_URL = "ws://i13d203.p.ssafy.io:8081/ws/chart"
+        private const val WS_URL = "ws://192.168.100.162:8081/ws-stock/websocket"
         
         // STOMP 구독 경로
         private const val TOPIC_STOCK = "/topic/stocks/%s"          // /topic/stocks/{stockCode}
+        private const val TOPIC_ALL = "/topic/stocks/all"           // /topic/stocks/all (전체 방송)
         private const val TOPIC_CHART = "/topic/chart/%s/%s"        // /topic/chart/{stockCode}/{timeFrame}
         
         // 재연결 설정
@@ -68,19 +69,25 @@ class StockWebSocketService @Inject constructor(
         }
         
         Log.d(TAG, "Connecting to WebSocket: $WS_URL")
+        Log.d(TAG, "Available STOMP topics: ${TOPIC_STOCK}, ${TOPIC_ALL}, ${TOPIC_CHART}")
         _connectionState.value = WebSocketConnectionState.CONNECTING
         
         try {
-            // STOMP 클라이언트 생성
+            // SockJS를 사용한 STOMP 클라이언트 생성
             stompClient = Stomp.over(Stomp.ConnectionProvider.OKHTTP, WS_URL).apply {
                 // 연결 이벤트 처리
                 val lifecycleDisposable = lifecycle()
                     .subscribe { lifecycleEvent ->
                         when (lifecycleEvent.type) {
                             ua.naiksoftware.stomp.dto.LifecycleEvent.Type.OPENED -> {
-                                Log.d(TAG, "WebSocket connection opened")
+                                Log.d(TAG, "SockJS WebSocket connection opened successfully")
+                                Log.d(TAG, "Server endpoint: $WS_URL")
                                 _connectionState.value = WebSocketConnectionState.CONNECTED
                                 reconnectAttempts = 0
+                                
+                                // 연결 테스트를 위한 전체 구독 시도
+                                Log.d(TAG, "Testing connection with /topic/stocks/all subscription")
+                                subscribeToAllStocks()
                                 
                                 // 기존 구독 복원
                                 restoreSubscriptions()
@@ -212,6 +219,41 @@ class StockWebSocketService @Inject constructor(
     }
     
     /**
+     * 전체 종목 방송 구독
+     */
+    fun subscribeToAllStocks() {
+        val client = stompClient ?: return
+        val topic = TOPIC_ALL
+        
+        if (currentSubscriptions.contains(topic)) {
+            Log.d(TAG, "Already subscribed to $topic")
+            return
+        }
+        
+        try {
+            val subscription = client.topic(topic)
+                .subscribe({ stompMessage ->
+                    handleTickMessage(stompMessage)
+                }, { error ->
+                    Log.e(TAG, "Error subscribing to all stocks: $topic", error)
+                    scope.launch {
+                        _errors.emit(error)
+                    }
+                })
+            
+            compositeDisposable.add(subscription)
+            currentSubscriptions.add(topic)
+            Log.d(TAG, "Subscribed to all stocks: $topic")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error subscribing to all stocks", e)
+            scope.launch {
+                _errors.emit(e)
+            }
+        }
+    }
+    
+    /**
      * 구독 해제
      */
     fun unsubscribe(topic: String) {
@@ -315,8 +357,12 @@ class StockWebSocketService @Inject constructor(
                         subscribeToCandlestickData(stockCode, timeFrame)
                     }
                 }
+                topic == TOPIC_ALL -> {
+                    // 전체 방송 구독 복원
+                    subscribeToAllStocks()
+                }
                 topic.contains("/topic/stocks/") -> {
-                    // 틱 데이터 구독 복원
+                    // 개별 종목 틱 데이터 구독 복원
                     val parts = topic.split("/")
                     if (parts.size >= 4) {
                         val stockCode = parts[3]
