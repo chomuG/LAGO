@@ -170,13 +170,7 @@ public class AuthController {
                         ));
             }
 
-            Map<String, String> tokens = socialLoginService.refreshToken(refreshToken);
-            
-            Map<String, Object> response = Map.of(
-                    "success", true,
-                    "message", "토큰 갱신 성공",
-                    "data", tokens
-            );
+            Map<String, Object> response = socialLoginService.refreshToken(refreshToken);
             
             return ResponseEntity.ok(response);
             

@@ -163,17 +163,20 @@ public class SocialLoginService {
         return userResponse;
     }
 
-    public Map<String, String> refreshToken(String refreshToken) {
-        Optional<String> newAccessToken = tokenManagementService.refreshAccessToken(refreshToken);
+    public Map<String, Object> refreshToken(String refreshToken) {
+        // Rolling Refresh: 새로운 액세스 토큰과 리프레시 토큰을 모두 발급
+        Optional<Map<String, String>> newTokenPair = tokenManagementService.refreshTokenPair(refreshToken);
         
-        if (newAccessToken.isEmpty()) {
-            throw new RuntimeException("유효하지 않은 리프레시 토큰입니다.");
+        if (newTokenPair.isEmpty()) {
+            throw new RuntimeException("유효하지 않은 리프레시 토큰입니다. 다시 로그인해주세요.");
         }
 
-        return Map.of(
-                "accessToken", newAccessToken.get(),
-                "tokenType", "Bearer"
-        );
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "토큰 갱신 성공");
+        response.put("data", newTokenPair.get());
+        
+        return response;
     }
 
     public void logout(Integer userId, String refreshToken) {

@@ -96,6 +96,50 @@ public class TokenManagementService {
         }
     }
 
+    public Optional<Map<String, String>> refreshTokenPair(String refreshToken) {
+        try {
+            if (!jwtTokenService.isTokenValid(refreshToken)) {
+                log.warn("Invalid refresh token provided for token pair refresh");
+                return Optional.empty();
+            }
+
+            Optional<UserToken> userTokenOpt = userTokenRepository.findByRefreshToken(refreshToken);
+            if (userTokenOpt.isEmpty() || userTokenOpt.get().isExpired()) {
+                log.warn("Refresh token not found in database or expired for token pair refresh");
+                return Optional.empty();
+            }
+
+            Integer userId = jwtTokenService.getUserIdFromToken(refreshToken);
+            UserToken userToken = userTokenOpt.get();
+            User user = userToken.getUser();
+
+            // 새로운 토큰 페어 생성
+            String newAccessToken = jwtTokenService.generateAccessToken(
+                    userId, 
+                    user.getEmail(), 
+                    user.getLoginType()
+            );
+            String newRefreshToken = jwtTokenService.generateRefreshToken(userId);
+
+            // 기존 리프레시 토큰 무효화하고 새로운 리프레시 토큰 저장
+            userTokenRepository.delete(userToken);
+            saveRefreshToken(userId, newRefreshToken);
+
+            Map<String, String> tokens = new HashMap<>();
+            tokens.put("accessToken", newAccessToken);
+            tokens.put("refreshToken", newRefreshToken);
+            tokens.put("tokenType", "Bearer");
+            tokens.put("expiresIn", String.valueOf(jwtTokenService.accessTokenExpiry / 1000));
+
+            log.info("New token pair generated for user: {} (Rolling Refresh)", userId);
+            return Optional.of(tokens);
+
+        } catch (Exception e) {
+            log.error("Error refreshing token pair: {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
     public void revokeToken(Integer userId) {
         userTokenRepository.deleteByUserId(userId);
         
