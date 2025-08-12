@@ -1,5 +1,7 @@
 package com.lago.app.presentation.ui.study.Screen
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +15,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.ui.draw.rotate
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,19 +42,21 @@ enum class StudyStatus {
 
 data class WordItem(
     val word: String,
+    val definition: String,
     val description: String,
     val studyStatus: StudyStatus? = null // null일 수도 있음
 )
 
 // Term을 WordItem으로 변환하는 확장 함수
 fun Term.toWordItem(): WordItem {
-    val status = when (know) {
+    val status = when (knowStatus) {
         true -> StudyStatus.CORRECT
         false -> StudyStatus.WRONG
         null -> null
     }
     return WordItem(
         word = term,
+        definition = definition,
         description = description,
         studyStatus = status
     )
@@ -65,18 +70,9 @@ fun WordbookScreen(
 ) {
     val termsState by viewModel.termsState.collectAsStateWithLifecycle()
     
-    // 더미 데이터
-    val dummyWords = listOf(
-        WordItem("주식", "회사의 소유권을 나타내는 증권", StudyStatus.CORRECT),
-        WordItem("채권", "정부나 기업이 발행하는 부채증서", StudyStatus.WRONG),
-        WordItem("배당", "주주에게 지급하는 이익의 일부", null),
-        WordItem("펀드", "여러 투자자의 자금을 모아 운용하는 상품", StudyStatus.NOT_STUDIED),
-        WordItem("ETF", "상장지수펀드, 지수를 추종하는 펀드", StudyStatus.CORRECT),
-        WordItem("포트폴리오", "투자자가 보유한 다양한 자산의 조합", null)
-    )
     
     LaunchedEffect(Unit) {
-        viewModel.loadTerms()
+        viewModel.loadTerms(userId = 1) // 일단 userId 1로 고정
     }
     
     var sortOrder by remember { mutableStateOf("이름순") }
@@ -259,46 +255,38 @@ fun WordbookScreen(
                     }
                 }
                 is TermsUiState.Error -> {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(bottom = 16.dp)
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        item {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(8.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
+                                Text(
+                                    text = "⚠️ 데이터 로드 실패",
+                                    style = TitleB16,
+                                    color = Color.Red
+                                )
+                                Text(
+                                    text = "네트워크 연결을 확인해주세요",
+                                    style = BodyR12,
+                                    color = Gray600
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    onClick = { viewModel.loadTerms(1) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MainBlue)
                                 ) {
-                                    Text(
-                                        text = "⚠️ 데이터 로드 실패",
-                                        style = TitleB16,
-                                        color = Color.Red
-                                    )
-                                    Text(
-                                        text = "아래는 레이아웃 확인용 더미 데이터입니다",
-                                        style = BodyR12,
-                                        color = Gray600
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Button(
-                                        onClick = { viewModel.loadTerms() },
-                                        colors = ButtonDefaults.buttonColors(containerColor = MainBlue)
-                                    ) {
-                                        Text("다시 시도", color = Color.White)
-                                    }
+                                    Text("다시 시도", color = Color.White)
                                 }
                             }
-                        }
-                        items(getFilteredAndSortedWords(dummyWords, searchText, sortOrder)) { word ->
-                            WordCard(wordItem = word)
                         }
                     }
                 }
@@ -314,6 +302,7 @@ fun getFilteredAndSortedWords(
 ): List<WordItem> {
     val filtered = words.filter { 
         it.word.contains(searchText, ignoreCase = true) ||
+        it.definition.contains(searchText, ignoreCase = true) ||
         it.description.contains(searchText, ignoreCase = true)
     }
     
@@ -329,6 +318,8 @@ fun getFilteredAndSortedWords(
 fun WordCard(
     wordItem: WordItem
 ) {
+    var expanded by remember { mutableStateOf(false) }
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -337,92 +328,150 @@ fun WordCard(
                 shape = RoundedCornerShape(8.dp),
                 spotColor = ShadowColor,
                 ambientColor = ShadowColor
-            ),
+            )
+            .clickable { expanded = !expanded },
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(20.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = wordItem.word,
-                    style = TitleB24,
-                    color = Color.Black
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = wordItem.description,
-                    style = BodyR14,
-                    color = Gray700,
-                    lineHeight = 20.sp
-                )
-            }
-            
-            // Status indicator
-            when (wordItem.studyStatus) {
-                StudyStatus.CORRECT -> {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(
-                                color = Color(0xFF74DC89),
-                                shape = RoundedCornerShape(16.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.correct),
-                            contentDescription = "정답",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                StudyStatus.WRONG -> {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(
-                                color = Color(0xFFF16767),
-                                shape = RoundedCornerShape(16.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.wrong),
-                            contentDescription = "오답",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                StudyStatus.NOT_STUDIED -> {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(
-                                color = Color.Transparent,
-                                shape = RoundedCornerShape(16.dp)
-                            )
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = wordItem.word,
+                        style = TitleB24,
+                        color = Color.Black
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = wordItem.definition,
+                        style = BodyR14,
+                        color = Gray700,
+                        lineHeight = 20.sp
                     )
                 }
-                null -> {
-                    // 상태가 없는 경우 - 빈 공간 또는 기본 표시
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(
-                                color = Color.Transparent,
-                                shape = RoundedCornerShape(16.dp)
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Status indicator
+                    when (wordItem.studyStatus) {
+                        StudyStatus.CORRECT -> {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(
+                                        color = Color(0xFF74DC89),
+                                        shape = RoundedCornerShape(16.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.correct),
+                                    contentDescription = "정답",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        StudyStatus.WRONG -> {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(
+                                        color = Color(0xFFF16767),
+                                        shape = RoundedCornerShape(16.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.wrong),
+                                    contentDescription = "오답",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        StudyStatus.NOT_STUDIED -> {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(
+                                        color = Color.Transparent,
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
                             )
+                        }
+                        null -> {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(
+                                        color = Color.Transparent,
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Expanded content (description) with smooth animation
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(
+                    animationSpec = tween(
+                        durationMillis = 350,
+                        easing = FastOutSlowInEasing
+                    ),
+                    expandFrom = Alignment.Top
+                ) + fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 350,
+                        delayMillis = 50
+                    )
+                ),
+                exit = shrinkVertically(
+                    animationSpec = tween(
+                        durationMillis = 300,
+                        easing = FastOutLinearInEasing
+                    ),
+                    shrinkTowards = Alignment.Top
+                ) + fadeOut(
+                    animationSpec = tween(
+                        durationMillis = 250
+                    )
+                )
+            ) {
+                Column(
+                    modifier = Modifier.animateContentSize(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        )
+                    )
+                ) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Divider(
+                        color = Gray200,
+                        thickness = 1.dp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = wordItem.description,
+                        style = BodyR14,
+                        color = Gray600,
+                        lineHeight = 20.sp
                     )
                 }
             }

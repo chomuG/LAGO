@@ -6,8 +6,8 @@ data class QuizDto(
     val quiz_id: Int,
     val question: String,
     val answer: Boolean,
-    val daily_date: String?,
-    val category: String,
+    val daily_date: String? = null,
+    val category: String? = null,
     val explanation: String,
     val term_id: Int
 )
@@ -18,7 +18,7 @@ fun QuizDto.toEntity(): Quiz {
         question = question,
         answer = answer,
         dailyDate = daily_date,
-        category = category,
+        category = category ?: "랜덤",
         explanation = explanation,
         termId = term_id
     )

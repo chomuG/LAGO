@@ -63,7 +63,7 @@ fun AssetTitleSection() {
 }
 
 @Composable
-fun AssetStatusSection() {
+fun AssetStatusSection(isLoggedIn: Boolean = true) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -101,7 +101,7 @@ fun AssetStatusSection() {
                     color = Black
                 )
                 Text(
-                    text = "808,000,000",
+                    text = if (isLoggedIn) "808,000,000" else "?",
                     style = TitleB18,
                     color = Black
                 )
@@ -121,9 +121,9 @@ fun AssetStatusSection() {
             Spacer(modifier = Modifier.height(8.dp))
             
             // 나머지 자산 정보
-            AssetInfoRow("보유현금", "25,000,000")
-            AssetInfoRow("총매수", "1,000,000")
-            AssetInfoRow("총평가", "1,000,000")
+            AssetInfoRow("보유현금", if (isLoggedIn) "25,000,000" else "?")
+            AssetInfoRow("총매수", if (isLoggedIn) "1,000,000" else "?")
+            AssetInfoRow("총평가", if (isLoggedIn) "1,000,000" else "?")
 
             Row(
                 modifier = Modifier.fillMaxWidth()
@@ -140,13 +140,13 @@ fun AssetStatusSection() {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "+24.35%",
+                        text = if (isLoggedIn) "+24.35%" else "?",
                         style = TitleB14,
                         color = MainPink
                     )
                 }
                 Text(
-                    text = "1,000,000",
+                    text = if (isLoggedIn) "1,000,000" else "?",
                     style = TitleB14,
                     color = MainPink
                 )
@@ -180,7 +180,8 @@ fun AssetInfoRow(label: String, value: String) {
 fun PortfolioSection(
     pieChartData: List<PieChartData>, 
     stockList: List<StockInfo>,
-    onStockClick: (String) -> Unit = {}
+    onStockClick: (String) -> Unit = {},
+    isLoggedIn: Boolean = true
 ) {
     Card(
         modifier = Modifier
@@ -233,7 +234,7 @@ fun PortfolioSection(
                             color = Black
                         )
                         Text(
-                            text = "+23.4%",
+                            text = if (isLoggedIn) "+23.4%" else "?",
                             style = TitleB24,
                             color = MainPink
                         )
@@ -247,7 +248,8 @@ fun PortfolioSection(
             stockList.forEach { stock ->
                 StockListItemInCard(
                     stock = stock,
-                    onStockClick = onStockClick
+                    onStockClick = onStockClick,
+                    isLoggedIn = isLoggedIn
                 )
                 if (stock != stockList.last()) {
                     Spacer(modifier = Modifier.height(12.dp))
@@ -306,7 +308,8 @@ fun DonutChart(
 @Composable
 fun StockListItemInCard(
     stock: StockInfo,
-    onStockClick: (String) -> Unit = {}
+    onStockClick: (String) -> Unit = {},
+    isLoggedIn: Boolean = true
 ) {
     val isClickable = stock.name != "기타"
     
@@ -344,7 +347,7 @@ fun StockListItemInCard(
                     color = Black
                 )
                 Text(
-                    text = stock.averagePrice,
+                    text = if (isLoggedIn) stock.averagePrice else "? 주 평균 ? 원",
                     style = BodyR12,
                     color = Gray800
                 )
@@ -357,7 +360,7 @@ fun StockListItemInCard(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = stock.percentage,
+                    text = if (isLoggedIn) stock.percentage else "?",
                     style = BodyR18,
                     color = Black
                 )
@@ -368,7 +371,7 @@ fun StockListItemInCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = stock.percentage,
+                    text = if (isLoggedIn) stock.percentage else "?",
                     style = BodyR18,
                     color = Black
                 )

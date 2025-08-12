@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "641435048942",
+    "project_id": "lago-c8844",
+    "storage_bucket": "lago-c8844.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:641435048942:android:4315f4e827df77539c8cff",
+        "android_client_info": {
+          "package_name": "com.lago.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9sF-oSc9m3G9CgcS7RIJL8b7FYKZbUrk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -7,7 +7,7 @@ import javax.inject.Inject
 class GetTermsUseCase @Inject constructor(
     private val studyRepository: StudyRepository
 ) {
-    suspend operator fun invoke(): Result<List<Term>> {
-        return studyRepository.getTerms()
+    suspend operator fun invoke(userId: Int? = null): Result<List<Term>> {
+        return studyRepository.getTerms(userId)
     }
 }

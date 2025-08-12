@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.dagger.hilt.android)
     alias(libs.plugins.compose.compiler)
     kotlin("plugin.serialization") version "1.9.20"
+    id("com.google.gms.google-services")
 
     // Preview 오류 -> 컴포즈 컴파일러 버전 명지 (BOM과 버전 맞추기)
     //id("org.jetbrains.kotlin.plugin.compose.compiler") version "1.5.10"
@@ -53,6 +54,10 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+    
+    // Firebase BOM
+    implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
+    implementation("com.google.firebase:firebase-messaging-ktx")
     
     // Compose BOM
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
