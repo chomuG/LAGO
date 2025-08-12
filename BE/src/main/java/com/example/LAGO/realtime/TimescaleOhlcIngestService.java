@@ -12,6 +12,8 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 
 /**
  * Redis에 저장된 압축 청크를 언패킹하여
@@ -29,6 +31,7 @@ public class TimescaleOhlcIngestService {
 
     private final TickChunkReaderService reader; // Redis에서 청크 읽기(압축해제+16B 파싱)
     private final JdbcTemplate jdbc;
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     // 대문자 테이블명은 반드시 쌍따옴표
     private static final String UPSERT_SQL = """
@@ -79,6 +82,13 @@ public class TimescaleOhlcIngestService {
 
         Map<Key, Agg> grouped = new LinkedHashMap<>();
         for (var d : ticks) {
+//            // 1) Instant(절대시각) -> KST로 시각화
+//            ZonedDateTime kst = d.ts().atZone(KST);
+//
+//            // 2) KST에서 초 단위 절삭
+//            ZonedDateTime kstSec = kst.truncatedTo(ChronoUnit.SECONDS);
+
+            // 3)
             Instant tsSec = d.ts().truncatedTo(ChronoUnit.SECONDS);
             Key k = new Key(d.stockId(), tsSec);
             grouped.computeIfAbsent(k, __ -> new Agg())
