@@ -8,6 +8,7 @@ import com.example.LAGO.repository.StockMinuteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,6 +29,7 @@ public class StockMinuteService {
     }
 
 
+    // stock_info_id로 조회
     // 특정 종목의 특정 구간(시작~종료) 1분봉 데이터를 조회하여 DTO로 변환
     public List<StockMinuteDto> getMinutes(Integer stockInfoId, LocalDateTime start, LocalDateTime end) {
         // 1. stockInfoId로 StockInfo 객체 조회
@@ -40,6 +42,20 @@ public class StockMinuteService {
 
         // 3. Entity → DTO 변환
         return entityList.stream()
+                .map(StockMinuteDto::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    // StockInfo.code 로 조회
+    public List<StockMinuteDto> getMinutesByCode(String code, LocalDateTime start, LocalDateTime end) {
+        // (선택) 존재 검증
+        if (!stockInfoRepository.existsByCode(code)) {
+            throw new IllegalArgumentException("해당 종목 코드가 없습니다. code=" + code);
+        }
+
+        return stockMinuteRepository
+                .findByStockInfo_CodeAndDateBetweenOrderByDateAsc(code, start, end)
+                .stream()
                 .map(StockMinuteDto::fromEntity)
                 .collect(Collectors.toList());
     }

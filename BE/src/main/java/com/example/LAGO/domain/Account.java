@@ -1,5 +1,8 @@
 package com.example.LAGO.domain;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -7,7 +10,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 
-import java.time.LocalDateTime;
+
 
 /**
  * 계좌 엔티티
@@ -43,6 +46,7 @@ public class Account {
     @Column(name = "profit_rate", nullable = false)
     private Float profitRate;
 
+    
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -51,6 +55,8 @@ public class Account {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
     }
 }

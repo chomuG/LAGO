@@ -4,10 +4,12 @@ import com.example.LAGO.dto.StockMinuteDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 // 집계된 1분봉 데이터 웹소켓으로 전달
 
 @Controller
+@ConditionalOnProperty(name = "redis.stream.enabled", havingValue = "true", matchIfMissing = false)
 public class MinuteCandleWebsocketController {
     private final SimpMessagingTemplate messagingTemplate;
 

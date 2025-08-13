@@ -2,11 +2,20 @@ package com.example.LAGO.ai.sentiment;
 
 import com.example.LAGO.ai.sentiment.dto.SentimentRequestDto;
 import com.example.LAGO.ai.sentiment.dto.SentimentResponseDto;
+import com.example.LAGO.dto.request.FinBertTextRequest;
+import com.example.LAGO.dto.response.FinBertResponse;
+import com.example.LAGO.dto.response.NewsAnalysisResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -41,6 +50,14 @@ public class FinBertSentimentService {
      * FinBERT HTTP 클라이언트
      */
     private final SentimentAnalysisClient sentimentAnalysisClient;
+    
+    /**
+     * RestTemplate for direct FinBERT API calls
+     */
+    private final RestTemplate restTemplate;
+    
+    @Value("${finbert.server.host:http://localhost:5000}")
+    private String finbertServerHost;
 
     // ======================== Virtual Thread Executor ========================
     // Virtual Thread 처리는 SentimentAnalysisClient에서 담당
@@ -161,6 +178,149 @@ public class FinBertSentimentService {
 
         return analyzeSingleNewsAsync(request)
             .thenApply(response -> adjustSentimentForCharacter(response, characterName));
+    }
+
+    /**
+     * URL 기반 뉴스 감정분석 (본문 + 이미지 추출 포함)
+     * 
+     * @param url 분석할 뉴스 URL
+     * @return FinBERT 감정 분석 결과 (본문, 이미지 포함)
+     */
+    public NewsAnalysisResult analyzeNewsByUrl(String url) {
+        try {
+            // FinBERT 서버 상태 확인
+            if (!isFinBertServerHealthy()) {
+                log.warn("FinBERT 서버가 비정상 상태입니다. 기본값을 반환합니다.");
+                return createDefaultNewsAnalysisResult();
+            }
+
+            String finbertUrl = finbertServerHost + "/analyze"; // URL 기반 분석 엔드포인트
+            
+            // 요청 데이터 구성
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Content-Type", "application/json");
+            
+            String requestBody = "{\"url\": \"" + url + "\"}";
+            HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+
+            log.info("FinBERT URL 기반 뉴스 분석 요청: {}", url);
+
+            ResponseEntity<NewsAnalysisResult> response = restTemplate.exchange(
+                    finbertUrl, HttpMethod.POST, entity, NewsAnalysisResult.class);
+
+            NewsAnalysisResult result = response.getBody();
+            
+            if (result != null) {
+                log.info("FinBERT URL 분석 완료 - 제목: {}, 본문길이: {}자, 이미지: {}개, 감정: {}", 
+                        result.getTitle() != null ? result.getTitle().substring(0, Math.min(50, result.getTitle().length())) : "없음",
+                        result.getContent() != null ? result.getContent().length() : 0,
+                        result.getImages() != null ? result.getImages().size() : 0,
+                        result.getLabel());
+                return result;
+            }
+
+            log.warn("FinBERT URL 분석 응답이 null입니다. 기본값을 반환합니다.");
+            return createDefaultNewsAnalysisResult();
+
+        } catch (Exception e) {
+            log.error("FinBERT URL 기반 뉴스 분석 실패: {}", e.getMessage());
+            return createDefaultNewsAnalysisResult();
+        }
+    }
+
+    /**
+     * 텍스트 기반 감정분석 (뉴스 수집용)
+     * 
+     * @param text 분석할 텍스트 (제목 + 내용)
+     * @return FinBERT 감정 분석 결과
+     */
+    public FinBertResponse analyzeTextSentiment(String text) {
+        try {
+            // FinBERT 서버 상태 확인
+            if (!isFinBertServerHealthy()) {
+                log.warn("FinBERT 서버가 비정상 상태입니다. 기본값을 반환합니다.");
+                return createDefaultFinBertResponse();
+            }
+
+            String url = finbertServerHost + "/analyze-text"; // 새로운 엔드포인트
+            
+            FinBertTextRequest requestDto = FinBertTextRequest.builder()
+                    .text(text)
+                    .build();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Content-Type", "application/json");
+            
+            HttpEntity<FinBertTextRequest> entity = new HttpEntity<>(requestDto, headers);
+
+            log.info("FinBERT 텍스트 감정분석 요청 - 텍스트 길이: {}자", text.length());
+
+            ResponseEntity<FinBertResponse> response = restTemplate.exchange(
+                    url, HttpMethod.POST, entity, FinBertResponse.class);
+
+            FinBertResponse result = response.getBody();
+            
+            if (result != null) {
+                log.info("FinBERT 텍스트 분석 완료 - 결과: {}, 점수: {}, 신호: {}", 
+                        result.getLabel(), result.getScore(), result.getTradingSignal());
+                return result;
+            }
+
+            log.warn("FinBERT 텍스트 응답이 null입니다. 기본값을 반환합니다.");
+            return createDefaultFinBertResponse();
+
+        } catch (Exception e) {
+            log.error("FinBERT 텍스트 감정분석 실패: {}", e.getMessage());
+            return createDefaultFinBertResponse();
+        }
+    }
+
+    /**
+     * FinBERT 서버 상태 확인
+     */
+    private boolean isFinBertServerHealthy() {
+        try {
+            String url = finbertServerHost + "/health";
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            
+            boolean isHealthy = response.getStatusCode().is2xxSuccessful();
+            log.debug("FinBERT 서버 상태 확인: {}", isHealthy ? "정상" : "비정상");
+            
+            return isHealthy;
+            
+        } catch (Exception e) {
+            log.warn("FinBERT 서버 연결 실패: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * FinBERT 서버 연결 실패 시 기본 뉴스 분석 결과 생성
+     */
+    private NewsAnalysisResult createDefaultNewsAnalysisResult() {
+        NewsAnalysisResult result = new NewsAnalysisResult();
+        result.setTitle("제목을 가져올 수 없습니다");
+        result.setContent("본문을 가져올 수 없습니다");
+        result.setImages(java.util.Collections.emptyList());
+        result.setLabel("NEUTRAL");
+        result.setScore(0.0);
+        result.setConfidence(0.0);
+        result.setTradingSignal("HOLD");
+        result.setConfidenceLevel("low");
+        return result;
+    }
+
+    /**
+     * FinBERT 서버 연결 실패 시 기본 응답 생성 (새로운 방식)
+     */
+    private FinBertResponse createDefaultFinBertResponse() {
+        FinBertResponse response = new FinBertResponse();
+        response.setLabel("NEUTRAL");
+        response.setScore(0.0);
+        response.setConfidence(0.0);
+        response.setTradingSignal("HOLD");
+        response.setConfidenceLevel("low");
+        return response;
     }
 
     // ======================== 내부 메서드 ========================

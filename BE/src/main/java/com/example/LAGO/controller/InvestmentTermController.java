@@ -34,7 +34,7 @@ public class InvestmentTermController {
     @GetMapping("/term")
     @Operation(
         summary = "투자 용어 전체 조회", 
-        description = "모든 투자 용어를 조회합니다. term_id, term, definition, description을 반환합니다."
+        description = "모든 투자 용어를 조회합니다. userId를 제공하면 각 용어의 이해도 정보도 포함됩니다."
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "조회 성공", 
@@ -44,10 +44,13 @@ public class InvestmentTermController {
         @ApiResponse(responseCode = "500", description = "서버 내부 오류",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    public ResponseEntity<List<InvestmentTermDto>> getAllInvestmentTerms() {
-        log.info("투자 용어 전체 조회 요청");
+    public ResponseEntity<List<InvestmentTermDto>> getAllInvestmentTerms(
+            @Parameter(description = "사용자 ID (선택사항)", example = "1", required = false)
+            @RequestParam(required = false) Integer userId) {
         
-        List<InvestmentTermDto> terms = investmentTermService.getAllInvestmentTerms();
+        log.info("투자 용어 전체 조회 요청 - userId: {}", userId);
+        
+        List<InvestmentTermDto> terms = investmentTermService.getAllInvestmentTerms(userId);
         
         log.info("투자 용어 {}개 조회 완료", terms.size());
         
@@ -58,7 +61,7 @@ public class InvestmentTermController {
     @GetMapping("/term/search")
     @Operation(
         summary = "투자 용어 검색", 
-        description = "키워드로 투자 용어를 검색합니다. 용어명(제목)에서만 검색됩니다."
+        description = "키워드로 투자 용어를 검색합니다. userId를 제공하면 각 용어의 이해도 정보도 포함됩니다."
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "검색 성공",
@@ -70,16 +73,18 @@ public class InvestmentTermController {
     })
     public ResponseEntity<List<InvestmentTermDto>> searchInvestmentTerms(
             @Parameter(description = "검색 키워드", example = "PER") 
-            @RequestParam String keyword) {
+            @RequestParam String keyword,
+            @Parameter(description = "사용자 ID (선택사항)", example = "1", required = false)
+            @RequestParam(required = false) Integer userId) {
         
-        log.info("투자 용어 검색 요청 - keyword: {}", keyword);
+        log.info("투자 용어 검색 요청 - keyword: {}, userId: {}", keyword, userId);
         
         if (keyword == null || keyword.trim().isEmpty()) {
             log.warn("검색 키워드가 비어있음");
             return ResponseEntity.badRequest().build();
         }
         
-        List<InvestmentTermDto> terms = investmentTermService.searchInvestmentTerms(keyword.trim());
+        List<InvestmentTermDto> terms = investmentTermService.searchInvestmentTerms(keyword.trim(), userId);
         
         log.info("투자 용어 검색 완료 - keyword: {}, 결과: {}개", keyword, terms.size());
         

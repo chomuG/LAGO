@@ -68,9 +68,84 @@ Thumbs.db
 *.swo
 *~
 
-# 환경변수/시크릿
+# 환경변수/시크릿/설정 파일
 .env
 .env.*
+*.properties
+application-*.properties
+application-*.yml
+application-*.yaml
+!application.properties.example
+!application.yml.example
+
+# Python 캐시/빌드 파일 (FinBERT 서비스)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyTorch/ML 모델 캐시
+.cache/
+models/
+*.pth
+*.pkl
+*.pt
+*.bin
+*.onnx
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Python 가상환경
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+pip-selfcheck.json
+
+# 테스트 파일들
+test_*.py
+*_test.py
+test_*.json
+*_test.json
+*.test.py
+*.test.json
+.pytest_cache/
+pytest_cache/
+test/
+tests/
+!**/src/test/
+
+# 환경변수/시크릿 (템플릿 제외)
+.env
+.env.local
+.env.production
+.env.development
+!.env.example
+
+# Docker Compose Override (EC2 배포용)
+docker-compose.override.yml
+!docker-compose.override.yml
 
 # Archives
 *.zip
@@ -80,3 +155,7 @@ Thumbs.db
 
 # Gemini
 .gemini/
+
+# properties
+.properties
+*.properties

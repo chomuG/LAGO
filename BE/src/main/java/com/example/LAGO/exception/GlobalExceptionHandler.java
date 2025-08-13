@@ -3,6 +3,8 @@ package com.example.LAGO.exception;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +26,20 @@ import java.util.Map;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /**
+     * 콘텐츠 없음 예외 처리 (204 No Content)
+     */
+    @ExceptionHandler(NoContentException.class)
+    @ApiResponse(
+            responseCode = "204",
+            description = "데이터 없음",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+    )
+    public ResponseEntity<Void> handleNoContentException(NoContentException e) {
+        log.warn("요청 처리 중 컨텐츠 없음을 확인: {}", e.getMessage());
+        return ResponseEntity.noContent().build();
+    }
 
     /**
      * AI 봇 관련 런타임 예외 처리

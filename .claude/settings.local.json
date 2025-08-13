@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp:*)",
+      "Bash(docker exec:*)",
+      "Bash(curl:*)",
+      "Bash(docker stop:*)",
+      "Bash(./gradlew:*)",
+      "Bash(psql:*)"
+    ],
+    "deny": []
+  }
+}

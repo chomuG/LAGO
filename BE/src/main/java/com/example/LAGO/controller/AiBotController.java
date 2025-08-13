@@ -66,7 +66,7 @@ public class AiBotController {
         @ApiResponse(responseCode = "500", description = "서버 에러")
     })
     public ResponseEntity<AiBotAccountResponse> getAiBotAccount(
-            @Parameter(description = "AI 봇 식별자 (1-10)", required = true, example = "1")
+            @Parameter(description = "AI 봇 식별자 (1-4)", required = true, example = "1")
             @PathVariable 
             @NotNull(message = "AI ID는 필수입니다") 
             @Positive(message = "AI ID는 양수여야 합니다") 

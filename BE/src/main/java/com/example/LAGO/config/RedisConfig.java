@@ -7,6 +7,8 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericToStringSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializer;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 
 @Configuration
 public class RedisConfig {
@@ -46,15 +48,40 @@ public class RedisConfig {
     public RedisTemplate<String, Object> redisObjectTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
-        
+
         StringRedisSerializer stringSerializer = new StringRedisSerializer();
         GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer();
-        
+
         template.setKeySerializer(stringSerializer);
         template.setHashKeySerializer(stringSerializer);
         template.setValueSerializer(jsonSerializer);
         template.setHashValueSerializer(stringSerializer); // Hash 값은 String으로
-        
+
+        template.afterPropertiesSet();
+        return template;
+    }
+
+    /**
+     * 압축된 바이너리 데이터 저장을 위한 RedisTemplate
+     * TickChunk 압축 배치 저장용
+     */
+    @Bean("binaryRedisTemplate")
+    public RedisTemplate<String, byte[]> binaryRedisTemplate(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, byte[]> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+
+        // Key는 String으로 직렬화
+        StringRedisSerializer stringSerializer = new StringRedisSerializer();
+        template.setKeySerializer(stringSerializer);
+        template.setHashKeySerializer(stringSerializer);
+
+        // Value는 바이트 배열 그대로 저장 (압축된 데이터)
+        template.setValueSerializer(RedisSerializer.byteArray());
+        template.setHashValueSerializer(RedisSerializer.byteArray());
+
+        // 기본 직렬화는 바이트 배열
+        template.setDefaultSerializer(RedisSerializer.byteArray());
+
         template.afterPropertiesSet();
         return template;
     }

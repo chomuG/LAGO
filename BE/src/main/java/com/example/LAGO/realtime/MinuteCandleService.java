@@ -1,5 +1,6 @@
 package com.example.LAGO.realtime;
 
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
@@ -11,9 +12,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import com.example.LAGO.domain.StockInfo;
+import com.example.LAGO.realtime.dto.TickData;
 import com.example.LAGO.repository.StockInfoRepository;
 import com.example.LAGO.repository.StockMinuteRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.example.LAGO.domain.StockMinute;
@@ -22,11 +26,14 @@ import com.example.LAGO.dto.StockMinuteDto;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 // 1분봉 집계 : 임시 저장 + 집계 역할
 
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "redis.stream.enabled", havingValue = "true", matchIfMissing = false)
 public class MinuteCandleService {
     private final Map<String, List<TickData>> minuteBucket = new ConcurrentHashMap<>();
     // String key = "종목코드_yyyyMMdd_HHmm"
@@ -242,4 +249,29 @@ public class MinuteCandleService {
         processCompletedMinute(code, minuteKey, tickList);
     }
 
+    @RestController
+    @RequiredArgsConstructor
+    @RequestMapping("/api/redis/chunks")
+    public static class ChunkDebugController {
+        private final TickData.TickChunkReaderService reader;
+
+        @GetMapping("/{id}")
+        public ResponseEntity<List<Map<String,Object>>> preview(
+                @PathVariable String id,
+                @RequestParam(defaultValue = "5") int limit) {
+
+            var all = reader.readChunk(id);
+            var out = all.stream()
+                    .limit(Math.max(0, limit))
+                    .map(d -> Map.<String, Object>ofEntries(
+                            Map.entry("stockId", d.stockId()),
+                            Map.entry("tsKst",  d.ts().atZone(ZoneId.of("Asia/Seoul")).toString()),
+                            Map.entry("price",  d.price()),
+                            Map.entry("volume", d.volume())
+                    ))
+                    .toList();
+            return ResponseEntity.ok(out);
+
+        }
+    }
 }

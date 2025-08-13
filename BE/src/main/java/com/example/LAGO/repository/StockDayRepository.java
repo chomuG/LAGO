@@ -4,10 +4,10 @@ import com.example.LAGO.domain.StockDay;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -48,6 +48,18 @@ public interface StockDayRepository extends JpaRepository<StockDay, Integer> {
                                                                  LocalDate endDate);
 
     /**
+     * 종목 정보 ID로 특정 기간 일봉 데이터 조회
+     *
+     * @param stockInfoId 종목 정보 ID
+     * @param startDate   시작일
+     * @param endDate     종료일
+     * @return 일봉 데이터 리스트 (날짜순)
+     */
+    List<StockDay> findByStockInfoStockInfoIdAndNewDateBetweenOrderByNewDateAsc(Integer stockInfoId,
+                                                                          LocalDateTime startDate,
+                                                                          LocalDateTime endDate);
+
+    /**
      * 종목 정보 ID로 최신 일봉 데이터 조회
      *
      * @param stockInfoId 종목 정보 ID
@@ -62,4 +74,13 @@ public interface StockDayRepository extends JpaRepository<StockDay, Integer> {
      * @return 일봉 데이터 리스트
      */
     List<StockDay> findByDateOrderByStockInfoStockInfoIdAsc(LocalDate date);
+
+    // StockInfo.code 대신 StockInfo.stockCode로 조회
+    List<StockDay> findByStockInfo_CodeAndDateBetweenOrderByDateAsc(
+            String stockCode,
+            LocalDate start,
+            LocalDate end
+    );
+    StockDay findTopByStockInfo_CodeAndDateOrderByDateDesc(String stockCode, LocalDate date);
+
 }
