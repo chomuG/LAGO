@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Set;
 
 @Slf4j
@@ -25,12 +26,17 @@ public class ChunkAutoIngestor {
     // 2초마다 due 아이템 처리 (고정 딜레이)
     @Scheduled(fixedDelay = 2_000L, initialDelay = 5_000L)
     public void drain() {
-        LocalTime currentTime = LocalTime.now();
+        var sysNow = java.time.ZonedDateTime.now();                // 시스템 기본 TZ
+        var kstNow = java.time.ZonedDateTime.now(ZoneId.of("Asia/Seoul"));
+        log.debug("drain tick: sysNow={} kstNow={}", sysNow, kstNow);
+
+        LocalTime currentTime = kstNow.toLocalTime();
         if (currentTime.isBefore(LocalTime.of(9, 0)) || currentTime.isAfter(LocalTime.of(15, 30))) {
             return; // 장시간 외에는 실행 안함
         }
 
         long now = System.currentTimeMillis();
+
 
         // score(=예약시각) <= now 인 항목만 가져오기
         Set<String> ids = redis.opsForZSet()
