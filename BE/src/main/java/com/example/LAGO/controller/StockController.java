@@ -4,6 +4,9 @@ import com.example.LAGO.domain.TradeType;
 import com.example.LAGO.dto.request.TradeRequest;
 import com.example.LAGO.dto.response.TradeResponse;
 import com.example.LAGO.service.TradeService;
+import com.example.LAGO.service.MockTradingService;
+import com.example.LAGO.dto.request.MockTradeRequest;
+import com.example.LAGO.dto.response.MockTradeResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -29,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 public class StockController {
 
     private final TradeService tradeService;
+    private final MockTradingService mockTradingService;
 
     /**
      * 주식 매수
@@ -61,10 +65,33 @@ public class StockController {
             @Valid 
             TradeRequest request
     ) {
-        // 매수 타입 강제 설정
-        request.setTradeType(TradeType.BUY);
+        // TradeRequest를 MockTradeRequest로 변환
+        MockTradeRequest mockRequest = MockTradeRequest.builder()
+                .stockCode(request.getStockCode())
+                .tradeType(TradeType.BUY)
+                .quantity(request.getQuantity())
+                .price(request.getPrice())
+                .build();
         
-        TradeResponse response = tradeService.executeUserTrade(userId, request);
+        // MockTradingService를 사용하여 실제 계좌 잔액 업데이트
+        MockTradeResponse mockResponse = mockTradingService.processBuyOrder(userId, mockRequest);
+        
+        // MockTradeResponse를 TradeResponse로 변환하여 반환
+        TradeResponse response = TradeResponse.success(
+                mockResponse.getTradeId() != null ? mockResponse.getTradeId() : 0L,
+                userId,
+                mockResponse.getStockCode(),
+                mockResponse.getStockName(),
+                TradeType.BUY,
+                mockResponse.getQuantity(),
+                mockResponse.getExecutedPrice(),
+                mockResponse.getTotalAmount(),
+                mockResponse.getCommission(),
+                0, // tax
+                mockResponse.getRemainingBalance(),
+                mockResponse.getMessage()
+        );
+        
         return ResponseEntity.ok(response);
     }
 
@@ -99,10 +126,33 @@ public class StockController {
             @Valid 
             TradeRequest request
     ) {
-        // 매도 타입 강제 설정
-        request.setTradeType(TradeType.SELL);
+        // TradeRequest를 MockTradeRequest로 변환
+        MockTradeRequest mockRequest = MockTradeRequest.builder()
+                .stockCode(request.getStockCode())
+                .tradeType(TradeType.SELL)
+                .quantity(request.getQuantity())
+                .price(request.getPrice())
+                .build();
         
-        TradeResponse response = tradeService.executeUserTrade(userId, request);
+        // MockTradingService를 사용하여 실제 계좌 잔액 업데이트
+        MockTradeResponse mockResponse = mockTradingService.processSellOrder(userId, mockRequest);
+        
+        // MockTradeResponse를 TradeResponse로 변환하여 반환
+        TradeResponse response = TradeResponse.success(
+                mockResponse.getTradeId() != null ? mockResponse.getTradeId() : 0L,
+                userId,
+                mockResponse.getStockCode(),
+                mockResponse.getStockName(),
+                TradeType.SELL,
+                mockResponse.getQuantity(),
+                mockResponse.getExecutedPrice(),
+                mockResponse.getTotalAmount(),
+                mockResponse.getCommission(),
+                0, // tax
+                mockResponse.getRemainingBalance(),
+                mockResponse.getMessage()
+        );
+        
         return ResponseEntity.ok(response);
     }
 
@@ -137,7 +187,40 @@ public class StockController {
             @Valid 
             TradeRequest request
     ) {
-        TradeResponse response = tradeService.executeUserTrade(userId, request);
+        // TradeRequest를 MockTradeRequest로 변환
+        MockTradeRequest mockRequest = MockTradeRequest.builder()
+                .stockCode(request.getStockCode())
+                .tradeType(request.getTradeType())
+                .quantity(request.getQuantity())
+                .price(request.getPrice())
+                .build();
+        
+        // 거래 타입에 따라 적절한 서비스 메서드 호출
+        MockTradeResponse mockResponse;
+        if (TradeType.BUY.equals(request.getTradeType())) {
+            mockResponse = mockTradingService.processBuyOrder(userId, mockRequest);
+        } else if (TradeType.SELL.equals(request.getTradeType())) {
+            mockResponse = mockTradingService.processSellOrder(userId, mockRequest);
+        } else {
+            throw new IllegalArgumentException("지원되지 않는 거래 타입: " + request.getTradeType());
+        }
+        
+        // MockTradeResponse를 TradeResponse로 변환하여 반환
+        TradeResponse response = TradeResponse.success(
+                mockResponse.getTradeId() != null ? mockResponse.getTradeId() : 0L,
+                userId,
+                mockResponse.getStockCode(),
+                mockResponse.getStockName(),
+                request.getTradeType(),
+                mockResponse.getQuantity(),
+                mockResponse.getExecutedPrice(),
+                mockResponse.getTotalAmount(),
+                mockResponse.getCommission(),
+                0, // tax
+                mockResponse.getRemainingBalance(),
+                mockResponse.getMessage()
+        );
+        
         return ResponseEntity.ok(response);
     }
 }
