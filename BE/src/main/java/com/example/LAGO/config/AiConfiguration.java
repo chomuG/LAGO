@@ -42,4 +42,5 @@ public class AiConfiguration {
         log.info("FinBERT용 RestTemplate Bean 생성 완료 - 타임아웃: 연결 30초, 읽기 25분");
         return restTemplate;
     }
+
 }

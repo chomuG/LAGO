@@ -1,6 +1,7 @@
 package com.example.LAGO.repository;
 
 import com.example.LAGO.domain.StockDay;
+import com.example.LAGO.domain.StockInfo;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -75,4 +76,13 @@ public interface StockDayRepository extends JpaRepository<StockDay, Integer> {
      * @return 일봉 데이터 리스트
      */
     List<StockDay> findByDateOrderByStockInfoStockInfoIdAsc(LocalDate date);
+
+    // StockInfo.code로 조회
+    List<StockDay> findByStockInfo_CodeAndDateBetweenOrderByDateAsc(
+            String code,
+            LocalDate start,
+            LocalDate end
+    );
+    StockDay findTopByStockInfoCodeAndDateOrderByDateDesc(String code, LocalDate date);
+
 }

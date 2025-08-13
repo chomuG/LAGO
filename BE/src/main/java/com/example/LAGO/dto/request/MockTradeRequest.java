@@ -1,5 +1,6 @@
 package com.example.LAGO.dto.request;
 
+import com.example.LAGO.domain.TradeType;
 import lombok.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -57,9 +58,9 @@ public class MockTradeRequest {
     /**
      * 거래 타입 (매수/매도)
      */
-    @NotBlank(message = "거래 타입은 필수입니다")
-    @Schema(description = "거래 타입", example = "BUY", allowableValues = {"BUY", "SELL"})
-    private String tradeType;
+    @NotNull(message = "거래 타입은 필수입니다")
+    @Schema(description = "거래 타입", example = "BUY")
+    private TradeType tradeType;
 
     /**
      * 요청 검증
@@ -67,7 +68,7 @@ public class MockTradeRequest {
     public boolean isValidBuyRequest() {
         return stockCode != null && !stockCode.trim().isEmpty() 
                && quantity != null && quantity > 0
-               && "BUY".equals(tradeType);
+               && TradeType.BUY.equals(tradeType);
     }
 
     /**
@@ -76,6 +77,6 @@ public class MockTradeRequest {
     public boolean isValidSellRequest() {
         return stockCode != null && !stockCode.trim().isEmpty() 
                && quantity != null && quantity > 0
-               && "SELL".equals(tradeType);
+               && TradeType.SELL.equals(tradeType);
     }
 }

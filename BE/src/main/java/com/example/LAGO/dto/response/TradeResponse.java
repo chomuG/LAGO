@@ -1,5 +1,6 @@
 package com.example.LAGO.dto.response;
 
+import com.example.LAGO.domain.TradeType;
 import lombok.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
@@ -55,7 +56,7 @@ public class TradeResponse {
      * 거래 타입
      */
     @Schema(description = "거래 타입", example = "BUY")
-    private String tradeType;
+    private TradeType tradeType;
 
     /**
      * 거래 수량
@@ -116,7 +117,7 @@ public class TradeResponse {
      * 지침서 명세: 예외처리/Validation 코드 필수
      */
     public static TradeResponse success(Long tradeId, Integer userId, String stockCode, String stockName,
-                                      String tradeType, Integer quantity, Integer price, Integer totalAmount,
+                                      TradeType tradeType, Integer quantity, Integer price, Integer totalAmount,
                                       Integer commission, Integer tax, Integer remainingBalance, String message) {
         return TradeResponse.builder()
                 .success(true)
@@ -151,7 +152,7 @@ public class TradeResponse {
     /**
      * 실패 응답 생성 (상세 정보 포함)
      */
-    public static TradeResponse failure(Integer userId, String stockCode, String tradeType, 
+    public static TradeResponse failure(Integer userId, String stockCode, TradeType tradeType, 
                                       String errorCode, String message) {
         return TradeResponse.builder()
                 .success(false)

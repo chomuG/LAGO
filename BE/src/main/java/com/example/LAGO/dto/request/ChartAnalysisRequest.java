@@ -1,6 +1,8 @@
 package com.example.LAGO.dto.request;
 
-import com.example.LAGO.constants.Interval; // 경로 수정
+import com.example.LAGO.constants.ChartMode;
+import com.example.LAGO.constants.Interval;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,15 +13,20 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class ChartAnalysisRequest {
 
-    @NotNull(message = "주식 ID는 필수입니다.")
-    private Long stockId;
+    @NotNull(message = "종목코드는 필수입니다.")
+    @Schema(description = "종목코드", example = "005730")
+    private String stockCode;
 
-    @NotNull(message = "조회 간격(1m/1D/1M/1Y)은 필수입니다.")
+    @NotNull(message = "차트모드는 필수입니다.")
+    @Schema(description = "차트모드(모의투자/역사챌린지)", example = "mock")
+    private ChartMode chartMode;
+
+    @NotNull(message = "조회 간격은 필수입니다.")
     private Interval interval;
 
     @NotNull(message = "시작일은 필수입니다.")
-    private LocalDateTime startDate;
+    private LocalDateTime fromDateTime;
 
     @NotNull(message = "종료일은 필수입니다.")
-    private LocalDateTime endDate;
+    private LocalDateTime toDateTime;
 }
