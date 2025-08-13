@@ -90,7 +90,7 @@ public class TradeService {
                     .tradeType(request.getTradeType())
                     .quantity(request.getQuantity())
                     .price(1000) // 임시 가격
-                    .tradeTime(LocalDateTime.now())
+                    .tradeAt(LocalDateTime.now())
                     .build();
             
             // 거래 기록 저장
@@ -179,7 +179,7 @@ public class TradeService {
                     .quantity(quantity)
                     .price(price)
                     .commission(commission)
-                    .tradeTime(LocalDateTime.now())
+                    .tradeAt(LocalDateTime.now())
                     .build();
             
             // 거래 기록 저장

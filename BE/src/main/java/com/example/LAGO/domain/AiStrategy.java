@@ -46,7 +46,7 @@ public class AiStrategy {
      * 사용자 ID (FK)
      */
     @Column(name = "user_id", nullable = false)
-    private Integer userId;
+    private Long userId;
 
     /**
      * 전략명 (캐릭터명: 화끈이/적극이/균형이/조심이)

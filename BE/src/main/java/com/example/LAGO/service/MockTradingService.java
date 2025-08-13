@@ -371,7 +371,7 @@ public class MockTradingService {
             .tradeType(tradeType)
             .quantity(quantity)
             .price(executedPrice)
-            .tradeTime(LocalDateTime.now())
+            .tradeAt(LocalDateTime.now())
             .build();
             
         return mockTradeRepository.save(mockTrade);

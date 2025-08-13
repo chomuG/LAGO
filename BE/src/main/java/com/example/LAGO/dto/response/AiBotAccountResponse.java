@@ -26,7 +26,7 @@ public class AiBotAccountResponse {
     private String nickname;
 
     @Schema(description = "계좌 ID", example = "12345")
-    private Integer accountId;
+    private Long accountId;
 
     @Schema(description = "보유 현금", example = "1000000")
     private Integer balance;
@@ -38,7 +38,7 @@ public class AiBotAccountResponse {
     private Integer profit;
 
     @Schema(description = "수익률", example = "50.5")
-    private Float profitRate;
+    private Double profitRate;
 
     @Schema(description = "계좌 타입 (0:모의투자, 1:역사챌린지)", example = "0")
     private Integer type;

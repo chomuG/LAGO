@@ -28,7 +28,7 @@ public class AiBotTrade {
     private Long botTradeId;
 
     @Column(name = "user_id", nullable = false)
-    private Integer userId; // AI 봇 사용자 ID
+    private Long userId; // AI 봇 사용자 ID
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "strategy_id", nullable = false)

@@ -24,7 +24,7 @@ public class UserToken {
     private Integer tokenId;
 
     @Column(name = "user_id", nullable = false)
-    private Integer userId;
+    private Long userId;
 
     @Column(name = "refresh_token", columnDefinition = "TEXT")
     private String refreshToken;

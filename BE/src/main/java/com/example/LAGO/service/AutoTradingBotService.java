@@ -828,7 +828,7 @@ public class AutoTradingBotService {
                 .volume(0L)  // 임시값, 실제 거래량 필요
                 .result(success ? "SUCCESS" : "FAILED")
                 .log(String.format("종목: %s, 신호: %s, 수량: %d", stockCode, signal, quantity))
-                .tradeTime(LocalDateTime.now())
+                .tradeAt(LocalDateTime.now())
                 .signalTime(LocalDateTime.now())
                 .build();
                 
@@ -864,7 +864,7 @@ public class AutoTradingBotService {
                 .volume(0L)
                 .result("FAILED")
                 .log("거래 실행 실패: " + errorMessage)
-                .tradeTime(LocalDateTime.now())
+                .tradeAt(LocalDateTime.now())
                 .signalTime(LocalDateTime.now())
                 .build();
                 

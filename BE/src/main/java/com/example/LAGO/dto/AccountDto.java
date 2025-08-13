@@ -20,10 +20,10 @@ import java.time.LocalDateTime;
 public class AccountDto {
 
 	@Schema(description = "계좌 PK")
-	private Integer accountId;
+	private Long accountId;
 
 	@Schema(description = "사용자 PK")
-	private Integer userId;
+	private Long userId;
 
 	@Schema(description = "보유 현금")
 	private Integer balance;
@@ -35,7 +35,7 @@ public class AccountDto {
 	private Integer profit;
 
 	@Schema(description = "수익률")
-	private Float profitRate;
+	private Double profitRate;
 
 	@Schema(description = "생성일")
 	private LocalDateTime createdAt;

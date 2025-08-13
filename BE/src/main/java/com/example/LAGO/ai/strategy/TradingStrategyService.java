@@ -100,7 +100,7 @@ public class TradingStrategyService {
      * @return 화끈이 매매 추천 결과
      */
     public CompletableFuture<CharacterTradingRecommendation> executeHwakkeunStrategy(
-            Integer userId, String stockCode, List<String> newsUrls) {
+            Long userId, String stockCode, List<String> newsUrls) {
         
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -160,7 +160,7 @@ public class TradingStrategyService {
      * @return 적극이 매매 추천 결과
      */
     public CompletableFuture<CharacterTradingRecommendation> executeJeokgeukStrategy(
-            Integer userId, String stockCode, List<String> newsUrls) {
+            Long userId, String stockCode, List<String> newsUrls) {
         
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -213,7 +213,7 @@ public class TradingStrategyService {
      * @return 균형이 매매 추천 결과
      */
     public CompletableFuture<CharacterTradingRecommendation> executeGyunhyungStrategy(
-            Integer userId, String stockCode, List<String> newsUrls) {
+            Long userId, String stockCode, List<String> newsUrls) {
         
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -266,7 +266,7 @@ public class TradingStrategyService {
      * @return 조심이 매매 추천 결과
      */
     public CompletableFuture<CharacterTradingRecommendation> executeJosimStrategy(
-            Integer userId, String stockCode, List<String> newsUrls) {
+            Long userId, String stockCode, List<String> newsUrls) {
         
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -315,7 +315,7 @@ public class TradingStrategyService {
      * @return 사용자 맞춤 매매 추천 결과
      */
     public CompletableFuture<CharacterTradingRecommendation> executeUserPersonalizedStrategy(
-            Integer userId, String stockCode, List<String> newsUrls) {
+            Long userId, String stockCode, List<String> newsUrls) {
         
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -350,7 +350,7 @@ public class TradingStrategyService {
     /**
      * 사용자 정보 조회 (예외 발생)
      */
-    private User getUserOrThrow(Integer userId) {
+    private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
     }
@@ -358,7 +358,7 @@ public class TradingStrategyService {
     /**
      * 주식의 FinBERT 감정 분석 수행
      */
-    private SentimentResponseDto analyzeSentimentForStock(String stockCode, List<String> newsUrls, Integer userId) {
+    private SentimentResponseDto analyzeSentimentForStock(String stockCode, List<String> newsUrls, Long userId) {
         try {
             return finBertSentimentService.analyzeStockRelatedNewsAsync(stockCode, newsUrls, userId).join();
         } catch (Exception e) {
@@ -750,7 +750,7 @@ public class TradingStrategyService {
     /**
      * 오류 추천 결과 생성
      */
-    private CharacterTradingRecommendation createErrorRecommendation(String characterName, Integer userId, 
+    private CharacterTradingRecommendation createErrorRecommendation(String characterName, Long userId, 
                                                                    String stockCode, String errorMessage) {
         return CharacterTradingRecommendation.builder()
             .characterName(characterName)

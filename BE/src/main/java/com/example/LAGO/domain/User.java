@@ -24,10 +24,9 @@ import java.time.LocalDateTime;
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_seq")
-    @SequenceGenerator(name = "user_seq", sequenceName = "users_user_id_seq", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
-    private Integer userId;
+    private Long userId;
 
     @Column(name = "email")
     private String email;
@@ -46,9 +45,6 @@ public class User {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
-
-    @Column(name = "profile_img")
-    private String profileImg;
 
     @Column(name = "frame_id")
     private Integer frameId; // 프로필 테두리 FK

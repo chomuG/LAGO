@@ -92,7 +92,7 @@ public class TradeResponse {
      * 거래 시간
      */
     @Schema(description = "거래 시간")
-    private LocalDateTime tradeTime;
+    private LocalDateTime tradeAt;
 
     /**
      * 응답 메시지
@@ -132,7 +132,7 @@ public class TradeResponse {
                 .commission(commission)
                 .tax(tax)
                 .remainingBalance(remainingBalance)
-                .tradeTime(LocalDateTime.now())
+                .tradeAt(LocalDateTime.now())
                 .message(message)
                 .build();
     }
@@ -145,7 +145,7 @@ public class TradeResponse {
                 .success(false)
                 .errorCode(errorCode)
                 .message(message)
-                .tradeTime(LocalDateTime.now())
+                .tradeAt(LocalDateTime.now())
                 .build();
     }
 
@@ -161,7 +161,7 @@ public class TradeResponse {
                 .tradeType(tradeType)
                 .errorCode(errorCode)
                 .message(message)
-                .tradeTime(LocalDateTime.now())
+                .tradeAt(LocalDateTime.now())
                 .build();
     }
 }

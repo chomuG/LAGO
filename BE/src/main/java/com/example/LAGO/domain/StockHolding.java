@@ -7,14 +7,14 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 
-import java.time.LocalDateTime;
-
 /**
  * 보유주식 엔티티
- * 지침서 명세 STOCK_HOLDING 테이블과 완전 일치
+ * DB 스키마 완전 준수: stock_holding 테이블
+ * - 기본 필드: DB 컬럼과 1:1 매핑
+ * - 계산 필드: @Transient로 비즈니스 로직용
  */
 @Entity
-@Table(name = "STOCK_HOLDING")
+@Table(name = "stock_holding")
 @Getter 
 @Setter
 @NoArgsConstructor
@@ -25,104 +25,111 @@ public class StockHolding {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "holding_id")
-    private Long holdingId;
+    private Integer holdingId;
+
+    @Column(name = "account_id", nullable = false)
+    private Long accountId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
+    @JoinColumn(name = "account_id", insertable = false, updatable = false)
     private Account account;
 
-    @Column(name = "stock_code", nullable = false, length = 10)
-    private String stockCode; // 종목 코드
+    @Column(name = "stock_info_id", nullable = false)
+    private Integer stockInfoId;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stock_info_id", insertable = false, updatable = false)
+    private StockInfo stockInfo;
 
     @Column(name = "quantity", nullable = false)
     private Integer quantity; // 보유 수량
 
-    @Column(name = "average_price", nullable = false)
-    private Integer averagePrice; // 평균 매수가
+    @Column(name = "total_price", nullable = false)
+    private Integer totalPrice; // 총 매수 금액
 
-    @Column(name = "total_cost", nullable = false)
-    private Integer totalCost; // 총 매수 금액 (수수료 포함)
+    // ====== 호환성을 위한 계산 필드들 (DB에 저장되지 않음) ======
+    @Transient
+    private String stockCode; // stockInfo에서 가져옴
 
-    @Column(name = "current_value")
-    private Integer currentValue; // 현재 평가금액
+    @Transient
+    private Integer averagePrice; // totalPrice / quantity로 계산
 
-    @Column(name = "profit_loss")
-    private Integer profitLoss; // 평가손익
+    @Transient
+    private Integer totalCost; // totalPrice와 동일
 
-    @Column(name = "profit_loss_rate")
-    private Float profitLossRate; // 수익률
+    @Transient
+    private Integer currentValue; // 현재 주가 * 수량
 
-    @Column(name = "first_purchase_date", nullable = false)
-    private LocalDateTime firstPurchaseDate; // 최초 매수일
+    @Transient
+    private Integer profitLoss; // currentValue - totalPrice
 
-    @Column(name = "last_trade_date", nullable = false)
-    private LocalDateTime lastTradeDate; // 마지막 거래일
+    @Transient
+    private Float profitLossRate; // profitLoss / totalPrice * 100
 
-    @PrePersist
-    protected void onCreate() {
-        if (firstPurchaseDate == null) {
-            firstPurchaseDate = LocalDateTime.now();
-        }
-        if (lastTradeDate == null) {
-            lastTradeDate = LocalDateTime.now();
-        }
+    @Transient
+    private java.time.LocalDateTime firstPurchaseDate; // 별도 관리 필요
+
+    @Transient
+    private java.time.LocalDateTime lastTradeDate; // 별도 관리 필요
+
+    // ====== 호환성을 위한 getter 메서드들 ======
+    public String getStockCode() {
+        if (stockCode != null) return stockCode;
+        if (stockInfo != null) return stockInfo.getCode();
+        return null;
     }
 
-    @PreUpdate
-    protected void onUpdate() {
-        lastTradeDate = LocalDateTime.now();
+    public Integer getAveragePrice() {
+        if (averagePrice != null) return averagePrice;
+        if (quantity != null && quantity > 0 && totalPrice != null) {
+            return totalPrice / quantity;
+        }
+        return 0;
     }
 
-    /**
-     * 현재가를 기준으로 평가금액과 손익을 업데이트
-     * @param currentPrice 현재 주가
-     */
+    public Integer getTotalCost() {
+        if (totalCost != null) return totalCost;
+        return totalPrice != null ? totalPrice : 0;
+    }
+
+    public Integer getCurrentValue() {
+        return currentValue != null ? currentValue : 0;
+    }
+
+    public Integer getProfitLoss() {
+        return profitLoss != null ? profitLoss : 0;
+    }
+
+    public Float getProfitLossRate() {
+        return profitLossRate != null ? profitLossRate : 0.0f;
+    }
+
+    public java.time.LocalDateTime getFirstPurchaseDate() {
+        return firstPurchaseDate;
+    }
+
+    public java.time.LocalDateTime getLastTradeDate() {
+        return lastTradeDate;
+    }
+
+    // ====== 비즈니스 로직 메서드들 ======
     public void updateCurrentValue(Integer currentPrice) {
-        this.currentValue = currentPrice * this.quantity;
-        this.profitLoss = this.currentValue - this.totalCost;
-        this.profitLossRate = this.totalCost > 0 ? 
-            ((float) this.profitLoss / this.totalCost) * 100 : 0.0f;
+        if (currentPrice != null && quantity != null) {
+            this.currentValue = currentPrice * quantity;
+            this.profitLoss = this.currentValue - getTotalCost();
+            if (getTotalCost() > 0) {
+                this.profitLossRate = ((float) this.profitLoss / getTotalCost()) * 100;
+            } else {
+                this.profitLossRate = 0.0f;
+            }
+        }
     }
 
-    /**
-     * 매수 시 보유 수량 및 평균가 업데이트
-     * @param buyQuantity 매수 수량
-     * @param buyPrice 매수 단가
-     * @param commission 수수료
-     */
-    public void addStock(Integer buyQuantity, Integer buyPrice, Integer commission) {
-        Integer newTotalCost = this.totalCost + (buyQuantity * buyPrice) + commission;
-        Integer newQuantity = this.quantity + buyQuantity;
-        
-        this.averagePrice = newTotalCost / newQuantity;
-        this.quantity = newQuantity;
-        this.totalCost = newTotalCost;
-        this.lastTradeDate = LocalDateTime.now();
+    public void setLastTradeDate(java.time.LocalDateTime lastTradeDate) {
+        this.lastTradeDate = lastTradeDate;
     }
 
-    /**
-     * 매도 시 보유 수량 업데이트
-     * @param sellQuantity 매도 수량
-     * @param sellPrice 매도 단가
-     * @param tax 세금
-     */
-    public void sellStock(Integer sellQuantity, Integer sellPrice, Integer tax) {
-        if (sellQuantity > this.quantity) {
-            throw new RuntimeException("보유 수량보다 많이 매도할 수 없습니다.");
-        }
-        
-        // 매도한 비율만큼 총 매수 금액 차감
-        Float sellRatio = (float) sellQuantity / this.quantity;
-        Integer soldCost = (int) (this.totalCost * sellRatio);
-        
-        this.quantity -= sellQuantity;
-        this.totalCost -= soldCost;
-        this.lastTradeDate = LocalDateTime.now();
-        
-        // 전량 매도 시 평균가 초기화
-        if (this.quantity == 0) {
-            this.averagePrice = 0;
-            this.totalCost = 0;
-        }
+    public void setFirstPurchaseDate(java.time.LocalDateTime firstPurchaseDate) {
+        this.firstPurchaseDate = firstPurchaseDate;
     }
 }

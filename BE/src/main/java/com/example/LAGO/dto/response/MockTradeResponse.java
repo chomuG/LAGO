@@ -93,7 +93,7 @@ public class MockTradeResponse {
      * 거래 일시
      */
     @Schema(description = "거래 실행 일시", example = "2025-08-06T14:30:00")
-    private LocalDateTime tradeTime;
+    private LocalDateTime tradeAt;
 
     /**
      * 에러 메시지 (실패시)
@@ -124,7 +124,7 @@ public class MockTradeResponse {
             .commission(commission)
             .remainingBalance(remainingBalance)
             .tradeType(tradeType)
-            .tradeTime(LocalDateTime.now())
+            .tradeAt(LocalDateTime.now())
             .build();
     }
 
@@ -136,7 +136,7 @@ public class MockTradeResponse {
             .success(false)
             .stockCode(stockCode)
             .errorMessage(errorMessage)
-            .tradeTime(LocalDateTime.now())
+            .tradeAt(LocalDateTime.now())
             .build();
     }
 }

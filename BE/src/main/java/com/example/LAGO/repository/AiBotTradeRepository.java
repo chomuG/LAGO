@@ -28,7 +28,7 @@ public interface AiBotTradeRepository extends JpaRepository<AiBotTrade, Long> {
      * @param strategyId 전략 ID
      * @return 거래 내역 목록
      */
-    @Query("SELECT bt FROM AiBotTrade bt WHERE bt.strategy.strategyId = :strategyId ORDER BY bt.tradeTime DESC")
+    @Query("SELECT bt FROM AiBotTrade bt WHERE bt.strategy.strategyId = :strategyId ORDER BY bt.tradeAt DESC")
     List<AiBotTrade> findByStrategyIdOrderByTradeTimeDesc(@Param("strategyId") Long strategyId);
 
     /**
@@ -51,7 +51,7 @@ public interface AiBotTradeRepository extends JpaRepository<AiBotTrade, Long> {
      * @param endTime 종료 시간
      * @return 거래 내역 목록
      */
-    @Query("SELECT bt FROM AiBotTrade bt WHERE bt.tradeTime BETWEEN :startTime AND :endTime ORDER BY bt.tradeTime DESC")
+    @Query("SELECT bt FROM AiBotTrade bt WHERE bt.tradeAt BETWEEN :startTime AND :endTime ORDER BY bt.tradeAt DESC")
     List<AiBotTrade> findByTradeTimeBetween(@Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
 
     /**
@@ -60,7 +60,7 @@ public interface AiBotTradeRepository extends JpaRepository<AiBotTrade, Long> {
      * @param strategyId 전략 ID
      * @return 거래 내역 목록
      */
-    @Query("SELECT bt FROM AiBotTrade bt WHERE bt.userId = :userId AND bt.strategy.strategyId = :strategyId ORDER BY bt.tradeTime DESC")
+    @Query("SELECT bt FROM AiBotTrade bt WHERE bt.userId = :userId AND bt.strategy.strategyId = :strategyId ORDER BY bt.tradeAt DESC")
     List<AiBotTrade> findByUserIdAndStrategyId(@Param("userId") Integer userId, @Param("strategyId") Long strategyId);
 
     /**
@@ -69,7 +69,7 @@ public interface AiBotTradeRepository extends JpaRepository<AiBotTrade, Long> {
      * @param stockCode 종목 코드
      * @return 매수 거래 목록
      */
-    @Query("SELECT bt FROM AiBotTrade bt WHERE bt.userId = :userId AND bt.stockCode = :stockCode AND bt.tradeType = 'BUY' AND bt.result = 'SUCCESS' ORDER BY bt.tradeTime ASC")
+    @Query("SELECT bt FROM AiBotTrade bt WHERE bt.userId = :userId AND bt.stockCode = :stockCode AND bt.tradeType = 'BUY' AND bt.result = 'SUCCESS' ORDER BY bt.tradeAt ASC")
     List<AiBotTrade> findBuyTradesForSell(@Param("userId") Integer userId, @Param("stockCode") String stockCode);
 
     /**
@@ -101,7 +101,7 @@ public interface AiBotTradeRepository extends JpaRepository<AiBotTrade, Long> {
      * @param date 날짜
      * @return 해당 날짜의 거래 목록
      */
-    @Query("SELECT bt FROM AiBotTrade bt WHERE DATE(bt.tradeTime) = DATE(:date)")
+    @Query("SELECT bt FROM AiBotTrade bt WHERE DATE(bt.tradeAt) = DATE(:date)")
     List<AiBotTrade> findByTradeDate(@Param("date") LocalDateTime date);
 
     /**
@@ -110,7 +110,7 @@ public interface AiBotTradeRepository extends JpaRepository<AiBotTrade, Long> {
      * @param limit 조회 개수
      * @return 최근 거래 목록
      */
-    @Query("SELECT bt FROM AiBotTrade bt WHERE bt.userId = :userId ORDER BY bt.tradeTime DESC LIMIT :limit")
+    @Query("SELECT bt FROM AiBotTrade bt WHERE bt.userId = :userId ORDER BY bt.tradeAt DESC LIMIT :limit")
     List<AiBotTrade> findRecentTradesByUser(@Param("userId") Integer userId, @Param("limit") int limit);
 
     /**

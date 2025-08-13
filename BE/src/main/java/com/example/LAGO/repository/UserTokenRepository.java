@@ -15,11 +15,11 @@ public interface UserTokenRepository extends JpaRepository<UserToken, Integer> {
 
     Optional<UserToken> findByRefreshToken(String refreshToken);
 
-    Optional<UserToken> findByUserId(Integer userId);
+    Optional<UserToken> findByUserId(Long userId);
 
     @Modifying
     @Query("DELETE FROM UserToken ut WHERE ut.userId = :userId")
-    void deleteByUserId(@Param("userId") Integer userId);
+    void deleteByUserId(@Param("userId") Long userId);
 
     @Modifying
     @Query("DELETE FROM UserToken ut WHERE ut.expiredAt < :currentTime")

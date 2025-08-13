@@ -26,7 +26,7 @@ public class AccountController {
      */
     @Operation(summary = "계좌 단건 조회", description = "accountId로 계좌 정보를 조회합니다.")
     @GetMapping("/{accountId}")
-    public ResponseEntity<AccountDto> getAccount(@PathVariable Integer accountId) {
+    public ResponseEntity<AccountDto> getAccount(@PathVariable Long accountId) {
         return ResponseEntity.ok(accountService.getAccountById(accountId));
     }
 }

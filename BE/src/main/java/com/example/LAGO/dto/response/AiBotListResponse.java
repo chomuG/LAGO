@@ -14,7 +14,7 @@ import lombok.Getter;
 public class AiBotListResponse {
 
     @Schema(description = "AI 봇 사용자 ID", example = "2")
-    private Integer userId;
+    private Long userId;
 
     @Schema(description = "AI 봇 식별 ID", example = "1")
     private Integer aiId;
@@ -35,7 +35,7 @@ public class AiBotListResponse {
     private Integer profit;
 
     @Schema(description = "수익률 (%)", example = "25.0")
-    private Float profitRate;
+    private Double profitRate;
 
     @Schema(description = "현재 보유 현금", example = "3000000")
     private Integer balance;

@@ -32,7 +32,7 @@ public class JwtTokenService {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
-    public String generateAccessToken(Integer userId, String email, String loginType) {
+    public String generateAccessToken(Long userId, String email, String loginType) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("email", email);
@@ -42,7 +42,7 @@ public class JwtTokenService {
         return createToken(claims, accessTokenExpiry);
     }
 
-    public String generateRefreshToken(Integer userId) {
+    public String generateRefreshToken(Long userId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("tokenType", "REFRESH");
@@ -78,9 +78,11 @@ public class JwtTokenService {
         }
     }
 
-    public Integer getUserIdFromToken(String token) {
+    public Long getUserIdFromToken(String token) {
         Claims claims = extractClaims(token);
-        return claims.get("userId", Integer.class);
+        // JWT에서 숫자는 Integer로 저장되므로 Long으로 변환
+        Integer userId = claims.get("userId", Integer.class);
+        return userId != null ? userId.longValue() : null;
     }
 
     public String getEmailFromToken(String token) {
