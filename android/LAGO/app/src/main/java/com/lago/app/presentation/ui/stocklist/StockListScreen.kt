@@ -37,6 +37,7 @@ import com.lago.app.domain.entity.News
 import com.lago.app.domain.entity.HistoryChallengeStock
 import com.lago.app.presentation.ui.components.NewsCard
 import com.lago.app.presentation.ui.components.SimpleNewsCard
+import com.lago.app.presentation.ui.components.CircularStockLogo
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -511,20 +512,12 @@ private fun StockItemCard(
             .padding(Spacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 둥근 로고
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = stock.name.take(2),
-                color = MaterialTheme.colorScheme.onPrimary,
-                style = TitleB16
-            )
-        }
+        // 종목 로고
+        CircularStockLogo(
+            stockCode = stock.code,
+            stockName = stock.name,
+            size = 48.dp
+        )
 
         Spacer(modifier = Modifier.width(Spacing.sm))
 
@@ -584,20 +577,12 @@ private fun HistoryChallengeStockItem(
             .padding(Spacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 둥근 로고
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = stock.stockName.take(2),
-                color = MaterialTheme.colorScheme.onPrimary,
-                style = TitleB16
-            )
-        }
+        // 종목 로고
+        CircularStockLogo(
+            stockCode = stock.stockCode,
+            stockName = stock.stockName,
+            size = 48.dp
+        )
 
         Spacer(modifier = Modifier.width(Spacing.sm))
 

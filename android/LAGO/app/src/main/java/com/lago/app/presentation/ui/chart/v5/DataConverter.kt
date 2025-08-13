@@ -168,13 +168,13 @@ object DataConverter {
     ): MultiPanelData {
         val indicators = mutableListOf<IndicatorData>()
         
-        // Volume 지표 추가
-        if (enabledIndicators.volume && volumeData.isNotEmpty()) {
+        // Volume 지표 추가 (데이터가 없어도 패널 생성)
+        if (enabledIndicators.volume) {
             indicators.add(
                 IndicatorData(
                     type = IndicatorType.VOLUME,
                     name = "거래량",
-                    data = convertVolumeData(volumeData),
+                    data = if (volumeData.isNotEmpty()) convertVolumeData(volumeData) else emptyList(),
                     options = IndicatorOptions(
                         color = "#FF9800",
                         height = 80
@@ -183,13 +183,13 @@ object DataConverter {
             )
         }
         
-        // RSI 지표 추가
-        if (enabledIndicators.rsi && rsiData.isNotEmpty()) {
+        // RSI 지표 추가 (데이터가 없어도 패널 생성)
+        if (enabledIndicators.rsi) {
             indicators.add(
                 IndicatorData(
                     type = IndicatorType.RSI,
                     name = "RSI (14)",
-                    data = convertLineData(rsiData),
+                    data = if (rsiData.isNotEmpty()) convertLineData(rsiData) else emptyList(),
                     options = IndicatorOptions(
                         color = "#9C27B0",
                         height = 100
@@ -198,14 +198,14 @@ object DataConverter {
             )
         }
         
-        // MACD 지표 추가 (패널로 처리하기 위해 indicators 리스트에 추가)
-        if (enabledIndicators.macd && macdData != null && macdData.macdLine.isNotEmpty()) {
-            android.util.Log.d("LAGO_CHART", "Adding MACD indicator with ${macdData.macdLine.size} MACD line, ${macdData.signalLine.size} signal line, ${macdData.histogram.size} histogram points")
+        // MACD 지표 추가 (데이터가 없어도 패널 생성)
+        if (enabledIndicators.macd) {
+            android.util.Log.d("LAGO_CHART", "Adding MACD indicator - enabled:${enabledIndicators.macd}, data:${macdData != null}, dataSize:${macdData?.macdLine?.size ?: 0}")
             indicators.add(
                 IndicatorData(
                     type = IndicatorType.MACD,
                     name = "MACD (12,26,9)",
-                    data = convertLineData(macdData.macdLine), // 이건 더미 데이터 (실제 MACD 데이터는 macdData 필드에서 사용)
+                    data = if (macdData != null && macdData.macdLine.isNotEmpty()) convertLineData(macdData.macdLine) else emptyList(),
                     options = IndicatorOptions(
                         color = "#2196F3",
                         height = 100
@@ -213,7 +213,7 @@ object DataConverter {
                 )
             )
         } else {
-            android.util.Log.d("LAGO_CHART", "MACD not added - enabled:${enabledIndicators.macd}, data:${macdData != null}, dataSize:${macdData?.macdLine?.size ?: 0}")
+            android.util.Log.d("LAGO_CHART", "MACD not added - enabled:${enabledIndicators.macd}")
         }
         
         // 볼린저 밴드는 메인 차트에 오버레이로 표시하기 위해 별도 처리 필요

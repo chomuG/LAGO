@@ -158,6 +158,7 @@ fun MultiPanelChart(
     tradingSignals: List<TradingSignal> = emptyList(),
     modifier: Modifier = Modifier,
     onChartReady: (() -> Unit)? = null,
+    onWebViewReady: ((android.webkit.WebView) -> Unit)? = null,
     onDataPointClick: ((String, Double, String) -> Unit)? = null,
     onCrosshairMove: ((String?, Double?, String?) -> Unit)? = null,
     onChartLoading: ((Boolean) -> Unit)? = null,
@@ -180,6 +181,7 @@ fun MultiPanelChart(
         htmlContent = htmlContent,
         modifier = modifier,
         onChartReady = onChartReady,
+        onWebViewReady = onWebViewReady,
         onChartLoading = onChartLoading,
         onLoadingProgress = onLoadingProgress,
         additionalJavaScriptInterface = MultiPanelJavaScriptInterface(
@@ -352,8 +354,8 @@ private fun generateMultiPanelHtml(
         let panes = [];
         let series = [];
         
-        // TradingView Lightweight Charts v5 라이브러리 로드 (CDN + CSS로 로고 숨김)
-        loadScript('https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js', function() {
+        // TradingView Lightweight Charts v5.0.8 라이브러리 로드 (addPane API 지원)
+        loadScript('https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js', function() {
             initLAGOMultiPanelChart();
         });
         
@@ -429,6 +431,9 @@ private fun generateMultiPanelHtml(
                 
                 mainSeries.setData(priceData);
                 series.push({ series: mainSeries, name: 'OHLC', paneIndex: 0 });
+                
+                // seriesMap에 메인 시리즈 추가 (기존 volume 등 보존)
+                window.seriesMap.main = mainSeries;
                 
                 // 매수/매도 신호 마커 시스템 초기화
                 let markersApi = null;
@@ -572,9 +577,10 @@ private fun generateMultiPanelHtml(
                 }
                 
                 // 보조지표용 패널들 추가
-                console.log('LAGO: Creating', indicators.length, 'indicator panels');
+                console.log('🔍 LAGO: Creating', indicators.length, 'indicator panels');
+                console.log('🔍 Indicators data:', indicators);
                 indicators.forEach((indicator, index) => {
-                    console.log('LAGO: Processing indicator:', indicator.type, indicator.name);
+                    console.log('🔍 Processing indicator:', indicator.type, indicator.name, 'data points:', indicator.data?.length);
                     createLAGOIndicatorPane(indicator, index + 1, priceData);
                 });
                 
@@ -661,8 +667,11 @@ private fun generateMultiPanelHtml(
         }
         
         function createLAGOIndicatorPane(indicator, paneIndex, candleData) {
+            console.log('🚀 Creating pane for:', indicator.type, 'paneIndex:', paneIndex);
+            
             // v5 네이티브 API로 새 패널 추가
             const pane = chart.addPane(true);
+            console.log('✅ Pane created:', pane, 'pane.paneIndex():', pane.paneIndex());
             panes.push(pane);
             
             let indicatorSeries;
@@ -713,6 +722,7 @@ private fun generateMultiPanelHtml(
                     
                     // RSI 패널 레전드 생성
                     createPaneLegend(pane.paneIndex(), ['RSI']);
+                    console.log('✅ RSI panel completed, indicatorSeries:', indicatorSeries);
                     break;
                     
                 case 'macd':
@@ -777,6 +787,7 @@ private fun generateMultiPanelHtml(
                         
                         // 메인 시리즈는 히스토그램으로 설정
                         indicatorSeries = histogramSeries;
+                        console.log('✅ MACD panel completed, indicatorSeries:', indicatorSeries);
                     }
                     break;
                     
@@ -805,8 +816,12 @@ private fun generateMultiPanelHtml(
                     
                     indicatorSeries.setData(volumeDataWithColors);
                     
+                    // seriesMap에 볼륨 시리즈 추가 (전역)
+                    window.seriesMap.volume = indicatorSeries;
+                    
                     // 거래량 패널 레전드 생성
                     createPaneLegend(pane.paneIndex(), ['거래량']);
+                    console.log('✅ Volume panel completed, indicatorSeries:', indicatorSeries);
                     break;
                     
                 case 'sma5':
@@ -1170,6 +1185,56 @@ private fun generateMultiPanelHtml(
             };
             return colorMap[item] || '#333333';
         }
+        
+        // ========== 실시간 업데이트용 전역 함수들 (최소 변경) ==========
+        
+        // 1) 혹시라도 너무 빨리 호출될 때 ReferenceError 방지용 "빈 함수"를 먼저 깔아둠
+        window.seriesMap     = window.seriesMap     || {};
+        window.setInitialData = window.setInitialData || function(){ console.warn('setInitialData called before init'); };
+        window.updateBar      = window.updateBar      || function(){ console.warn('updateBar called before init'); };
+        window.updateVolume   = window.updateVolume   || function(){ console.warn('updateVolume called before init'); };
+        
+        // (mainSeries와 chart가 생성된 "이후"에 실제 구현으로 덮어쓰기)
+        
+        // 2) 초기 데이터 세팅 (한 번만)
+        window.setInitialData = function(seriesId, jsonArray) {
+            try {
+                const arr = JSON.parse(jsonArray); // [{time,open,high,low,close}, ...]
+                const s = window.seriesMap[seriesId];
+                if (s) {
+                    s.setData(arr);
+                    chart.timeScale().fitContent();
+                    console.log('LAGO: setInitialData for', seriesId, arr.length);
+                } else {
+                    console.warn('LAGO: unknown seriesId in setInitialData', seriesId);
+                }
+            } catch (e) { console.error('LAGO setInitialData error', e); }
+        };
+        
+        // 3) 실시간 캔들 업데이트 (같은 time→교체, 큰 time→새 바 추가)
+        window.updateBar = function(seriesId, jsonBar) {
+            try {
+                const bar = JSON.parse(jsonBar); // {time,open,high,low,close}
+                const s = window.seriesMap[seriesId];
+                if (s) {
+                    s.update(bar);
+                    // console.log('LAGO: updateBar', seriesId, bar.time);
+                } else {
+                    console.warn('LAGO: unknown seriesId in updateBar', seriesId);
+                }
+            } catch (e) { console.error('LAGO updateBar error', e); }
+        };
+        
+        // 4) 실시간 거래량 업데이트 (HistogramSeries)
+        window.updateVolume = function(jsonBar) {
+            try {
+                const v = JSON.parse(jsonBar); // {time, value}
+                if (window.seriesMap.volume) {
+                    window.seriesMap.volume.update(v);
+                    // console.log('LAGO: updateVolume', v.time);
+                }
+            } catch (e) { console.error('LAGO updateVolume error', e); }
+        };
         
     </script>
 </body>

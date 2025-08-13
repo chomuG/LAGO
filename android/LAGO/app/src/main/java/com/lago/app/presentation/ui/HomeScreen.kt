@@ -37,6 +37,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
 import com.lago.app.data.local.prefs.UserPreferences
+import com.lago.app.presentation.ui.components.CircularStockLogo
 import androidx.compose.runtime.LaunchedEffect
 import android.content.SharedPreferences
 
@@ -574,28 +575,11 @@ private fun StockItem(stock: Stock) {
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        color = when (stock.name) {
-                            "삼성전자" -> BlueLight
-                            else -> Color(0xFFFFE9E9)
-                        },
-                        shape = RoundedCornerShape(20.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = stock.name.take(2),
-                    style = TitleB14.copy(
-                        color = when (stock.name) {
-                            "삼성전자" -> BlueNormal
-                            else -> Color(0xFFFF6B6B)
-                        }
-                    )
-                )
-            }
+            CircularStockLogo(
+                stockCode = stock.code,
+                stockName = stock.name,
+                size = 40.dp
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 

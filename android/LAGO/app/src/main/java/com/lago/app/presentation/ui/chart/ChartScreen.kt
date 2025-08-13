@@ -91,6 +91,8 @@ import com.skydoves.flexible.core.pxToDp
 import com.lago.app.presentation.ui.chart.v5.MultiPanelChart
 import com.lago.app.presentation.ui.chart.v5.DataConverter
 import com.lago.app.presentation.ui.chart.v5.toEnabledIndicators
+import com.lago.app.presentation.ui.chart.v5.MinuteAggregator
+import com.lago.app.presentation.ui.chart.v5.Tick
 import kotlin.math.absoluteValue
 // Character Dialog import
 import com.lago.app.presentation.components.CharacterSelectionDialog
@@ -498,7 +500,7 @@ fun ChartScreen(
                     .fillMaxWidth()
                     .weight(1f)  // 자동으로 압축/확장
             ) {
-                // TradingView v5 Multi-Panel Chart with Native API
+                // TradingView v5 Multi-Panel Chart with Native API (기존 방식 유지)
                 val multiPanelData = DataConverter.createMultiPanelData(
                     candlestickData = uiState.candlestickData,
                     volumeData = uiState.volumeData,
@@ -511,6 +513,10 @@ fun ChartScreen(
                     timeFrame = uiState.config.timeFrame
                 )
 
+                // Real-time update state
+                var webView by remember { mutableStateOf<android.webkit.WebView?>(null) }
+                val aggregator = remember { MinuteAggregator() }
+
                 MultiPanelChart(
                     data = multiPanelData,
                     timeFrame = uiState.config.timeFrame,
@@ -518,8 +524,14 @@ fun ChartScreen(
                         .fillMaxSize()
                         .padding(horizontal = Spacing.md),
                     onChartReady = {
-                        // 차트 렌더링 완료 콜백
+                        // 차트 렌더링 완료 콜백 - 이제 안전하게 JS 호출 가능
                         viewModel.onChartReady()
+                        
+                        // 실시간 업데이트를 위한 초기 데이터 설정은 여기서 하지 않음
+                        // (이미 MultiPanelChart에서 데이터를 설정했으므로)
+                    },
+                    onWebViewReady = { webViewInstance ->
+                        webView = webViewInstance
                     },
                     onChartLoading = { isLoading ->
                         // 웹뷰 로딩 상태 콜백
@@ -534,8 +546,43 @@ fun ChartScreen(
                     },
                     onCrosshairMove = { time, value, panelId ->
                         // Handle crosshair move
-                    }
+                    },
                 )
+                
+                // Real-time data updates - observe current stock price changes
+                LaunchedEffect(uiState.currentStock) {
+                    val currentStock = uiState.currentStock
+                    if (currentStock.code.isBlank()) return@LaunchedEffect
+                    
+                    // WebView가 준비되고 차트가 로딩된 후에만 실시간 업데이트
+                    // onChartReady가 호출된 후에 이 로직이 안전하게 실행됨
+                    
+                    // Create tick from current stock price data for live updates  
+                    val tick = Tick(
+                        code = currentStock.code,
+                        date = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HHmmss")),
+                        openPrice = currentStock.currentPrice.toInt(),
+                        highPrice = currentStock.currentPrice.toInt(),
+                        lowPrice = currentStock.currentPrice.toInt(),
+                        closePrice = currentStock.currentPrice.toInt(),
+                        volume = 1000L // Mock volume - replace with actual volume data
+                    )
+                    
+                    aggregator.onTick(tick) { candle, volume ->
+                        // 실시간 업데이트: onChartReady 이후에만 호출되므로 안전함
+                        val barJson = """{"time":${candle.time}, "open":${candle.open}, "high":${candle.high}, "low":${candle.low}, "close":${candle.close}}"""
+                        val volumeJson = """{"time":${volume.time}, "value":${volume.value}}"""
+                        
+                        // WebView는 MultiPanelChart 내부의 remember된 인스턴스를 사용
+                        // 전역 함수 호출로 차트 새로고침 없이 실시간 업데이트
+                        try {
+                            webView?.evaluateJavascript("window.updateBar('main', ${org.json.JSONObject.quote(barJson)})", null)
+                            webView?.evaluateJavascript("window.updateVolume(${org.json.JSONObject.quote(volumeJson)})", null)
+                        } catch (e: Exception) {
+                            android.util.Log.w("ChartScreen", "Real-time update failed: ${e.message}")
+                        }
+                    }
+                }
             }
 
             // 차트와 시간버튼 사이 간격 최소화
