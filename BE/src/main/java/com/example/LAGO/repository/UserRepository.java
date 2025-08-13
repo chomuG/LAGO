@@ -51,4 +51,19 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      * @return 삭제되지 않은 AI 봇 사용자 목록
      */
     List<User> findByIsAiTrueAndDeletedAtIsNull();
+
+    /**
+     * 소셜 로그인 ID와 로그인 타입으로 사용자 조회
+     * @param socialLoginId 소셜 로그인 ID
+     * @param loginType 로그인 타입 (GOOGLE, KAKAO)
+     * @return 사용자
+     */
+    Optional<User> findBySocialLoginIdAndLoginType(String socialLoginId, String loginType);
+
+    /**
+     * 이메일로 사용자 조회
+     * @param email 이메일
+     * @return 사용자
+     */
+    Optional<User> findByEmail(String email);
 }

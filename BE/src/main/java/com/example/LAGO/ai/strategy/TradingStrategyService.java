@@ -321,7 +321,7 @@ public class TradingStrategyService {
             try {
                 // 사용자 성향 조회
                 User user = getUserOrThrow(userId);
-                String characterName = TradingConstants.getCharacterName(user.getPersonality());
+                String characterName = TradingConstants.getCharacterName(String.valueOf(user.getPersonality()));
                 
                 log.info("사용자 맞춤 전략 실행: userId={}, personality={}, character={}, stockCode={}", 
                         userId, user.getPersonality(), characterName, stockCode);
