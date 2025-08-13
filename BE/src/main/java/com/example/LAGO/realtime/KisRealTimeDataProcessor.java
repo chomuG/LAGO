@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -59,6 +60,7 @@ public class KisRealTimeDataProcessor {
     private static final int MKSC_SHRN_ISCD = 0;  // 종목코드
     private static final int STCK_CNTG_HOUR = 1;  // 체결시간
     private static final int STCK_PRPR = 2;       // 현재가
+    private static final int PRDY_CTRT = 5;     // 등락률
     private static final int STCK_OPRC = 7;       // 시가
     private static final int STCK_HGPR = 8;       // 고가
     private static final int STCK_LWPR = 9;       // 저가
@@ -296,6 +298,7 @@ public class KisRealTimeDataProcessor {
                     .highPrice(parseInteger(recordFields[STCK_HGPR]))
                     .lowPrice(parseInteger(recordFields[STCK_LWPR]))
                     .volume(parseInteger(recordFields[CNTG_VOL]))
+                    .fluctuationRate((parseDecimal(recordFields[PRDY_CTRT])))
                     .build();
                     
         } catch (Exception e) {
@@ -328,8 +331,25 @@ public class KisRealTimeDataProcessor {
             return null;
         }
     }
-    
-    
+
+    /**
+     * BigDecimal 파싱(등락률)
+     * @param value 원시 값
+     * @return 파싱된 BigDecimal
+     */
+    private BigDecimal parseDecimal(String value) {
+        if (value == null) return null;
+        String s = value.trim();
+        if (s.isEmpty()) return null;
+        try {
+            // 문자열 기반 생성 (new BigDecimal(double) 금지)
+            return new BigDecimal(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+
     /**
      * 원시 메시지를 담는 내부 클래스
      */
