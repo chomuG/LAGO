@@ -6,8 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 /**
  * 계좌 조회 응답 DTO
  * DB/Entity(Account) 필드와 1:1 매핑 - 명세서 기준
@@ -36,9 +34,6 @@ public class AccountDto {
 
 	@Schema(description = "수익률")
 	private Double profitRate;
-
-	@Schema(description = "생성일")
-	private LocalDateTime createdAt;
 
 	@Schema(description = "계좌구분(0:모의투자, 1:역사챌린지)")
 	private Integer type;

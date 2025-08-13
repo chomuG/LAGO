@@ -56,7 +56,6 @@ public class TestDataController {
                     .totalAsset(initialBalance)
                     .profit(0)
                     .profitRate(0.0)
-                    .createdAt(LocalDateTime.now())
                     .build();
             
             Account savedAccount = accountRepository.save(botAccount);
@@ -127,7 +126,6 @@ public class TestDataController {
                             .totalAsset(initialBalance)
                             .profit(0)
                             .profitRate(0.0)
-                            .createdAt(LocalDateTime.now())
                             .build();
                     
                     Account savedAccount = accountRepository.save(botAccount);

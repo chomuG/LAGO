@@ -12,7 +12,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 @EnableCaching	// 스프링 캐시 활성화
 @EnableScheduling
 @EnableJpaAuditing
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = "com.example.LAGO")
 @EntityScan(basePackages = "com.example.LAGO.domain")
 @EnableJpaRepositories(basePackages = "com.example.LAGO.repository")
 public class LagoApplication {

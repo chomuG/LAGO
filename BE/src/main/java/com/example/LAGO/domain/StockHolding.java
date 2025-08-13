@@ -25,7 +25,7 @@ public class StockHolding {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "holding_id")
-    private Integer holdingId;
+    private Long holdingId;
 
     @Column(name = "account_id", nullable = false)
     private Long accountId;

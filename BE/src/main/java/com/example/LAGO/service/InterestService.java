@@ -21,7 +21,7 @@ public class InterestService {
     private final StockInfoRepository stockInfoRepository;
 
     // 1. 특정 유저 관심 종목 리스트 조회
-    public List<InterestResponse> list(int userId) {
+    public List<InterestResponse> list(long userId) {
         return interestRepository.findWithStockInfoByUserId(userId)
                 .stream()
                 .map(InterestResponse::from)
@@ -30,7 +30,7 @@ public class InterestService {
 
     // 2. 토글 기능 (없으면 추가, 있으면 삭제)
     @Transactional
-    public InterestToggleResponse toggle(int userId, String code) {
+    public InterestToggleResponse toggle(long userId, String code) {
         if (interestRepository.existsByUserIdAndStockInfo_Code(userId, code)) {
             // 존재하면 삭제
             long deletedCount = interestRepository.deleteByUserIdAndStockInfo_Code(userId, code);

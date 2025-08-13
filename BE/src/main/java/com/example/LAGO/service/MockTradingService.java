@@ -77,7 +77,7 @@ public class MockTradingService {
      * @throws RuntimeException 거래 처리 실패
      */
     @Transactional
-    public MockTradeResponse processBuyOrder(Integer userId, MockTradeRequest request) {
+    public MockTradeResponse processBuyOrder(Long userId, MockTradeRequest request) {
         log.info("매수 주문 처리 시작: userId={}, stockCode={}, quantity={}, price={}", 
                 userId, request.getStockCode(), request.getQuantity(), request.getPrice());
 
@@ -176,7 +176,7 @@ public class MockTradingService {
      * @throws RuntimeException 거래 처리 실패
      */
     @Transactional
-    public MockTradeResponse processSellOrder(Integer userId, MockTradeRequest request) {
+    public MockTradeResponse processSellOrder(Long userId, MockTradeRequest request) {
         log.info("매도 주문 처리 시작: userId={}, stockCode={}, quantity={}, price={}", 
                 userId, request.getStockCode(), request.getQuantity(), request.getPrice());
 
@@ -288,7 +288,7 @@ public class MockTradingService {
     /**
      * 사용자 조회 (예외 발생)
      */
-    private User getUserOrThrow(Integer userId) {
+    private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
             .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다"));
     }
@@ -296,7 +296,7 @@ public class MockTradingService {
     /**
      * 계좌 조회 (예외 발생) - 기본 계좌 사용
      */
-    private Account getAccountOrThrow(Integer userId) {
+    private Account getAccountOrThrow(Long userId) {
         return accountRepository.findFirstByUserId(userId)
             .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다"));
     }
@@ -312,7 +312,7 @@ public class MockTradingService {
     /**
      * 보유 주식 조회 (예외 발생)
      */
-    private StockHolding getStockHoldingOrThrow(Integer accountId, String stockCode) {
+    private StockHolding getStockHoldingOrThrow(Long accountId, String stockCode) {
         return stockHoldingRepository.findByAccountIdAndStockCode(accountId, stockCode)
             .orElseThrow(() -> new IllegalArgumentException("보유하지 않은 종목입니다"));
     }

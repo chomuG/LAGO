@@ -44,7 +44,6 @@ public class AccountService {
                 .totalAsset(account.getTotalAsset())
                 .profit(account.getProfit())
                 .profitRate(account.getProfitRate())
-                .createdAt(account.getCreatedAt())
                 .type(account.getType())
                 .build();
     }

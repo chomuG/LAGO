@@ -49,9 +49,6 @@ public class AiBotAccountResponse {
     @Schema(description = "평균 거래 금액", example = "200000.0")
     private Double avgTradeValue;
 
-    @Schema(description = "계좌 생성일", example = "2025-08-01T09:00:00")
-    private LocalDateTime createdAt;
-
     @Schema(description = "마지막 거래일", example = "2025-08-04T14:30:00")
     private LocalDateTime lastTradeAt;
 

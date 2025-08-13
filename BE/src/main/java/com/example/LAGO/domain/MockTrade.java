@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
  * 지침서 명세 MOCK_TRADE 테이블과 완전 일치
  */
 @Entity
-@Table(name = "\"MOCK_TRADE\"")
+@Table(name = "mock_trade")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -25,7 +25,7 @@ public class MockTrade {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "trade_id")
-    private Integer tradeId;
+    private Long tradeId;
 
     @Column(name = "account_id")
     private Long accountId; // 계좌 ID
@@ -38,7 +38,7 @@ public class MockTrade {
     private Integer stockId; // STOCK_INFO 테이블의 stock_info_id 참조
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "stock_id", insertable = false, updatable = false)
+    @JoinColumn(name = "stock_id", referencedColumnName = "stock_info_id", insertable = false, updatable = false)
     private StockInfo stockInfo;
 
     @Enumerated(EnumType.STRING)

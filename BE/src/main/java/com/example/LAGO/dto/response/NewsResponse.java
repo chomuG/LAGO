@@ -17,31 +17,21 @@ public class NewsResponse {
     
     private Long id;
     private String title;
+    private String content;
     private String summary;
-    private String url;
-    private List<String> images;
-    private LocalDateTime publishedDate;
-    private String source;
-    private String stockCode;
-    private String stockName;
-    private String keywords;
     private String sentiment;
-    private LocalDateTime createdAt;
+    private LocalDateTime publishedAt;
+    private String type;
     
     public static NewsResponse from(News news) {
         return NewsResponse.builder()
                 .id(news.getId())
                 .title(news.getTitle())
+                .content(news.getContent())
                 .summary(news.getSummary())
-                .url(news.getUrl())
-                .images(news.getImages())
-                .publishedDate(news.getPublishedDate())
-                .source(news.getSource())
-                .stockCode(news.getStockCode())
-                .stockName(news.getStockName())
-                .keywords(news.getKeywords())
                 .sentiment(news.getSentiment())
-                .createdAt(news.getCreatedAt())
+                .publishedAt(news.getPublishedAt())
+                .type(news.getType())
                 .build();
     }
 }

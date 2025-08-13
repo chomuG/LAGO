@@ -207,7 +207,7 @@ public class SocialLoginService {
         return response;
     }
 
-    public void logout(Integer userId, String refreshToken) {
+    public void logout(Long userId, String refreshToken) {
         if (refreshToken != null) {
             tokenManagementService.revokeRefreshToken(refreshToken);
         }

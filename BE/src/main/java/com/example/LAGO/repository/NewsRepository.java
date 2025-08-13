@@ -15,12 +15,12 @@ import java.util.Optional;
 @Repository
 public interface NewsRepository extends JpaRepository<News, Long> {
     
-    // 일반 투자 뉴스 (종목 특정되지 않은 일반 뉴스) - PostgreSQL 최적화
-    @Query("SELECT n FROM News n WHERE n.stockCode IS NULL " +
-           "AND (LOWER(n.keywords) LIKE LOWER(:keyword1) OR LOWER(n.keywords) LIKE LOWER(:keyword2) OR " +
-           "     LOWER(n.keywords) LIKE LOWER(:keyword3) OR LOWER(n.keywords) LIKE LOWER(:keyword4) OR " +
-           "     LOWER(n.keywords) LIKE LOWER(:keyword5) OR LOWER(n.keywords) LIKE LOWER(:keyword6)) " +
-           "ORDER BY n.publishedDate DESC")
+    // 일반 투자 뉴스 (종목 특정되지 않은 일반 뉴스) - title 기반 검색으로 변경
+    @Query("SELECT n FROM News n WHERE " +
+           "(LOWER(n.title) LIKE LOWER(:keyword1) OR LOWER(n.title) LIKE LOWER(:keyword2) OR " +
+           " LOWER(n.title) LIKE LOWER(:keyword3) OR LOWER(n.title) LIKE LOWER(:keyword4) OR " +
+           " LOWER(n.title) LIKE LOWER(:keyword5) OR LOWER(n.title) LIKE LOWER(:keyword6)) " +
+           "ORDER BY n.publishedAt DESC")
     Page<News> findGeneralInvestmentNews(
         @Param("keyword1") String keyword1,
         @Param("keyword2") String keyword2, 
@@ -31,70 +31,30 @@ public interface NewsRepository extends JpaRepository<News, Long> {
         Pageable pageable
     );
     
-    // 관심종목별 뉴스
-    @Query("SELECT n FROM News n WHERE n.stockCode IN :stockCodes " +
-           "ORDER BY n.publishedDate DESC")
-    Page<News> findByStockCodesOrderByPublishedDateDesc(
-        @Param("stockCodes") List<String> stockCodes, 
-        Pageable pageable
-    );
-    
-    // 특정 종목 뉴스
-    Page<News> findByStockCodeOrderByPublishedDateDesc(String stockCode, Pageable pageable);
+    // 관심종목별 뉴스 (새 스키마에는 stock_code 없음 - 제거 필요)
+    // 특정 종목 뉴스 (새 스키마에는 stock_code 없음 - 제거 필요)
     
     // 최신 뉴스 (전체)
-    Page<News> findAllByOrderByPublishedDateDesc(Pageable pageable);
-    
-    // 중복 뉴스 체크용 (URL 기준)
-    boolean existsByUrl(String url);
-    
-    // URL로 뉴스 조회 (업서트용)
-    Optional<News> findByUrl(String url);
+    Page<News> findAllByOrderByPublishedAtDesc(Pageable pageable);
     
     // 특정 기간 뉴스
-    @Query("SELECT n FROM News n WHERE n.publishedDate BETWEEN :startDate AND :endDate " +
-           "ORDER BY n.publishedDate DESC")
-    List<News> findByPublishedDateBetween(
+    @Query("SELECT n FROM News n WHERE n.publishedAt BETWEEN :startDate AND :endDate " +
+           "ORDER BY n.publishedAt DESC")
+    List<News> findByPublishedAtBetween(
         @Param("startDate") LocalDateTime startDate, 
         @Param("endDate") LocalDateTime endDate
     );
     
-    // 키워드 검색 - PostgreSQL ILIKE 사용 (대소문자 무시)
+    // 키워드 검색 - title과 content 기반 (keywords 필드 제거)
     @Query("SELECT n FROM News n WHERE " +
            "(LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           " LOWER(n.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           " LOWER(n.keywords) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-           "ORDER BY n.publishedDate DESC")
+           " LOWER(n.content) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "ORDER BY n.publishedAt DESC")
     Page<News> findByKeywordSearch(@Param("keyword") String keyword, Pageable pageable);
     
-    // 생성일 기준 최신순 조회 (Google RSS용)
-    Page<News> findAllByOrderByCreatedAtDesc(Pageable pageable);
-    
-    // 오래된 뉴스 조회 (정리용)
-    List<News> findByCreatedAtBefore(LocalDateTime cutoffDate);
-    
-    // 종목별 뉴스 조회
-    List<News> findByStockCode(String stockCode);
-    
-    // 종목 코드 리스트로 뉴스 조회 (관심종목)
-    Page<News> findByStockCodeInOrderByPublishedDateDesc(List<String> stockCodes, Pageable pageable);
-    
     // PostgreSQL 전용: 감정 분석 통계 (전체)
-    @Query(value = "SELECT sentiment, COUNT(*) as count FROM \"NEWS\" " +
+    @Query(value = "SELECT sentiment, COUNT(*) as count FROM news " +
                    "WHERE sentiment IS NOT NULL " +
                    "GROUP BY sentiment", nativeQuery = true)
     List<Object[]> getSentimentStatistics();
-    
-    // PostgreSQL 전용: 종목별 감정 분석 통계  
-    @Query(value = "SELECT sentiment, COUNT(*) as count FROM \"NEWS\" " +
-                   "WHERE stock_code = :stockCode AND sentiment IS NOT NULL " +
-                   "GROUP BY sentiment", nativeQuery = true)
-    List<Object[]> getSentimentStatisticsByStockCode(@Param("stockCode") String stockCode);
-    
-    // PostgreSQL 전용: 최근 7일 뉴스 수 집계
-    @Query(value = "SELECT DATE(created_at) as date, COUNT(*) as count FROM \"NEWS\" " +
-                   "WHERE created_at >= NOW() - INTERVAL '7 days' " +
-                   "GROUP BY DATE(created_at) " +
-                   "ORDER BY date DESC", nativeQuery = true)
-    List<Object[]> getRecentNewsCountByDate();
 }

@@ -58,7 +58,7 @@ public class StockController {
             @RequestHeader("User-Id") // TODO: JWT 인증으로 변경 예정
             @NotNull(message = "사용자 ID는 필수입니다") 
             @Positive(message = "사용자 ID는 양수여야 합니다") 
-            Integer userId,
+            Long userId,
             
             @Parameter(description = "매수 요청 정보", required = true)
             @RequestBody 
@@ -119,7 +119,7 @@ public class StockController {
             @RequestHeader("User-Id") // TODO: JWT 인증으로 변경 예정
             @NotNull(message = "사용자 ID는 필수입니다") 
             @Positive(message = "사용자 ID는 양수여야 합니다") 
-            Integer userId,
+            Long userId,
             
             @Parameter(description = "매도 요청 정보", required = true)
             @RequestBody 
@@ -180,7 +180,7 @@ public class StockController {
             @RequestHeader("User-Id") // TODO: JWT 인증으로 변경 예정
             @NotNull(message = "사용자 ID는 필수입니다") 
             @Positive(message = "사용자 ID는 양수여야 합니다") 
-            Integer userId,
+            Long userId,
             
             @Parameter(description = "매매 요청 정보", required = true)
             @RequestBody 

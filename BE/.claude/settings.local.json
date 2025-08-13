@@ -133,7 +133,9 @@
       "Bash(winpty docker exec -it timescaledb psql -U lago_user -d stock_db -c \"SELECT COUNT(*) FROM \"\"NEWS\"\";\")",
       "Bash(taskkill:*)",
       "Bash(python:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(jar tf:*)",
+      "Bash(java:*)"
     ],
     "deny": []
   }

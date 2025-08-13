@@ -138,7 +138,7 @@ public class TradeService {
      * 사용자 거래 실행 (StockController에서 호출)
      * 지침서 명세: API 명세서 기준, 파라미터/반환 구조 임의 변경 금지
      */
-    public TradeResponse executeUserTrade(Integer userId, TradeRequest request) {
+    public TradeResponse executeUserTrade(Long userId, TradeRequest request) {
         try {
             log.info("사용자 거래 실행: userId={}, stockCode={}, tradeType={}", 
                     userId, request.getStockCode(), request.getTradeType());
@@ -173,7 +173,7 @@ public class TradeService {
             
             // MockTrade 엔티티 생성
             MockTrade mockTrade = MockTrade.builder()
-                    .accountId(request.getAccountId() != null ? request.getAccountId() : 1) // 요청된 계좌 ID 사용
+                    .accountId(request.getAccountId() != null ? request.getAccountId() : 1L) // 요청된 계좌 ID 사용
                     .stockId(stockInfo.getStockInfoId()) // stock_info_id 설정
                     .tradeType(request.getTradeType())
                     .quantity(quantity)

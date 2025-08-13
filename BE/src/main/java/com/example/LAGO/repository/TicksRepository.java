@@ -19,8 +19,8 @@ public interface TicksRepository extends JpaRepository<Ticks, Integer> {
                 "MIN(t.low_price) AS low, " +
                 "LAST(t.close_price, t.ts) AS close, " +
                 "SUM(t.volume) AS volume " +
-            "FROM \"TICKS\" t " +
-                "JOIN \"STOCK_INFO\" si ON t.stock_info_id = si.stock_info_id " +
+            "FROM ticks t " +
+                "JOIN stock_info si ON t.stock_info_id = si.stock_info_id " +
             "WHERE si.code = :stockCode " +
                 "AND t.ts BETWEEN :fromDateTime AND :toDateTime " +
             "GROUP BY bucket " +

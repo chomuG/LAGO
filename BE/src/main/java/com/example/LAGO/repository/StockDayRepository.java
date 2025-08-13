@@ -47,17 +47,8 @@ public interface StockDayRepository extends JpaRepository<StockDay, Integer> {
                                                                  LocalDate startDate,
                                                                  LocalDate endDate);
 
-    /**
-     * 종목 정보 ID로 특정 기간 일봉 데이터 조회
-     *
-     * @param stockInfoId 종목 정보 ID
-     * @param startDate   시작일
-     * @param endDate     종료일
-     * @return 일봉 데이터 리스트 (날짜순)
-     */
-    List<StockDay> findByStockInfoStockInfoIdAndNewDateBetweenOrderByNewDateAsc(Integer stockInfoId,
-                                                                          LocalDateTime startDate,
-                                                                          LocalDateTime endDate);
+    // newDate 필드가 제거되어 이 메서드는 사용하지 않음
+    // 대신 위의 findByStockInfoStockInfoIdAndDateBetweenOrderByDateAsc 메서드 사용
 
     /**
      * 종목 정보 ID로 최신 일봉 데이터 조회

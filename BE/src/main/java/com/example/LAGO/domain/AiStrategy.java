@@ -26,7 +26,7 @@ import java.time.LocalDateTime;
  * @since 2025-08-06
  */
 @Entity
-@Table(name = "AI_STRATEGY")
+@Table(name = "ai_strategy")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -40,7 +40,7 @@ public class AiStrategy {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "strategy_id")
-    private Integer strategyId;
+    private Long strategyId;
 
     /**
      * 사용자 ID (FK)

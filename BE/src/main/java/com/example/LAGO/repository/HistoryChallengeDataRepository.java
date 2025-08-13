@@ -42,7 +42,7 @@ public interface HistoryChallengeDataRepository extends JpaRepository<HistoryCha
                     "MIN(hcd.low_price) AS low, " +
                     "LAST(hcd.close_price, hcd.event_date_time) AS close, " +
                     "SUM(hcd.volume) AS volume " +
-                "FROM \"HISTORY_CHALLENGE_DATA\" hcd " +
+                "FROM history_challenge_data hcd " +
                 "WHERE hcd.challenge_id = :challengeId " +
                     "AND hcd.event_date_time BETWEEN :fromDateTime AND :toDateTime " +
                 "GROUP BY bucket " +
@@ -70,8 +70,8 @@ public interface HistoryChallengeDataRepository extends JpaRepository<HistoryCha
             "    MIN(hcd.low_price) AS low, " +
             "    LAST(hcd.close_price, hcd.event_date_time) AS close, " +
             "    SUM(hcd.volume) AS volume " +
-            "FROM \"HISTORY_CHALLENGE_DATA\" hcd " +
-                "JOIN \"HISTORY_CHALLENGE\" hc ON hcd.challenge_id = hc.challenge_id " +
+            "FROM history_challenge_data hcd " +
+                "JOIN history_challenge hc ON hcd.challenge_id = hc.challenge_id " +
             "WHERE hc.stock_code = :stockCode " +
                 "AND hcd.event_date_time BETWEEN :fromDateTime AND :toDateTime " +
             "GROUP BY bucket " +

@@ -1,7 +1,5 @@
 package com.example.LAGO.domain;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -17,7 +15,7 @@ import lombok.Builder;
  * 지침서 명세 ACCOUNTS 테이블과 완전 일치
  */
 @Entity
-@Table(name = "\"ACCOUNTS\"")
+@Table(name = "accounts")
 @Getter 
 @Setter
 @NoArgsConstructor
@@ -45,10 +43,6 @@ public class Account {
     @Column(name = "profit_rate", nullable = false)
     private Double profitRate;
 
-    
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
-
     @Column(name = "type", nullable = false)
     private Integer type; // 계좌구분(0:모의투자, 1:역사챌린지, 2:AI봇)
 
@@ -56,11 +50,4 @@ public class Account {
     public static final Integer TYPE_MOCK_TRADING = 0;    // 모의투자
     public static final Integer TYPE_HISTORY_CHALLENGE = 1; // 역사챌린지
     public static final Integer TYPE_AI_BOT = 2;          // AI봇
-
-    @PrePersist
-    protected void onCreate() {
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-    }
 }

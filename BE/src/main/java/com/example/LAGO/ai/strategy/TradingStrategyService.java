@@ -133,7 +133,7 @@ public class TradingStrategyService {
                     .tradingSignal(signal)
                     .sentimentAnalysis(sentiment)
                     .technicalAnalysis(technical)
-                    .strategyId(strategy != null ? 1 : null) // TODO: AiStrategy 엔티티 구조 확인 후 수정
+                    .strategyId(strategy != null ? 1L : null) // TODO: AiStrategy 엔티티 구조 확인 후 수정
                     .success(true)
                     .createdAt(LocalDateTime.now())
                     .build();
@@ -186,7 +186,7 @@ public class TradingStrategyService {
                     .tradingSignal(signal)
                     .sentimentAnalysis(sentiment)
                     .technicalAnalysis(technical)
-                    .strategyId(strategy != null ? 1 : null) // TODO: AiStrategy 엔티티 구조 확인 후 수정
+                    .strategyId(strategy != null ? 1L : null) // TODO: AiStrategy 엔티티 구조 확인 후 수정
                     .success(true)
                     .createdAt(LocalDateTime.now())
                     .build();
@@ -239,7 +239,7 @@ public class TradingStrategyService {
                     .tradingSignal(signal)
                     .sentimentAnalysis(sentiment)
                     .technicalAnalysis(technical)
-                    .strategyId(strategy != null ? 1 : null) // TODO: AiStrategy 엔티티 구조 확인 후 수정
+                    .strategyId(strategy != null ? 1L : null) // TODO: AiStrategy 엔티티 구조 확인 후 수정
                     .success(true)
                     .createdAt(LocalDateTime.now())
                     .build();
@@ -292,7 +292,7 @@ public class TradingStrategyService {
                     .tradingSignal(signal)
                     .sentimentAnalysis(sentiment)
                     .technicalAnalysis(technical)
-                    .strategyId(strategy != null ? 1 : null) // TODO: AiStrategy 엔티티 구조 확인 후 수정
+                    .strategyId(strategy != null ? 1L : null) // TODO: AiStrategy 엔티티 구조 확인 후 수정
                     .success(true)
                     .createdAt(LocalDateTime.now())
                     .build();

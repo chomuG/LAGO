@@ -202,7 +202,7 @@ public final class TradingUtils {
      * @param quantity 거래 수량
      * @param price 거래 단가
      */
-    public static void logTradeStart(Integer userId, String stockCode, String tradeType, 
+    public static void logTradeStart(Long userId, String stockCode, String tradeType, 
                                    Integer quantity, Integer price) {
         log.info("거래 시작: userId={}, stockCode={}, tradeType={}, quantity={}, price={}", 
                 userId, stockCode, tradeType, quantity, price);

@@ -10,7 +10,7 @@ import lombok.Builder;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "\"USER_TOKEN\"")
+@Table(name = "user_token")
 @Getter 
 @Setter
 @NoArgsConstructor

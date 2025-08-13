@@ -196,7 +196,9 @@ public class AuthController {
             @RequestBody Map<String, Object> request) {
         
         try {
-            Integer userId = (Integer) request.get("userId");
+            Long userId = request.get("userId") instanceof Integer ? 
+                ((Integer) request.get("userId")).longValue() : 
+                (Long) request.get("userId");
             String refreshToken = (String) request.get("refreshToken");
 
             if (userId == null) {

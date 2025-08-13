@@ -12,7 +12,7 @@ import lombok.Builder;
  * EC2 데이터베이스 INTEREST 테이블과 완전 일치
  */
 @Entity
-@Table(name = "\"INTEREST\"")
+@Table(name = "interest")
 @Getter
 @Setter
 @NoArgsConstructor

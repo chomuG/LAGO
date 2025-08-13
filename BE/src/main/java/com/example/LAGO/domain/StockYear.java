@@ -9,7 +9,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "\"STOCK_YEAR\"")
+@Table(name = "stock_year")
 @Getter
 @Setter
 @NoArgsConstructor
