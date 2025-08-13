@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 
 // 국내주식 실시간 체결가 데이터 파싱
 
@@ -19,13 +21,38 @@ public class KisRealTimeDataProcessor {
     
     private final RealtimeDataService realtimeDataService;
     private final ObjectMapper objectMapper;
+    private final RealTimeDataBroadcaster broadcaster;
     
     // KIS API 데이터 스펙 상수
     private static final int EXPECTED_MIN_FIELDS = 13; // 최소 필요 필드 수
-    
-    public KisRealTimeDataProcessor(RealtimeDataService realtimeDataService, ObjectMapper objectMapper) {
+    // 클래스 상단에 상수 추가
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final DateTimeFormatter HHMMSS = DateTimeFormatter.ofPattern("HHmmss");
+    private static final DateTimeFormatter ISO_OFFSET = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+
+    // KST 변환 유틸 메서드 추가 (날짜가 따로 없으므로 "해당 데이터가 속한 KST 날짜"를 넣어야 함)
+    // 실시간이면 today(KST), 과거 재처리면 '그 날'을 외부에서 넘겨 써야 더 정확합니다.
+    private String toKstIso8601FromHhmmss(String hhmmss) {
+        if (hhmmss == null || hhmmss.isBlank()) return null;
+        LocalTime time = LocalTime.parse(hhmmss, HHMMSS);
+        LocalDate dateKst = LocalDate.now(KST);  // ⚠️ 과거 데이터면 해당 영업일자를 써야 함
+        ZonedDateTime kstZdt = ZonedDateTime.of(dateKst, time, KST);
+        return kstZdt.format(ISO_OFFSET); // 예: 2025-08-12T12:30:20+09:00
+    }
+
+    // (선택) Instant로도 필요하면 함께 만들 수 있음
+    private Instant toKstInstantFromHhmmss(String hhmmss) {
+        if (hhmmss == null || hhmmss.isBlank()) return null;
+        LocalTime time = LocalTime.parse(hhmmss, HHMMSS);
+        LocalDate dateKst = LocalDate.now(KST);
+        return ZonedDateTime.of(dateKst, time, KST).toInstant(); // UTC 기준 절대시각
+    }
+
+
+    public KisRealTimeDataProcessor(RealtimeDataService realtimeDataService, ObjectMapper objectMapper, RealTimeDataBroadcaster broadcaster) {
         this.realtimeDataService = realtimeDataService;
         this.objectMapper = objectMapper;
+        this.broadcaster = broadcaster;
     }
     
     // KIS 실시간 데이터 컬럼 인덱스 (필수 데이터만)
@@ -76,8 +103,8 @@ public class KisRealTimeDataProcessor {
         // 1. Redis에 실시간 데이터 저장
         realtimeDataService.saveTickData(tickData);
         
-        // TODO: 2. 실시간 프론트엔드 전송
-        // broadcaster.sendRealTimeData(tickData);
+        // 2. 실시간 프론트엔드 전송
+        broadcaster.sendRealTimeData(tickData);
         
         // TODO: 3. 1분봉 집계 서비스로 전달
         // minuteCandleService.addTick(tickData);
@@ -254,10 +281,16 @@ public class KisRealTimeDataProcessor {
                 log.debug("Insufficient fields in record data: {} (need at least {})", recordFields.length, EXPECTED_MIN_FIELDS);
                 return null;
             }
+
+            // 기존 HHmmss 원본
+            String hhmmss = parseString(recordFields[STCK_CNTG_HOUR]);
+
+            // ✅ KST로 변환한 ISO-8601(+09:00) 문자열
+            String kstIso = toKstIso8601FromHhmmss(hhmmss);
             
             return TickData.builder()
                     .code(parseString(recordFields[MKSC_SHRN_ISCD]))
-                    .date(parseString(recordFields[STCK_CNTG_HOUR]))
+                    .date(parseString(recordFields[STCK_CNTG_HOUR]))    //.date(kstIso) : KST로 변환한 경우
                     .closePrice(parseInteger(recordFields[STCK_PRPR]))
                     .openPrice(parseInteger(recordFields[STCK_OPRC]))
                     .highPrice(parseInteger(recordFields[STCK_HGPR]))

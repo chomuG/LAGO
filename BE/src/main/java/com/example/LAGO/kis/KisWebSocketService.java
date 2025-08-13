@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 //@Service  // 매매 테스트를 위해 임시 비활성화
@@ -19,6 +20,9 @@ public class KisWebSocketService {
     private final int MAX_STOCKS_PER_USER = 20;
     private final StockInfoService stockInfoService;
     private final KisRealTimeDataProcessor dataProcessor;
+
+    // 전역 가드: 종목 -> 소유 유저 (동일 종목을 다른 유저가 동시에 받는걸 방지)
+    private final ConcurrentMap<String, String> stockOwner = new ConcurrentHashMap<>();
     
     public KisWebSocketService(
             @Qualifier("kisAuth_userA") KisAuthClient kisAuthClientA,
@@ -74,13 +78,14 @@ public class KisWebSocketService {
         List<String> failedStocks = new ArrayList<>();
         
         for (String stockCode : stockCodes) {
+
+            // 1. 유저 선택(라운드로빈/용량 기준)
             String assignedUser = assignStockToUser(stockCode);
-            
             if (assignedUser == null) {
                 failedStocks.add(stockCode);
                 continue;
             }
-            
+
             try {
                 KisWebSocketClient client = webSocketClients.get(assignedUser);
                 // H0STCNT0 고정 (실시간 체결가)
@@ -92,7 +97,7 @@ public class KisWebSocketService {
                 failedStocks.add(stockCode);
             }
         }
-        
+
         return failedStocks;
     }
     

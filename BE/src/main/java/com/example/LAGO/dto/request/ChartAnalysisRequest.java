@@ -1,6 +1,6 @@
 package com.example.LAGO.dto.request;
 
-import com.example.LAGO.constants.Interval; // 경로 수정
+import com.example.LAGO.constants.Interval;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

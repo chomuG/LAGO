@@ -6,9 +6,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 @EnableCaching	// 스프링 캐시 활성화
 @EnableScheduling
+@EnableJpaAuditing
 @SpringBootApplication
 @EnableJpaRepositories(basePackages = "com.example.LAGO.repository")
 public class LagoApplication {
