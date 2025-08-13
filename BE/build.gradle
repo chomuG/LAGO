@@ -83,6 +83,9 @@ dependencies {
 	testImplementation 'org.testcontainers:junit-jupiter'
 	testImplementation 'org.testcontainers:postgresql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// Zstd
+	implementation 'com.github.luben:zstd-jni:1.5.6-10'
 }
 
 // =================================================================
