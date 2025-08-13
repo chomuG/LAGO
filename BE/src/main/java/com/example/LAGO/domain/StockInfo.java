@@ -1,10 +1,8 @@
 package com.example.LAGO.domain;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.Builder;
 import lombok.NoArgsConstructor;
 import java.util.List;
 
@@ -37,7 +35,7 @@ public class StockInfo {
      * 종목 코드 (예: 005930)
      */
     @Column(name = "code", length = 20)
-    private String stockCode;
+    private String code;
 
     /**
      * 종목명 (예: 삼성전자) - JPA 메소드 호환성을 위해 name 필드 추가
@@ -76,7 +74,7 @@ public class StockInfo {
 
     // 생성자
     public StockInfo(String stockCode, String name, String market) {
-        this.stockCode = stockCode;
+        this.code = stockCode;
         this.name = name;
         this.companyName = name; // 별칭 동기화
         this.market = market;
@@ -84,7 +82,7 @@ public class StockInfo {
     
     // 코드 호환성을 위한 getter 별칭
     public String getCode() {
-        return stockCode;
+        return code;
     }
     
     public String getCompanyName() {

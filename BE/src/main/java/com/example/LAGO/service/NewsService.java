@@ -1,6 +1,5 @@
 package com.example.LAGO.service;
 
-import com.example.LAGO.ai.sentiment.FinBertSentimentService;
 import com.example.LAGO.domain.News;
 import com.example.LAGO.domain.StockInfo;
 import com.example.LAGO.domain.WatchList;  // 관심종목 엔티티
@@ -104,10 +103,10 @@ public class NewsService {
                         continue;
                     }
 
-                    log.info("관심종목 뉴스 수집: {} ({})", stock.getCompanyName(), stock.getStockCode());
+                    log.info("관심종목 뉴스 수집: {} ({})", stock.getCompanyName(), stock.getCode());
 
                     collectSingleWatchlistNews(
-                            stock.getStockCode(),
+                            stock.getCode(),
                             stock.getCompanyName(),
                             getAliasesForStock(stock),
                             5  // 종목당 5개 뉴스
@@ -397,7 +396,7 @@ public class NewsService {
         
         for (StockInfo stock : majorStocks) {
             try {
-                collectHistoricalNewsForStock(stock.getStockCode(), stock.getCompanyName(), 
+                collectHistoricalNewsForStock(stock.getCode(), stock.getCompanyName(),
                                             date, getAliasesForStock(stock));
                 
                 // API 부하 방지를 위한 지연
