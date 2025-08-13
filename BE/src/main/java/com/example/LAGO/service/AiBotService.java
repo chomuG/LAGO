@@ -140,7 +140,7 @@ public class AiBotService {
                 .map(aiBot -> {
                     // 각 AI 봇의 계좌 정보 조회 (계좌는 무조건 존재)
                     Account account = accountRepository.findByUserIdAndType(
-                            aiBot.getUserId(), "현시점"
+                            aiBot.getUserId(), "ai_bot"
                     ).orElseThrow(() -> new RuntimeException("AI 봇 계좌를 찾을 수 없습니다: " + aiBot.getUserId()));
                     
                     log.info("AI 봇 조회: userId={}, aiId={}, nickname={}, personality={}, totalAsset={}, profit={}, profitRate={}%", 

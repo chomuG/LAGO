@@ -1,5 +1,6 @@
 package com.example.LAGO.controller;
 
+import com.example.LAGO.domain.TradeType;
 import com.example.LAGO.dto.request.TradeRequest;
 import com.example.LAGO.dto.response.TradeResponse;
 import com.example.LAGO.service.TradeService;
@@ -61,7 +62,7 @@ public class StockController {
             TradeRequest request
     ) {
         // 매수 타입 강제 설정
-        request.setTradeType("BUY");
+        request.setTradeType(TradeType.BUY);
         
         TradeResponse response = tradeService.executeUserTrade(userId, request);
         return ResponseEntity.ok(response);
@@ -99,7 +100,7 @@ public class StockController {
             TradeRequest request
     ) {
         // 매도 타입 강제 설정
-        request.setTradeType("SELL");
+        request.setTradeType(TradeType.SELL);
         
         TradeResponse response = tradeService.executeUserTrade(userId, request);
         return ResponseEntity.ok(response);

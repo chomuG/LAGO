@@ -1,5 +1,6 @@
 package com.example.LAGO.dto.request;
 
+import com.example.LAGO.domain.TradeType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -24,8 +25,8 @@ public class TradeRequest {
     private String stockCode;
 
     @Schema(description = "거래 타입 (BUY/SELL)", example = "BUY", required = true)
-    @NotBlank(message = "거래 타입은 필수입니다")
-    private String tradeType;
+    @NotNull(message = "거래 타입은 필수입니다")
+    private TradeType tradeType;
 
     @Schema(description = "거래 수량", example = "10", required = true)
     @NotNull(message = "거래 수량은 필수입니다")

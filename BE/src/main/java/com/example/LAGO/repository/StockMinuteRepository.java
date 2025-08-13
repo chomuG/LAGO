@@ -26,5 +26,8 @@ public interface StockMinuteRepository extends JpaRepository<StockMinute, Intege
             LocalDateTime end
     );
     StockMinute findTopByStockInfoCodeAndDateOrderByDateDesc(String code, LocalDateTime date);
+    
+    // 종목 코드별 최신 분봉 데이터 조회 (AI 자동매매용)
+    Optional<StockMinute> findTopByStockInfo_CodeOrderByDateDesc(String code);
 
 }
