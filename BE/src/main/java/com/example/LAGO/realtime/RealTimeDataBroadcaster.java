@@ -48,6 +48,7 @@ public class RealTimeDataBroadcaster {
                 .closePrice(tickData.getClosePrice())
                 .volume(tickData.getVolume())
                 .fluctuationRate(tickData.getFluctuationRate())  // 등락율 포함
+                .previousDay(tickData.getPreviousDay())          // 전일대비 추가
                 .build();
     }
 

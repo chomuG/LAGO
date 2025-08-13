@@ -34,6 +34,7 @@ public class TickData {
     private Integer lowPrice;    // 저가
     private Integer volume;        // 거래량
     private BigDecimal fluctuationRate;  // 등락률
+    private Integer previousDay;    // 전일대비
 
     @Builder.Default
     private LocalDateTime receivedAt = LocalDateTime.now();
@@ -81,6 +82,7 @@ public class TickData {
                 && fluctuationRate != null
                 && fluctuationRate.compareTo(BigDecimal.valueOf(-100)) >= 0
                 && fluctuationRate.compareTo(BigDecimal.valueOf(100)) <= 0  // 등락률 범위는 보통 -0.3~0.3
+                && previousDay != null
                 && getParsedDateTime() != null; // 날짜 파싱 성공 여부
     }
 
