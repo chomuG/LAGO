@@ -56,7 +56,7 @@ public class TestDataController {
                     .totalAsset(initialBalance)
                     .profit(0)
                     .profitRate(0.0f)
-                    .createdAt(LocalDateTime.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    .createdAt(LocalDateTime.now())
                     .build();
             
             Account savedAccount = accountRepository.save(botAccount);
@@ -97,6 +97,68 @@ public class TestDataController {
             return ResponseEntity.status(500).body(Map.of(
                 "status", "error",
                 "message", "AI 봇 조회 중 오류: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * AI 봇들에게 ai_bot 타입 계좌 생성
+     */
+    @PostMapping("/create-ai-accounts")
+    @Operation(summary = "AI 봇 계좌 생성", description = "모든 AI 봇에게 ai_bot 타입의 계좌를 생성합니다.")
+    public ResponseEntity<Map<String, Object>> createAiAccounts(
+            @RequestParam(defaultValue = "1000000") Integer initialBalance) {
+        
+        try {
+            var aiBots = userRepository.findByIsAiTrueOrderByAiIdAsc();
+            int createdCount = 0;
+            int skippedCount = 0;
+            
+            for (var aiBot : aiBots) {
+                // 이미 ai_bot 계좌가 있는지 확인
+                var existingAccount = accountRepository.findByUserIdAndType(aiBot.getUserId(), "ai_bot");
+                
+                if (existingAccount.isEmpty()) {
+                    // 다음 계좌 ID 찾기 (단순하게 현재 시간 기반으로 생성)
+                    Integer nextAccountId = (int) (System.currentTimeMillis() % 1000000) + aiBot.getUserId() * 1000;
+                    
+                    // ai_bot 계좌 생성
+                    Account botAccount = Account.builder()
+                            .accountId(nextAccountId)
+                            .userId(aiBot.getUserId())
+                            .type("ai_bot")
+                            .balance(initialBalance)
+                            .totalAsset(initialBalance)
+                            .profit(0)
+                            .profitRate(0.0f)
+                            .createdAt(LocalDateTime.now())
+                            .build();
+                    
+                    Account savedAccount = accountRepository.save(botAccount);
+                    log.info("AI 봇 {} (userId={})에게 계좌 생성: accountId={}, balance={}", 
+                            aiBot.getNickname(), aiBot.getUserId(), savedAccount.getAccountId(), savedAccount.getBalance());
+                    createdCount++;
+                } else {
+                    log.info("AI 봇 {} (userId={})는 이미 ai_bot 계좌가 있음: accountId={}", 
+                            aiBot.getNickname(), aiBot.getUserId(), existingAccount.get().getAccountId());
+                    skippedCount++;
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "AI 봇 계좌 생성 완료",
+                "totalBots", aiBots.size(),
+                "createdAccounts", createdCount,
+                "skippedAccounts", skippedCount,
+                "initialBalance", initialBalance
+            ));
+
+        } catch (Exception e) {
+            log.error("AI 봇 계좌 생성 중 오류", e);
+            return ResponseEntity.status(500).body(Map.of(
+                "status", "error",
+                "message", "AI 봇 계좌 생성 중 오류: " + e.getMessage()
             ));
         }
     }

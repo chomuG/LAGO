@@ -34,11 +34,11 @@ public class MockTrade {
     @JoinColumn(name = "account_id", insertable = false, updatable = false)
     private Account account; // 계좌 정보
 
-    @Column(name = "stock_code", nullable = false)
-    private String stockCode; // 종목 코드
+    @Column(name = "stock_id", nullable = false)
+    private Integer stockId; // STOCK_INFO 테이블의 stock_info_id 참조
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "stock_id")
+    @JoinColumn(name = "stock_id", insertable = false, updatable = false)
     private StockInfo stockInfo;
 
     @Enumerated(EnumType.STRING)

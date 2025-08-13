@@ -80,9 +80,13 @@ public class TradeService {
                 return MockTradeResponse.failure("ERROR", "필수 파라미터가 누락되었습니다.");
             }
             
+            // 종목 정보 조회
+            StockInfo stockInfo = stockInfoRepository.findByCode(request.getStockCode())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid stock code: " + request.getStockCode()));
+            
             // 거래 기록 생성 (간소화)
             MockTrade mockTrade = MockTrade.builder()
-                    .stockCode(request.getStockCode())
+                    .stockId(stockInfo.getStockInfoId())
                     .tradeType(request.getTradeType())
                     .quantity(request.getQuantity())
                     .price(1000) // 임시 가격
@@ -96,8 +100,8 @@ public class TradeService {
             
             return MockTradeResponse.success(
                     mockTrade.getTradeId(), // Long 타입 그대로 사용
-                    mockTrade.getStockCode(),
-                    mockTrade.getStockCode(), // stockName 대신 임시로 stockCode 사용
+                    stockInfo.getCode(), // stockCode
+                    stockInfo.getName(), // stockName
                     mockTrade.getQuantity(),
                     mockTrade.getPrice(),
                     mockTrade.getTotalAmount(),
@@ -163,11 +167,14 @@ public class TradeService {
                 totalAmount = calculateSellTotalAmount(price, quantity);
             }
             
+            // 종목 정보 조회
+            StockInfo stockInfo = stockInfoRepository.findByCode(request.getStockCode())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid stock code: " + request.getStockCode()));
+            
             // MockTrade 엔티티 생성
             MockTrade mockTrade = MockTrade.builder()
-                    .accountId(1) // 임시 계좌 ID (실제로는 userId로부터 계좌 조회 필요)
-                    .stockInfo(stockInfoRepository.findByCode(request.getStockCode())
-                                .orElseThrow(() -> new IllegalArgumentException("Invalid stock code: " + request.getStockCode())))
+                    .accountId(request.getAccountId() != null ? request.getAccountId() : 1) // 요청된 계좌 ID 사용
+                    .stockId(stockInfo.getStockInfoId()) // stock_info_id 설정
                     .tradeType(request.getTradeType())
                     .quantity(quantity)
                     .price(price)
@@ -184,8 +191,8 @@ public class TradeService {
             return TradeResponse.success(
                     savedTrade.getTradeId(),
                     userId,
-                    savedTrade.getStockCode(),
-                    "종목명", // TODO: StockInfo에서 실제 종목명 조회 필요
+                    stockInfo.getCode(), // stockCode
+                    stockInfo.getName(), // stockName
                     savedTrade.getTradeType(),
                     savedTrade.getQuantity(),
                     savedTrade.getPrice(),

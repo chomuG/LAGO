@@ -361,9 +361,13 @@ public class MockTradingService {
      */
     private MockTrade createAndSaveMockTrade(Account account, String stockCode, TradeType tradeType,
                                            Integer quantity, Integer executedPrice, Integer totalAmount) {
+        // 종목 정보 조회
+        StockInfo stockInfo = stockInfoRepository.findByCode(stockCode)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid stock code: " + stockCode));
+        
         MockTrade mockTrade = MockTrade.builder()
             .account(account)
-            .stockCode(stockCode)
+            .stockId(stockInfo.getStockInfoId())
             .tradeType(tradeType)
             .quantity(quantity)
             .price(executedPrice)

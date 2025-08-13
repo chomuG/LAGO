@@ -45,14 +45,16 @@ public class Account {
     private Float profitRate;
 
     
-    @Column(name = "created_at", nullable = false, columnDefinition = "TEXT")
-    private String createdAt;
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
 
     @Column(name = "type", nullable = false)
     private String type; // 계좌구분(현시점/역사챌린지/ai_bot)
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
     }
 }
