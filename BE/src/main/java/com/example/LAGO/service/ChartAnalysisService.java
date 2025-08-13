@@ -17,5 +17,5 @@ public interface ChartAnalysisService {
      * @param stockId 분석할 주식의 ID
      * @return 감지된 차트 패턴 목록
      */
-    List<ChartAnalysisResponse> analyzePatterns(Long stockId, Interval interval, LocalDateTime startDate, LocalDateTime endDate);
+    List<ChartAnalysisResponse> analyzePatterns(String stockCode, ChartMode chartMode, Interval interval, LocalDateTime fromTimeDate, LocalDateTime toDateTime);
 }

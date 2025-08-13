@@ -1,16 +1,11 @@
 package com.example.LAGO.dto.response;
 
 import com.example.LAGO.domain.HistoryChallengeData;
-import com.example.LAGO.service.HistoryChallengeServiceImpl;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Getter
 @Setter

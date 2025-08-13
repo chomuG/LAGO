@@ -17,11 +17,11 @@ import java.util.Optional;
 public interface StockRepository extends JpaRepository<Stock, String> {
 
     /**
-     * 종목명으로 검색
+     * 종목명으로 검색 - 임시 비활성화
      * @param name 종목명 (부분 일치)
      * @return 매칭되는 종목 목록
      */
-    List<Stock> findByNameContainingIgnoreCase(String name);
+    // List<Stock> findByNameContainingIgnoreCase(String name);
 
     /**
      * 시장별 종목 조회
