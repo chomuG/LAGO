@@ -27,15 +27,23 @@ public class MockTrade {
     @Column(name = "trade_id")
     private Long tradeId;
 
+    @Column(name = "account_id")
+    private Integer accountId; // 계좌 ID
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    private Account account;
+    @JoinColumn(name = "account_id", insertable = false, updatable = false)
+    private Account account; // 계좌 정보
 
-    @Column(name = "stock_code", nullable = false, length = 10)
+    @Column(name = "stock_code", nullable = false)
     private String stockCode; // 종목 코드
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stock_id")
+    private StockInfo stockInfo;
 
-    @Column(name = "trade_type", nullable = false, length = 10)
-    private String tradeType; // 거래구분 (BUY/SELL)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "buy_sell", nullable = false)
+    private TradeType tradeType; // 거래구분 (BUY/SELL)
 
     @Column(name = "quantity", nullable = false)
     private Integer quantity; // 거래 수량
@@ -43,31 +51,24 @@ public class MockTrade {
     @Column(name = "price", nullable = false)
     private Integer price; // 거래 단가
 
-    @Column(name = "total_amount", nullable = false)
-    private Integer totalAmount; // 총 거래금액 (price * quantity)
-
-    @Column(name = "trade_time", nullable = false)
+    @Column(name = "trade_at", nullable = false)
     private LocalDateTime tradeTime; // 거래 시간
-
-    @Column(name = "status", length = 20)
-    private String status; // 거래 상태 (COMPLETED/PENDING/CANCELLED)
 
     @Column(name = "commission")
     private Integer commission; // 수수료
-
-    @Column(name = "tax")
-    private Integer tax; // 세금
+    
+    // 총 거래 금액 계산 메소드 (price * quantity 기반)
+    public Integer getTotalAmount() {
+        if (price != null && quantity != null) {
+            return price * quantity;
+        }
+        return 0;
+    }
 
     @PrePersist
     protected void onCreate() {
         if (tradeTime == null) {
             tradeTime = LocalDateTime.now();
-        }
-        if (status == null) {
-            status = "COMPLETED";
-        }
-        if (totalAmount == null && price != null && quantity != null) {
-            totalAmount = price * quantity;
         }
     }
 }

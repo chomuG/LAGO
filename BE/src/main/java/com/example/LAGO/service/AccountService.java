@@ -10,6 +10,8 @@ import com.example.LAGO.repository.AccountRepository;
 
 import lombok.RequiredArgsConstructor;
 
+import java.time.LocalDateTime;
+
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 /**
@@ -37,7 +39,7 @@ public class AccountService {
                 .totalAsset(account.getTotalAsset())
                 .profit(account.getProfit())
                 .profitRate(account.getProfitRate())
-                .createdAt(account.getCreatedAt())
+                .createdAt(LocalDateTime.parse(account.getCreatedAt()))
                 .type(account.getType())
                 .build();
     }

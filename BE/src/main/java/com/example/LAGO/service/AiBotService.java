@@ -76,7 +76,7 @@ public class AiBotService {
                     .type(aiAccount.getType())
                     .tradeCount(tradeCount)
                     .avgTradeValue(avgTradeValue != null ? avgTradeValue : 0.0)
-                    .createdAt(aiAccount.getCreatedAt())
+                    .createdAt(LocalDateTime.parse(aiAccount.getCreatedAt()))
                     .lastTradeAt(lastTradeAt)
                     .strategy(strategy)
                     .responseTime(LocalDateTime.now())

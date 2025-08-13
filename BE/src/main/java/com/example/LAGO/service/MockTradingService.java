@@ -115,7 +115,7 @@ public class MockTradingService {
                     
                     // 거래 내역 저장
                     MockTrade mockTrade = createAndSaveMockTrade(
-                        account, request.getStockCode(), TradingConstants.TRADE_TYPE_BUY,
+                        account, request.getStockCode(), TradeType.BUY,
                         request.getQuantity(), executedPrice, totalCost
                     );
                     
@@ -215,7 +215,7 @@ public class MockTradingService {
                     
                     // 거래 내역 저장
                     MockTrade mockTrade = createAndSaveMockTrade(
-                        account, request.getStockCode(), TradingConstants.TRADE_TYPE_SELL,
+                        account, request.getStockCode(), TradeType.SELL,
                         request.getQuantity(), executedPrice, totalRevenue
                     );
                     
@@ -359,7 +359,7 @@ public class MockTradingService {
     /**
      * 거래 내역 생성 및 저장
      */
-    private MockTrade createAndSaveMockTrade(Account account, String stockCode, String tradeType,
+    private MockTrade createAndSaveMockTrade(Account account, String stockCode, TradeType tradeType,
                                            Integer quantity, Integer executedPrice, Integer totalAmount) {
         MockTrade mockTrade = MockTrade.builder()
             .account(account)
@@ -367,7 +367,6 @@ public class MockTradingService {
             .tradeType(tradeType)
             .quantity(quantity)
             .price(executedPrice)
-            .totalAmount(totalAmount)
             .tradeTime(LocalDateTime.now())
             .build();
             

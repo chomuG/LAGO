@@ -77,7 +77,7 @@ Thumbs.db
 
 # Docker Compose Override (EC2 배포용)
 docker-compose.override.yml
-!docker-compose.override.yml.example
+!docker-compose.override.yml
 
 # Archives
 *.zip

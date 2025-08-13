@@ -63,5 +63,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  jenkins_home:
   timescale_data:
