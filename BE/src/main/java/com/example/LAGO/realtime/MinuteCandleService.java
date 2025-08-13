@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "redis.stream.enabled", havingValue = "true", matchIfMissing = false)
 public class MinuteCandleService {
     private final Map<String, List<TickData>> minuteBucket = new ConcurrentHashMap<>();
     // String key = "종목코드_yyyyMMdd_HHmm"
