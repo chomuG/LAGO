@@ -9,6 +9,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.time.LocalDate;
@@ -32,6 +33,7 @@ public class TickData {
     private Integer highPrice;   // 고가
     private Integer lowPrice;    // 저가
     private Integer volume;        // 거래량
+    private BigDecimal fluctuationRate;  // 등락률
 
     @Builder.Default
     private LocalDateTime receivedAt = LocalDateTime.now();
@@ -76,6 +78,9 @@ public class TickData {
                 && highPrice != null && highPrice >= 0
                 && lowPrice != null && lowPrice >= 0
                 && volume != null && volume > 0 // 거래가 성사된거니 거래량은 0보다 커야함
+                && fluctuationRate != null
+                && fluctuationRate.compareTo(BigDecimal.valueOf(-100)) >= 0
+                && fluctuationRate.compareTo(BigDecimal.valueOf(100)) <= 0  // 등락률 범위는 보통 -0.3~0.3
                 && getParsedDateTime() != null; // 날짜 파싱 성공 여부
     }
 
