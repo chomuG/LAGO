@@ -5,8 +5,10 @@ import com.example.LAGO.dto.request.TradeRequest;
 import com.example.LAGO.dto.response.TradeResponse;
 import com.example.LAGO.service.TradeService;
 import com.example.LAGO.service.MockTradingService;
+import com.example.LAGO.service.OrderStreamProducer;
 import com.example.LAGO.dto.request.MockTradeRequest;
 import com.example.LAGO.dto.response.MockTradeResponse;
+import com.example.LAGO.dto.OrderDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -16,6 +18,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -29,10 +32,12 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/stocks")
 @Tag(name = "주식 매매", description = "사용자 주식 매매 API (AI 봇과 분리)")
 @Validated
+@Slf4j
 public class StockController {
 
     private final TradeService tradeService;
     private final MockTradingService mockTradingService;
+    private final OrderStreamProducer orderStreamProducer;
 
     /**
      * 주식 매수
@@ -222,5 +227,146 @@ public class StockController {
         );
         
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 비동기 매매 주문 (Redis Stream 기반)
+     * 즉시 주문 접수 응답 후 백그라운드에서 처리
+     * 
+     * @param userId 사용자 ID
+     * @param request 매매 요청
+     * @return 주문 접수 응답
+     */
+    @PostMapping("/order")
+    @Operation(
+        summary = "비동기 매매 주문", 
+        description = "Redis Stream을 통한 비동기 매매 처리. 즉시 주문 접수 응답 후 백그라운드에서 실제 매매 수행"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "202", description = "주문 접수 완료 (비동기 처리)"),
+        @ApiResponse(responseCode = "400", description = "잘못된 요청"),
+        @ApiResponse(responseCode = "500", description = "서버 내부 오류")
+    })
+    public ResponseEntity<?> submitAsyncOrder(
+            @Parameter(description = "사용자 ID", required = true, example = "1")
+            @RequestHeader("User-Id")
+            @NotNull(message = "사용자 ID는 필수입니다") 
+            @Positive(message = "사용자 ID는 양수여야 합니다") 
+            Long userId,
+            
+            @Parameter(description = "매매 요청 정보", required = true)
+            @RequestBody 
+            @Valid 
+            TradeRequest request
+    ) {
+        try {
+            // TradeRequest를 OrderDto로 변환
+            OrderDto orderDto = OrderDto.builder()
+                    .userId(userId)
+                    .stockCode(request.getStockCode())
+                    .tradeType(request.getTradeType())
+                    .quantity(request.getQuantity())
+                    .price(request.getPrice())
+                    .accountId(request.getAccountId() != null ? request.getAccountId().longValue() : null)
+                    .status(OrderDto.OrderStatus.PENDING)
+                    .priority(1) // 일반 주문 우선순위
+                    .build();
+            
+            // Redis Stream에 주문 발행
+            String orderId = orderStreamProducer.publishOrder(orderDto);
+            
+            // 즉시 주문 접수 응답
+            return ResponseEntity.accepted()
+                    .body(java.util.Map.of(
+                        "success", true,
+                        "orderId", orderId,
+                        "userId", userId,
+                        "stockCode", request.getStockCode(),
+                        "tradeType", request.getTradeType().name(),
+                        "quantity", request.getQuantity(),
+                        "status", "ACCEPTED",
+                        "message", "주문이 접수되었습니다. 백그라운드에서 처리 중입니다.",
+                        "submittedAt", java.time.LocalDateTime.now()
+                    ));
+            
+        } catch (Exception e) {
+            log.error("비동기 주문 접수 실패: userId={}, stockCode={}, error={}", 
+                    userId, request.getStockCode(), e.getMessage(), e);
+            
+            return ResponseEntity.badRequest()
+                    .body(java.util.Map.of(
+                        "success", false,
+                        "error", "ORDER_SUBMISSION_FAILED",
+                        "message", "주문 접수에 실패했습니다: " + e.getMessage(),
+                        "userId", userId,
+                        "stockCode", request.getStockCode()
+                    ));
+        }
+    }
+
+    /**
+     * 주문 상태 조회
+     * 
+     * @param orderId 주문 ID (Redis Stream Record ID)
+     * @return 주문 상태 정보
+     */
+    @GetMapping("/order/{orderId}/status")
+    @Operation(
+        summary = "주문 상태 조회", 
+        description = "비동기 주문의 처리 상태를 조회합니다"
+    )
+    public ResponseEntity<?> getOrderStatus(
+            @Parameter(description = "주문 ID", required = true)
+            @PathVariable String orderId
+    ) {
+        try {
+            // TODO: Redis에서 주문 상태 조회 로직 구현
+            // 현재는 기본 응답 반환
+            return ResponseEntity.ok(java.util.Map.of(
+                "orderId", orderId,
+                "status", "PROCESSING",
+                "message", "주문 처리 중입니다",
+                "checkedAt", java.time.LocalDateTime.now()
+            ));
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(java.util.Map.of(
+                        "success", false,
+                        "error", "ORDER_STATUS_CHECK_FAILED",
+                        "message", "주문 상태 조회에 실패했습니다: " + e.getMessage(),
+                        "orderId", orderId
+                    ));
+        }
+    }
+
+    /**
+     * Stream 상태 확인 (관리자용)
+     * 
+     * @return Stream 상태 정보
+     */
+    @GetMapping("/stream/status")
+    @Operation(
+        summary = "주문 처리 스트림 상태", 
+        description = "Redis Stream 기반 주문 처리 시스템의 상태를 확인합니다"
+    )
+    public ResponseEntity<?> getStreamStatus() {
+        try {
+            String streamInfo = orderStreamProducer.getStreamInfo();
+            boolean streamAvailable = orderStreamProducer.isStreamAvailable();
+            
+            return ResponseEntity.ok(java.util.Map.of(
+                "streamAvailable", streamAvailable,
+                "streamInfo", streamInfo,
+                "checkedAt", java.time.LocalDateTime.now()
+            ));
+            
+        } catch (Exception e) {
+            return ResponseEntity.ok(java.util.Map.of(
+                "streamAvailable", false,
+                "error", e.getMessage(),
+                "checkedAt", java.time.LocalDateTime.now()
+            ));
+        }
     }
 }

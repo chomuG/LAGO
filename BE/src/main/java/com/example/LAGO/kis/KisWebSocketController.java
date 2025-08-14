@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
-//@RestController  // 매매 테스트를 위해 임시 비활성화
+@RestController  // KIS WebSocket 실시간 데이터 테스트를 위해 활성화
 @RequestMapping("/api/kis/realtime")
 public class KisWebSocketController {
     

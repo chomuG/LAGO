@@ -366,7 +366,7 @@ public class MockTradingService {
                 .orElseThrow(() -> new IllegalArgumentException("Invalid stock code: " + stockCode));
         
         MockTrade mockTrade = MockTrade.builder()
-            .account(account)
+            .accountId(account.getAccountId())
             .stockId(stockInfo.getStockInfoId())
             .tradeType(tradeType)
             .quantity(quantity)
@@ -386,31 +386,26 @@ public class MockTradingService {
             stockHoldingRepository.findByAccountIdAndStockCode(account.getAccountId(), request.getStockCode());
             
         if (existingHolding.isPresent()) {
-            // 기존 보유 주식이 있는 경우 수량과 평균가 업데이트
+            // 기존 보유 주식이 있는 경우 수량과 총 매수금액 업데이트
             StockHolding holding = existingHolding.get();
             Integer newQuantity = holding.getQuantity() + request.getQuantity();
-            Integer newTotalCost = holding.getTotalCost() + totalCost;
-            Integer newAveragePrice = newTotalCost / newQuantity;
+            Integer newTotalPrice = holding.getTotalPrice() + totalCost;
             
             holding.setQuantity(newQuantity);
-            holding.setTotalCost(newTotalCost);
-            holding.setAveragePrice(newAveragePrice);
-            holding.setLastTradeDate(LocalDateTime.now());
+            holding.setTotalPrice(newTotalPrice);
             
             stockHoldingRepository.save(holding);
         } else {
+            // 종목 정보 조회
+            StockInfo stockInfo = stockInfoRepository.findByCode(request.getStockCode())
+                .orElseThrow(() -> new IllegalArgumentException("Stock not found: " + request.getStockCode()));
+                
             // 신규 보유 주식 생성
             StockHolding newHolding = StockHolding.builder()
-                .account(account)
-                .stockCode(request.getStockCode())
+                .accountId(account.getAccountId())
+                .stockInfoId(stockInfo.getStockInfoId())
                 .quantity(request.getQuantity())
-                .averagePrice(executedPrice)
-                .totalCost(totalCost)
-                .currentValue(request.getQuantity() * executedPrice)
-                .profitLoss(0)
-                .profitLossRate(0.0f)
-                .firstPurchaseDate(LocalDateTime.now())
-                .lastTradeDate(LocalDateTime.now())
+                .totalPrice(totalCost)
                 .build();
                 
             stockHoldingRepository.save(newHolding);
@@ -428,12 +423,11 @@ public class MockTradingService {
             stockHoldingRepository.delete(holding);
             log.debug("전량 매도로 보유 주식 삭제: holdingId={}", holding.getHoldingId());
         } else {
-            // 부분 매도시 수량 감소
-            Integer newTotalCost = (holding.getTotalCost() * remainingQuantity) / holding.getQuantity();
+            // 부분 매도시 수량 감소 및 총 매수금액 비례 조정
+            Integer newTotalPrice = (holding.getTotalPrice() * remainingQuantity) / holding.getQuantity();
             
             holding.setQuantity(remainingQuantity);
-            holding.setTotalCost(newTotalCost);
-            holding.setLastTradeDate(LocalDateTime.now());
+            holding.setTotalPrice(newTotalPrice);
             
             stockHoldingRepository.save(holding);
             log.debug("부분 매도로 보유 주식 업데이트: holdingId={}, newQuantity={}", 
