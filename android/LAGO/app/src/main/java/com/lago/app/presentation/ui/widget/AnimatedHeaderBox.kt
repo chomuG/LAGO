@@ -97,12 +97,9 @@ fun AnimatedHeaderBox(
                     
                     Spacer(modifier = Modifier.width(Spacing.sm))
                     
-                    val isPositive = stockInfo.priceChange >= 0
-                    val changeText = if (isPositive) {
-                        "+${String.format("%.0f", stockInfo.priceChange)}(${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%)"
-                    } else {
-                        "${String.format("%.0f", stockInfo.priceChange)}(${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%)"
-                    }
+                    val previousDay = stockInfo.previousDay ?: 0
+                    val isPositive = previousDay >= 0  // previousDay로 색상 판단
+                    val changeText = "${previousDay}(${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%)"
                     
                     Text(
                         text = changeText,
@@ -143,12 +140,9 @@ fun AnimatedHeaderBox(
 
                     Spacer(modifier = Modifier.width(Spacing.xs + 2.dp))
 
-                    val isPositive = stockInfo.priceChange >= 0
-                    val percentText = if (isPositive) {
-                        "+${String.format("%.2f", stockInfo.priceChangePercent)}%"
-                    } else {
-                        "${String.format("%.2f", stockInfo.priceChangePercent)}%"
-                    }
+                    val previousDay = stockInfo.previousDay ?: 0
+                    val isPositive = previousDay >= 0  // previousDay로 색상 판단
+                    val percentText = "${String.format("%.2f", stockInfo.priceChangePercent)}%"
                     
                     Text(
                         text = percentText,

@@ -45,6 +45,16 @@ interface ChartRepository {
     suspend fun getUserHoldings(): Flow<Resource<List<HoldingItem>>>
     
     /**
+     * 과거 캔들스틱 데이터 조회 (무한 히스토리용)
+     */
+    suspend fun getHistoricalCandlestickData(
+        stockCode: String,
+        timeFrame: String,
+        beforeTime: Long? = null,  // 이 시간 이전 데이터
+        limit: Int = 50
+    ): Flow<Resource<List<CandlestickData>>>
+    
+    /**
      * 거래 내역 조회
      */
     suspend fun getTradingHistory(

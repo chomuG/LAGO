@@ -20,6 +20,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlin.time.Duration.Companion.milliseconds
 import javax.inject.Inject
+import com.lago.app.presentation.ui.chart.v5.HistoricalDataRequestListener
+import com.google.gson.Gson
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.math.*
 
 @HiltViewModel
 class ChartViewModel @Inject constructor(
@@ -30,7 +35,7 @@ class ChartViewModel @Inject constructor(
     private val smartUpdateScheduler: SmartUpdateScheduler,
     private val memoryCache: ChartMemoryCache,
     private val realTimeCache: com.lago.app.data.cache.RealTimeStockCache
-) : ViewModel() {
+) : ViewModel(), HistoricalDataRequestListener {
     
     private val _uiState = MutableStateFlow(ChartUiState())
     val uiState: StateFlow<ChartUiState> = _uiState.asStateFlow()
@@ -43,6 +48,11 @@ class ChartViewModel @Inject constructor(
     // 실시간 차트 업데이트를 위한 JsBridge와 MinuteAggregator
     private var chartBridge: com.lago.app.presentation.ui.chart.v5.JsBridge? = null
     private val minuteAggregator = com.lago.app.presentation.ui.chart.v5.MinuteAggregator()
+    
+    // 무한 히스토리 관련 상태 변수들
+    private var currentEarliestTime: Long? = null // 현재 차트에 로드된 가장 오래된 데이터 시간
+    private var isLoadingHistory = false // 과거 데이터 로딩 중 여부
+    private val gson = Gson()
     
     
     init {
@@ -71,7 +81,8 @@ class ChartViewModel @Inject constructor(
                             currentStock = state.currentStock.copy(
                                 currentPrice = realTimeData.price.toFloat(),
                                 priceChange = realTimeData.priceChange.toFloat(),
-                                priceChangePercent = realTimeData.priceChangePercent.toFloat()
+                                priceChangePercent = realTimeData.priceChangePercent.toFloat(),
+                                previousDay = realTimeData.previousDay // 웹소켓 previousDay 적용
                             )
                         )
                     }
@@ -229,7 +240,7 @@ class ChartViewModel @Inject constructor(
     }
     
     /**
-     * 차트 준비 완료 시 JsBridge 설정
+     * 차트 준비 완료 시 JsBridge 설정 (무한 히스토리 리스너 포함)
      */
     fun setChartBridge(bridge: com.lago.app.presentation.ui.chart.v5.JsBridge) {
         chartBridge = bridge
@@ -401,9 +412,15 @@ class ChartViewModel @Inject constructor(
                                 } else {
                                     data
                                 }
+                                
+                                // 현재 차트의 가장 오래된 데이터 시간 추적
+                                currentEarliestTime = chartData.minByOrNull { it.time }?.time
+                                
                                 _uiState.update { 
                                     it.copy(candlestickData = chartData)
                                 }
+                                
+                                android.util.Log.d("ChartViewModel", "📈 차트 데이터 로드 완료: ${chartData.size}개, 가장 오래된 시간: ${currentEarliestTime}")
                             }
                             is Resource.Error -> {
                                 _uiState.update { 
@@ -918,7 +935,8 @@ class ChartViewModel @Inject constructor(
         val updatedStock = _uiState.value.currentStock.copy(
             currentPrice = tickData.price,
             priceChange = tickData.change,
-            priceChangePercent = tickData.changePercent
+            priceChangePercent = tickData.changePercent,
+            previousDay = null // 틱 데이터에는 previousDay 정보 없음
         )
         
         _uiState.update { 
@@ -1262,8 +1280,53 @@ class ChartViewModel @Inject constructor(
             )
         }
         
-        // TODO: WebView와 통신하여 실제 마커 업데이트
-        android.util.Log.d("LAGO_CHART", "마커 업데이트: ${markersToShow.size}개")
+        // WebView와 통신하여 실제 마커 업데이트
+        try {
+            // JSMarker 형식으로 변환
+            val jsMarkers = markersToShow.map { signal ->
+                val jsMarker = mapOf(
+                    "time" to (signal.timestamp.time / 1000), // epoch seconds
+                    "position" to if (signal.signalType == SignalType.BUY) "belowBar" else "aboveBar",
+                    "shape" to when {
+                        signal.signalSource == SignalSource.USER && signal.signalType == SignalType.BUY -> "arrowUp"
+                        signal.signalSource == SignalSource.USER && signal.signalType == SignalType.SELL -> "arrowDown"
+                        signal.signalSource == SignalSource.AI_BLUE -> "circle"
+                        signal.signalSource == SignalSource.AI_GREEN -> "square"
+                        signal.signalSource == SignalSource.AI_RED -> "circle"
+                        signal.signalSource == SignalSource.AI_YELLOW -> "square"
+                        else -> "circle"
+                    },
+                    "color" to when (signal.signalSource) {
+                        SignalSource.USER -> if (signal.signalType == SignalType.BUY) "#FF99C5" else "#42A6FF" // LAGO MainPink/MainBlue
+                        SignalSource.AI_BLUE -> "#007BFF"
+                        SignalSource.AI_GREEN -> "#28A745"
+                        SignalSource.AI_RED -> "#DC3545"
+                        SignalSource.AI_YELLOW -> "#FFC107"
+                    },
+                    "id" to signal.id,
+                    "text" to (signal.message ?: "${signal.signalSource.displayName} ${if (signal.signalType == SignalType.BUY) "매수" else "매도"}"),
+                    "size" to 1
+                )
+                jsMarker
+            }
+            
+            // JSON으로 변환하여 WebView에 전달
+            val gson = com.google.gson.Gson()
+            val markersJson = gson.toJson(jsMarkers)
+            
+            // JsBridge를 통해 setTradeMarkers 함수 호출
+            if (markersToShow.isEmpty()) {
+                chartBridge?.clearTradeMarkers()
+            } else {
+                chartBridge?.setTradeMarkers(markersJson)
+            }
+            
+            android.util.Log.d("LAGO_CHART", "마커 업데이트 완료: ${markersToShow.size}개")
+            android.util.Log.d("LAGO_CHART", "전송된 마커 데이터: $markersJson")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("LAGO_CHART", "마커 업데이트 실패", e)
+        }
     }
     
     private fun generateMockTradingSignals(): List<TradingSignal> {
@@ -1396,5 +1459,108 @@ class ChartViewModel @Inject constructor(
         
         android.util.Log.d("ChartViewModel", "🔧 더미 차트 데이터 생성: ${dummyData.size}개 ($timeFrame)")
         return dummyData
+    }
+    
+    // ======================== 무한 히스토리 구현 ========================
+    
+    /**
+     * JavaScript에서 과거 데이터 요청 시 호출되는 메서드
+     * TradingView subscribeVisibleLogicalRangeChange에서 발생
+     */
+    override fun onRequestHistoricalData(barsToLoad: Int) {
+        android.util.Log.d("ChartViewModel", "📚 과거 데이터 요청: $barsToLoad 개")
+        
+        // 이미 로딩 중이면 무시
+        if (isLoadingHistory) {
+            android.util.Log.d("ChartViewModel", "⏳ 이미 과거 데이터 로딩 중...")
+            return
+        }
+        
+        val currentStockCode = _uiState.value.currentStock.code
+        val currentTimeFrame = _uiState.value.config.timeFrame
+        val beforeTime = currentEarliestTime
+        
+        if (currentStockCode.isEmpty()) {
+            android.util.Log.w("ChartViewModel", "❌ 종목 코드가 없어 과거 데이터 로딩 불가")
+            return
+        }
+        
+        if (beforeTime == null) {
+            android.util.Log.w("ChartViewModel", "❌ 기준 시간이 없어 과거 데이터 로딩 불가")
+            return
+        }
+        
+        viewModelScope.launch {
+            try {
+                isLoadingHistory = true
+                android.util.Log.d("ChartViewModel", "🔄 과거 데이터 로딩 시작: $currentStockCode, $currentTimeFrame, before=$beforeTime")
+                
+                chartRepository.getHistoricalCandlestickData(
+                    stockCode = currentStockCode,
+                    timeFrame = currentTimeFrame,
+                    beforeTime = beforeTime,
+                    limit = barsToLoad
+                ).collect { resource ->
+                    when (resource) {
+                        is Resource.Success -> {
+                            val historicalData = resource.data ?: emptyList()
+                            
+                            if (historicalData.isNotEmpty()) {
+                                android.util.Log.d("ChartViewModel", "✅ 과거 데이터 로드 성공: ${historicalData.size}개")
+                                
+                                // 기존 차트 데이터와 병합 (과거 데이터를 앞에 추가)
+                                val existingData = _uiState.value.candlestickData
+                                val mergedData = historicalData + existingData
+                                
+                                // 시간 순으로 정렬 (오래된 것부터)
+                                val sortedData = mergedData.sortedBy { it.time }
+                                
+                                // 가장 오래된 시간 업데이트
+                                currentEarliestTime = sortedData.firstOrNull()?.time
+                                
+                                // UI 상태 업데이트
+                                _uiState.update { 
+                                    it.copy(candlestickData = sortedData)
+                                }
+                                
+                                // JavaScript로 과거 데이터 전달
+                                val candlesJson = gson.toJson(historicalData.map { candle ->
+                                    mapOf(
+                                        "time" to candle.time / 1000, // epoch seconds
+                                        "open" to candle.open.toInt(),
+                                        "high" to candle.high.toInt(),
+                                        "low" to candle.low.toInt(),
+                                        "close" to candle.close.toInt()
+                                    )
+                                })
+                                
+                                chartBridge?.addHistoricalData(candlesJson)
+                                android.util.Log.d("ChartViewModel", "📊 JavaScript로 과거 데이터 전송 완료: ${historicalData.size}개")
+                                
+                            } else {
+                                android.util.Log.d("ChartViewModel", "📭 더 이상 로드할 과거 데이터가 없습니다")
+                            }
+                        }
+                        is Resource.Error -> {
+                            android.util.Log.e("ChartViewModel", "❌ 과거 데이터 로딩 실패: ${resource.message}")
+                            _uiState.update { 
+                                it.copy(errorMessage = "과거 데이터 로딩 실패: ${resource.message}")
+                            }
+                        }
+                        is Resource.Loading -> {
+                            android.util.Log.d("ChartViewModel", "⏳ 과거 데이터 로딩 중...")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ChartViewModel", "💥 과거 데이터 로딩 예외", e)
+                _uiState.update { 
+                    it.copy(errorMessage = "과거 데이터 로딩 중 오류가 발생했습니다: ${e.message}")
+                }
+            } finally {
+                isLoadingHistory = false
+                android.util.Log.d("ChartViewModel", "🏁 과거 데이터 로딩 완료")
+            }
+        }
     }
 }
