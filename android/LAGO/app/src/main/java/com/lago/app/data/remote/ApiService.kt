@@ -1,6 +1,8 @@
 package com.lago.app.data.remote
 
 import com.lago.app.data.remote.dto.TransactionDto
+import com.lago.app.data.remote.dto.UserCurrentStatusDto
+import com.lago.app.data.remote.dto.RankingDto
 import retrofit2.http.*
 
 interface ApiService {
@@ -19,7 +21,13 @@ interface ApiService {
     
     @POST("auth/logout")
     suspend fun logout(): Unit
-    
+
     @GET("api/accounts/{userId}/transactions")
     suspend fun getTransactions(@Path("userId") userId: Long): List<TransactionDto>
+
+    @GET("api/users/{userId}/current-status")
+    suspend fun getUserCurrentStatus(@Path("userId") userId: Int): UserCurrentStatusDto
+
+    @GET("api/ranking")
+    suspend fun getRanking(): List<RankingDto>
 }

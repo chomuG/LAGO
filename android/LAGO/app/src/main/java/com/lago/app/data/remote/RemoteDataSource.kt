@@ -2,6 +2,7 @@ package com.lago.app.data.remote
 
 import com.lago.app.data.remote.dto.TransactionDto
 import com.lago.app.util.Constants
+import com.lago.app.data.remote.dto.UserCurrentStatusDto
 import retrofit2.Retrofit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,16 +40,20 @@ class RemoteDataSource @Inject constructor(
             ApiResponse.Error(e.message ?: "Unknown error occurred")
         }
     }
-    
+
+    suspend fun getUserCurrentStatus(userId: Int): UserCurrentStatusDto {
+        return apiService.getUserCurrentStatus(userId)
+    }
+
     suspend fun getTransactions(userId: Long): ApiResponse<List<TransactionDto>> {
         return try {
             android.util.Log.d("API_CALL", "Getting transactions for userId: $userId")
             android.util.Log.d("API_CALL", "Request URL: ${Constants.BASE_URL}api/accounts/$userId/transactions")
-            
+
             val response = apiService.getTransactions(userId)
             android.util.Log.d("API_CALL", "Transaction API Success - Response size: ${response.size}")
             android.util.Log.d("API_CALL", "Transaction API Response: $response")
-            
+
             ApiResponse.Success(response)
         } catch (e: Exception) {
             android.util.Log.e("API_CALL", "Transaction API Error", e)

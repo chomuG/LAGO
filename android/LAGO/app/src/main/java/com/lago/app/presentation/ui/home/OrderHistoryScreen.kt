@@ -17,23 +17,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.lago.app.domain.entity.Transaction
 import com.lago.app.presentation.theme.*
 import com.lago.app.presentation.ui.components.CommonTopAppBar
 import com.lago.app.presentation.viewmodel.OrderHistoryViewModel
 import com.lago.app.presentation.viewmodel.OrderType
-import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderHistoryScreen(
-    userId: Long,
     onBackClick: () -> Unit = {},
+    userId: Int? = null,
     viewModel: OrderHistoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    
+
     var selectedOrderType by remember { mutableStateOf(OrderType.ALL) }
     var isDateDropdownExpanded by remember { mutableStateOf(false) }
     var isOrderTypeDropdownExpanded by remember { mutableStateOf(false) }
@@ -44,10 +42,10 @@ fun OrderHistoryScreen(
         emptyList()
     }
     
-    var selectedDate by remember(dateOptions) { 
+    var selectedDate by remember(dateOptions) {
         mutableStateOf(dateOptions.firstOrNull() ?: "2025년 8월")
     }
-    
+
     val filteredHistory = if (uiState.transactions.isNotEmpty()) {
         viewModel.getFilteredTransactions(selectedOrderType, selectedDate)
     } else {
@@ -68,7 +66,7 @@ fun OrderHistoryScreen(
             onBackClick = onBackClick
         )
         
-        
+
         // Filter Row
         Row(
             modifier = Modifier
@@ -206,13 +204,13 @@ fun OrderHistoryScreen(
 private fun TransactionItemRow(transaction: Transaction) {
     val dateFormat = SimpleDateFormat("M.dd", Locale.getDefault())
     val displayDate = dateFormat.format(transaction.tradeAt)
-    
+
     val orderTypeKorean = when (transaction.buySell) {
         "BUY" -> "구매"
         "SELL" -> "판매"
         else -> transaction.buySell
     }
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -265,6 +263,6 @@ private fun TransactionItemRow(transaction: Transaction) {
 @Composable
 fun OrderHistoryScreenPreview() {
     LagoTheme {
-        OrderHistoryScreen(userId = 1L)
+        OrderHistoryScreen(userId = 5)
     }
 }
