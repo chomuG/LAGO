@@ -12,7 +12,7 @@ import java.util.Optional;
  * 지침서 명세: AI 봇은 is_ai=true로 구분
  */
 @Repository
-public interface UserRepository extends JpaRepository<User, Integer> {
+public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * AI ID와 AI 여부로 조회 (기존 메서드)
@@ -37,14 +37,14 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      * @param userId 사용자 ID
      * @return 일반 사용자
      */
-    Optional<User> findByUserIdAndIsAiFalse(Integer userId);
+    Optional<User> findByUserIdAndIsAiFalse(Long userId);
 
     /**
      * 사용자 ID로 조회 (AI 봇 여부 상관없이)
      * @param userId 사용자 ID
      * @return 사용자
      */
-    Optional<User> findByUserId(Integer userId);
+    Optional<User> findByUserId(Long userId);
     
     /**
      * 활성화된 AI 봇 목록 조회 (is_ai = true, deleted_at IS NULL)

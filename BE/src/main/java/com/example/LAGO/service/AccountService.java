@@ -32,7 +32,7 @@ public class AccountService {
     /**
      * accountId로 계좌 단건 조회
      */
-    public AccountDto getAccountById(Integer accountId) {
+    public AccountDto getAccountById(Long accountId) {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "계좌를 찾을 수 없습니다. id=" + accountId));
 
@@ -44,7 +44,6 @@ public class AccountService {
                 .totalAsset(account.getTotalAsset())
                 .profit(account.getProfit())
                 .profitRate(account.getProfitRate())
-                .createdAt(account.getCreatedAt())
                 .type(account.getType())
                 .build();
     }
@@ -53,7 +52,7 @@ public class AccountService {
      * 신규 사용자용 계좌 두 개 생성 (모의투자 + 역사챌린지)
      */
     @Transactional
-    public void createInitialAccountsForUser(Integer userId) {
+    public void createInitialAccountsForUser(Long userId) {
         createMockTradingAccount(userId);
         createHistoricalChallengeAccount(userId);
     }
@@ -62,13 +61,13 @@ public class AccountService {
      * 모의투자 계좌 생성
      */
     @Transactional
-    public Account createMockTradingAccount(Integer userId) {
+    public Account createMockTradingAccount(Long userId) {
         Account mockTradingAccount = Account.builder()
                 .userId(userId)
                 .balance(MOCK_TRADING_INITIAL_BALANCE)
                 .totalAsset(MOCK_TRADING_INITIAL_BALANCE)
                 .profit(0)
-                .profitRate(0.0f)
+                .profitRate(0.0)
                 .type(MOCK_TRADING_TYPE)
                 .build();
         
@@ -79,13 +78,13 @@ public class AccountService {
      * 역사챌린지 계좌 생성
      */
     @Transactional
-    public Account createHistoricalChallengeAccount(Integer userId) {
+    public Account createHistoricalChallengeAccount(Long userId) {
         Account historicalAccount = Account.builder()
                 .userId(userId)
                 .balance(HISTORICAL_CHALLENGE_INITIAL_BALANCE)
                 .totalAsset(HISTORICAL_CHALLENGE_INITIAL_BALANCE)
                 .profit(0)
-                .profitRate(0.0f)
+                .profitRate(0.0)
                 .type(HISTORICAL_CHALLENGE_TYPE)
                 .build();
         

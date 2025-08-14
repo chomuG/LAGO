@@ -143,7 +143,7 @@ public class FinBertSentimentService {
      * @return 종합 감정 분석 결과
      */
     public CompletableFuture<SentimentResponseDto> analyzeStockRelatedNewsAsync(
-            String stockCode, List<String> newsUrls, Integer userId) {
+            String stockCode, List<String> newsUrls, Long userId) {
         
         log.info("주식 관련 뉴스 종합 감정 분석 시작: stockCode={}, newsCount={}, userId={}", 
                 stockCode, newsUrls.size(), userId);

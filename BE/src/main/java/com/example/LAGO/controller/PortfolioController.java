@@ -51,7 +51,7 @@ public class PortfolioController {
             @RequestHeader("User-Id") // TODO: JWT 인증으로 변경 예정
             @NotNull(message = "사용자 ID는 필수입니다") 
             @Positive(message = "사용자 ID는 양수여야 합니다") 
-            Integer userId
+            Long userId
     ) {
         List<StockHoldingResponse> portfolio = portfolioService.getUserPortfolio(userId);
         return ResponseEntity.ok(portfolio);
@@ -81,13 +81,13 @@ public class PortfolioController {
             @PathVariable 
             @NotNull(message = "계좌 ID는 필수입니다") 
             @Positive(message = "계좌 ID는 양수여야 합니다") 
-            Integer accountId,
+            Long accountId,
             
             @Parameter(description = "사용자 ID", required = true, example = "1")
             @RequestHeader("User-Id") // TODO: JWT 인증으로 변경 예정
             @NotNull(message = "사용자 ID는 필수입니다") 
             @Positive(message = "사용자 ID는 양수여야 합니다") 
-            Integer userId
+            Long userId
     ) {
         List<StockHoldingResponse> holdings = portfolioService.getAccountHoldings(accountId, userId);
         return ResponseEntity.ok(holdings);
@@ -117,7 +117,7 @@ public class PortfolioController {
             @PathVariable 
             @NotNull(message = "계좌 ID는 필수입니다") 
             @Positive(message = "계좌 ID는 양수여야 합니다") 
-            Integer accountId,
+            Long accountId,
             
             @Parameter(description = "종목 코드", required = true, example = "005930")
             @PathVariable 
@@ -128,7 +128,7 @@ public class PortfolioController {
             @RequestHeader("User-Id") // TODO: JWT 인증으로 변경 예정
             @NotNull(message = "사용자 ID는 필수입니다") 
             @Positive(message = "사용자 ID는 양수여야 합니다") 
-            Integer userId
+            Long userId
     ) {
         StockHoldingResponse holding = portfolioService.getStockHolding(accountId, stockCode, userId);
         return ResponseEntity.ok(holding);

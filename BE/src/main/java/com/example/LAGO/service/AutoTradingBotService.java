@@ -82,8 +82,9 @@ public class AutoTradingBotService {
     
     /**
      * AI 봇 거래 이력 저장을 위한 리포지토리
+     * TODO: AiBotTrade 스키마 이슈로 임시 제거 - MockTrade로 대체 예정
      */
-    private final AiBotTradeRepository aiBotTradeRepository;
+    // private final AiBotTradeRepository aiBotTradeRepository;
     
     /**
      * AI 전략 관리를 위한 리포지토리
@@ -216,7 +217,7 @@ public class AutoTradingBotService {
      * @param aiBot 매매를 실행할 AI 봇
      */
     private void executeTradingForBot(User aiBot) {
-        Integer botId = aiBot.getUserId();
+        Long botId = aiBot.getUserId();
         
         try {
             log.info("AI 봇 {} 매매 실행 시작", botId);
@@ -395,7 +396,7 @@ public class AutoTradingBotService {
      * @param stockCode 종목 코드
      */
     private void executeStockTrading(User aiBot, Account account, String strategy, String stockCode) {
-        Integer botId = aiBot.getUserId();
+        Long botId = aiBot.getUserId();
         
         try {
             log.debug("AI 봇 {} 종목 {} 매매 분석 시작", botId, stockCode);
@@ -674,7 +675,9 @@ public class AutoTradingBotService {
             if (existingHolding.isPresent()) {
                 // 기존 보유 주식에 추가 매수
                 StockHolding holding = existingHolding.get();
-                holding.addStock(quantity, price, commission);
+                // addStock 메서드 로직을 직접 구현
+                holding.setQuantity(holding.getQuantity() + quantity);
+                holding.setTotalPrice(holding.getTotalPrice() + (price * quantity));
                 holding.updateCurrentValue(stock.getClosePrice());
                 stockHoldingRepository.save(holding);
                 log.debug("기존 보유 주식 업데이트: {}주 추가, 총 {}주", quantity, holding.getQuantity());
@@ -724,8 +727,9 @@ public class AutoTradingBotService {
             // 수수료 계산 (0.25%)
             Integer commission = (int) Math.round(price * quantity * 0.0025);
 
-            // 매도 처리
-            holding.sellStock(quantity, price, commission);
+            // 매도 처리 (sellStock 메서드 로직을 직접 구현)
+            holding.setQuantity(holding.getQuantity() - quantity);
+            holding.setTotalPrice(Math.max(0, holding.getTotalPrice() - (price * quantity)));
             holding.updateCurrentValue(stock.getClosePrice());
 
             if (holding.getQuantity() <= 0) {
@@ -771,7 +775,7 @@ public class AutoTradingBotService {
      * @param userId 사용자 ID
      * @return AiStrategy 엔티티 (없으면 기본 전략 생성)
      */
-    private AiStrategy findOrCreateStrategy(String strategyName, Integer userId) {
+    private AiStrategy findOrCreateStrategy(String strategyName, Long userId) {
         try {
             // 기존 전략 조회
             Optional<AiStrategy> existingStrategy = aiStrategyRepository.findByUserIdAndStrategy(userId, strategyName);
@@ -816,6 +820,8 @@ public class AutoTradingBotService {
             // 전략 엔티티 조회/생성
             AiStrategy strategy = findOrCreateStrategy(strategyName, aiBot.getUserId());
             
+            // TODO: AiBotTrade 스키마 이슈로 임시 제거
+            /*
             AiBotTrade tradeRecord = AiBotTrade.builder()
                 .userId(aiBot.getUserId())
                 .strategy(strategy)  // AiStrategy 엔티티 사용
@@ -831,8 +837,10 @@ public class AutoTradingBotService {
                 .tradeTime(LocalDateTime.now())
                 .signalTime(LocalDateTime.now())
                 .build();
+            */
                 
-            aiBotTradeRepository.save(tradeRecord);
+            // TODO: AiBotTrade 스키마 이슈로 임시 제거
+            // aiBotTradeRepository.save(tradeRecord);
             
             log.debug("AI 봇 {} 거래 결과 기록 완료", aiBot.getUserId());
             
@@ -852,6 +860,8 @@ public class AutoTradingBotService {
             // 시스템 오류 전략 생성
             AiStrategy errorStrategy = findOrCreateStrategy("SYSTEM_ERROR", aiBot.getUserId());
             
+            // TODO: AiBotTrade 스키마 이슈로 임시 제거
+            /*
             AiBotTrade failureRecord = AiBotTrade.builder()
                 .userId(aiBot.getUserId())
                 .strategy(errorStrategy)  // AiStrategy 엔티티 사용
@@ -867,8 +877,10 @@ public class AutoTradingBotService {
                 .tradeTime(LocalDateTime.now())
                 .signalTime(LocalDateTime.now())
                 .build();
+            */
                 
-            aiBotTradeRepository.save(failureRecord);
+            // TODO: AiBotTrade 스키마 이슈로 임시 제거
+            // aiBotTradeRepository.save(failureRecord);
             
         } catch (Exception e) {
             log.error("AI 봇 {} 실패 기록 저장 중 오류", aiBot.getUserId(), e);

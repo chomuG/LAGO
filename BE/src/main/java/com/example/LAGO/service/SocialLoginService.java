@@ -116,7 +116,6 @@ public class SocialLoginService {
                     .loginType(provider)
                     .nickname(nickname)
                     .personality(personalityDescription)
-                    .profileImg(profileImage != null && !profileImage.isEmpty() ? profileImage : null)
                     .createdAt(LocalDateTime.now())
                     .isAi(false)
                     .build();
@@ -166,7 +165,6 @@ public class SocialLoginService {
         userResponse.put("email", user.getEmail());
         userResponse.put("nickname", user.getNickname());
         userResponse.put("personality", user.getPersonality());
-        userResponse.put("profileImg", user.getProfileImg());
         userResponse.put("loginType", user.getLoginType());
         return userResponse;
     }
@@ -209,7 +207,7 @@ public class SocialLoginService {
         return response;
     }
 
-    public void logout(Integer userId, String refreshToken) {
+    public void logout(Long userId, String refreshToken) {
         if (refreshToken != null) {
             tokenManagementService.revokeRefreshToken(refreshToken);
         }

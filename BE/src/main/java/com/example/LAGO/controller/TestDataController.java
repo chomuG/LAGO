@@ -51,12 +51,11 @@ public class TestDataController {
             // 2. AI 봇 계좌 생성  
             Account botAccount = Account.builder()
                     .userId(savedBot.getUserId())
-                    .type("ai_bot")
+                    .type(Account.TYPE_AI_BOT)
                     .balance(initialBalance)
                     .totalAsset(initialBalance)
                     .profit(0)
-                    .profitRate(0.0f)
-                    .createdAt(LocalDateTime.now())
+                    .profitRate(0.0)
                     .build();
             
             Account savedAccount = accountRepository.save(botAccount);
@@ -116,22 +115,17 @@ public class TestDataController {
             
             for (var aiBot : aiBots) {
                 // 이미 ai_bot 계좌가 있는지 확인
-                var existingAccount = accountRepository.findByUserIdAndType(aiBot.getUserId(), "ai_bot");
+                var existingAccount = accountRepository.findByUserIdAndType(aiBot.getUserId(), Account.TYPE_AI_BOT);
                 
                 if (existingAccount.isEmpty()) {
-                    // 다음 계좌 ID 찾기 (단순하게 현재 시간 기반으로 생성)
-                    Integer nextAccountId = (int) (System.currentTimeMillis() % 1000000) + aiBot.getUserId() * 1000;
-                    
-                    // ai_bot 계좌 생성
+                    // ai_bot 계좌 생성 (ID는 자동 생성)
                     Account botAccount = Account.builder()
-                            .accountId(nextAccountId)
                             .userId(aiBot.getUserId())
-                            .type("ai_bot")
+                            .type(Account.TYPE_AI_BOT)
                             .balance(initialBalance)
                             .totalAsset(initialBalance)
                             .profit(0)
-                            .profitRate(0.0f)
-                            .createdAt(LocalDateTime.now())
+                            .profitRate(0.0)
                             .build();
                     
                     Account savedAccount = accountRepository.save(botAccount);

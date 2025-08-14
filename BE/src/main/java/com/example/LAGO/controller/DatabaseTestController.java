@@ -22,21 +22,56 @@ public class DatabaseTestController {
 
     @Autowired
     private DataSource dataSource;
-
-    @GetMapping("/tables")
-    public List<String> getTables() {
-        List<String> tables = new ArrayList<>();
+    
+    @GetMapping("/db-connection")
+    public Map<String, Object> testDbConnection() {
+        Map<String, Object> response = new HashMap<>();
+        
         try (Connection connection = dataSource.getConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            ResultSet resultSet = metaData.getTables(null, null, "%", new String[]{"TABLE"});
+            
+            response.put("success", true);
+            response.put("message", "Database connection successful");
+            response.put("database_url", metaData.getURL());
+            response.put("database_user", metaData.getUserName());
+            response.put("database_product", metaData.getDatabaseProductName());
+            response.put("database_version", metaData.getDatabaseProductVersion());
+            response.put("connection_valid", connection.isValid(5));
+            
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Database connection failed");
+            response.put("error", e.getMessage());
+        }
+        
+        return response;
+    }
+
+    @GetMapping("/tables")
+    public Map<String, Object> getTables() {
+        Map<String, Object> response = new HashMap<>();
+        List<String> tables = new ArrayList<>();
+        
+        try (Connection connection = dataSource.getConnection()) {
+            response.put("database_info", connection.getMetaData().getURL());
+            response.put("database_user", connection.getMetaData().getUserName());
+            
+            DatabaseMetaData metaData = connection.getMetaData();
+            ResultSet resultSet = metaData.getTables(null, "public", "%", new String[]{"TABLE"});
             
             while (resultSet.next()) {
                 tables.add(resultSet.getString("TABLE_NAME"));
             }
+            
+            response.put("success", true);
+            response.put("tables", tables);
+            response.put("table_count", tables.size());
         } catch (Exception e) {
-            tables.add("Error: " + e.getMessage());
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            response.put("tables", tables);
         }
-        return tables;
+        return response;
     }
 
     @PostMapping("/insert-stock-data")
@@ -109,7 +144,79 @@ public class DatabaseTestController {
             String sql = """
                 SELECT column_name, data_type, is_nullable, column_default
                 FROM information_schema.columns
-                WHERE table_name = 'MOCK_TRADE'
+                WHERE table_name = 'mock_trade'
+                ORDER BY ordinal_position
+                """;
+            
+            try (PreparedStatement stmt = connection.prepareStatement(sql);
+                 ResultSet rs = stmt.executeQuery()) {
+                
+                while (rs.next()) {
+                    Map<String, String> column = new HashMap<>();
+                    column.put("column_name", rs.getString("column_name"));
+                    column.put("data_type", rs.getString("data_type"));
+                    column.put("is_nullable", rs.getString("is_nullable"));
+                    column.put("column_default", rs.getString("column_default"));
+                    columns.add(column);
+                }
+                
+                response.put("success", true);
+                response.put("columns", columns);
+            }
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+        }
+        
+        return response;
+    }
+
+    @GetMapping("/accounts-columns")
+    public Map<String, Object> getAccountsColumns() {
+        Map<String, Object> response = new HashMap<>();
+        List<Map<String, String>> columns = new ArrayList<>();
+        
+        try (Connection connection = dataSource.getConnection()) {
+            String sql = """
+                SELECT column_name, data_type, is_nullable, column_default
+                FROM information_schema.columns
+                WHERE table_name = 'accounts'
+                ORDER BY ordinal_position
+                """;
+            
+            try (PreparedStatement stmt = connection.prepareStatement(sql);
+                 ResultSet rs = stmt.executeQuery()) {
+                
+                while (rs.next()) {
+                    Map<String, String> column = new HashMap<>();
+                    column.put("column_name", rs.getString("column_name"));
+                    column.put("data_type", rs.getString("data_type"));
+                    column.put("is_nullable", rs.getString("is_nullable"));
+                    column.put("column_default", rs.getString("column_default"));
+                    columns.add(column);
+                }
+                
+                response.put("success", true);
+                response.put("columns", columns);
+            }
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+        }
+        
+        return response;
+    }
+
+    @GetMapping("/users-columns")
+    public Map<String, Object> getUsersColumns() {
+        Map<String, Object> response = new HashMap<>();
+        List<Map<String, String>> columns = new ArrayList<>();
+        
+        try (Connection connection = dataSource.getConnection()) {
+            String sql = """
+                SELECT column_name, data_type, is_nullable, column_default
+                FROM information_schema.columns
+                WHERE table_name = 'users'
                 ORDER BY ordinal_position
                 """;
             

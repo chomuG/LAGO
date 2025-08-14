@@ -56,6 +56,6 @@ public interface StockInfoRepository extends JpaRepository<StockInfo, Integer> {
     // 상위 20개 주요 종목 조회 (뉴스 수집용)
     List<StockInfo> findTop20ByOrderByStockInfoIdAsc();
     
-    // 시가총액 상위 10개 종목 조회 (역사적 뉴스 수집용)
-    List<StockInfo> findTop10ByOrderByMarketCapDesc();
+    // 주요 종목 10개 조회 (marketCap 필드가 DB에 없으므로 ID 기준으로 변경)
+    List<StockInfo> findTop10ByOrderByStockInfoIdAsc();
 }

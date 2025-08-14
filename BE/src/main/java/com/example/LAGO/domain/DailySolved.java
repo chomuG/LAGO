@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "\"DAILY_SOLVED\"")
+@Table(name = "daily_solved")
 @Getter
 @Setter
 @NoArgsConstructor

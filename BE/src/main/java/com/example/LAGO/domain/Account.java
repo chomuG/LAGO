@@ -1,7 +1,5 @@
 package com.example.LAGO.domain;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -17,7 +15,7 @@ import lombok.Builder;
  * 지침서 명세 ACCOUNTS 테이블과 완전 일치
  */
 @Entity
-@Table(name = "\"ACCOUNTS\"")
+@Table(name = "accounts")
 @Getter 
 @Setter
 @NoArgsConstructor
@@ -26,13 +24,12 @@ import lombok.Builder;
 public class Account {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "account_seq")
-    @SequenceGenerator(name = "account_seq", sequenceName = "accounts_account_id_seq", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "account_id")
-    private Integer accountId;
+    private Long accountId;
 
     @Column(name = "user_id", nullable = false)
-    private Integer userId;
+    private Long userId;
 
     @Column(name = "balance", nullable = false)
     private Integer balance;
@@ -44,19 +41,13 @@ public class Account {
     private Integer profit;
 
     @Column(name = "profit_rate", nullable = false)
-    private Float profitRate;
-
-    
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
+    private Double profitRate;
 
     @Column(name = "type", nullable = false)
-    private Integer type; // 계좌구분(0:모의투자, 1:역사챌린지)
+    private Integer type; // 계좌구분(0:모의투자, 1:역사챌린지, 2:AI봇)
 
-    @PrePersist
-    protected void onCreate() {
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-    }
+    // 계좌 타입 상수
+    public static final Integer TYPE_MOCK_TRADING = 0;    // 모의투자
+    public static final Integer TYPE_HISTORY_CHALLENGE = 1; // 역사챌린지
+    public static final Integer TYPE_AI_BOT = 2;          // AI봇
 }

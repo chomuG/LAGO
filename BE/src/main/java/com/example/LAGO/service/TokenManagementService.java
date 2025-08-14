@@ -45,7 +45,7 @@ public class TokenManagementService {
         return tokens;
     }
 
-    public void saveRefreshToken(Integer userId, String refreshToken) {
+    public void saveRefreshToken(Long userId, String refreshToken) {
         userTokenRepository.deleteByUserId(userId);
 
         LocalDateTime expiredAt = jwtTokenService.getExpirationFromToken(refreshToken);
@@ -77,7 +77,7 @@ public class TokenManagementService {
                 return Optional.empty();
             }
 
-            Integer userId = jwtTokenService.getUserIdFromToken(refreshToken);
+            Long userId = jwtTokenService.getUserIdFromToken(refreshToken);
             UserToken userToken = userTokenOpt.get();
             User user = userToken.getUser();
 
@@ -109,7 +109,7 @@ public class TokenManagementService {
                 return Optional.empty();
             }
 
-            Integer userId = jwtTokenService.getUserIdFromToken(refreshToken);
+            Long userId = jwtTokenService.getUserIdFromToken(refreshToken);
             UserToken userToken = userTokenOpt.get();
             User user = userToken.getUser();
 
@@ -140,7 +140,7 @@ public class TokenManagementService {
         }
     }
 
-    public void revokeToken(Integer userId) {
+    public void revokeToken(Long userId) {
         userTokenRepository.deleteByUserId(userId);
         
         String redisKey = "refresh_token:" + userId;
@@ -152,7 +152,7 @@ public class TokenManagementService {
     public void revokeRefreshToken(String refreshToken) {
         Optional<UserToken> userTokenOpt = userTokenRepository.findByRefreshToken(refreshToken);
         if (userTokenOpt.isPresent()) {
-            Integer userId = userTokenOpt.get().getUserId();
+            Long userId = userTokenOpt.get().getUserId();
             userTokenRepository.delete(userTokenOpt.get());
             
             String redisKey = "refresh_token:" + userId;

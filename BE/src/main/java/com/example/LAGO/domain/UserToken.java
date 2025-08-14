@@ -10,7 +10,7 @@ import lombok.Builder;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "\"USER_TOKEN\"")
+@Table(name = "user_token")
 @Getter 
 @Setter
 @NoArgsConstructor
@@ -24,7 +24,7 @@ public class UserToken {
     private Integer tokenId;
 
     @Column(name = "user_id", nullable = false)
-    private Integer userId;
+    private Long userId;
 
     @Column(name = "refresh_token", columnDefinition = "TEXT")
     private String refreshToken;

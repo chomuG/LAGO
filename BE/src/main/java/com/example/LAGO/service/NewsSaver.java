@@ -33,56 +33,37 @@ public class NewsSaver {
             return true;
             
         } catch (DataIntegrityViolationException e) {
-            // 제약 위반 (중복 URL, NOT NULL 위반 등)
-            log.warn("제약 위반으로 뉴스 저장 스킵 - URL: {}, 제목: {}, 오류: {}", 
-                    news.getUrl(), news.getTitle(), e.getMostSpecificCause().getMessage());
+            // 제약 위반 (중복 제목, NOT NULL 위반 등)
+            log.warn("제약 위반으로 뉴스 저장 스킵 - 제목: {}, 오류: {}", 
+                    news.getTitle(), e.getMostSpecificCause().getMessage());
             return false;
             
         } catch (Exception e) {
             // 기타 예상치 못한 오류
-            log.error("알 수 없는 오류로 뉴스 저장 실패 - URL: {}, 제목: {}, 오류: {}", 
-                    news.getUrl(), news.getTitle(), e.getMessage(), e);
+            log.error("알 수 없는 오류로 뉴스 저장 실패 - 제목: {}, 오류: {}", 
+                    news.getTitle(), e.getMessage(), e);
             return false;
         }
     }
     
     /**
      * 업서트 방식으로 뉴스 저장 (중복 처리)
-     * 동일 URL이 있으면 업데이트, 없으면 삽입
+     * 새 스키마에서는 단순히 저장만 수행
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public boolean upsertNews(News news) {
         try {
-            log.info("뉴스 저장 시작 - URL: {}, 제목: {}", news.getUrl(), news.getTitle());
+            log.info("뉴스 저장 시작 - 제목: {}", news.getTitle());
             
-            // URL로 기존 뉴스 확인
-            if (news.getUrl() != null && !news.getUrl().trim().isEmpty()) {
-                log.debug("중복 체크 시작 - URL: {}", news.getUrl());
-                News existing = newsRepository.findByUrl(news.getUrl()).orElse(null);
-                log.debug("중복 체크 완료 - 기존 뉴스: {}", existing != null ? "존재함" : "없음");
-                
-                if (existing != null) {
-                    // 기존 뉴스 업데이트 (필요한 필드만)
-                    existing.setSentiment(news.getSentiment());
-                    existing.setConfidenceLevel(news.getConfidenceLevel());
-                    existing.setTradingSignal(news.getTradingSignal());
-                    existing.setSummary(news.getSummary());
-                    
-                    News updated = newsRepository.saveAndFlush(existing);
-                    log.debug("뉴스 업데이트 완료: {} (ID: {})", existing.getTitle(), updated.getId());
-                    return true;
-                }
-            }
-            
-            // 새로운 뉴스 저장
+            // 새로운 뉴스 저장 (새 스키마는 URL 필드가 없음)
             log.debug("새로운 뉴스 저장 시도 - 제목: {}", news.getTitle());
             News saved = newsRepository.saveAndFlush(news);
             log.info("새 뉴스 저장 완료: {} (ID: {})", news.getTitle(), saved.getId());
             return true;
             
         } catch (Exception e) {
-            log.error("뉴스 업서트 실패 - URL: {}, 제목: {}, 오류: {}", 
-                    news.getUrl(), news.getTitle(), e.getMessage(), e);
+            log.error("뉴스 업서트 실패 - 제목: {}, 오류: {}", 
+                    news.getTitle(), e.getMessage(), e);
             return false;
         }
     }

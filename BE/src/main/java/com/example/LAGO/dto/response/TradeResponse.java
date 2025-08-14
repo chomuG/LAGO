@@ -38,7 +38,7 @@ public class TradeResponse {
      * 사용자 ID
      */
     @Schema(description = "사용자 ID", example = "1")
-    private Integer userId;
+    private Long userId;
 
     /**
      * 종목 코드
@@ -92,7 +92,7 @@ public class TradeResponse {
      * 거래 시간
      */
     @Schema(description = "거래 시간")
-    private LocalDateTime tradeTime;
+    private LocalDateTime tradeAt;
 
     /**
      * 응답 메시지
@@ -116,7 +116,7 @@ public class TradeResponse {
      * 성공 응답 생성 팩토리 메서드
      * 지침서 명세: 예외처리/Validation 코드 필수
      */
-    public static TradeResponse success(Long tradeId, Integer userId, String stockCode, String stockName,
+    public static TradeResponse success(Long tradeId, Long userId, String stockCode, String stockName,
                                       TradeType tradeType, Integer quantity, Integer price, Integer totalAmount,
                                       Integer commission, Integer tax, Integer remainingBalance, String message) {
         return TradeResponse.builder()
@@ -132,7 +132,7 @@ public class TradeResponse {
                 .commission(commission)
                 .tax(tax)
                 .remainingBalance(remainingBalance)
-                .tradeTime(LocalDateTime.now())
+                .tradeAt(LocalDateTime.now())
                 .message(message)
                 .build();
     }
@@ -145,14 +145,14 @@ public class TradeResponse {
                 .success(false)
                 .errorCode(errorCode)
                 .message(message)
-                .tradeTime(LocalDateTime.now())
+                .tradeAt(LocalDateTime.now())
                 .build();
     }
 
     /**
      * 실패 응답 생성 (상세 정보 포함)
      */
-    public static TradeResponse failure(Integer userId, String stockCode, TradeType tradeType, 
+    public static TradeResponse failure(Long userId, String stockCode, TradeType tradeType, 
                                       String errorCode, String message) {
         return TradeResponse.builder()
                 .success(false)
@@ -161,7 +161,7 @@ public class TradeResponse {
                 .tradeType(tradeType)
                 .errorCode(errorCode)
                 .message(message)
-                .tradeTime(LocalDateTime.now())
+                .tradeAt(LocalDateTime.now())
                 .build();
     }
 }

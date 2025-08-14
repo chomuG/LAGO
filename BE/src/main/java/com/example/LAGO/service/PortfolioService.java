@@ -36,7 +36,7 @@ public class PortfolioService {
      * @return 포트폴리오 목록
      */
     @Transactional(readOnly = true)
-    public List<StockHoldingResponse> getUserPortfolio(Integer userId) {
+    public List<StockHoldingResponse> getUserPortfolio(Long userId) {
         log.info("사용자 포트폴리오 조회: userId={}", userId);
         
         List<StockHolding> holdings = stockHoldingRepository.findByUserId(userId);
@@ -55,7 +55,7 @@ public class PortfolioService {
      * @return 보유주식 목록
      */
     @Transactional(readOnly = true)
-    public List<StockHoldingResponse> getAccountHoldings(Integer accountId, Integer userId) {
+    public List<StockHoldingResponse> getAccountHoldings(Long accountId, Long userId) {
         log.info("계좌별 보유주식 조회: accountId={}, userId={}", accountId, userId);
         
         // 계좌 소유자 확인
@@ -82,7 +82,7 @@ public class PortfolioService {
      * @return 보유주식 정보
      */
     @Transactional(readOnly = true)
-    public StockHoldingResponse getStockHolding(Integer accountId, String stockCode, Integer userId) {
+    public StockHoldingResponse getStockHolding(Long accountId, String stockCode, Long userId) {
         log.info("종목별 보유 정보 조회: accountId={}, stockCode={}, userId={}", accountId, stockCode, userId);
         
         // 계좌 소유자 확인

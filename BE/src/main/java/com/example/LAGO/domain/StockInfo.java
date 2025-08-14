@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 @Entity
-@Table(name = "\"STOCK_INFO\"")
+@Table(name = "stock_info")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -56,15 +56,15 @@ public class StockInfo {
     private String market;
     
     /**
-     * 영문 회사명 (선택적 - 검색 별칭용)
+     * 영문 회사명 (선택적 - 검색 별칭용) - DB에 없는 필드이므로 @Transient 처리
      */
-    @Column(name = "name_en", length = 200)
+    @Transient
     private String companyNameEn;
     
     /**
-     * 시가총액 (정렬용)
+     * 시가총액 (정렬용) - DB에 없는 필드이므로 @Transient 처리
      */
-    @Column(name = "market_cap")
+    @Transient
     private Long marketCap;
 
     // STOCK_MINUTE과의 관계

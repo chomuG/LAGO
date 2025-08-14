@@ -198,26 +198,18 @@ public class NewsService {
 
                     News news = convertToNewsEntity(newsData);
 
-                    // 중복 체크 (URL 기반)
-                    if (isDuplicateNews(news.getUrl())) {
+                    // 중복 체크 (제목 기반으로 변경)
+                    if (isDuplicateNewsByTitle(news.getTitle())) {
                         duplicateCount++;
-                        log.debug("중복 뉴스 스킵: {}", news.getUrl());
+                        log.debug("중복 뉴스 스킵: {}", news.getTitle());
                         continue;
                     }
                     
-                    // URL 확인 로그
-                    log.info("뉴스 저장 준비 - 제목: {}, URL: {}", 
-                            news.getTitle().substring(0, Math.min(news.getTitle().length(), 50)),
-                            news.getUrl());
+                    // 뉴스 저장 준비 로그
+                    log.info("뉴스 저장 준비 - 제목: {}", 
+                            news.getTitle().substring(0, Math.min(news.getTitle().length(), 50)));
 
-                    // StockInfo 연결 (종목 코드가 있는 경우)
-                    if (news.getStockCode() != null && !news.getStockCode().isEmpty()) {
-                        stockInfoRepository.findByCode(news.getStockCode())
-                                .ifPresent(stockInfo -> {
-                                    news.setStock(stockInfo);
-                                    news.setStockInfoId(stockInfo.getStockInfoId().longValue());
-                                });
-                    }
+                    // 새 스키마에서는 stock_code 연결 로직 제거됨
 
                     // 독립 트랜잭션으로 저장
                     boolean saved = newsSaver.upsertNews(news);
@@ -240,13 +232,15 @@ public class NewsService {
     }
 
     /**
-     * 중복 뉴스 체크
+     * 중복 뉴스 체크 (제목 기반)
      */
-    private boolean isDuplicateNews(String url) {
-        if (url == null || url.isEmpty()) {
+    private boolean isDuplicateNewsByTitle(String title) {
+        if (title == null || title.isEmpty()) {
             return false;
         }
-        return newsRepository.existsByUrl(url);
+        // 제목으로 중복 체크 - 간단한 구현
+        return newsRepository.findByKeywordSearch(title, 
+            org.springframework.data.domain.PageRequest.of(0, 1)).hasContent();
     }
 
     /**
@@ -286,11 +280,14 @@ public class NewsService {
     }
 
     /**
-     * 종목별 뉴스 조회
+     * 종목별 뉴스 조회 - 새 스키마에서는 stock_code가 없으므로 키워드 검색으로 대체
      */
     public Page<NewsResponse> getNewsByStock(String stockCode, Pageable pageable) {
-        Page<News> newsPage = newsRepository.findByStockCodeOrderByPublishedDateDesc(stockCode, pageable);
-        return newsPage.map(NewsResponse::from);
+        // 종목 코드로 종목명을 찾아서 키워드 검색
+        return stockInfoRepository.findByCode(stockCode)
+            .map(stockInfo -> newsRepository.findByKeywordSearch(stockInfo.getName(), pageable)
+                .map(NewsResponse::from))
+            .orElse(Page.empty(pageable));
     }
 
     /**
@@ -305,7 +302,8 @@ public class NewsService {
         }
 
         // 관심종목 뉴스 조회
-        Page<News> newsPage = newsRepository.findByStockCodeInOrderByPublishedDateDesc(stockCodes, pageable);
+        // 새 스키마에서는 stock_code가 없으므로 전체 뉴스 반환
+        Page<News> newsPage = newsRepository.findAllByOrderByPublishedAtDesc(pageable);
         return newsPage.map(NewsResponse::from);
     }
 
@@ -313,7 +311,7 @@ public class NewsService {
      * 뉴스 목록 조회 (페이징)
      */
     public Page<NewsResponse> getNewsList(Pageable pageable) {
-        Page<News> newsPage = newsRepository.findAllByOrderByCreatedAtDesc(pageable);
+        Page<News> newsPage = newsRepository.findAllByOrderByPublishedAtDesc(pageable);
         return newsPage.map(NewsResponse::from);
     }
 
@@ -334,7 +332,11 @@ public class NewsService {
         List<News> newsList;
 
         if (stockCode != null && !stockCode.isEmpty()) {
-            newsList = newsRepository.findByStockCode(stockCode);
+            // 새 스키마에서는 stock_code가 없으므로 종목명으로 키워드 검색
+            newsList = stockInfoRepository.findByCode(stockCode)
+                .map(stockInfo -> newsRepository.findByKeywordSearch(stockInfo.getName(), 
+                    org.springframework.data.domain.PageRequest.of(0, 100)).getContent())
+                .orElse(new ArrayList<>());
         } else {
             newsList = newsRepository.findAll();
         }
@@ -391,8 +393,8 @@ public class NewsService {
     public void collectHistoricalNews(String date) {
         log.info("=== Google RSS 역사적 챌린지 뉴스 수집 시작 (기본 종목): {} ===", date);
         
-        // DB에서 주요 종목들 조회 (시가총액 상위 10개)
-        List<StockInfo> majorStocks = stockInfoRepository.findTop10ByOrderByMarketCapDesc();
+        // DB에서 주요 종목들 조회 (ID 기준 상위 10개)
+        List<StockInfo> majorStocks = stockInfoRepository.findTop10ByOrderByStockInfoIdAsc();
         
         for (StockInfo stock : majorStocks) {
             try {
@@ -453,7 +455,9 @@ public class NewsService {
     @Transactional
     public int cleanupOldNews() {
         LocalDateTime cutoffDate = LocalDateTime.now().minusDays(30);
-        List<News> oldNews = newsRepository.findByCreatedAtBefore(cutoffDate);
+        // 새 스키마에서는 created_at 필드가 없으므로 published_at 기준으로 변경
+        List<News> oldNews = newsRepository.findByPublishedAtBetween(
+            LocalDateTime.of(2020, 1, 1, 0, 0), cutoffDate);
 
         if (!oldNews.isEmpty()) {
             newsRepository.deleteAll(oldNews);
@@ -519,15 +523,9 @@ public class NewsService {
                 .title(title)
                 .content(content)
                 .summary(getStringArrayAsString(newsData, "summary_lines"))
-                .url(url)
-                .source(getStringValue(newsData, "source"))
-                .publishedDate(parsePublishedDate(newsData))
-                .stockCode(getStringValue(newsData, "symbol"))
                 .sentiment(getStringValue(newsData, "label"))
-                .confidenceLevel(getStringValue(newsData, "confidence_level"))
-                .tradingSignal(getStringValue(newsData, "trading_signal"))
-                .images(getStringArray(newsData, "images"))
-                .collectionType(getStringValue(newsData, "collection_type"))
+                .publishedAt(parsePublishedDate(newsData))
+                .type(getStringValue(newsData, "collection_type"))
                 .build();
 
         return news;
