@@ -3,11 +3,18 @@ package com.example.LAGO.controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.example.LAGO.domain.Account;
+import com.example.LAGO.domain.MockTrade;
 import com.example.LAGO.dto.AccountDto;
 import com.example.LAGO.dto.response.TransactionHistoryResponse;
+import com.example.LAGO.repository.AccountRepository;
+import com.example.LAGO.repository.MockTradeRepository;
 import com.example.LAGO.service.AccountService;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,6 +30,8 @@ import lombok.RequiredArgsConstructor;
 public class AccountController {
 
     private final AccountService accountService;
+    private final AccountRepository accountRepository;
+    private final MockTradeRepository mockTradeRepository;
 
     /**
      * GET /api/accounts/{accountId} - 계좌 단건 조회
@@ -58,6 +67,34 @@ public class AccountController {
             @PathVariable Long userId, 
             @PathVariable String stockCode) {
         List<TransactionHistoryResponse> transactions = accountService.getTransactionHistoryByUserIdAndStockCode(userId, stockCode);
+        return ResponseEntity.ok(transactions);
+    }
+
+    /**
+     * GET /api/accounts/ai/{aiId}/transactions - AI 매매봇 전체 거래 내역 조회
+     */
+    @Operation(
+        summary = "AI 매매봇 전체 거래 내역 조회", 
+        description = "aiId로 해당 AI 봇의 AI 봇 계좌(type=2) 전체 거래 내역을 조회합니다."
+    )
+    @GetMapping("/ai/{aiId}/transactions")
+    public ResponseEntity<List<TransactionHistoryResponse>> getAiTransactionHistory(@PathVariable Integer aiId) {
+        List<TransactionHistoryResponse> transactions = accountService.getTransactionHistoryByAiId(aiId);
+        return ResponseEntity.ok(transactions);
+    }
+
+    /**
+     * GET /api/accounts/ai/{aiId}/transactions/{stockCode} - AI 매매봇 종목별 거래 내역 조회
+     */
+    @Operation(
+        summary = "AI 매매봇 종목별 거래 내역 조회", 
+        description = "aiId와 stockCode로 해당 AI 봇의 특정 종목 거래 내역을 조회합니다. AI 봇 계좌(type=2)만 대상입니다."
+    )
+    @GetMapping("/ai/{aiId}/transactions/{stockCode}")
+    public ResponseEntity<List<TransactionHistoryResponse>> getAiTransactionHistoryByStock(
+            @PathVariable Integer aiId, 
+            @PathVariable String stockCode) {
+        List<TransactionHistoryResponse> transactions = accountService.getTransactionHistoryByAiIdAndStockCode(aiId, stockCode);
         return ResponseEntity.ok(transactions);
     }
 }

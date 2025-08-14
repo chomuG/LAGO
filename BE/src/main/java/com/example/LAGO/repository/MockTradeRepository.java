@@ -1,6 +1,8 @@
 package com.example.LAGO.repository;
 
+import com.example.LAGO.domain.Account;
 import com.example.LAGO.domain.MockTrade;
+import com.example.LAGO.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -32,6 +34,7 @@ public interface MockTradeRepository extends JpaRepository<MockTrade, Long> {
     /**
      * 특정 사용자의 모의투자 계좌(type=0)에 대한 모든 거래 내역 조회
      * StockInfo와 조인하여 주식명과 코드 정보도 함께 가져옴
+     * quiz 데이터(stock_id가 null인 경우)도 포함
      */
     @Query("""
         SELECT mt FROM MockTrade mt
@@ -51,12 +54,45 @@ public interface MockTradeRepository extends JpaRepository<MockTrade, Long> {
     @Query("""
         SELECT mt FROM MockTrade mt
         LEFT JOIN FETCH mt.stockInfo si
-        WHERE mt.accountId IN (
-            SELECT a.accountId FROM Account a 
-            WHERE a.userId = :userId AND a.type = 0
-        )
+        JOIN mt.account a
+        WHERE a.userId = :userId AND a.type = 0
         AND si.code = :stockCode
         ORDER BY mt.tradeAt DESC
         """)
     List<MockTrade> findTransactionsByUserIdAndStockCode(@Param("userId") Long userId, @Param("stockCode") String stockCode);
+
+    /**
+     * AI ID로 User ID 조회
+     */
+    @Query("SELECT u.userId FROM User u WHERE u.aiId = :aiId AND u.isAi = true")
+    List<Long> findUserIdsByAiId(@Param("aiId") Integer aiId);
+
+    /**
+     * 특정 사용자들의 AI 봇 계좌(type=2)에 대한 모든 거래 내역 조회
+     */
+    @Query("""
+        SELECT mt FROM MockTrade mt
+        LEFT JOIN FETCH mt.stockInfo si
+        WHERE mt.accountId IN (
+            SELECT a.accountId FROM Account a 
+            WHERE a.userId IN :userIds AND a.type = 2
+        )
+        ORDER BY mt.tradeAt DESC
+        """)
+    List<MockTrade> findAllTransactionsByUserIds(@Param("userIds") List<Long> userIds);
+
+    /**
+     * 특정 사용자들의 AI 봇 계좌(type=2)에 대한 특정 종목의 거래 내역 조회
+     */
+    @Query("""
+        SELECT mt FROM MockTrade mt
+        LEFT JOIN FETCH mt.stockInfo si
+        WHERE mt.accountId IN (
+            SELECT a.accountId FROM Account a 
+            WHERE a.userId IN :userIds AND a.type = 2
+        )
+        AND si.code = :stockCode
+        ORDER BY mt.tradeAt DESC
+        """)
+    List<MockTrade> findTransactionsByUserIdsAndStockCode(@Param("userIds") List<Long> userIds, @Param("stockCode") String stockCode);
 }

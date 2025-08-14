@@ -28,6 +28,7 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 public class AccountService {
 
     private final AccountRepository accountRepository;
+    private final MockTradeRepository mockTradeRepository;
     
     private static final Integer MOCK_TRADING_INITIAL_BALANCE = 1000000; // 100만원
     private static final Integer HISTORICAL_CHALLENGE_INITIAL_BALANCE = 10000000; // 천만원
@@ -115,6 +116,46 @@ public class AccountService {
     public List<TransactionHistoryResponse> getTransactionHistoryByUserIdAndStockCode(Long userId, String stockCode) {
         List<MockTrade> trades = mockTradeRepository.findTransactionsByUserIdAndStockCode(userId, stockCode);
 
+        return trades.stream()
+                .map(this::convertToTransactionHistoryResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * AI ID로 AI 봇의 전체 거래 내역 조회 (AI 봇 계좌만)
+     * type=2인 계좌의 거래 내역만 조회
+     */
+    public List<TransactionHistoryResponse> getTransactionHistoryByAiId(Integer aiId) {
+        // 1. AI ID로 User ID들 조회
+        List<Long> userIds = mockTradeRepository.findUserIdsByAiId(aiId);
+        
+        if (userIds.isEmpty()) {
+            return List.of(); // 빈 리스트 반환
+        }
+        
+        // 2. User ID들로 거래 내역 조회
+        List<MockTrade> trades = mockTradeRepository.findAllTransactionsByUserIds(userIds);
+        
+        return trades.stream()
+                .map(this::convertToTransactionHistoryResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * AI ID와 종목코드로 AI 봇의 특정 종목 거래 내역 조회 (AI 봇 계좌만)
+     * type=2인 계좌의 특정 종목 거래 내역만 조회
+     */
+    public List<TransactionHistoryResponse> getTransactionHistoryByAiIdAndStockCode(Integer aiId, String stockCode) {
+        // 1. AI ID로 User ID들 조회
+        List<Long> userIds = mockTradeRepository.findUserIdsByAiId(aiId);
+        
+        if (userIds.isEmpty()) {
+            return List.of(); // 빈 리스트 반환
+        }
+        
+        // 2. User ID들과 종목코드로 거래 내역 조회
+        List<MockTrade> trades = mockTradeRepository.findTransactionsByUserIdsAndStockCode(userIds, stockCode);
+        
         return trades.stream()
                 .map(this::convertToTransactionHistoryResponse)
                 .collect(Collectors.toList());
