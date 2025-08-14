@@ -4,6 +4,7 @@ import com.example.LAGO.domain.TradeType;
 import com.example.LAGO.dto.request.TradeRequest;
 import com.example.LAGO.service.OrderStreamProducer;
 import com.example.LAGO.service.MockTradingService;
+import com.example.LAGO.service.RealtimeTradingService;
 import com.example.LAGO.dto.OrderDto;
 import com.example.LAGO.dto.request.MockTradeRequest;
 import com.example.LAGO.dto.response.MockTradeResponse;
@@ -41,6 +42,7 @@ public class StockController {
 
     private final OrderStreamProducer orderStreamProducer;
     private final MockTradingService mockTradingService;
+    private final RealtimeTradingService realtimeTradingService;
     private final UserRepository userRepository;
     private final AccountRepository accountRepository;
     private final StockInfoRepository stockInfoRepository;
@@ -191,29 +193,27 @@ public class StockController {
                 Integer quantity = request.getQuantity();
                 Integer requiredAmount = price * quantity;
                 
-                // 수수료 추가 (0.25%)
-                Integer commission = (int) Math.round(requiredAmount * 0.0025);
-                Integer totalRequired = requiredAmount + commission;
-                
-                if (account.getBalance() < totalRequired) {
+                if (account.getBalance() < requiredAmount) {
                     log.warn("잔고 부족: userId={}, 필요금액={}, 보유잔고={}", 
-                            request.getUserId(), totalRequired, account.getBalance());
+                            request.getUserId(), requiredAmount, account.getBalance());
                     return ResponseEntity.badRequest()
                         .body(java.util.Map.of(
                             "success", false,
                             "error", "INSUFFICIENT_BALANCE",
                             "message", String.format("잔고가 부족합니다. 필요: %,d원, 보유: %,d원", 
-                                    totalRequired, account.getBalance()),
+                                    requiredAmount, account.getBalance()),
                             "userId", request.getUserId(),
-                            "requiredAmount", totalRequired,
+                            "requiredAmount", requiredAmount,
                             "currentBalance", account.getBalance()
                         ));
                 }
             }
             
-            // 6. 모든 검증 통과 시 주문 발행
+            // 6. 모든 검증 통과 시 실시간 매매 대기 큐에 주문 추가
             // TradeRequest를 OrderDto로 변환
+            String orderId = System.currentTimeMillis() + "-" + request.getUserId(); // 고유 주문 ID 생성
             OrderDto orderDto = OrderDto.builder()
+                    .orderId(orderId)
                     .userId(request.getUserId())
                     .stockCode(request.getStockCode())
                     .tradeType(request.getTradeType())
@@ -224,20 +224,20 @@ public class StockController {
                     .priority(1) // 일반 주문 우선순위
                     .build();
             
-            // Redis Stream에 주문 발행
-            String orderId = orderStreamProducer.publishOrder(orderDto);
+            // 실시간 매매 대기 큐에 주문 추가
+            realtimeTradingService.addPendingOrder(orderDto);
             
             // 즉시 주문 접수 응답
             return ResponseEntity.accepted()
                     .body(java.util.Map.of(
                         "success", true,
-                        "orderId", orderId,
+                        "orderId", orderDto.getOrderId(),
                         "userId", request.getUserId(),
                         "stockCode", request.getStockCode(),
                         "tradeType", request.getTradeType().name(),
                         "quantity", request.getQuantity(),
-                        "status", "ACCEPTED",
-                        "message", "주문이 접수되었습니다. 백그라운드에서 처리 중입니다.",
+                        "status", "PENDING_REALTIME",
+                        "message", "주문이 접수되었습니다. 실시간 가격으로 체결될 예정입니다.",
                         "submittedAt", java.time.LocalDateTime.now()
                     ));
             
