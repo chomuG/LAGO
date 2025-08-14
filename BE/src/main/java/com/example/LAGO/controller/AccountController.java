@@ -4,7 +4,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.LAGO.dto.AccountDto;
+import com.example.LAGO.dto.response.TransactionHistoryResponse;
 import com.example.LAGO.service.AccountService;
+
+import java.util.List;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,5 +31,33 @@ public class AccountController {
     @GetMapping("/{accountId}")
     public ResponseEntity<AccountDto> getAccount(@PathVariable Long accountId) {
         return ResponseEntity.ok(accountService.getAccountById(accountId));
+    }
+
+    /**
+     * GET /api/accounts/{userId}/transactions - 사용자 전체 거래 내역 조회
+     */
+    @Operation(
+        summary = "사용자 전체 거래 내역 조회", 
+        description = "userId로 해당 사용자의 모의투자 계좌(type=0) 전체 거래 내역을 조회합니다."
+    )
+    @GetMapping("/{userId}/transactions")
+    public ResponseEntity<List<TransactionHistoryResponse>> getTransactionHistory(@PathVariable Long userId) {
+        List<TransactionHistoryResponse> transactions = accountService.getTransactionHistoryByUserId(userId);
+        return ResponseEntity.ok(transactions);
+    }
+
+    /**
+     * GET /api/accounts/{userId}/transactions/{stockCode} - 사용자 종목별 거래 내역 조회
+     */
+    @Operation(
+        summary = "사용자 종목별 거래 내역 조회", 
+        description = "userId와 stockCode로 해당 사용자의 특정 종목 거래 내역을 조회합니다. 모의투자 계좌(type=0)만 대상입니다."
+    )
+    @GetMapping("/{userId}/transactions/{stockCode}")
+    public ResponseEntity<List<TransactionHistoryResponse>> getTransactionHistoryByStock(
+            @PathVariable Long userId, 
+            @PathVariable String stockCode) {
+        List<TransactionHistoryResponse> transactions = accountService.getTransactionHistoryByUserIdAndStockCode(userId, stockCode);
+        return ResponseEntity.ok(transactions);
     }
 }
