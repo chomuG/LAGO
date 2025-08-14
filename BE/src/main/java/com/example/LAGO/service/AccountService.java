@@ -162,6 +162,18 @@ public class AccountService {
     }
 
     /**
+     * 사용자 ID로 역사챌린지 거래 내역 조회 (역사챌린지 계좌만)
+     * type=1인 계좌의 068270 종목 거래 내역만 조회
+     */
+    public List<TransactionHistoryResponse> getHistoricalChallengeTransactionHistoryByUserId(Long userId) {
+        List<MockTrade> trades = mockTradeRepository.findHistoricalChallengeTransactionsByUserId(userId);
+        
+        return trades.stream()
+                .map(this::convertToTransactionHistoryResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * MockTrade 엔티티를 TransactionHistoryResponse DTO로 변환
      */
     private TransactionHistoryResponse convertToTransactionHistoryResponse(MockTrade trade) {

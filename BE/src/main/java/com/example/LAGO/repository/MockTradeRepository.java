@@ -95,4 +95,20 @@ public interface MockTradeRepository extends JpaRepository<MockTrade, Long> {
         ORDER BY mt.tradeAt DESC
         """)
     List<MockTrade> findTransactionsByUserIdsAndStockCode(@Param("userIds") List<Long> userIds, @Param("stockCode") String stockCode);
+
+    /**
+     * 특정 사용자의 역사챌린지 계좌(type=1)에 대한 068270 종목의 거래 내역 조회
+     * 역사챌린지는 고정 종목(068270)만 거래 가능
+     */
+    @Query("""
+        SELECT mt FROM MockTrade mt
+        LEFT JOIN FETCH mt.stockInfo si
+        WHERE mt.accountId IN (
+            SELECT a.accountId FROM Account a 
+            WHERE a.userId = :userId AND a.type = 1
+        )
+        AND si.code = '068270'
+        ORDER BY mt.tradeAt DESC
+        """)
+    List<MockTrade> findHistoricalChallengeTransactionsByUserId(@Param("userId") Long userId);
 }

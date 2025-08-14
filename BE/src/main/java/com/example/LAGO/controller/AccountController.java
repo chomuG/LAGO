@@ -97,4 +97,17 @@ public class AccountController {
         List<TransactionHistoryResponse> transactions = accountService.getTransactionHistoryByAiIdAndStockCode(aiId, stockCode);
         return ResponseEntity.ok(transactions);
     }
+
+    /**
+     * GET /api/accounts/{userId}/history - 역사챌린지 거래 내역 조회
+     */
+    @Operation(
+        summary = "역사챌린지 거래 내역 조회", 
+        description = "userId로 해당 사용자의 역사챌린지 계좌(type=1) 거래 내역을 조회합니다. 종목코드는 068270으로 고정됩니다."
+    )
+    @GetMapping("/{userId}/history")
+    public ResponseEntity<List<TransactionHistoryResponse>> getHistoricalChallengeTransactionHistory(@PathVariable Long userId) {
+        List<TransactionHistoryResponse> transactions = accountService.getHistoricalChallengeTransactionHistoryByUserId(userId);
+        return ResponseEntity.ok(transactions);
+    }
 }
