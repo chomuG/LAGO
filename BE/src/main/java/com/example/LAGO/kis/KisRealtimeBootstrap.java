@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 @Slf4j
-//@Component  // 매매 테스트를 위해 임시 비활성화
+@Component
 @RequiredArgsConstructor
 // 서버 시작과 함께 KIS 웹소켓 연결(아래는 조건부 사항이라 일단 주석처리)
 //@ConditionalOnProperty(name = "kis.autostart", havingValue = "true", matchIfMissing = false)

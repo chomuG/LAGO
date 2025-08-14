@@ -23,7 +23,8 @@ import java.time.LocalDateTime;
 public class MockTrade {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "mock_trade_seq")
+    @SequenceGenerator(name = "mock_trade_seq", sequenceName = "mock_trade_trade_id_seq", allocationSize = 1)
     @Column(name = "trade_id")
     private Long tradeId;
 

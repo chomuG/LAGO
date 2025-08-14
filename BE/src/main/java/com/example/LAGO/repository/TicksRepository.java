@@ -32,4 +32,19 @@ public interface TicksRepository extends JpaRepository<Ticks, Integer> {
             @Param("toDateTime") LocalDateTime toDateTime
     );
 
+    /**
+     * 특정 종목의 최신 종가(현재가) 조회
+     * 매매 처리 시 실시간 가격 정보를 위해 사용
+     * 
+     * @param stockCode 종목 코드 (예: "005930")
+     * @return 최신 종가, 데이터가 없으면 null
+     */
+    @Query(value = "SELECT t.close_price " +
+            "FROM ticks t " +
+            "JOIN stock_info si ON t.stock_info_id = si.stock_info_id " +
+            "WHERE si.code = :stockCode " +
+            "ORDER BY t.ts DESC " +
+            "LIMIT 1", nativeQuery = true)
+    Integer findLatestClosePriceByStockCode(@Param("stockCode") String stockCode);
+
 }
