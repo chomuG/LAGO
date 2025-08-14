@@ -361,6 +361,31 @@ public class RealtimeDataService {
     }
     
     /**
+     * 특정 종목의 최신 실시간 가격 조회 (매매 처리용)
+     * 
+     * @param stockCode 종목 코드 (예: "005930")
+     * @return 최신 종가, Redis에 데이터가 없으면 null
+     */
+    public Integer getLatestPrice(String stockCode) {
+        try {
+            String key = REALTIME_KEY_PREFIX + stockCode; // "realtime:stock:005930"
+            String priceStr = (String) redisTemplate.opsForHash().get(key, "closePrice");
+            
+            if (priceStr != null) {
+                Integer price = Integer.parseInt(priceStr);
+                log.debug("Redis에서 종목 {} 실시간 가격 조회: {}원", stockCode, price);
+                return price;
+            } else {
+                log.warn("Redis에 종목 {} 실시간 가격 데이터 없음", stockCode);
+                return null;
+            }
+        } catch (Exception e) {
+            log.error("종목 {} 실시간 가격 조회 실패", stockCode, e);
+            return null;
+        }
+    }
+
+    /**
      * Redis 연결 상태 확인
      * 
      * @return true if connected

@@ -6,6 +6,7 @@ import com.example.LAGO.dto.request.MockTradeRequest;
 import com.example.LAGO.dto.response.MockTradeResponse;
 import com.example.LAGO.repository.*;
 import com.example.LAGO.utils.TradingUtils;
+import com.example.LAGO.realtime.RealtimeDataService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,6 +47,8 @@ public class MockTradingService {
     private final StockInfoRepository stockInfoRepository;
     private final StockHoldingRepository stockHoldingRepository;
     private final MockTradeRepository mockTradeRepository;
+    private final RealtimeDataService realtimeDataService;
+    private final TicksRepository ticksRepository;
 
     // ======================== Virtual Thread Executor ========================
     
@@ -85,8 +88,8 @@ public class MockTradingService {
             // 1. 사용자 존재 여부 검증
             User user = getUserOrThrow(userId);
             
-            // 2. 계좌 정보 조회 (기본 계좌 사용)
-            Account account = getAccountOrThrow(userId);
+            // 2. 계좌 정보 조회 (accountId 지정 또는 기본 계좌)
+            Account account = getAccountOrThrow(userId, null); // MockTradeRequest는 기본 계좌 사용
             
             // 3. 주식 정보 조회 및 검증
             StockInfo stockInfo = getStockInfoOrThrow(request.getStockCode());
@@ -184,8 +187,8 @@ public class MockTradingService {
             // 1. 사용자 존재 여부 검증
             User user = getUserOrThrow(userId);
             
-            // 2. 계좌 정보 조회
-            Account account = getAccountOrThrow(userId);
+            // 2. 계좌 정보 조회 (accountId 지정 또는 기본 계좌)
+            Account account = getAccountOrThrow(userId, null); // MockTradeRequest는 기본 계좌 사용
             
             // 3. 주식 정보 조회
             StockInfo stockInfo = getStockInfoOrThrow(request.getStockCode());
@@ -294,11 +297,39 @@ public class MockTradingService {
     }
 
     /**
-     * 계좌 조회 (예외 발생) - 기본 계좌 사용
+     * 계좌 조회 (예외 발생) - accountId 지정 또는 기본 계좌 사용
+     * 
+     * @param userId 사용자 ID
+     * @param accountId 계좌 ID (null이면 기본 계좌)
+     * @return 계좌 정보
      */
-    private Account getAccountOrThrow(Long userId) {
-        return accountRepository.findFirstByUserId(userId)
-            .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다"));
+    private Account getAccountOrThrow(Long userId, Integer accountId) {
+        if (accountId != null) {
+            // 특정 계좌 타입으로 조회
+            // accountId 0 = 실시간 모의투자 계좌 (type=0)
+            // accountId 1 = 역사챌린지 계좌 (type=1)  
+            // accountId 2 = 자동매매봇 계좌 (type=2)
+            return accountRepository.findByUserIdAndType(userId, accountId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                    String.format("계좌를 찾을 수 없습니다. userId: %d, accountType: %d (%s)", 
+                        userId, accountId, getAccountTypeName(accountId))));
+        } else {
+            // 기본 계좌(실시간 모의투자 계좌, type=0) 조회
+            return accountRepository.findByUserIdAndType(userId, 0)
+                .orElseThrow(() -> new IllegalArgumentException("실시간 모의투자 계좌를 찾을 수 없습니다"));
+        }
+    }
+    
+    /**
+     * 계좌 타입명 반환
+     */
+    private String getAccountTypeName(Integer accountType) {
+        return switch (accountType) {
+            case 0 -> "실시간 모의투자";
+            case 1 -> "역사챌린지";
+            case 2 -> "자동매매봇";
+            default -> "알 수 없는 계좌";
+        };
     }
 
     /**
@@ -440,16 +471,36 @@ public class MockTradingService {
     /**
      * 실제 체결 가격 결정
      * - 지정가 주문: 요청 가격 사용
-     * - 시장가 주문: 현재가 사용 (실시간 시세에서 조회)
+     * - 시장가 주문: Redis에서 웹소켓 실시간 가격 → TICKS 테이블 마지막 가격 순으로 조회
      */
     private Integer determineExecutedPrice(Integer requestPrice, StockInfo stockInfo) {
         if (requestPrice != null && requestPrice > 0) {
             return requestPrice; // 지정가 주문
         } else {
-            // 시장가 주문 - 실시간 주가 조회 필요
-            // TODO: STOCK_DAY 테이블에서 최신 종가 조회 또는 실시간 API 연동
-            // 임시로 기본값 설정 (실제 구현시 수정 필요)
-            return 50000; // 임시 기본 가격
+            // 시장가 주문 - 1차: Redis에서 웹소켓 실시간 가격 조회
+            Integer realtimePrice = realtimeDataService.getLatestPrice(stockInfo.getCode());
+            if (realtimePrice != null && realtimePrice > 0) {
+                log.debug("종목 {} 웹소켓 실시간 가격 사용: {}원", stockInfo.getCode(), realtimePrice);
+                return realtimePrice;
+            }
+            
+            // 2차: TICKS 테이블에서 마지막 확인된 가격 조회
+            try {
+                Integer lastKnownPrice = ticksRepository.findLatestClosePriceByStockCode(stockInfo.getCode());
+                if (lastKnownPrice != null && lastKnownPrice > 0) {
+                    log.info("종목 {} 웹소켓 실시간 가격 조회 실패, TICKS 테이블 마지막 가격 사용: {}원", 
+                            stockInfo.getCode(), lastKnownPrice);
+                    return lastKnownPrice;
+                }
+            } catch (Exception e) {
+                log.error("종목 {} TICKS 테이블 조회 실패", stockInfo.getCode(), e);
+            }
+            
+            // 3차: StockInfo 테이블에는 가격 정보가 없으므로 생략
+            
+            // 최후: StockInfo에도 가격이 없으면 기본값
+            log.error("종목 {} 모든 가격 정보 없음, 기본 가격 사용", stockInfo.getCode());
+            return 100000000; // 최후의 기본 가격 (1억원)
         }
     }
 }

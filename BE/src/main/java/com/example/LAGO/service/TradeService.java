@@ -173,7 +173,7 @@ public class TradeService {
             
             // MockTrade 엔티티 생성
             MockTrade mockTrade = MockTrade.builder()
-                    .accountId(request.getAccountId() != null ? request.getAccountId() : 1L) // 요청된 계좌 ID 사용
+                    .accountId(request.getAccountType().longValue()) // 계좌 타입 필수
                     .stockId(stockInfo.getStockInfoId()) // stock_info_id 설정
                     .tradeType(request.getTradeType())
                     .quantity(quantity)
