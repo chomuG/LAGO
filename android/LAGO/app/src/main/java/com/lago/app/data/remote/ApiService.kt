@@ -1,5 +1,6 @@
 package com.lago.app.data.remote
 
+import com.lago.app.data.remote.dto.TransactionDto
 import retrofit2.http.*
 
 interface ApiService {
@@ -18,4 +19,7 @@ interface ApiService {
     
     @POST("auth/logout")
     suspend fun logout(): Unit
+    
+    @GET("api/accounts/{userId}/transactions")
+    suspend fun getTransactions(@Path("userId") userId: Long): List<TransactionDto>
 }

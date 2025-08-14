@@ -12,6 +12,8 @@ import com.lago.app.data.repository.HistoryChallengeRepositoryImpl
 import com.lago.app.domain.repository.HistoryChallengeRepository
 import com.lago.app.data.repository.MockTradeRepositoryImpl
 import com.lago.app.domain.repository.MockTradeRepository
+import com.lago.app.data.repository.TransactionRepositoryImpl
+import com.lago.app.domain.repository.TransactionRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -56,4 +58,10 @@ abstract class RepositoryModule {
     abstract fun bindMockTradeRepository(
         mockTradeRepositoryImpl: MockTradeRepositoryImpl
     ): MockTradeRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTransactionRepository(
+        transactionRepositoryImpl: TransactionRepositoryImpl
+    ): TransactionRepository
 }

@@ -394,6 +394,7 @@ fun NavGraph(
 
         composable(NavigationItem.OrderHistory.route) {
             OrderHistoryScreen(
+                userId = 5L, // TODO: Replace with actual user ID
                 onBackClick = {
                     navController.popBackStack()
                 }
