@@ -9,8 +9,10 @@ import com.example.LAGO.dto.request.MockTradeRequest;
 import com.example.LAGO.dto.response.MockTradeResponse;
 import com.example.LAGO.domain.User;
 import com.example.LAGO.domain.Account;
+import com.example.LAGO.domain.StockInfo;
 import com.example.LAGO.repository.UserRepository;
 import com.example.LAGO.repository.AccountRepository;
+import com.example.LAGO.repository.StockInfoRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -41,6 +43,7 @@ public class StockController {
     private final MockTradingService mockTradingService;
     private final UserRepository userRepository;
     private final AccountRepository accountRepository;
+    private final StockInfoRepository stockInfoRepository;
 
 
 
@@ -116,7 +119,23 @@ public class StockController {
                     ));
             }
             
-            // 4. 매수 주문인 경우 잔고 충분성 검증
+            // 4. 종목 코드 유효성 검증
+            StockInfo stockInfo = stockInfoRepository.findByCode(request.getStockCode())
+                .orElse(null);
+            if (stockInfo == null) {
+                log.warn("존재하지 않는 종목 코드: userId={}, stockCode={}", 
+                        request.getUserId(), request.getStockCode());
+                return ResponseEntity.badRequest()
+                    .body(java.util.Map.of(
+                        "success", false,
+                        "error", "STOCK_NOT_FOUND",
+                        "message", "존재하지 않는 종목 코드입니다.",
+                        "userId", request.getUserId(),
+                        "stockCode", request.getStockCode()
+                    ));
+            }
+            
+            // 5. 매수 주문인 경우 잔고 충분성 검증
             if (TradeType.BUY.equals(request.getTradeType())) {
                 Integer price = request.getPrice();
                 Integer quantity = request.getQuantity();
@@ -142,7 +161,7 @@ public class StockController {
                 }
             }
             
-            // 5. 모든 검증 통과 시 주문 발행
+            // 6. 모든 검증 통과 시 주문 발행
             // TradeRequest를 OrderDto로 변환
             OrderDto orderDto = OrderDto.builder()
                     .userId(request.getUserId())

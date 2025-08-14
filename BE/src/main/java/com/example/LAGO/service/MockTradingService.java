@@ -110,44 +110,40 @@ public class MockTradingService {
             // 7. 계좌 잔액 충분성 검증
             validateSufficientBalance(account, totalCost);
             
-            // 8. Virtual Thread로 비동기 거래 처리
-            CompletableFuture<MockTradeResponse> tradeFuture = CompletableFuture.supplyAsync(() -> {
-                try {
-                    // 계좌 잔액 차감
-                    updateAccountForBuy(account, totalCost);
-                    
-                    // 거래 내역 저장
-                    MockTrade mockTrade = createAndSaveMockTrade(
-                        account, request.getStockCode(), TradeType.BUY,
-                        request.getQuantity(), executedPrice, totalCost
-                    );
-                    
-                    // 보유 주식 추가/업데이트
-                    updateStockHoldingForBuy(account, request, executedPrice, totalCost);
-                    
-                    log.info("매수 주문 처리 완료: userId={}, stockCode={}, quantity={}, totalCost={}", 
-                            userId, request.getStockCode(), request.getQuantity(), totalCost);
-                    
-                    // 성공 응답 생성
-                    return MockTradeResponse.success(
-                        mockTrade.getTradeId(),
-                        request.getStockCode(),
-                        stockInfo.getName(),
-                        request.getQuantity(),
-                        executedPrice,
-                        totalCost,
-                        TradingUtils.calculateCommission(request.getQuantity() * executedPrice),
-                        account.getBalance(),
-                        TradingConstants.TRADE_TYPE_BUY
-                    );
-                    
-                } catch (Exception e) {
-                    log.error("매수 주문 처리 중 오류 발생: userId={}", userId, e);
-                    throw new RuntimeException("매수 주문 처리 실패", e);
-                }
-            }, virtualThreadExecutor);
-            
-            return tradeFuture.join();
+            // 8. 동기 거래 처리 (트랜잭션 보장을 위해)
+            try {
+                // 계좌 잔액 차감
+                updateAccountForBuy(account, totalCost);
+                
+                // 거래 내역 저장
+                MockTrade mockTrade = createAndSaveMockTrade(
+                    account, request.getStockCode(), TradeType.BUY,
+                    request.getQuantity(), executedPrice, totalCost
+                );
+                
+                // 보유 주식 추가/업데이트
+                updateStockHoldingForBuy(account, request, executedPrice, totalCost);
+                
+                log.info("매수 주문 처리 완료: userId={}, stockCode={}, quantity={}, totalCost={}", 
+                        userId, request.getStockCode(), request.getQuantity(), totalCost);
+                
+                // 성공 응답 생성
+                return MockTradeResponse.success(
+                    mockTrade.getTradeId(),
+                    request.getStockCode(),
+                    stockInfo.getName(),
+                    request.getQuantity(),
+                    executedPrice,
+                    totalCost,
+                    TradingUtils.calculateCommission(request.getQuantity() * executedPrice),
+                    account.getBalance(),
+                    TradingConstants.TRADE_TYPE_BUY
+                );
+                
+            } catch (Exception e) {
+                log.error("매수 주문 처리 중 오류 발생: userId={}", userId, e);
+                throw new RuntimeException("매수 주문 처리 실패", e);
+            }
             
         } catch (IllegalArgumentException e) {
             log.warn("매수 주문 요청 오류: userId={}, error={}", userId, e.getMessage());
@@ -210,44 +206,40 @@ public class MockTradingService {
                 TradingConstants.TRADE_TYPE_SELL
             );
             
-            // 8. Virtual Thread로 비동기 거래 처리
-            CompletableFuture<MockTradeResponse> tradeFuture = CompletableFuture.supplyAsync(() -> {
-                try {
-                    // 계좌 잔액 증가
-                    updateAccountForSell(account, totalRevenue);
+            // 8. 동기 거래 처리 (트랜잭션 보장을 위해)
+            try {
+                // 계좌 잔액 증가
+                updateAccountForSell(account, totalRevenue);
+                
+                // 거래 내역 저장
+                MockTrade mockTrade = createAndSaveMockTrade(
+                    account, request.getStockCode(), TradeType.SELL,
+                    request.getQuantity(), executedPrice, totalRevenue
+                );
+                
+                // 보유 주식 감소/삭제
+                updateStockHoldingForSell(holding, request.getQuantity());
+                
+                log.info("매도 주문 처리 완료: userId={}, stockCode={}, quantity={}, totalRevenue={}", 
+                        userId, request.getStockCode(), request.getQuantity(), totalRevenue);
+                
+                // 성공 응답 생성
+                return MockTradeResponse.success(
+                    mockTrade.getTradeId(),
+                    request.getStockCode(),
+                    stockInfo.getName(),
+                    request.getQuantity(),
+                    executedPrice,
+                    totalRevenue,
+                    TradingUtils.calculateCommission(request.getQuantity() * executedPrice),
+                    account.getBalance(),
+                    TradingConstants.TRADE_TYPE_SELL
+                );
                     
-                    // 거래 내역 저장
-                    MockTrade mockTrade = createAndSaveMockTrade(
-                        account, request.getStockCode(), TradeType.SELL,
-                        request.getQuantity(), executedPrice, totalRevenue
-                    );
-                    
-                    // 보유 주식 감소/삭제
-                    updateStockHoldingForSell(holding, request.getQuantity());
-                    
-                    log.info("매도 주문 처리 완료: userId={}, stockCode={}, quantity={}, totalRevenue={}", 
-                            userId, request.getStockCode(), request.getQuantity(), totalRevenue);
-                    
-                    // 성공 응답 생성
-                    return MockTradeResponse.success(
-                        mockTrade.getTradeId(),
-                        request.getStockCode(),
-                        stockInfo.getName(),
-                        request.getQuantity(),
-                        executedPrice,
-                        totalRevenue,
-                        TradingUtils.calculateCommission(request.getQuantity() * executedPrice),
-                        account.getBalance(),
-                        TradingConstants.TRADE_TYPE_SELL
-                    );
-                        
-                } catch (Exception e) {
-                    log.error("매도 주문 처리 중 오류 발생: userId={}", userId, e);
-                    throw new RuntimeException("매도 주문 처리 실패", e);
-                }
-            }, virtualThreadExecutor);
-            
-            return tradeFuture.join();
+            } catch (Exception e) {
+                log.error("매도 주문 처리 중 오류 발생: userId={}", userId, e);
+                throw new RuntimeException("매도 주문 처리 실패", e);
+            }
             
         } catch (IllegalArgumentException e) {
             log.warn("매도 주문 요청 오류: userId={}, error={}", userId, e.getMessage());
