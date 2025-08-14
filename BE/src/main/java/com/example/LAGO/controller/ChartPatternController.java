@@ -29,7 +29,7 @@ import java.util.List;
 @RequestMapping("/api/study")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Chart Pattern API", description = "차트 패턴 학습 관련 API")
+@Tag(name = "차트학습/퀴즈", description = "투자 학습 및 퀴즈 관련 API")
 public class ChartPatternController {
 
     private final ChartPatternService chartPatternService;

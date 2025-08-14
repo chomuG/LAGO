@@ -28,7 +28,6 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 public class AccountService {
 
     private final AccountRepository accountRepository;
-    private final MockTradeRepository mockTradeRepository;
     
     private static final Integer MOCK_TRADING_INITIAL_BALANCE = 1000000; // 100만원
     private static final Integer HISTORICAL_CHALLENGE_INITIAL_BALANCE = 10000000; // 천만원
@@ -103,7 +102,7 @@ public class AccountService {
      */
     public List<TransactionHistoryResponse> getTransactionHistoryByUserId(Long userId) {
         List<MockTrade> trades = mockTradeRepository.findAllTransactionsByUserId(userId);
-        
+
         return trades.stream()
                 .map(this::convertToTransactionHistoryResponse)
                 .collect(Collectors.toList());
@@ -115,7 +114,7 @@ public class AccountService {
      */
     public List<TransactionHistoryResponse> getTransactionHistoryByUserIdAndStockCode(Long userId, String stockCode) {
         List<MockTrade> trades = mockTradeRepository.findTransactionsByUserIdAndStockCode(userId, stockCode);
-        
+
         return trades.stream()
                 .map(this::convertToTransactionHistoryResponse)
                 .collect(Collectors.toList());
@@ -136,5 +135,20 @@ public class AccountService {
                 .tradeAt(trade.getTradeAt())
                 .isQuiz(trade.getIsQuiz())
                 .build();
+    }
+
+    /**
+     * 퀴즈 보너스 투자금을 사용자의 모의투자 계좌에 추가
+     */
+    @Transactional
+    public void addQuizBonus(Long userId, Integer bonusAmount) {
+        Account mockTradingAccount = accountRepository.findByUserIdAndType(userId, MOCK_TRADING_TYPE)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "모의투자 계좌를 찾을 수 없습니다. userId=" + userId));
+
+        // 잔액과 총 자산에 보너스 추가
+        mockTradingAccount.setBalance(mockTradingAccount.getBalance() + bonusAmount);
+        mockTradingAccount.setTotalAsset(mockTradingAccount.getTotalAsset() + bonusAmount);
+
+        accountRepository.save(mockTradingAccount);
     }
 }
