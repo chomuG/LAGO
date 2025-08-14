@@ -46,6 +46,16 @@ public class AutoTradingBotService {
     // ======================== 의존성 주입 ========================
     
     /**
+     * 보유 주식 정보 조회를 위한 리포지토리
+     */
+    private final StockHoldingRepository stockHoldingRepository;
+
+    /**
+     * 분봉 데이터 조회를 위한 리포지토리 (실시간 가격)
+     */
+    private final StockMinuteRepository stockMinuteRepository;
+
+    /**
      * 사용자 정보 조회를 위한 리포지토리
      */
     private final UserRepository userRepository;
@@ -72,8 +82,9 @@ public class AutoTradingBotService {
     
     /**
      * AI 봇 거래 이력 저장을 위한 리포지토리
+     * TODO: AiBotTrade 스키마 이슈로 임시 제거 - MockTrade로 대체 예정
      */
-    private final AiBotTradeRepository aiBotTradeRepository;
+    // private final AiBotTradeRepository aiBotTradeRepository;
     
     /**
      * AI 전략 관리를 위한 리포지토리
@@ -182,7 +193,7 @@ public class AutoTradingBotService {
         try {
             return accountRepository.findByUserIdAndType(
                 aiBot.getUserId(), 
-                TradingConstants.ACCOUNT_TYPE_CURRENT
+                TradingConstants.ACCOUNT_TYPE_MOCK_TRADING
             ).isPresent();
             
         } catch (Exception e) {
@@ -206,7 +217,7 @@ public class AutoTradingBotService {
      * @param aiBot 매매를 실행할 AI 봇
      */
     private void executeTradingForBot(User aiBot) {
-        Integer botId = aiBot.getUserId();
+        Long botId = aiBot.getUserId();
         
         try {
             log.info("AI 봇 {} 매매 실행 시작", botId);
@@ -262,7 +273,7 @@ public class AutoTradingBotService {
         try {
             return accountRepository.findByUserIdAndType(
                 aiBot.getUserId(), 
-                TradingConstants.ACCOUNT_TYPE_CURRENT
+                TradingConstants.ACCOUNT_TYPE_MOCK_TRADING
             ).orElse(null);
             
         } catch (Exception e) {
@@ -385,7 +396,7 @@ public class AutoTradingBotService {
      * @param stockCode 종목 코드
      */
     private void executeStockTrading(User aiBot, Account account, String strategy, String stockCode) {
-        Integer botId = aiBot.getUserId();
+        Long botId = aiBot.getUserId();
         
         try {
             log.debug("AI 봇 {} 종목 {} 매매 분석 시작", botId, stockCode);
@@ -424,15 +435,39 @@ public class AutoTradingBotService {
 
     /**
      * 현재 주식 정보 조회
-     * 
+     * 실시간 가격 반영을 위해 STOCK_MINUTE에서 최신 가격 우선 조회
+     *
      * @param stockCode 종목 코드
      * @return 주식 정보 (없으면 null)
      */
     private Stock getCurrentStockInfo(String stockCode) {
         try {
-            return stockRepository.findTopByCodeOrderByUpdatedAtDesc(stockCode)
+            // 1. 기본 주식 정보 조회
+            Stock stock = stockRepository.findTopByCodeOrderByUpdatedAtDesc(stockCode)
                 .orElse(null);
                 
+            if (stock == null) {
+                log.warn("종목 {} 기본 정보 없음", stockCode);
+                return null;
+            }
+
+            // 2. 최신 분봉 데이터에서 실시간 가격 조회
+            try {
+                var latestMinute = stockMinuteRepository
+                    .findTopByStockInfo_CodeOrderByDateDesc(stockCode);
+
+                if (latestMinute.isPresent()) {
+                    var minuteData = latestMinute.get();
+                    // 최신 분봉의 종가를 현재가로 사용
+                    stock.setClosePrice(minuteData.getClosePrice());
+                    log.debug("종목 {} 실시간 가격 업데이트: {}원", stockCode, minuteData.getClosePrice());
+                }
+            } catch (Exception minuteEx) {
+                log.debug("종목 {} 분봉 데이터 조회 실패, 기본 가격 사용: {}", stockCode, minuteEx.getMessage());
+            }
+
+            return stock;
+
         } catch (Exception e) {
             log.error("종목 {} 정보 조회 실패", stockCode, e);
             return null;
@@ -485,23 +520,50 @@ public class AutoTradingBotService {
 
     /**
      * 매수 포지션 크기 계산
-     * 
+     * 수수료(0.25%)를 고려한 실제 매수 가능 수량 계산
+     *
      * @param account 계좌 정보
      * @param stock 주식 정보
      * @return 매수 수량
      */
     private Integer calculateBuyPositionSize(Account account, Stock stock) {
-        // 계좌 잔액의 일정 비율로 매수
-        int availableAmount = (int) (account.getBalance() * TradingConstants.POSITION_SIZE_RATIO);
-        int maxQuantity = availableAmount / stock.getClosePrice();
-        
-        // 최대 거래 수량 제한 적용
-        return Math.min(maxQuantity, TradingConstants.MAX_POSITION_SIZE);
+        try {
+            // 계좌 잔액의 일정 비율로 매수 (10%)
+            int availableAmount = (int) (account.getBalance() * TradingConstants.POSITION_SIZE_RATIO);
+            int stockPrice = stock.getClosePrice();
+
+            // 수수료를 고려한 실제 필요 금액 계산
+            // 필요 금액 = 주가 * 수량 * (1 + 수수료율)
+            // 수량 = 사용 가능 금액 / (주가 * (1 + 수수료율))
+            double commissionRate = 0.0025; // 0.25%
+            int maxQuantity = (int) (availableAmount / (stockPrice * (1 + commissionRate)));
+
+            // 최소 1주는 매수할 수 있어야 함
+            if (maxQuantity <= 0) {
+                log.debug("잔액 부족으로 매수 불가: 잔액={}, 주가={}, 필요금액={}",
+                    account.getBalance(), stockPrice, (int)(stockPrice * (1 + commissionRate)));
+                return 0;
+            }
+
+            // 최대 거래 수량 제한 적용
+            int finalQuantity = Math.min(maxQuantity, TradingConstants.MAX_POSITION_SIZE);
+
+            log.debug("매수 수량 계산: 사용가능={}원, 주가={}원, 매수={}주",
+                availableAmount, stockPrice, finalQuantity);
+
+            return finalQuantity;
+
+        } catch (Exception e) {
+            log.error("매수 수량 계산 실패: account={}, stock={}",
+                account.getAccountId(), stock.getCode(), e);
+            return 0;
+        }
     }
 
     /**
      * 매도 포지션 크기 계산
-     * 
+     * 실제 보유 수량을 기반으로 매도 가능 수량 계산
+     *
      * @param account 계좌 정보
      * @param stock 주식 정보
      * @return 매도 수량
@@ -509,12 +571,32 @@ public class AutoTradingBotService {
     private Integer calculateSellPositionSize(Account account, Stock stock) {
         try {
             // 보유 주식 수량 조회
-            // TODO: StockHolding 엔티티 및 리포지토리 구현 필요
-            // 현재는 임시로 기본값 반환
-            return TradingConstants.DEFAULT_SELL_QUANTITY;
+            Optional<StockHolding> holdingOpt = stockHoldingRepository
+                .findByAccountIdAndStockCode(account.getAccountId(), stock.getCode());
+
+            if (holdingOpt.isEmpty()) {
+                log.debug("계좌 {} 종목 {} 보유하지 않음", account.getAccountId(), stock.getCode());
+                return 0; // 보유하지 않으면 매도 불가
+            }
+
+            StockHolding holding = holdingOpt.get();
+            if (holding.getQuantity() <= 0) {
+                log.debug("계좌 {} 종목 {} 보유 수량 0", account.getAccountId(), stock.getCode());
+                return 0;
+            }
+
+            // 보유 수량의 50% 매도 (리스크 분산)
+            int sellQuantity = Math.max(1, holding.getQuantity() / 2);
+
+            // 최대 매도 수량 제한 적용
+            sellQuantity = Math.min(sellQuantity, TradingConstants.MAX_POSITION_SIZE);
+
+            log.debug("매도 수량 계산: 보유={}주, 매도={}주", holding.getQuantity(), sellQuantity);
+            return sellQuantity;
             
         } catch (Exception e) {
-            log.error("매도 수량 계산 실패", e);
+            log.error("매도 수량 계산 실패: account={}, stock={}",
+                account.getAccountId(), stock.getCode(), e);
             return 0;
         }
     }
@@ -555,8 +637,12 @@ public class AutoTradingBotService {
             // 모의매매 서비스를 통한 거래 실행
             if (TradingConstants.SIGNAL_BUY.equals(signal)) {
                 mockTradingService.processBuyOrder(aiBot.getUserId(), tradeRequest);
+                // 매수 후 StockHolding 업데이트
+                updateStockHoldingAfterBuy(account, stock, quantity, tradeRequest.getPrice());
             } else if (TradingConstants.SIGNAL_SELL.equals(signal)) {
                 mockTradingService.processSellOrder(aiBot.getUserId(), tradeRequest);
+                // 매도 후 StockHolding 업데이트
+                updateStockHoldingAfterSell(account, stock, quantity, tradeRequest.getPrice());
             }
             
             log.info("AI 봇 {} 매매 성공: {} {} {}주", 
@@ -567,6 +653,97 @@ public class AutoTradingBotService {
             log.error("AI 봇 {} 매매 실행 실패: {} {} {}주", 
                      aiBot.getUserId(), stock.getCode(), signal, quantity, e);
             return false;
+        }
+    }
+
+    /**
+     * 매수 후 StockHolding 업데이트
+     *
+     * @param account 계좌 정보
+     * @param stock 주식 정보
+     * @param quantity 매수 수량
+     * @param price 매수 단가
+     */
+    private void updateStockHoldingAfterBuy(Account account, Stock stock, Integer quantity, Integer price) {
+        try {
+            // 수수료 계산 (0.25%)
+            Integer commission = (int) Math.round(price * quantity * 0.0025);
+
+            Optional<StockHolding> existingHolding = stockHoldingRepository
+                .findByAccountIdAndStockCode(account.getAccountId(), stock.getCode());
+
+            if (existingHolding.isPresent()) {
+                // 기존 보유 주식에 추가 매수
+                StockHolding holding = existingHolding.get();
+                // addStock 메서드 로직을 직접 구현
+                holding.setQuantity(holding.getQuantity() + quantity);
+                holding.setTotalPrice(holding.getTotalPrice() + (price * quantity));
+                holding.updateCurrentValue(stock.getClosePrice());
+                stockHoldingRepository.save(holding);
+                log.debug("기존 보유 주식 업데이트: {}주 추가, 총 {}주", quantity, holding.getQuantity());
+            } else {
+                // 신규 주식 보유
+                StockHolding newHolding = StockHolding.builder()
+                    .account(account)
+                    .stockCode(stock.getCode())
+                    .quantity(quantity)
+                    .averagePrice(price)
+                    .totalCost(price * quantity + commission)
+                    .firstPurchaseDate(LocalDateTime.now())
+                    .lastTradeDate(LocalDateTime.now())
+                    .build();
+                newHolding.updateCurrentValue(stock.getClosePrice());
+                stockHoldingRepository.save(newHolding);
+                log.debug("신규 주식 보유 생성: {} {}주", stock.getCode(), quantity);
+            }
+
+        } catch (Exception e) {
+            log.error("매수 후 StockHolding 업데이트 실패: account={}, stock={}, quantity={}",
+                account.getAccountId(), stock.getCode(), quantity, e);
+        }
+    }
+
+    /**
+     * 매도 후 StockHolding 업데이트
+     *
+     * @param account 계좌 정보
+     * @param stock 주식 정보
+     * @param quantity 매도 수량
+     * @param price 매도 단가
+     */
+    private void updateStockHoldingAfterSell(Account account, Stock stock, Integer quantity, Integer price) {
+        try {
+            Optional<StockHolding> holdingOpt = stockHoldingRepository
+                .findByAccountIdAndStockCode(account.getAccountId(), stock.getCode());
+
+            if (holdingOpt.isEmpty()) {
+                log.warn("매도할 주식이 보유 목록에 없음: account={}, stock={}",
+                    account.getAccountId(), stock.getCode());
+                return;
+            }
+
+            StockHolding holding = holdingOpt.get();
+
+            // 수수료 계산 (0.25%)
+            Integer commission = (int) Math.round(price * quantity * 0.0025);
+
+            // 매도 처리 (sellStock 메서드 로직을 직접 구현)
+            holding.setQuantity(holding.getQuantity() - quantity);
+            holding.setTotalPrice(Math.max(0, holding.getTotalPrice() - (price * quantity)));
+            holding.updateCurrentValue(stock.getClosePrice());
+
+            if (holding.getQuantity() <= 0) {
+                // 전량 매도 시 보유 기록 삭제
+                stockHoldingRepository.delete(holding);
+                log.debug("전량 매도로 보유 기록 삭제: {}", stock.getCode());
+            } else {
+                stockHoldingRepository.save(holding);
+                log.debug("일부 매도 완료: {}주 매도, 잔여 {}주", quantity, holding.getQuantity());
+            }
+
+        } catch (Exception e) {
+            log.error("매도 후 StockHolding 업데이트 실패: account={}, stock={}, quantity={}",
+                account.getAccountId(), stock.getCode(), quantity, e);
         }
     }
 
@@ -585,7 +762,7 @@ public class AutoTradingBotService {
         request.setStockCode(stockCode);
         request.setQuantity(quantity);
         request.setPrice(price);
-        request.setTradeType(tradeType);
+        request.setTradeType(TradeType.valueOf(tradeType));
         return request;
     }
 
@@ -598,7 +775,7 @@ public class AutoTradingBotService {
      * @param userId 사용자 ID
      * @return AiStrategy 엔티티 (없으면 기본 전략 생성)
      */
-    private AiStrategy findOrCreateStrategy(String strategyName, Integer userId) {
+    private AiStrategy findOrCreateStrategy(String strategyName, Long userId) {
         try {
             // 기존 전략 조회
             Optional<AiStrategy> existingStrategy = aiStrategyRepository.findByUserIdAndStrategy(userId, strategyName);
@@ -643,6 +820,8 @@ public class AutoTradingBotService {
             // 전략 엔티티 조회/생성
             AiStrategy strategy = findOrCreateStrategy(strategyName, aiBot.getUserId());
             
+            // TODO: AiBotTrade 스키마 이슈로 임시 제거
+            /*
             AiBotTrade tradeRecord = AiBotTrade.builder()
                 .userId(aiBot.getUserId())
                 .strategy(strategy)  // AiStrategy 엔티티 사용
@@ -658,8 +837,10 @@ public class AutoTradingBotService {
                 .tradeTime(LocalDateTime.now())
                 .signalTime(LocalDateTime.now())
                 .build();
+            */
                 
-            aiBotTradeRepository.save(tradeRecord);
+            // TODO: AiBotTrade 스키마 이슈로 임시 제거
+            // aiBotTradeRepository.save(tradeRecord);
             
             log.debug("AI 봇 {} 거래 결과 기록 완료", aiBot.getUserId());
             
@@ -679,6 +860,8 @@ public class AutoTradingBotService {
             // 시스템 오류 전략 생성
             AiStrategy errorStrategy = findOrCreateStrategy("SYSTEM_ERROR", aiBot.getUserId());
             
+            // TODO: AiBotTrade 스키마 이슈로 임시 제거
+            /*
             AiBotTrade failureRecord = AiBotTrade.builder()
                 .userId(aiBot.getUserId())
                 .strategy(errorStrategy)  // AiStrategy 엔티티 사용
@@ -694,8 +877,10 @@ public class AutoTradingBotService {
                 .tradeTime(LocalDateTime.now())
                 .signalTime(LocalDateTime.now())
                 .build();
+            */
                 
-            aiBotTradeRepository.save(failureRecord);
+            // TODO: AiBotTrade 스키마 이슈로 임시 제거
+            // aiBotTradeRepository.save(failureRecord);
             
         } catch (Exception e) {
             log.error("AI 봇 {} 실패 기록 저장 중 오류", aiBot.getUserId(), e);

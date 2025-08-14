@@ -20,4 +20,13 @@ public interface DailySolvedRepository extends JpaRepository<DailySolved, Intege
     Long countFasterSolvers(@Param("quizId") Integer quizId, @Param("solvedAt") LocalDate solvedAt, @Param("solvedTimeSeconds") Integer solvedTimeSeconds);
     
     List<DailySolved> findByQuizIdAndSolvedAtOrderBySolvedTimeSecondsAsc(Integer quizId, LocalDate solvedAt);
+    
+    @Query("SELECT ds FROM DailySolved ds WHERE ds.userId = :userId ORDER BY ds.solvedAt DESC")
+    List<DailySolved> findByUserIdOrderBySolvedAtDesc(@Param("userId") Integer userId);
+    
+    @Query("SELECT ds FROM DailySolved ds WHERE ds.userId = :userId ORDER BY ds.solvedAt DESC LIMIT 1")
+    Optional<DailySolved> findLatestByUserId(@Param("userId") Integer userId);
+    
+    @Query("SELECT ds FROM DailySolved ds WHERE ds.userId = :userId AND ds.solvedAt BETWEEN :startDate AND :endDate ORDER BY ds.solvedAt DESC")
+    List<DailySolved> findByUserIdAndSolvedAtBetween(@Param("userId") Integer userId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

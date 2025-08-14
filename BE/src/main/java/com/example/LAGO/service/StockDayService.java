@@ -2,15 +2,12 @@ package com.example.LAGO.service;
 
 import com.example.LAGO.domain.StockDay;
 import com.example.LAGO.dto.StockDayDto;
-import com.example.LAGO.dto.StockMinuteDto;
 import com.example.LAGO.repository.StockDayRepository;
 import com.example.LAGO.repository.StockInfoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 @Service

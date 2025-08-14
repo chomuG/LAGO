@@ -18,4 +18,14 @@ public interface HistoryChallengeRepository extends JpaRepository<HistoryChallen
      */
     @Query("SELECT hc FROM HistoryChallenge hc WHERE :targetDate BETWEEN hc.startDate AND hc.endDate")
     HistoryChallenge findByDate(@Param("targetDate") LocalDateTime targetDate);
+
+    /**
+     * 특정 종목 코드에 해당하는 현재 진행 중인 역사챌린지를 조회합니다.
+     * @param stockCode 종목 코드
+     * @param now 현재 시간
+     * @return 현재 진행 중인 역사챌린지 정보
+     */
+    @Query("SELECT hc FROM HistoryChallenge hc WHERE hc.stockCode = :stockCode AND :now BETWEEN hc.startDate AND hc.endDate")
+    HistoryChallenge findActiveChallengeByStockCode(@Param("stockCode") String stockCode, @Param("now") LocalDateTime now);
 }
+

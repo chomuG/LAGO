@@ -38,7 +38,7 @@ public class CharacterTradingRecommendation {
      * 사용자 ID
      */
     @Schema(description = "사용자 ID", example = "12345")
-    private Integer userId;
+    private Long userId;
 
     /**
      * 주식 코드
@@ -68,7 +68,7 @@ public class CharacterTradingRecommendation {
      * AI 전략 ID
      */
     @Schema(description = "AI 전략 ID", example = "67890")
-    private Integer strategyId;
+    private Long strategyId;
 
     /**
      * 성공 여부

@@ -8,7 +8,6 @@ import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;   // ← models 쪽만 사용
-import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -59,18 +58,5 @@ public class OpenApiConfig {
                         .description("JWT Bearer Token Authentication"));
     }
 
-    @Bean
-    public GroupedOpenApi authApi() {
-        return GroupedOpenApi.builder()
-                .group("01-auth").displayName("인증/회원관리")
-                .pathsToMatch("/api/auth/**").build();
-    }
-
-    @Bean public GroupedOpenApi stockApi()   { return GroupedOpenApi.builder().group("02-stocks").displayName("주식/거래").pathsToMatch("/api/stocks/**").build(); }
-    @Bean public GroupedOpenApi accountApi() { return GroupedOpenApi.builder().group("03-accounts").displayName("계좌관리").pathsToMatch("/api/accounts/**").build(); }
-    @Bean public GroupedOpenApi aiBotApi()   { return GroupedOpenApi.builder().group("04-ai-bots").displayName("AI 매매봇").pathsToMatch("/api/ai-bots/**").build(); }
-    @Bean public GroupedOpenApi studyApi()   { return GroupedOpenApi.builder().group("05-study").displayName("차트학습/퀴즈").pathsToMatch("/api/study/**").build(); }
-    @Bean public GroupedOpenApi newsApi()    { return GroupedOpenApi.builder().group("06-news").displayName("뉴스/공지").pathsToMatch("/api/news/**").build(); }
-    @Bean public GroupedOpenApi userApi()    { return GroupedOpenApi.builder().group("07-users").displayName("마이페이지").pathsToMatch("/api/users/**").build(); }
-    @Bean public GroupedOpenApi adminApi()   { return GroupedOpenApi.builder().group("08-admin").displayName("관리자/기타").pathsToMatch("/api/admin/**", "/api/frames/**", "/api/recaps/**").build(); }
+    // GroupedOpenApi 그룹화 제거 - 모든 API를 기본 그룹에서 표시
 }

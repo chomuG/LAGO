@@ -1,5 +1,6 @@
 package com.example.LAGO.controller;
 
+import com.example.LAGO.dto.response.AccountCurrentStatusResponse;
 import com.example.LAGO.dto.response.StockHoldingResponse;
 import com.example.LAGO.service.PortfolioService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,7 +52,7 @@ public class PortfolioController {
             @RequestHeader("User-Id") // TODO: JWT 인증으로 변경 예정
             @NotNull(message = "사용자 ID는 필수입니다") 
             @Positive(message = "사용자 ID는 양수여야 합니다") 
-            Integer userId
+            Long userId
     ) {
         List<StockHoldingResponse> portfolio = portfolioService.getUserPortfolio(userId);
         return ResponseEntity.ok(portfolio);
@@ -81,13 +82,13 @@ public class PortfolioController {
             @PathVariable 
             @NotNull(message = "계좌 ID는 필수입니다") 
             @Positive(message = "계좌 ID는 양수여야 합니다") 
-            Integer accountId,
+            Long accountId,
             
             @Parameter(description = "사용자 ID", required = true, example = "1")
             @RequestHeader("User-Id") // TODO: JWT 인증으로 변경 예정
             @NotNull(message = "사용자 ID는 필수입니다") 
             @Positive(message = "사용자 ID는 양수여야 합니다") 
-            Integer userId
+            Long userId
     ) {
         List<StockHoldingResponse> holdings = portfolioService.getAccountHoldings(accountId, userId);
         return ResponseEntity.ok(holdings);
@@ -117,7 +118,7 @@ public class PortfolioController {
             @PathVariable 
             @NotNull(message = "계좌 ID는 필수입니다") 
             @Positive(message = "계좌 ID는 양수여야 합니다") 
-            Integer accountId,
+            Long accountId,
             
             @Parameter(description = "종목 코드", required = true, example = "005930")
             @PathVariable 
@@ -128,9 +129,38 @@ public class PortfolioController {
             @RequestHeader("User-Id") // TODO: JWT 인증으로 변경 예정
             @NotNull(message = "사용자 ID는 필수입니다") 
             @Positive(message = "사용자 ID는 양수여야 합니다") 
-            Integer userId
+            Long userId
     ) {
         StockHoldingResponse holding = portfolioService.getStockHolding(accountId, stockCode, userId);
         return ResponseEntity.ok(holding);
+    }
+
+    /**
+     * 사용자 기본 계좌 현재 상황 조회 (프론트 실시간 계산용)
+     * MockTrade 기반으로 보유현금 + 보유종목 정보 제공
+     * userId로 타입 0인 기본 계좌를 찾아서 조회
+     * 
+     * @param userId 사용자 ID
+     * @return 계좌 현재 상황
+     */
+    @GetMapping("/users/{userId}/current-status")
+    @Operation(
+        summary = "사용자 기본 계좌 현재 상황 조회", 
+        description = "프론트에서 실시간 계산을 위한 계좌 현황 정보를 조회합니다. userId로 타입 0인 기본 계좌를 자동으로 찾아서 조회합니다. (보유현금 + 보유종목 + 매수총액)"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "조회 성공"),
+        @ApiResponse(responseCode = "404", description = "사용자 또는 기본 계좌를 찾을 수 없음"),
+        @ApiResponse(responseCode = "500", description = "서버 내부 오류")
+    })
+    public ResponseEntity<AccountCurrentStatusResponse> getUserCurrentStatus(
+            @Parameter(description = "사용자 ID", required = true, example = "1")
+            @PathVariable 
+            @NotNull(message = "사용자 ID는 필수입니다") 
+            @Positive(message = "사용자 ID는 양수여야 합니다") 
+            Long userId
+    ) {
+        AccountCurrentStatusResponse status = portfolioService.getUserCurrentStatus(userId);
+        return ResponseEntity.ok(status);
     }
 }

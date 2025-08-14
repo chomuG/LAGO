@@ -26,7 +26,7 @@ import java.util.Optional;
  * @since 2025-08-06
  */
 @Repository
-public interface AiStrategyRepository extends JpaRepository<AiStrategy, Integer> {
+public interface AiStrategyRepository extends JpaRepository<AiStrategy, Long> {
 
     /**
      * 사용자별 AI 전략 조회 (최신순)
@@ -34,7 +34,7 @@ public interface AiStrategyRepository extends JpaRepository<AiStrategy, Integer>
      * @param userId 사용자 ID
      * @return 사용자의 AI 전략 목록
      */
-    List<AiStrategy> findByUserIdOrderByCreatedAtDesc(Integer userId);
+    List<AiStrategy> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     /**
      * 사용자별 특정 전략 조회 (최신순)
@@ -43,7 +43,7 @@ public interface AiStrategyRepository extends JpaRepository<AiStrategy, Integer>
      * @param strategy 전략명 (화끈이/적극이/균형이/조심이)
      * @return 해당 전략 목록
      */
-    List<AiStrategy> findByUserIdAndStrategyOrderByCreatedAtDesc(Integer userId, String strategy);
+    List<AiStrategy> findByUserIdAndStrategyOrderByCreatedAtDesc(Long userId, String strategy);
     
     /**
      * 사용자별 특정 전략 단일 조회 (최신)
@@ -52,7 +52,7 @@ public interface AiStrategyRepository extends JpaRepository<AiStrategy, Integer>
      * @param strategy 전략명
      * @return 해당 전략 (최신)
      */
-    Optional<AiStrategy> findByUserIdAndStrategy(Integer userId, String strategy);
+    Optional<AiStrategy> findByUserIdAndStrategy(Long userId, String strategy);
 
     /**
      * 사용자의 최근 전략 조회
@@ -60,7 +60,7 @@ public interface AiStrategyRepository extends JpaRepository<AiStrategy, Integer>
      * @param userId 사용자 ID
      * @return 최근 전략
      */
-    Optional<AiStrategy> findFirstByUserIdOrderByCreatedAtDesc(Integer userId);
+    Optional<AiStrategy> findFirstByUserIdOrderByCreatedAtDesc(Long userId);
 
     /**
      * 특정 기간 내 사용자 전략 조회
@@ -72,7 +72,7 @@ public interface AiStrategyRepository extends JpaRepository<AiStrategy, Integer>
      */
     @Query("SELECT a FROM AiStrategy a WHERE a.userId = :userId AND a.createdAt BETWEEN :startDate AND :endDate ORDER BY a.createdAt DESC")
     List<AiStrategy> findByUserIdAndCreatedAtBetween(
-        @Param("userId") Integer userId, 
+        @Param("userId") Long userId, 
         @Param("startDate") LocalDateTime startDate, 
         @Param("endDate") LocalDateTime endDate
     );
@@ -92,7 +92,7 @@ public interface AiStrategyRepository extends JpaRepository<AiStrategy, Integer>
      * @param strategy 전략명
      * @return 사용자의 해당 전략 사용 횟수
      */
-    long countByUserIdAndStrategy(Integer userId, String strategy);
+    long countByUserIdAndStrategy(Long userId, String strategy);
 
     /**
      * 오늘 생성된 사용자 전략 조회
@@ -101,7 +101,7 @@ public interface AiStrategyRepository extends JpaRepository<AiStrategy, Integer>
      * @return 오늘 생성된 전략 목록
      */
 //    @Query("SELECT a FROM AiStrategy a WHERE a.userId = :userId AND DATE(a.createdAt) = CURRENT_DATE ORDER BY a.createdAt DESC")
-//    List<AiStrategy> findTodayStrategiesByUserId(@Param("userId") Integer userId);
+//    List<AiStrategy> findTodayStrategiesByUserId(@Param("userId") Long userId);
 
     /**
      * 최근 N일간 인기 전략 조회
@@ -109,7 +109,7 @@ public interface AiStrategyRepository extends JpaRepository<AiStrategy, Integer>
      * @param days 조회할 일수
      * @return 인기 전략 목록 (사용 횟수 기준)
      */
-    @Query(value = "SELECT strategy, COUNT(*) as usage_count FROM AI_STRATEGY " +
+    @Query(value = "SELECT strategy, COUNT(*) as usage_count FROM ai_strategy " +
            "WHERE created_at >= CURRENT_DATE - INTERVAL ':days days' " +
            "GROUP BY strategy ORDER BY usage_count DESC", nativeQuery = true)
     List<Object[]> findPopularStrategiesInLastDays(@Param("days") int days);

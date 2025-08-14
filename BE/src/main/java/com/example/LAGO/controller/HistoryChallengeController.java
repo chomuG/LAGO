@@ -6,7 +6,6 @@ import com.example.LAGO.dto.response.HistoryChallengeNewsResponse;
 import com.example.LAGO.dto.response.HistoryChallengeResponse;
 import com.example.LAGO.exception.NoContentException;
 import com.example.LAGO.service.HistoryChallengeService;
-import com.example.LAGO.service.QuizService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -23,7 +22,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/history-challenge")
-@Tag(name = "역사챌린지 API", description = "역사챌린지 정보 및 차트를 조회합니다.")
+@Tag(name = "역사챌린지", description = "역사챌린지 정보 및 차트를 조회합니다.")
 @Validated
 public class HistoryChallengeController {
 

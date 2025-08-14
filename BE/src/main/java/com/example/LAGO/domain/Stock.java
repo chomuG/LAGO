@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
  * 지침서 명세 STOCK_INFO 테이블과 완전 일치
  */
 @Entity
-@Table(name = "STOCK_INFO")
+@Table(name = "stock_info")
 @Getter 
 @Setter
 @NoArgsConstructor

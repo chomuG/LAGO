@@ -1,11 +1,9 @@
 package com.example.LAGO.repository;
 
 import com.example.LAGO.domain.StockDay;
-import com.example.LAGO.domain.StockInfo;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -49,17 +47,8 @@ public interface StockDayRepository extends JpaRepository<StockDay, Integer> {
                                                                  LocalDate startDate,
                                                                  LocalDate endDate);
 
-    /**
-     * 종목 정보 ID로 특정 기간 일봉 데이터 조회
-     *
-     * @param stockInfoId 종목 정보 ID
-     * @param startDate   시작일
-     * @param endDate     종료일
-     * @return 일봉 데이터 리스트 (날짜순)
-     */
-    List<StockDay> findByStockInfoStockInfoIdAndNewDateBetweenOrderByNewDateAsc(Integer stockInfoId,
-                                                                          LocalDateTime startDate,
-                                                                          LocalDateTime endDate);
+    // newDate 필드가 제거되어 이 메서드는 사용하지 않음
+    // 대신 위의 findByStockInfoStockInfoIdAndDateBetweenOrderByDateAsc 메서드 사용
 
     /**
      * 종목 정보 ID로 최신 일봉 데이터 조회
@@ -77,12 +66,12 @@ public interface StockDayRepository extends JpaRepository<StockDay, Integer> {
      */
     List<StockDay> findByDateOrderByStockInfoStockInfoIdAsc(LocalDate date);
 
-    // StockInfo.code로 조회
+    // StockInfo.code 대신 StockInfo.stockCode로 조회
     List<StockDay> findByStockInfo_CodeAndDateBetweenOrderByDateAsc(
-            String code,
+            String stockCode,
             LocalDate start,
             LocalDate end
     );
-    StockDay findTopByStockInfoCodeAndDateOrderByDateDesc(String code, LocalDate date);
+    StockDay findTopByStockInfo_CodeAndDateOrderByDateDesc(String stockCode, LocalDate date);
 
 }

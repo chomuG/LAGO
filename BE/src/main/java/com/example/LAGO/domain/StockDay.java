@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "\"STOCK_DAY\"")
+@Table(name = "stock_day")
 @Getter
 @Setter
 @Builder
@@ -61,8 +61,5 @@ public class StockDay {
 
     @Column(name = "volume", nullable = false)
     private Integer volume;
-
-    @Column(name = "new_date")
-    private LocalDateTime newDate;
 }
 
