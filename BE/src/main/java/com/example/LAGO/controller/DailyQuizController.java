@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/study/daily-quiz")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Study - Daily Quiz", description = "데일리 퀴즈 API")
+@Tag(name = "차트학습/퀴즈", description = "투자 학습 및 퀴즈 관련 API")
 public class DailyQuizController {
 
     private final DailyQuizService dailyQuizService;
