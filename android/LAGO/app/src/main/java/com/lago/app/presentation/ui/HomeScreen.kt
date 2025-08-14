@@ -72,6 +72,7 @@ fun HomeScreen(
     onOrderHistoryClick: () -> Unit = {},
     onLoginClick: () -> Unit = {},
     onTradingBotClick: (Int) -> Unit = {},
+    onStockClick: (String) -> Unit = {},
     viewModel: com.lago.app.presentation.viewmodel.home.HomeViewModel = hiltViewModel()
 ) {
     val isLoggedIn = userPreferences.getAuthToken() != null
@@ -230,7 +231,8 @@ fun HomeScreen(
             StockSection(
                 isLoggedIn = isLoggedIn,
                 homeStocks = uiState.stockList,
-                viewModel = viewModel
+                viewModel = viewModel,
+                onStockClick = onStockClick
             )
         }
 
@@ -537,7 +539,8 @@ private fun TradingBotCard(bot: TradingBot, onTradingBotClick: (Int) -> Unit = {
 private fun StockSection(
     isLoggedIn: Boolean = true,
     homeStocks: List<com.lago.app.presentation.viewmodel.home.HomeStock> = emptyList(),
-    viewModel: com.lago.app.presentation.viewmodel.home.HomeViewModel? = null
+    viewModel: com.lago.app.presentation.viewmodel.home.HomeViewModel? = null,
+    onStockClick: (String) -> Unit = {}
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp)
@@ -570,7 +573,7 @@ private fun StockSection(
                 ) {
                     if (homeStocks.isNotEmpty() && viewModel != null) {
                         homeStocks.forEachIndexed { index, homeStock ->
-                            HomeStockItem(homeStock, viewModel)
+                            HomeStockItem(homeStock, viewModel, onStockClick)
                             if (index != homeStocks.lastIndex) {
                                 Spacer(modifier = Modifier.height(16.dp))
                             }
@@ -660,10 +663,13 @@ private fun StockItem(stock: Stock) {
 @Composable
 private fun HomeStockItem(
     homeStock: com.lago.app.presentation.viewmodel.home.HomeStock,
-    viewModel: com.lago.app.presentation.viewmodel.home.HomeViewModel
+    viewModel: com.lago.app.presentation.viewmodel.home.HomeViewModel,
+    onStockClick: (String) -> Unit = {}
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onStockClick(homeStock.stockCode) },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

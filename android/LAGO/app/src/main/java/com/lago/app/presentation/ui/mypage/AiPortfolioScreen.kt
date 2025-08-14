@@ -38,6 +38,7 @@ object AiAppColors {
 
 // 데이터 클래스
 data class AiStockInfo(
+    val stockCode: String,
     val name: String,
     val averagePrice: String,
     val percentage: String,
@@ -82,6 +83,7 @@ fun AiPortfolioScreen(
                 holding.purchaseAmount / holding.quantity
             } else 0L
             AiStockInfo(
+                stockCode = holding.stockCode,
                 name = holding.stockName,
                 averagePrice = "1주 평균 ${String.format("%,d", avgPrice)}원",
                 percentage = "${String.format("%.1f", holding.weight)}%",
@@ -91,7 +93,7 @@ fun AiPortfolioScreen(
     } else {
         // 로딩 중일 때 기본 데이터
         listOf(
-            AiStockInfo("데이터 로딩중...", "0원", "0%", Gray400)
+            AiStockInfo("", "데이터 로딩중...", "0원", "0%", Gray400)
         )
     }
 
@@ -129,7 +131,7 @@ fun AiPortfolioScreen(
             item { AiAssetStatusSection(uiState.portfolioSummary, botViewModel) }
 
             // 포트폴리오 차트 및 주식 리스트 통합 섹션
-            item { AiPortfolioSection(aiPieChartData, aiStockList, uiState.portfolioSummary) }
+            item { AiPortfolioSection(aiPieChartData, aiStockList, uiState.portfolioSummary, onStockClick) }
 
 
             item { Spacer(modifier = Modifier.height(8.dp)) }
@@ -342,7 +344,8 @@ fun AiAssetInfoRow(label: String, value: String) {
 fun AiPortfolioSection(
     pieChartData: List<AiPieChartData>, 
     stockList: List<AiStockInfo>,
-    portfolioSummary: com.lago.app.data.remote.dto.MyPagePortfolioSummary? = null
+    portfolioSummary: com.lago.app.data.remote.dto.MyPagePortfolioSummary? = null,
+    onStockClick: (String) -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -417,7 +420,7 @@ fun AiPortfolioSection(
 
             // 주식 리스트
             stockList.forEach { stock ->
-                AiStockListItemInCard(stock)
+                AiStockListItemInCard(stock, onStockClick)
                 if (stock != stockList.last()) {
                     Spacer(modifier = Modifier.height(12.dp))
                 }
@@ -473,10 +476,16 @@ fun AiDonutChart(
 }
 
 @Composable
-fun AiStockListItemInCard(stock: AiStockInfo) {
+fun AiStockListItemInCard(stock: AiStockInfo, onStockClick: (String) -> Unit = {}) {
     Row(
-        modifier = Modifier.fillMaxWidth()
-            .padding(4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(4.dp)
+            .clickable { 
+                if (stock.stockCode.isNotEmpty()) {
+                    onStockClick(stock.stockCode) 
+                }
+            },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

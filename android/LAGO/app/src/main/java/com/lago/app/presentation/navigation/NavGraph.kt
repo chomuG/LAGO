@@ -61,6 +61,9 @@ fun NavGraph(
                 },
                 onTradingBotClick = { userId ->
                     navController.navigate("ai_portfolio/$userId")
+                },
+                onStockClick = { stockCode ->
+                    navController.navigate("chart_simple/$stockCode")
                 }
             )
         }
