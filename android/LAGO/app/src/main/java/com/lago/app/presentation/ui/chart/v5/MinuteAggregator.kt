@@ -34,13 +34,13 @@ class MinuteAggregator(
         val minuteKey = "$today%02d:%02d".format(hh, mm)
 
         val minuteStart = LocalDateTime.of(today, LocalTime.of(hh, mm))
-        val epochSecUtc = minuteStart.toEpochSecond(ZoneOffset.UTC)
+        val epochSecKST = minuteStart.toEpochSecond(ZoneOffset.of("+09:00"))
 
         if (currentKey != minuteKey) {
             // finalize previous minute (already updated live)
             cur?.let { push(it, VolumeBar(it.time, volSum)) }
 
-            cur = Candle(epochSecUtc, t.closePrice, t.closePrice, t.closePrice, t.closePrice)
+            cur = Candle(epochSecKST, t.closePrice, t.closePrice, t.closePrice, t.closePrice)
             volSum = t.volume
             currentKey = minuteKey
         } else {

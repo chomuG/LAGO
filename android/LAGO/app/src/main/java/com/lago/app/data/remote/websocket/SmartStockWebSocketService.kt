@@ -250,6 +250,7 @@ class SmartStockWebSocketService @Inject constructor(
         Log.w(TAG, "🔥 processStockUpdate 시작 - ${stockData.stockCode}")
         Log.w(TAG, "🔥 가격 정보: price=${stockData.price}, closePrice=${stockData.closePrice}, currentPrice=${stockData.currentPrice}, tradePrice=${stockData.tradePrice}")
         Log.w(TAG, "🔥 변동 정보: priceChange=${stockData.priceChange}, priceChangePercent=${stockData.priceChangePercent}")
+        Log.w(TAG, "🔥 웹소켓 등락률: fluctuationRate=${stockData.fluctuationRate}, changeRate=${stockData.changeRate}, rate=${stockData.rate}")
         
         // 캐시에 저장 (우선순위별 자동 분류)
         realTimeCache.updateStock(stockData.stockCode, stockData)

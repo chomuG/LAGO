@@ -37,8 +37,8 @@ class MockTradeRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val token = userPreferences.getAuthToken()
-            if (token.isNullOrEmpty()) {
+            val userId = userPreferences.getUserId()
+            if (userId == null) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
             }
@@ -49,19 +49,19 @@ class MockTradeRepositoryImpl @Inject constructor(
                 price = price
             )
 
-            val response = apiService.buyStock("Bearer $token", request)
+            val response = apiService.buyStock(userId.toString(), request)
             
-            if (response.success && response.data != null) {
+            if (response.success) {
                 val result = MockTradeResult(
-                    tradeId = response.data.tradeId,
-                    stockCode = response.data.stockCode,
-                    stockName = response.data.stockName,
-                    quantity = response.data.quantity,
-                    price = response.data.price,
-                    totalAmount = response.data.totalAmount,
-                    commission = response.data.commission,
-                    tradeAt = response.data.tradeAt,
-                    remainingBalance = response.data.remainingBalance
+                    tradeId = response.tradeId,
+                    stockCode = response.stockCode,
+                    stockName = response.stockName,
+                    quantity = response.quantity,
+                    price = response.executedPrice,
+                    totalAmount = response.totalAmount,
+                    commission = response.commission,
+                    tradeAt = "", // 백엔드에서 제공되지 않음
+                    remainingBalance = response.remainingBalance
                 )
                 emit(Resource.Success(result))
             } else {
@@ -84,8 +84,8 @@ class MockTradeRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val token = userPreferences.getAuthToken()
-            if (token.isNullOrEmpty()) {
+            val userId = userPreferences.getUserId()
+            if (userId == null) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
             }
@@ -96,19 +96,19 @@ class MockTradeRepositoryImpl @Inject constructor(
                 price = price
             )
 
-            val response = apiService.sellStock("Bearer $token", request)
+            val response = apiService.sellStock(userId.toString(), request)
             
-            if (response.success && response.data != null) {
+            if (response.success) {
                 val result = MockTradeResult(
-                    tradeId = response.data.tradeId,
-                    stockCode = response.data.stockCode,
-                    stockName = response.data.stockName,
-                    quantity = response.data.quantity,
-                    price = response.data.price,
-                    totalAmount = response.data.totalAmount,
-                    commission = response.data.commission,
-                    tradeAt = response.data.tradeAt,
-                    remainingBalance = response.data.remainingBalance
+                    tradeId = response.tradeId,
+                    stockCode = response.stockCode,
+                    stockName = response.stockName,
+                    quantity = response.quantity,
+                    price = response.executedPrice,
+                    totalAmount = response.totalAmount,
+                    commission = response.commission,
+                    tradeAt = "", // 백엔드에서 제공되지 않음
+                    remainingBalance = response.remainingBalance
                 )
                 emit(Resource.Success(result))
             } else {
@@ -131,29 +131,27 @@ class MockTradeRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val token = userPreferences.getAuthToken()
-            if (token.isNullOrEmpty()) {
+            val userId = userPreferences.getUserId()
+            if (userId == null) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
             }
 
-            val response = apiService.getAccountBalance("Bearer $token")
+            // TODO: 실제로는 사용자별 계좌 ID를 조회해야 함. 현재는 기본값 사용
+            val defaultAccountId = 1001L
+            val response = apiService.getAccount(defaultAccountId)
             
-            if (response.success) {
-                val balance = AccountBalance(
-                    accountId = response.data.accountId,
-                    balance = response.data.balance,
-                    totalAsset = response.data.totalAsset,
-                    profit = response.data.profit,
-                    profitRate = response.data.profitRate,
-                    totalStockValue = response.data.totalStockValue,
-                    createdAt = response.data.createdAt,
-                    type = response.data.type
-                )
-                emit(Resource.Success(balance))
-            } else {
-                emit(Resource.Error(response.message ?: "계좌 정보 조회 실패"))
-            }
+            val balance = AccountBalance(
+                accountId = response.accountId,
+                balance = response.balance,
+                totalAsset = response.totalAsset,
+                profit = response.profit,
+                profitRate = response.profitRate,
+                totalStockValue = response.totalStockValue,
+                createdAt = response.createdAt,
+                type = response.type
+            )
+            emit(Resource.Success(balance))
         } catch (e: HttpException) {
             emit(Resource.Error(handleHttpError(e)))
         } catch (e: IOException) {
@@ -167,33 +165,29 @@ class MockTradeRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val token = userPreferences.getAuthToken()
-            if (token.isNullOrEmpty()) {
+            val userId = userPreferences.getUserId()
+            if (userId == null) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
             }
 
-            val response = apiService.getStockHoldings("Bearer $token")
+            val response = apiService.getUserPortfolio(userId.toString())
             
-            if (response.success) {
-                val holdings = response.data.holdings.map { dto ->
-                    StockHolding(
-                        stockCode = dto.stockCode,
-                        stockName = dto.stockName,
-                        market = dto.market,
-                        quantity = dto.quantity,
-                        avgBuyPrice = dto.avgBuyPrice,
-                        currentPrice = dto.currentPrice,
-                        totalBuyAmount = dto.totalBuyAmount,
-                        currentValue = dto.currentValue,
-                        profitLoss = dto.profitLoss,
-                        profitLossRate = dto.profitLossRate
-                    )
-                }
-                emit(Resource.Success(holdings))
-            } else {
-                emit(Resource.Error(response.message ?: "보유 주식 조회 실패"))
+            val holdings = response.map { dto ->
+                StockHolding(
+                    stockCode = dto.stockCode,
+                    stockName = dto.stockName,
+                    market = dto.market,
+                    quantity = dto.quantity,
+                    avgBuyPrice = dto.avgBuyPrice,
+                    currentPrice = dto.currentPrice,
+                    totalBuyAmount = dto.totalBuyAmount,
+                    currentValue = dto.currentValue,
+                    profitLoss = dto.profitLoss,
+                    profitLossRate = dto.profitLossRate
+                )
             }
+            emit(Resource.Success(holdings))
         } catch (e: HttpException) {
             emit(Resource.Error(handleHttpError(e)))
         } catch (e: IOException) {

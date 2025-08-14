@@ -64,6 +64,16 @@ data class StockRealTimeData(
     @SerializedName("rate")
     val rate: Double? = null,
     
+    // 웹소켓에서 오는 등락률 (fluctuationRate)
+    @SerialName("fluctuationRate")
+    @SerializedName("fluctuationRate")
+    val fluctuationRate: Double? = null,
+    
+    // 웹소켓에서 오는 시간 (date: "102821" = 10시 28분 21초)
+    @SerialName("date")
+    @SerializedName("date")
+    val date: String? = null,
+    
     val timestamp: Long = System.currentTimeMillis()
 ) {
     // 실제 가격 계산 (우선순위: tradePrice > currentPrice > closePrice)
@@ -75,7 +85,7 @@ data class StockRealTimeData(
         get() = (changePrice ?: change ?: 0L).toDouble()
     
     val priceChangePercent: Double
-        get() = changeRate ?: rate ?: 0.0
+        get() = fluctuationRate ?: changeRate ?: rate ?: 0.0
 }
 
 data class PortfolioReturn(
