@@ -1,5 +1,6 @@
 package com.lago.app.data.remote
 
+import com.lago.app.data.remote.dto.UserCurrentStatusDto
 import retrofit2.Retrofit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -36,6 +37,10 @@ class RemoteDataSource @Inject constructor(
         } catch (e: Exception) {
             ApiResponse.Error(e.message ?: "Unknown error occurred")
         }
+    }
+    
+    suspend fun getUserCurrentStatus(userId: Int): UserCurrentStatusDto {
+        return apiService.getUserCurrentStatus(userId)
     }
 }
 

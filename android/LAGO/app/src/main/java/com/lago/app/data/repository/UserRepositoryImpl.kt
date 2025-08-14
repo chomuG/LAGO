@@ -4,9 +4,13 @@ import com.lago.app.data.local.LocalDataSource
 import com.lago.app.data.remote.ApiResponse
 import com.lago.app.data.remote.RemoteDataSource
 import com.lago.app.data.remote.UpdateUserRequest
+import com.lago.app.data.remote.dto.UserCurrentStatusDto
 import com.lago.app.domain.repository.AuthToken
 import com.lago.app.domain.repository.UserProfile
 import com.lago.app.domain.repository.UserRepository
+import com.lago.app.util.Resource
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -95,6 +99,17 @@ class UserRepositoryImpl @Inject constructor(
             localDataSource.getUserData() != null
         } catch (e: Exception) {
             false
+        }
+    }
+    
+    override suspend fun getUserCurrentStatus(userId: Int): Flow<Resource<UserCurrentStatusDto>> = flow {
+        emit(Resource.Loading())
+        
+        try {
+            val response = remoteDataSource.getUserCurrentStatus(userId)
+            emit(Resource.Success(response))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.localizedMessage ?: "사용자 현재 상황 조회 실패"))
         }
     }
 }
