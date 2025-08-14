@@ -15,9 +15,12 @@ class NewsRepositoryImpl @Inject constructor(
     override suspend fun getNews(): Result<List<News>> {
         return try {
             val response = newsApiService.getNews()
-            val newsList = response.map { it.toDomain() }
+            android.util.Log.d("NewsRepository", "📰 뉴스 API 응답: totalElements=${response.totalElements}, content 크기=${response.content.size}")
+            // content 배열에서 실제 뉴스 데이터 추출
+            val newsList = response.content.map { it.toDomain() }
             Result.success(newsList)
         } catch (e: Exception) {
+            android.util.Log.e("NewsRepository", "📰 뉴스 로드 실패: ${e.localizedMessage}", e)
             Result.failure(e)
         }
     }
@@ -25,9 +28,12 @@ class NewsRepositoryImpl @Inject constructor(
     override suspend fun getInterestNews(): Result<List<News>> {
         return try {
             val response = newsApiService.getInterestNews()
-            val newsList = response.map { it.toDomain() }
+            android.util.Log.d("NewsRepository", "📰 관심뉴스 API 응답: totalElements=${response.totalElements}, content 크기=${response.content.size}")
+            // content 배열에서 실제 뉴스 데이터 추출
+            val newsList = response.content.map { it.toDomain() }
             Result.success(newsList)
         } catch (e: Exception) {
+            android.util.Log.e("NewsRepository", "📰 관심뉴스 로드 실패: ${e.localizedMessage}", e)
             Result.failure(e)
         }
     }

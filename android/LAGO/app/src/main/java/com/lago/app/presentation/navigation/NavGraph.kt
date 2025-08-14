@@ -59,8 +59,8 @@ fun NavGraph(
                 onLoginClick = {
                     navController.navigate("login");
                 },
-                onTradingBotClick = {
-                    navController.navigate("ai_portfolio")
+                onTradingBotClick = { userId ->
+                    navController.navigate("ai_portfolio/$userId")
                 }
             )
         }
@@ -248,6 +248,28 @@ fun NavGraph(
             )
         }
 
+        composable(
+            route = "ai_portfolio/{userId}",
+            arguments = listOf(
+                navArgument("userId") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getInt("userId") ?: 1
+            AiPortfolioScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onStockClick = { stockCode ->
+                    navController.navigate("chart_simple/$stockCode")
+                },
+                onOrderHistoryClick = { botUserId ->
+                    navController.navigate("order_history/$botUserId")
+                },
+                userId = userId
+            )
+        }
+
+        // Backward compatibility for AI Portfolio without userId
         composable("ai_portfolio") {
             AiPortfolioScreen(
                 onBackClick = {
@@ -256,10 +278,10 @@ fun NavGraph(
                 onStockClick = { stockCode ->
                     navController.navigate("chart_simple/$stockCode")
                 },
-                onOrderHistoryClick = {
-                    navController.navigate(NavigationItem.OrderHistory.route)
+                onOrderHistoryClick = { botUserId ->
+                    navController.navigate("order_history/$botUserId")
                 },
-                userName = "AI 포트폴리오"
+                userId = 1 // 기본값
             )
         }
 
@@ -397,6 +419,23 @@ fun NavGraph(
                 onBackClick = {
                     navController.popBackStack()
                 }
+            )
+        }
+        
+        // 매매봇용 거래내역 (userId 파라미터 포함)
+        composable(
+            route = "order_history/{userId}",
+            arguments = listOf(
+                navArgument("userId") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getInt("userId") ?: 5
+            OrderHistoryScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                // TODO: userId 파라미터를 OrderHistoryScreen에 전달하도록 향후 수정 필요
+                userId = userId
             )
         }
     }

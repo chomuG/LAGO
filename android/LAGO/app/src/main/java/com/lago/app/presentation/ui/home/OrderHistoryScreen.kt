@@ -39,12 +39,20 @@ enum class OrderType(val displayName: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderHistoryScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    userId: Int? = null
 ) {
     var selectedDate by remember { mutableStateOf("2025년 8월") }
     var selectedOrderType by remember { mutableStateOf(OrderType.ALL) }
     var isDateDropdownExpanded by remember { mutableStateOf(false) }
     var isOrderTypeDropdownExpanded by remember { mutableStateOf(false) }
+    
+    // 매매봇 userId 로그 (디버깅용)
+    LaunchedEffect(userId) {
+        if (userId != null) {
+            android.util.Log.d("OrderHistoryScreen", "🤖 매매봇 거래내역 조회: userId=$userId")
+        }
+    }
     
     val allOrderHistory = listOf(
         OrderHistoryItem("8.05", "2025년 8월", "삼성전자", "판매", 5, 72500),
