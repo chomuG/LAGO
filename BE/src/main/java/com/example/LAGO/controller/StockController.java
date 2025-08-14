@@ -73,9 +73,25 @@ public class StockController {
             TradeRequest request
     ) {
         try {
-            // 1. 사용자 존재 여부 검증
-            User user = userRepository.findById(request.getUserId())
-                .orElse(null);
+            // 1. 사용자 존재 여부 검증 (예외 처리 강화)
+            User user = null;
+            try {
+                log.debug("사용자 조회 시작: userId={}", request.getUserId());
+                user = userRepository.findById(request.getUserId()).orElse(null);
+                log.debug("사용자 조회 완료: userId={}, user={}", request.getUserId(), 
+                         user != null ? "found" : "not found");
+            } catch (Exception e) {
+                log.error("사용자 조회 중 데이터베이스 오류: userId={}, error={}", 
+                         request.getUserId(), e.getMessage(), e);
+                return ResponseEntity.status(500)
+                    .body(java.util.Map.of(
+                        "success", false,
+                        "error", "DATABASE_ERROR",
+                        "message", "사용자 조회 중 데이터베이스 오류가 발생했습니다.",
+                        "userId", request.getUserId()
+                    ));
+            }
+            
             if (user == null) {
                 log.warn("존재하지 않는 사용자 주문 시도: userId={}", request.getUserId());
                 return ResponseEntity.badRequest()
@@ -101,9 +117,27 @@ public class StockController {
                     ));
             }
             
-            // 3. 계좌 존재 여부 검증
-            Account account = accountRepository.findByUserIdAndType(request.getUserId(), accountType)
-                .orElse(null);
+            // 3. 계좌 존재 여부 검증 (예외 처리 강화)
+            Account account = null;
+            try {
+                log.debug("계좌 조회 시작: userId={}, accountType={}", request.getUserId(), accountType);
+                account = accountRepository.findByUserIdAndType(request.getUserId(), accountType)
+                    .orElse(null);
+                log.debug("계좌 조회 완료: userId={}, account={}", request.getUserId(), 
+                         account != null ? "found" : "not found");
+            } catch (Exception e) {
+                log.error("계좌 조회 중 데이터베이스 오류: userId={}, accountType={}, error={}", 
+                         request.getUserId(), accountType, e.getMessage(), e);
+                return ResponseEntity.status(500)
+                    .body(java.util.Map.of(
+                        "success", false,
+                        "error", "DATABASE_ERROR",
+                        "message", "계좌 조회 중 데이터베이스 오류가 발생했습니다.",
+                        "userId", request.getUserId(),
+                        "accountType", accountType
+                    ));
+            }
+            
             if (account == null) {
                 String accountTypeName = getAccountTypeName(accountType);
                 log.warn("계좌를 찾을 수 없음: userId={}, accountType={} ({})", 
@@ -119,9 +153,25 @@ public class StockController {
                     ));
             }
             
-            // 4. 종목 코드 유효성 검증
-            StockInfo stockInfo = stockInfoRepository.findByCode(request.getStockCode())
-                .orElse(null);
+            // 4. 종목 코드 유효성 검증 (예외 처리 강화)
+            StockInfo stockInfo = null;
+            try {
+                log.debug("종목 조회 시작: stockCode={}", request.getStockCode());
+                stockInfo = stockInfoRepository.findByCode(request.getStockCode()).orElse(null);
+                log.debug("종목 조회 완료: stockCode={}, stock={}", request.getStockCode(), 
+                         stockInfo != null ? "found" : "not found");
+            } catch (Exception e) {
+                log.error("종목 조회 중 데이터베이스 오류: stockCode={}, error={}", 
+                         request.getStockCode(), e.getMessage(), e);
+                return ResponseEntity.status(500)
+                    .body(java.util.Map.of(
+                        "success", false,
+                        "error", "DATABASE_ERROR",
+                        "message", "종목 조회 중 데이터베이스 오류가 발생했습니다.",
+                        "stockCode", request.getStockCode()
+                    ));
+            }
+            
             if (stockInfo == null) {
                 log.warn("존재하지 않는 종목 코드: userId={}, stockCode={}", 
                         request.getUserId(), request.getStockCode());
