@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/study/daily-quiz")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Study - Daily Quiz", description = "데일리 퀴즈 API")
+@Tag(name = "차트학습/퀴즈", description = "투자 학습 및 퀴즈 관련 API")
 public class DailyQuizController {
 
     private final DailyQuizService dailyQuizService;
@@ -57,6 +57,7 @@ public class DailyQuizController {
                     .score(result.score)
                     .ranking(result.ranking)
                     .bonusAmount(result.bonusAmount)
+                    .streak(result.streak)
                     .explanation(result.explanation)
                     .build();
 
@@ -65,6 +66,32 @@ public class DailyQuizController {
             log.error("Error solving daily quiz: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
+    }
+
+    @GetMapping("/streak")
+    @Operation(summary = "사용자 스트릭 조회", description = "사용자의 현재 연속 도전 일수를 조회합니다.")
+    public ResponseEntity<StreakResponse> getUserStreak(@RequestParam Integer userId) {
+        try {
+            int streak = dailyQuizService.getCurrentStreak(userId);
+            
+            StreakResponse response = new StreakResponse();
+            response.userId = userId;
+            response.streak = streak;
+            
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Error getting user streak: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @Schema(description = "스트릭 조회 응답")
+    public static class StreakResponse {
+        @Schema(description = "사용자 ID", example = "1")
+        public Integer userId;
+        
+        @Schema(description = "연속 도전 일수", example = "5")
+        public int streak;
     }
 
     @Schema(description = "퀴즈 풀이 요청")
@@ -161,6 +188,9 @@ public class DailyQuizController {
         @Schema(description = "보너스 투자금", example = "100000")
         public int bonusAmount;
         
+        @Schema(description = "연속 도전 일수", example = "5")
+        public int streak;
+        
         @Schema(description = "해설", example = "PER이 높다는 것은...")
         public String explanation;
 
@@ -173,6 +203,7 @@ public class DailyQuizController {
             private int score;
             private int ranking;
             private int bonusAmount;
+            private int streak;
             private String explanation;
 
             public SolveResponseBuilder correct(boolean correct) {
@@ -195,6 +226,11 @@ public class DailyQuizController {
                 return this;
             }
 
+            public SolveResponseBuilder streak(int streak) {
+                this.streak = streak;
+                return this;
+            }
+
             public SolveResponseBuilder explanation(String explanation) {
                 this.explanation = explanation;
                 return this;
@@ -206,6 +242,7 @@ public class DailyQuizController {
                 response.score = this.score;
                 response.ranking = this.ranking;
                 response.bonusAmount = this.bonusAmount;
+                response.streak = this.streak;
                 response.explanation = this.explanation;
                 return response;
             }

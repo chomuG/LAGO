@@ -19,6 +19,7 @@ public class DailyQuizService {
     private final QuizRepository quizRepository;
     private final DailySolvedRepository dailySolvedRepository;
     private final KnowTermRepository knowTermRepository;
+    private final AccountService accountService;
 
     public Quiz getTodayQuiz() {
         LocalDate today = LocalDate.now();
@@ -78,6 +79,7 @@ public class DailyQuizService {
 
         int ranking = calculateRanking(quizId, today, solvedTimeSeconds);
         int bonusAmount = calculateBonusAmount(ranking);
+        int streak = calculateStreak(userId, today);
 
         DailySolved dailySolved = DailySolved.builder()
                 .solvedId(generateSolvedId())
@@ -88,17 +90,25 @@ public class DailyQuizService {
                 .solvedTimeSeconds(solvedTimeSeconds)
                 .ranking(ranking)
                 .bonusAmount(bonusAmount)
+                .streak(streak)
                 .build();
 
         dailySolvedRepository.save(dailySolved);
 
         updateKnowTerm(userId, quiz.getTermId(), isCorrect);
+        
+        // 보너스 투자금을 계좌에 추가
+        if (bonusAmount > 0) {
+            accountService.addQuizBonus(userId.longValue(), bonusAmount);
+            log.info("Added quiz bonus {} to user {}", bonusAmount, userId);
+        }
 
         return SolveResult.builder()
                 .correct(isCorrect)
                 .score(score)
                 .ranking(ranking)
                 .bonusAmount(bonusAmount)
+                .streak(streak)
                 .explanation(quiz.getExplanation())
                 .build();
     }
@@ -118,6 +128,36 @@ public class DailyQuizService {
                 else yield 2000;
             }
         };
+    }
+
+    private int calculateStreak(Integer userId, LocalDate today) {
+        LocalDate yesterday = today.minusDays(1);
+        
+        // 어제 풀이 기록 확인
+        Optional<DailySolved> yesterdaySolved = dailySolvedRepository.findByUserIdAndSolvedAtBetween(
+                userId, yesterday, yesterday).stream().findFirst();
+        
+        if (yesterdaySolved.isPresent()) {
+            // 어제 풀었으면 연속 스트릭 +1
+            return yesterdaySolved.get().getStreak() != null ? yesterdaySolved.get().getStreak() + 1 : 1;
+        } else {
+            // 어제 안 풀었으면 새로운 스트릭 시작
+            return 1;
+        }
+    }
+
+    public int getCurrentStreak(Integer userId) {
+        Optional<DailySolved> latest = dailySolvedRepository.findLatestByUserId(userId);
+        if (latest.isPresent()) {
+            DailySolved latestSolved = latest.get();
+            LocalDate today = LocalDate.now();
+            
+            // 오늘 또는 어제까지 연속으로 풀었는지 확인
+            if (latestSolved.getSolvedAt().equals(today) || latestSolved.getSolvedAt().equals(today.minusDays(1))) {
+                return latestSolved.getStreak() != null ? latestSolved.getStreak() : 0;
+            }
+        }
+        return 0;
     }
 
     private void updateKnowTerm(Integer userId, Integer termId, boolean correct) {
@@ -208,6 +248,7 @@ public class DailyQuizService {
         public int score;
         public int ranking;
         public int bonusAmount;
+        public int streak;
         public String explanation;
 
         public static SolveResultBuilder builder() {
@@ -219,6 +260,7 @@ public class DailyQuizService {
             private int score;
             private int ranking;
             private int bonusAmount;
+            private int streak;
             private String explanation;
 
             public SolveResultBuilder correct(boolean correct) {
@@ -241,6 +283,11 @@ public class DailyQuizService {
                 return this;
             }
 
+            public SolveResultBuilder streak(int streak) {
+                this.streak = streak;
+                return this;
+            }
+
             public SolveResultBuilder explanation(String explanation) {
                 this.explanation = explanation;
                 return this;
@@ -252,6 +299,7 @@ public class DailyQuizService {
                 result.score = this.score;
                 result.ranking = this.ranking;
                 result.bonusAmount = this.bonusAmount;
+                result.streak = this.streak;
                 result.explanation = this.explanation;
                 return result;
             }
