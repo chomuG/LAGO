@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.pager.HorizontalPager
@@ -50,8 +51,10 @@ data class CharacterInfo(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CharacterSelectionDialog(
+    selectedAI: com.lago.app.domain.entity.SignalSource? = null,
     onDismiss: () -> Unit,
-    onConfirm: (CharacterInfo) -> Unit
+    onConfirm: (CharacterInfo) -> Unit,
+    onClearSelection: () -> Unit = {}
 ) {
     // Screen dimensions for responsive design
     val configuration = LocalConfiguration.current
@@ -169,12 +172,15 @@ fun CharacterSelectionDialog(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            // Card without check icon
+                            // Card with click functionality
                             CharacterCardOnly(
                                 character = characters[page],
                                 isChecked = selectedCharacterIndex == page,
                                 imageSize = imageSize,
                                 isCompact = isCompactScreen,
+                                onClick = { 
+                                    selectedCharacterIndex = if (selectedCharacterIndex == page) -1 else page
+                                },
                                 modifier = Modifier
                                     .width(cardWidth)
                                     .height(cardHeight)
@@ -375,10 +381,15 @@ fun CharacterCardOnly(
     isChecked: Boolean = false,
     imageSize: androidx.compose.ui.unit.Dp = 100.dp,
     isCompact: Boolean = false,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier,
+        modifier = modifier
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ) { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = character.cardColor),
         border = if (isChecked) BorderStroke(2.dp, Color.Black) else null
@@ -468,7 +479,8 @@ fun CharacterCardOnlyPreview() {
         character = sampleCharacter,
         isChecked = false,
         imageSize = 100.dp,
-        isCompact = false
+        isCompact = false,
+        onClick = { }
     )
 }
 

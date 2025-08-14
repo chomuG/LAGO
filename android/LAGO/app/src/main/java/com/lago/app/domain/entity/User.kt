@@ -2,7 +2,7 @@ package com.lago.app.domain.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import java.time.LocalDateTime
+import java.util.*
 
 @Entity(tableName = "users")
 data class User(
@@ -18,8 +18,8 @@ data class User(
     val totalInvestment: Double = 0.0,
     val totalReturn: Double = 0.0,
     val isVerified: Boolean = false,
-    val createdAt: LocalDateTime,
-    val updatedAt: LocalDateTime
+    val createdAt: Date,
+    val updatedAt: Date
 ) {
     val returnRate: Double
         get() = if (totalInvestment > 0) (totalReturn / totalInvestment) * 100 else 0.0
@@ -48,7 +48,7 @@ data class UserPortfolio(
     val totalValue: Double,
     val cashBalance: Double,
     val investments: List<Investment>,
-    val lastUpdated: LocalDateTime
+    val lastUpdated: Date
 )
 
 data class Investment(

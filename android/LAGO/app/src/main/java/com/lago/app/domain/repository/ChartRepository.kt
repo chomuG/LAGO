@@ -9,7 +9,7 @@ interface ChartRepository {
     /**
      * 주식 기본 정보 조회
      */
-    suspend fun getStockInfo(stockCode: String): Flow<Resource<StockInfo>>
+    suspend fun getStockInfo(stockCode: String): Flow<Resource<ChartStockInfo>>
     
     /**
      * 차트 데이터 조회

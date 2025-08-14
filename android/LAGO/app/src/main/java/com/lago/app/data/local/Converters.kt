@@ -1,27 +1,26 @@
 package com.lago.app.data.local
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.room.TypeConverter
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
+import java.util.*
 
 class Converters {
     
-    @RequiresApi(Build.VERSION_CODES.O)
-    private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
+    private val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
 
-    @RequiresApi(Build.VERSION_CODES.O)
     @TypeConverter
-    fun fromLocalDateTime(dateTime: LocalDateTime?): String? {
-        return dateTime?.format(formatter)
+    fun fromDate(date: Date?): String? {
+        return date?.let { formatter.format(it) }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     @TypeConverter
-    fun toLocalDateTime(dateTimeString: String?): LocalDateTime? {
-        return dateTimeString?.let {
-            LocalDateTime.parse(it, formatter)
+    fun toDate(dateString: String?): Date? {
+        return dateString?.let {
+            try {
+                formatter.parse(it)
+            } catch (e: Exception) {
+                null
+            }
         }
     }
 }

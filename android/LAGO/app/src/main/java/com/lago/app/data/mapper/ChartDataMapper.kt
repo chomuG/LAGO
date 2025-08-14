@@ -5,13 +5,13 @@ import com.lago.app.domain.entity.*
 
 object ChartDataMapper {
 
-    fun StockInfoDto.toDomain(): StockInfo {
-        return StockInfo(
+    fun StockInfoDto.toDomain(): ChartStockInfo {
+        return ChartStockInfo(
             code = code,
             name = name,
-            currentPrice = currentPrice,
-            priceChange = priceChange,
-            priceChangePercent = priceChangePercent
+            currentPrice = currentPrice.toFloat(),
+            priceChange = priceChange.toFloat(),
+            priceChangePercent = priceChangeRate.toFloat()
         )
     }
 
@@ -122,7 +122,7 @@ object ChartDataMapper {
 
     fun StockListPageDto.toDomain(): StockListPage {
         return StockListPage(
-            content = content.map { it.toDomain() },
+            content = content.map { it.toStockItem() },
             page = page,
             size = size,
             totalElements = totalElements,
@@ -162,6 +162,23 @@ object ChartDataMapper {
             size = size,
             totalElements = size.toLong(),
             totalPages = 1
+        )
+    }
+
+    // StockInfoDto를 StockItem으로 변환
+    fun StockInfoDto.toStockItem(): StockItem {
+        return StockItem(
+            code = code,
+            name = name,
+            market = market,
+            currentPrice = currentPrice,
+            priceChange = priceChange,
+            priceChangePercent = priceChangeRate,
+            volume = volume,
+            marketCap = null, // StockInfoDto에 없는 필드
+            sector = null,    // StockInfoDto에 없는 필드
+            isFavorite = false, // 기본값
+            updatedAt = updatedAt
         )
     }
 }

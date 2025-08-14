@@ -10,6 +10,8 @@ import com.lago.app.domain.repository.NewsRepository
 import com.lago.app.domain.repository.StudyRepository
 import com.lago.app.data.repository.HistoryChallengeRepositoryImpl
 import com.lago.app.domain.repository.HistoryChallengeRepository
+import com.lago.app.data.repository.MockTradeRepositoryImpl
+import com.lago.app.domain.repository.MockTradeRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -48,4 +50,10 @@ abstract class RepositoryModule {
     abstract fun bindHistoryChallengeRepository(
         historyChallengeRepositoryImpl: HistoryChallengeRepositoryImpl
     ): HistoryChallengeRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMockTradeRepository(
+        mockTradeRepositoryImpl: MockTradeRepositoryImpl
+    ): MockTradeRepository
 }

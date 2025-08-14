@@ -5,15 +5,31 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.lago.app.presentation.ui.chart.WebChartScreen
+import com.lago.app.domain.entity.TradingSignal
+import com.lago.app.domain.entity.SignalType
+import com.lago.app.domain.entity.SignalSource
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.text.SimpleDateFormat
+import java.util.*
 import kotlin.math.*
 
 /**
  * TradingView v5 Multi-Panel Chart for LAGO
  * Native multi-panel support with technical indicators
  */
+
+@Serializable
+data class JSMarker(
+    val time: String,
+    val position: String, // "belowBar" | "aboveBar"
+    val shape: String, // "arrowUp" | "arrowDown" | "circle" | "square" 
+    val color: String,
+    val id: String,
+    val text: String,
+    val size: Int = 1
+)
 
 @Serializable
 data class ChartData(
@@ -124,6 +140,14 @@ enum class IndicatorType {
 }
 
 /**
+ * Date formatting helper for TradingView chart compatibility
+ */
+private fun formatDateForChart(date: Date): String {
+    val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    return formatter.format(date)
+}
+
+/**
  * LAGO v5 Multi-Panel Chart Component
  */
 @Composable
@@ -131,8 +155,10 @@ fun MultiPanelChart(
     data: MultiPanelData,
     timeFrame: String = "D",
     chartOptions: ChartOptions = ChartOptions(),
+    tradingSignals: List<TradingSignal> = emptyList(),
     modifier: Modifier = Modifier,
     onChartReady: (() -> Unit)? = null,
+    onWebViewReady: ((android.webkit.WebView) -> Unit)? = null,
     onDataPointClick: ((String, Double, String) -> Unit)? = null,
     onCrosshairMove: ((String?, Double?, String?) -> Unit)? = null,
     onChartLoading: ((Boolean) -> Unit)? = null,
@@ -146,8 +172,8 @@ fun MultiPanelChart(
     }
     
     // Generate HTML content with embedded JavaScript
-    val htmlContent = remember(data, finalChartOptions) {
-        generateMultiPanelHtml(data, finalChartOptions)
+    val htmlContent = remember(data, finalChartOptions, tradingSignals) {
+        generateMultiPanelHtml(data, finalChartOptions, tradingSignals)
     }
     
     // Use WebChartScreen with dark mode optimization
@@ -155,6 +181,7 @@ fun MultiPanelChart(
         htmlContent = htmlContent,
         modifier = modifier,
         onChartReady = onChartReady,
+        onWebViewReady = onWebViewReady,
         onChartLoading = onChartLoading,
         onLoadingProgress = onLoadingProgress,
         additionalJavaScriptInterface = MultiPanelJavaScriptInterface(
@@ -189,7 +216,8 @@ class MultiPanelJavaScriptInterface(
  */
 private fun generateMultiPanelHtml(
     data: MultiPanelData,
-    options: ChartOptions
+    options: ChartOptions,
+    tradingSignals: List<TradingSignal> = emptyList()
 ): String {
     val json = Json { ignoreUnknownKeys = true }
     
@@ -203,6 +231,34 @@ private fun generateMultiPanelHtml(
     // Base64로 인코딩하여 안전하게 전달
     val macdDataJson = json.encodeToString(data.macdData)
     
+    // TradingSignal을 JavaScript 마커 형식으로 변환
+    val jsMarkers = tradingSignals.map { signal ->
+        JSMarker(
+            time = formatDateForChart(signal.timestamp),
+            position = if (signal.signalType == SignalType.BUY) "belowBar" else "aboveBar",
+            shape = when {
+                signal.signalSource == SignalSource.USER && signal.signalType == SignalType.BUY -> "arrowUp"
+                signal.signalSource == SignalSource.USER && signal.signalType == SignalType.SELL -> "arrowDown"
+                signal.signalSource == SignalSource.AI_BLUE -> "circle"
+                signal.signalSource == SignalSource.AI_GREEN -> "square"
+                signal.signalSource == SignalSource.AI_RED -> "circle"
+                signal.signalSource == SignalSource.AI_YELLOW -> "square"
+                else -> "circle"
+            },
+            color = when (signal.signalSource) {
+                SignalSource.USER -> if (signal.signalType == SignalType.BUY) "#FF99C5" else "#42A6FF" // LAGO 색상
+                SignalSource.AI_BLUE -> "#007BFF"
+                SignalSource.AI_GREEN -> "#28A745"
+                SignalSource.AI_RED -> "#DC3545"
+                SignalSource.AI_YELLOW -> "#FFC107"
+            },
+            id = signal.id,
+            text = signal.message ?: "${signal.signalSource.displayName} ${if (signal.signalType == SignalType.BUY) "매수" else "매도"}",
+            size = 1
+        )
+    }
+    val tradingSignalsJson = json.encodeToString(jsMarkers)
+    
     val priceDataBase64 = android.util.Base64.encodeToString(priceDataJson.toByteArray(), android.util.Base64.NO_WRAP)
     val indicatorsBase64 = android.util.Base64.encodeToString(indicatorsJson.toByteArray(), android.util.Base64.NO_WRAP)
     val optionsBase64 = android.util.Base64.encodeToString(optionsJson.toByteArray(), android.util.Base64.NO_WRAP)
@@ -210,6 +266,7 @@ private fun generateMultiPanelHtml(
     val sma5DataBase64 = android.util.Base64.encodeToString(sma5DataJson.toByteArray(), android.util.Base64.NO_WRAP)
     val sma20DataBase64 = android.util.Base64.encodeToString(sma20DataJson.toByteArray(), android.util.Base64.NO_WRAP)
     val macdDataBase64 = android.util.Base64.encodeToString(macdDataJson.toByteArray(), android.util.Base64.NO_WRAP)
+    val tradingSignalsBase64 = android.util.Base64.encodeToString(tradingSignalsJson.toByteArray(), android.util.Base64.NO_WRAP)
     
     return """
 <!DOCTYPE html>
@@ -223,6 +280,12 @@ private fun generateMultiPanelHtml(
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background-color: #FFFFFF;
+        }
+        /* Hide TradingView logo */
+        a#tv-attr-logo {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
         }
         .legend {
             position: absolute;
@@ -291,8 +354,8 @@ private fun generateMultiPanelHtml(
         let panes = [];
         let series = [];
         
-        // TradingView Lightweight Charts v5 라이브러리 로드 (CDN)
-        loadScript('https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js', function() {
+        // TradingView Lightweight Charts v5.0.8 라이브러리 로드 (addPane API 지원)
+        loadScript('https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js', function() {
             initLAGOMultiPanelChart();
         });
         
@@ -368,6 +431,59 @@ private fun generateMultiPanelHtml(
                 
                 mainSeries.setData(priceData);
                 series.push({ series: mainSeries, name: 'OHLC', paneIndex: 0 });
+                
+                // seriesMap에 메인 시리즈 추가 (기존 volume 등 보존)
+                window.seriesMap.main = mainSeries;
+                
+                // 매수/매도 신호 마커 시스템 초기화
+                let markersApi = null;
+                
+                // Android에서 호출할 수 있는 매수/매도 신호 설정 함수
+                window.setTradeMarkers = function(markersJson) {
+                    try {
+                        const markers = JSON.parse(markersJson);
+                        console.log('LAGO: Setting', markers.length, 'trade markers');
+                        
+                        if (!markersApi && markers.length > 0) {
+                            // 첫 번째 마커 생성
+                            markersApi = LightweightCharts.createSeriesMarkers(mainSeries, markers);
+                        } else if (markersApi) {
+                            // 기존 마커 업데이트
+                            markersApi.setMarkers(markers);
+                        }
+                        
+                        console.log('✅ Trade markers updated successfully');
+                    } catch (error) {
+                        console.error('❌ Failed to set trade markers:', error);
+                    }
+                };
+                
+                // 마커 제거 함수
+                window.clearTradeMarkers = function() {
+                    if (markersApi) {
+                        markersApi.setMarkers([]);
+                        console.log('Trade markers cleared');
+                    }
+                };
+                
+                // 초기 매수/매도 신호 적용
+                try {
+                    const tradingSignalsData = JSON.parse(decodeBase64('$tradingSignalsBase64'));
+                    console.log('LAGO: Initial trading signals loaded:', tradingSignalsData.length);
+                    
+                    if (tradingSignalsData && tradingSignalsData.length > 0) {
+                        // createSeriesMarkers API로 초기 마커 생성
+                        markersApi = LightweightCharts.createSeriesMarkers(mainSeries, tradingSignalsData);
+                        console.log('✅ Initial trade markers created successfully');
+                        
+                        // 마커 요약 정보 로깅
+                        const buyCount = tradingSignalsData.filter(m => m.position === 'belowBar').length;
+                        const sellCount = tradingSignalsData.filter(m => m.position === 'aboveBar').length;
+                        console.log('  📊 Buy signals: ' + buyCount + ', Sell signals: ' + sellCount);
+                    }
+                } catch (error) {
+                    console.error('❌ Failed to load initial trade markers:', error);
+                }
                 
                 // 메인 패널 레전드 항목들 (OHLC는 제외)
                 const mainLegendItems = [];
@@ -461,9 +577,10 @@ private fun generateMultiPanelHtml(
                 }
                 
                 // 보조지표용 패널들 추가
-                console.log('LAGO: Creating', indicators.length, 'indicator panels');
+                console.log('🔍 LAGO: Creating', indicators.length, 'indicator panels');
+                console.log('🔍 Indicators data:', indicators);
                 indicators.forEach((indicator, index) => {
-                    console.log('LAGO: Processing indicator:', indicator.type, indicator.name);
+                    console.log('🔍 Processing indicator:', indicator.type, indicator.name, 'data points:', indicator.data?.length);
                     createLAGOIndicatorPane(indicator, index + 1, priceData);
                 });
                 
@@ -550,8 +667,11 @@ private fun generateMultiPanelHtml(
         }
         
         function createLAGOIndicatorPane(indicator, paneIndex, candleData) {
+            console.log('🚀 Creating pane for:', indicator.type, 'paneIndex:', paneIndex);
+            
             // v5 네이티브 API로 새 패널 추가
             const pane = chart.addPane(true);
+            console.log('✅ Pane created:', pane, 'pane.paneIndex():', pane.paneIndex());
             panes.push(pane);
             
             let indicatorSeries;
@@ -602,6 +722,7 @@ private fun generateMultiPanelHtml(
                     
                     // RSI 패널 레전드 생성
                     createPaneLegend(pane.paneIndex(), ['RSI']);
+                    console.log('✅ RSI panel completed, indicatorSeries:', indicatorSeries);
                     break;
                     
                 case 'macd':
@@ -666,6 +787,7 @@ private fun generateMultiPanelHtml(
                         
                         // 메인 시리즈는 히스토그램으로 설정
                         indicatorSeries = histogramSeries;
+                        console.log('✅ MACD panel completed, indicatorSeries:', indicatorSeries);
                     }
                     break;
                     
@@ -694,8 +816,12 @@ private fun generateMultiPanelHtml(
                     
                     indicatorSeries.setData(volumeDataWithColors);
                     
+                    // seriesMap에 볼륨 시리즈 추가 (전역)
+                    window.seriesMap.volume = indicatorSeries;
+                    
                     // 거래량 패널 레전드 생성
                     createPaneLegend(pane.paneIndex(), ['거래량']);
+                    console.log('✅ Volume panel completed, indicatorSeries:', indicatorSeries);
                     break;
                     
                 case 'sma5':
@@ -1059,6 +1185,56 @@ private fun generateMultiPanelHtml(
             };
             return colorMap[item] || '#333333';
         }
+        
+        // ========== 실시간 업데이트용 전역 함수들 (최소 변경) ==========
+        
+        // 1) 혹시라도 너무 빨리 호출될 때 ReferenceError 방지용 "빈 함수"를 먼저 깔아둠
+        window.seriesMap     = window.seriesMap     || {};
+        window.setInitialData = window.setInitialData || function(){ console.warn('setInitialData called before init'); };
+        window.updateBar      = window.updateBar      || function(){ console.warn('updateBar called before init'); };
+        window.updateVolume   = window.updateVolume   || function(){ console.warn('updateVolume called before init'); };
+        
+        // (mainSeries와 chart가 생성된 "이후"에 실제 구현으로 덮어쓰기)
+        
+        // 2) 초기 데이터 세팅 (한 번만)
+        window.setInitialData = function(seriesId, jsonArray) {
+            try {
+                const arr = JSON.parse(jsonArray); // [{time,open,high,low,close}, ...]
+                const s = window.seriesMap[seriesId];
+                if (s) {
+                    s.setData(arr);
+                    chart.timeScale().fitContent();
+                    console.log('LAGO: setInitialData for', seriesId, arr.length);
+                } else {
+                    console.warn('LAGO: unknown seriesId in setInitialData', seriesId);
+                }
+            } catch (e) { console.error('LAGO setInitialData error', e); }
+        };
+        
+        // 3) 실시간 캔들 업데이트 (같은 time→교체, 큰 time→새 바 추가)
+        window.updateBar = function(seriesId, jsonBar) {
+            try {
+                const bar = JSON.parse(jsonBar); // {time,open,high,low,close}
+                const s = window.seriesMap[seriesId];
+                if (s) {
+                    s.update(bar);
+                    // console.log('LAGO: updateBar', seriesId, bar.time);
+                } else {
+                    console.warn('LAGO: unknown seriesId in updateBar', seriesId);
+                }
+            } catch (e) { console.error('LAGO updateBar error', e); }
+        };
+        
+        // 4) 실시간 거래량 업데이트 (HistogramSeries)
+        window.updateVolume = function(jsonBar) {
+            try {
+                const v = JSON.parse(jsonBar); // {time, value}
+                if (window.seriesMap.volume) {
+                    window.seriesMap.volume.update(v);
+                    // console.log('LAGO: updateVolume', v.time);
+                }
+            } catch (e) { console.error('LAGO updateVolume error', e); }
+        };
         
     </script>
 </body>

@@ -19,6 +19,7 @@ import com.lago.app.R
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,6 +36,8 @@ import com.lago.app.domain.entity.StockItem
 import com.lago.app.domain.entity.News
 import com.lago.app.domain.entity.HistoryChallengeStock
 import com.lago.app.presentation.ui.components.NewsCard
+import com.lago.app.presentation.ui.components.SimpleNewsCard
+import com.lago.app.presentation.ui.components.CircularStockLogo
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -44,7 +47,7 @@ fun StockListScreen(
     onHistoryChallengeStockClick: (String) -> Unit = {},
     onNewsClick: (Int) -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     
     // 가시 영역 종목 추적
@@ -263,18 +266,23 @@ fun StockListScreen(
                         )
                         
                         items(dummyNews.size) { index ->
-                            NewsCard(
-                                news = dummyNews[index],
-                                onClick = { onNewsClick(dummyNews[index].newsId) }
-                            )
-                            
-                            // 마지막 뉴스가 아닌 경우에만 디바이더 표시
-                            if (index < dummyNews.size - 1) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(horizontal = Spacing.md),
-                                    thickness = 1.dp,
-                                    color = Gray200
+                            Box(modifier = Modifier.padding(horizontal = Spacing.md)) {
+                                SimpleNewsCard(
+                                    news = dummyNews[index],
+                                    onClick = { onNewsClick(dummyNews[index].newsId) }
                                 )
+                            }
+                            
+                            // 뉴스 카드 간격
+                            if (index < dummyNews.size - 1) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+                        }
+                        
+                        // 마지막 뉴스 하단 여백
+                        if (dummyNews.isNotEmpty()) {
+                            item {
+                                Spacer(modifier = Modifier.height(16.dp))
                             }
                         }
                     }
@@ -504,20 +512,12 @@ private fun StockItemCard(
             .padding(Spacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 둥근 로고
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = stock.name.take(2),
-                color = MaterialTheme.colorScheme.onPrimary,
-                style = TitleB16
-            )
-        }
+        // 종목 로고
+        CircularStockLogo(
+            stockCode = stock.code,
+            stockName = stock.name,
+            size = 48.dp
+        )
 
         Spacer(modifier = Modifier.width(Spacing.sm))
 
@@ -577,20 +577,12 @@ private fun HistoryChallengeStockItem(
             .padding(Spacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 둥근 로고
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = stock.stockName.take(2),
-                color = MaterialTheme.colorScheme.onPrimary,
-                style = TitleB16
-            )
-        }
+        // 종목 로고
+        CircularStockLogo(
+            stockCode = stock.stockCode,
+            stockName = stock.stockName,
+            size = 48.dp
+        )
 
         Spacer(modifier = Modifier.width(Spacing.sm))
 

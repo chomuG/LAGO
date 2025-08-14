@@ -6,7 +6,6 @@ import com.lago.app.data.remote.StudyApiService
 import com.lago.app.util.Constants
 import com.lago.app.data.remote.api.ChartApiService
 import com.lago.app.data.remote.api.HistoryChallengeApiService
-import com.lago.app.data.remote.websocket.StockWebSocketService
 import com.google.gson.Gson
 import dagger.Module
 import dagger.Provides
@@ -95,9 +94,4 @@ object NetworkModule {
         return Gson()
     }
     
-    @Provides
-    @Singleton
-    fun provideStockWebSocketService(gson: Gson): StockWebSocketService {
-        return StockWebSocketService(gson)
-    }
 }

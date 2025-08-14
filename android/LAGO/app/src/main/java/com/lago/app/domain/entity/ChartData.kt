@@ -1,6 +1,6 @@
 package com.lago.app.domain.entity
 
-data class StockInfo(
+data class ChartStockInfo(
     val code: String,
     val name: String,
     val currentPrice: Float,

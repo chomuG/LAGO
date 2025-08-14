@@ -15,12 +15,12 @@ import androidx.constraintlayout.compose.ConstraintSet
 import androidx.constraintlayout.compose.ExperimentalMotionApi
 import androidx.constraintlayout.compose.MotionLayout
 import com.lago.app.presentation.theme.*
-import com.lago.app.domain.entity.StockInfo
+import com.lago.app.domain.entity.ChartStockInfo
 
 @OptIn(ExperimentalMotionApi::class)
 @Composable
 fun DockingHeader(
-    stockInfo: StockInfo,
+    stockInfo: ChartStockInfo,
     progress: Float, // 0f(peek) → 1f(expanded)
     modifier: Modifier = Modifier
 ) {

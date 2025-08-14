@@ -25,6 +25,7 @@ import androidx.webkit.WebViewFeature
 @Composable
 fun WebChartScreen(
     htmlContent: String,
+    onWebViewReady: ((WebView) -> Unit)? = null,
     modifier: Modifier = Modifier,
     onChartReady: (() -> Unit)? = null,
     onChartLoading: ((Boolean) -> Unit)? = null,
@@ -117,6 +118,11 @@ fun WebChartScreen(
                 addJavascriptInterface(jsInterface, interfaceName)
             }
         }
+    }
+    
+    // WebView ready 콜백 호출
+    LaunchedEffect(webView) {
+        onWebViewReady?.invoke(webView)
     }
     
     // 4. AndroidView update에서 WebView 재생성 방지

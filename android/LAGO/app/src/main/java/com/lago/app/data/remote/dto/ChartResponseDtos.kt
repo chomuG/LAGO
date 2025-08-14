@@ -3,32 +3,21 @@ package com.lago.app.data.remote.dto
 import com.google.gson.annotations.SerializedName
 
 // Base Response
-data class BaseResponse(
+data class BaseResponse<T>(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("message") val message: String?,
+    @SerializedName("code") val code: Int?,
+    @SerializedName("data") val data: T?
+)
+
+// Simple Base Response without data
+data class SimpleBaseResponse(
     @SerializedName("success") val success: Boolean,
     @SerializedName("message") val message: String?,
     @SerializedName("code") val code: Int?
 )
 
-// Stock Info Response
-data class StockInfoResponse(
-    @SerializedName("success") val success: Boolean,
-    @SerializedName("data") val data: StockInfoDto
-)
-
-data class StockInfoDto(
-    @SerializedName("code") val code: String,
-    @SerializedName("name") val name: String,
-    @SerializedName("market") val market: String,
-    @SerializedName("current_price") val currentPrice: Float,
-    @SerializedName("price_change") val priceChange: Float,
-    @SerializedName("price_change_percent") val priceChangePercent: Float,
-    @SerializedName("high_price") val highPrice: Float,
-    @SerializedName("low_price") val lowPrice: Float,
-    @SerializedName("open_price") val openPrice: Float,
-    @SerializedName("volume") val volume: Long,
-    @SerializedName("market_cap") val marketCap: Long?,
-    @SerializedName("updated_at") val updatedAt: String
-)
+// Note: StockInfoDto and StockInfoResponse are defined in StockDto.kt
 
 // Candlestick Response
 data class CandlestickResponse(
@@ -138,19 +127,7 @@ data class FavoritesResponse(
     @SerializedName("data") val data: List<String> // Stock codes
 )
 
-// Stock List Response
-data class StockListResponse(
-    @SerializedName("success") val success: Boolean,
-    @SerializedName("data") val data: StockListPageDto
-)
-
-data class StockListPageDto(
-    @SerializedName("content") val content: List<StockItemDto>,
-    @SerializedName("page") val page: Int,
-    @SerializedName("size") val size: Int,
-    @SerializedName("total_elements") val totalElements: Long,
-    @SerializedName("total_pages") val totalPages: Int
-)
+// Note: StockListResponse and StockListPageDto are defined in StockDto.kt
 
 data class StockItemDto(
     @SerializedName("code") val code: String,

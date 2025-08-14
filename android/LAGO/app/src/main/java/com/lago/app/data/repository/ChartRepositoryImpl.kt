@@ -10,6 +10,7 @@ import com.lago.app.data.mapper.ChartDataMapper.toLineDataList
 import com.lago.app.data.mapper.ChartDataMapper.toTradingItemList
 import com.lago.app.data.mapper.ChartDataMapper.toVolumeDataList
 import com.lago.app.data.remote.api.ChartApiService
+import com.lago.app.data.remote.dto.FavoriteStockRequest
 import com.lago.app.domain.entity.*
 import com.lago.app.domain.repository.ChartRepository
 import com.lago.app.util.Resource
@@ -18,9 +19,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import retrofit2.HttpException
 import java.io.IOException
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
+import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -31,12 +31,12 @@ class ChartRepositoryImpl @Inject constructor(
     private val memoryCache: ChartMemoryCache
 ) : ChartRepository {
 
-    override suspend fun getStockInfo(stockCode: String): Flow<Resource<StockInfo>> = flow {
+    override suspend fun getStockInfo(stockCode: String): Flow<Resource<ChartStockInfo>> = flow {
         try {
             emit(Resource.Loading())
             
             // 1. 메모리 캐시에서 먼저 확인
-            val cachedData = memoryCache.getStockInfo(stockCode)
+            val cachedData = memoryCache.getChartStockInfo(stockCode)
             if (cachedData != null) {
                 emit(Resource.Success(cachedData))
                 return@flow
@@ -50,13 +50,16 @@ class ChartRepositoryImpl @Inject constructor(
             }
             
             // 3. 최근 일별 데이터를 가져와서 주식 정보 추출 (임시 방법)
-            val endDate = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-            val startDate = LocalDate.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val calendar = Calendar.getInstance()
+            val endDate = dateFormat.format(calendar.time)
+            calendar.add(Calendar.DAY_OF_MONTH, -1)
+            val startDate = dateFormat.format(calendar.time)
             
             val dayData = apiService.getStockDayData(stockId, startDate, endDate)
             if (dayData.isNotEmpty()) {
                 val latestData = dayData.last()
-                val stockInfo = StockInfo(
+                val stockInfo = ChartStockInfo(
                     code = stockCode,
                     name = getStockName(stockCode),
                     currentPrice = latestData.closePrice.toFloat(),
@@ -65,7 +68,7 @@ class ChartRepositoryImpl @Inject constructor(
                 )
                 
                 // 4. 메모리 캐시에 저장 (5분 TTL)
-                memoryCache.putStockInfo(stockCode, stockInfo, 5)
+                memoryCache.putChartStockInfo(stockCode, stockInfo, 5)
                 
                 emit(Resource.Success(stockInfo))
             } else {
@@ -194,12 +197,15 @@ class ChartRepositoryImpl @Inject constructor(
             val candlestickData = when (timeFrame) {
                 "D" -> {
                     // 일별 데이터
-                    val endDate = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-                    val startDate = LocalDate.now().minusDays(period.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
+                    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    val calendar = Calendar.getInstance()
+                    val endDate = dateFormat.format(calendar.time)
+                    calendar.add(Calendar.DAY_OF_MONTH, -period)
+                    val startDate = dateFormat.format(calendar.time)
                     val response = apiService.getStockDayData(stockId, startDate, endDate)
                     response.map { dto ->
                         CandlestickData(
-                            time = parseDate(dto.date).atStartOfDay().toEpochSecond(java.time.ZoneOffset.UTC) * 1000,
+                            time = parseDate(dto.date) * 1000,
                             open = dto.openPrice.toFloat(),
                             high = dto.highPrice.toFloat(),
                             low = dto.lowPrice.toFloat(),
@@ -210,12 +216,15 @@ class ChartRepositoryImpl @Inject constructor(
                 }
                 "1", "3", "5", "15", "30", "60" -> {
                     // 분봉 데이터
-                    val endDateTime = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                    val startDateTime = LocalDateTime.now().minusHours(period.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                    val dateTimeFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                    val calendar = Calendar.getInstance()
+                    val endDateTime = dateTimeFormat.format(calendar.time)
+                    calendar.add(Calendar.HOUR_OF_DAY, -period)
+                    val startDateTime = dateTimeFormat.format(calendar.time)
                     val response = apiService.getStockMinuteData(stockId, startDateTime, endDateTime)
                     response.map { dto ->
                         CandlestickData(
-                            time = parseDateTime(dto.date).toEpochSecond(java.time.ZoneOffset.UTC) * 1000,
+                            time = parseDateTime(dto.date) * 1000,
                             open = dto.openPrice.toFloat(),
                             high = dto.highPrice.toFloat(),
                             low = dto.lowPrice.toFloat(),
@@ -226,12 +235,14 @@ class ChartRepositoryImpl @Inject constructor(
                 }
                 "M" -> {
                     // 월별 데이터
-                    val endMonth = LocalDate.now().let { it.year * 100 + it.monthValue }
-                    val startMonth = LocalDate.now().minusMonths(period.toLong()).let { it.year * 100 + it.monthValue }
+                    val calendar = Calendar.getInstance()
+                    val endMonth = calendar.get(Calendar.YEAR) * 100 + (calendar.get(Calendar.MONTH) + 1)
+                    calendar.add(Calendar.MONTH, -period)
+                    val startMonth = calendar.get(Calendar.YEAR) * 100 + (calendar.get(Calendar.MONTH) + 1)
                     val response = apiService.getStockMonthData(stockId, startMonth, endMonth)
                     response.map { dto ->
                         CandlestickData(
-                            time = parseMonthDate(dto.date).atStartOfDay().toEpochSecond(java.time.ZoneOffset.UTC) * 1000,
+                            time = parseMonthDate(dto.date) * 1000,
                             open = dto.openPrice.toFloat(),
                             high = dto.highPrice.toFloat(),
                             low = dto.lowPrice.toFloat(),
@@ -262,18 +273,37 @@ class ChartRepositoryImpl @Inject constructor(
         }
     }
     
-    private fun parseDate(dateString: String): LocalDate {
-        return LocalDate.parse(dateString)
+    private fun parseDate(dateString: String): Long {
+        val format = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        return try {
+            format.parse(dateString)?.time?.div(1000) ?: 0L
+        } catch (e: Exception) {
+            0L
+        }
     }
     
-    private fun parseDateTime(dateTimeString: String): LocalDateTime {
-        return LocalDateTime.parse(dateTimeString)
+    private fun parseDateTime(dateTimeString: String): Long {
+        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+        return try {
+            format.parse(dateTimeString)?.time?.div(1000) ?: 0L
+        } catch (e: Exception) {
+            0L
+        }
     }
     
-    private fun parseMonthDate(monthInt: Int): LocalDate {
+    private fun parseMonthDate(monthInt: Int): Long {
         val year = monthInt / 100
-        val month = monthInt % 100
-        return LocalDate.of(year, month, 1)
+        val month = (monthInt % 100) - 1 // Calendar.MONTH는 0부터 시작
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.YEAR, year)
+            set(Calendar.MONTH, month)
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return calendar.timeInMillis / 1000
     }
 
     override suspend fun getVolumeData(
@@ -437,7 +467,7 @@ class ChartRepositoryImpl @Inject constructor(
                 return@flow
             }
             
-            val response = apiService.addToFavorites("Bearer $token", stockCode)
+            val response = apiService.addToFavorites("Bearer $token", FavoriteStockRequest(stockCode))
             emit(Resource.Success(response.success))
         } catch (e: HttpException) {
             when (e.code()) {

@@ -72,7 +72,7 @@ import com.lago.app.domain.entity.CandlestickData
 import com.lago.app.domain.entity.ChartConfig
 import com.lago.app.domain.entity.LineData
 import com.lago.app.domain.entity.VolumeData
-import com.lago.app.domain.entity.StockInfo
+import com.lago.app.domain.entity.ChartStockInfo
 import com.lago.app.domain.entity.MACDResult
 import com.lago.app.domain.entity.BollingerBandsResult
 import com.lago.app.domain.entity.PatternAnalysisResult
@@ -736,7 +736,7 @@ private fun TopAppBar(
     onBackClick: () -> Unit,
     isFavorite: Boolean,
     onFavoriteClick: () -> Unit,
-    stockInfo: StockInfo,
+    stockInfo: ChartStockInfo,
     onSettingsClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {

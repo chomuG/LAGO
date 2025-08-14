@@ -6,6 +6,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,11 +41,9 @@ fun StockPurchaseScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showConfirmDialog by remember { mutableStateOf(false) }
     
-    // 화면 크기 및 밀도 정보
-    val configuration = LocalConfiguration.current
-    val density = LocalDensity.current
-    val screenHeight = configuration.screenHeightDp.dp
-    val isCompactScreen = screenHeight < 700.dp // 작은 화면 기기 대응
+    // 고정된 앱바 높이와 버튼 높이 설정
+    val appBarHeight = 60.dp
+    val buttonHeight = 56.dp
 
     LaunchedEffect(stockCode, isPurchaseType) {
         viewModel.loadStockInfo(stockCode, isPurchaseType)
@@ -57,7 +59,7 @@ fun StockPurchaseScreen(
                 stockName = uiState.stockName,
                 transactionType = if (isPurchaseType) "구매" else "판매",
                 onBackClick = onNavigateBack,
-                isCompactScreen = isCompactScreen
+                height = appBarHeight
             )
         },
         containerColor = Color.White,
@@ -70,14 +72,14 @@ fun StockPurchaseScreen(
                     .windowInsetsPadding(WindowInsets.navigationBars) // 시스템 네비게이션 바 패딩
                     .padding(
                         horizontal = 16.dp,
-                        vertical = if (isCompactScreen) 12.dp else 16.dp
+                        vertical = 16.dp
                     )
             ) {
                 Button(
                     onClick = { showConfirmDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(if (isCompactScreen) 56.dp else 64.dp),
+                        .height(buttonHeight),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isPurchaseType) MainPink else MainBlue
                     ),
@@ -99,35 +101,48 @@ fun StockPurchaseScreen(
                 .padding(paddingValues)
                 .windowInsetsPadding(WindowInsets.statusBars) // 상태표시줄 패딩 추가
                 .background(Color.White)
-                .padding(horizontal = 16.dp)
         ) {
-            Spacer(modifier = Modifier.height(if (isCompactScreen) 12.dp else 16.dp))
+            // 스크롤 가능한 메인 컨텐츠 영역 (Flexible 사용)
+            Box(
+                modifier = Modifier
+                    .weight(1f) // 남은 공간을 모두 차지
+                    .fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            // 종목 정보
-            StockInfoCard(
-                stockName = uiState.stockName,
-                currentPrice = uiState.currentPrice,
-                holdingInfo = uiState.holdingInfo,
-                isPurchaseType = isPurchaseType,
-                holdingQuantity = uiState.holdingQuantity
-            )
+                    // 종목 정보 카드 (고정 비율)
+                    StockInfoCard(
+                        stockName = uiState.stockName,
+                        currentPrice = uiState.currentPrice,
+                        holdingInfo = uiState.holdingInfo,
+                        isPurchaseType = isPurchaseType,
+                        holdingQuantity = uiState.holdingQuantity
+                    )
 
-            Spacer(modifier = Modifier.height(if (isCompactScreen) 16.dp else 20.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-            // 수정된 주 수 기반 입력
-            TransactionShareInput(
-                shareCount = shareCount,
-                percentage = uiState.percentage,
-                onShareChange = { newShareCount ->
-                    val newAmount = newShareCount * currentPrice
-                    viewModel.onAmountChange(newAmount)
-                },
-                isPurchaseType = isPurchaseType,
-                holdingQuantity = uiState.holdingQuantity,
-                currentPrice = currentPrice
-            )
+                    // 거래 입력 영역 (Flexible로 확장)
+                    TransactionShareInput(
+                        shareCount = shareCount,
+                        percentage = uiState.percentage,
+                        onShareChange = { newShareCount ->
+                            val newAmount = newShareCount * currentPrice
+                            viewModel.onAmountChange(newAmount)
+                        },
+                        isPurchaseType = isPurchaseType,
+                        holdingQuantity = uiState.holdingQuantity,
+                        currentPrice = currentPrice
+                    )
 
-            Spacer(modifier = Modifier.height(if (isCompactScreen) 16.dp else 24.dp)) // bottom bar 여유
+                    Spacer(modifier = Modifier.height(24.dp)) // 하단 여유 공간
+                }
+            }
         }
     }
 
@@ -139,7 +154,7 @@ fun StockPurchaseScreen(
             currentPrice = currentPrice,
             isPurchaseType = isPurchaseType,
             onConfirm = {
-                viewModel.purchaseStock()
+                viewModel.executeTrade()
                 showConfirmDialog = false
                 onTransactionComplete()
             },
@@ -153,16 +168,14 @@ private fun PurchaseTopBar(
     stockName: String,
     transactionType: String,
     onBackClick: () -> Unit,
-    isCompactScreen: Boolean = false
+    height: androidx.compose.ui.unit.Dp = 60.dp
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(height) // 고정된 높이
             .background(Color.White)
-            .padding(
-                vertical = if (isCompactScreen) 12.dp else 16.dp, 
-                horizontal = 16.dp
-            ),
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBackClick) {
@@ -250,7 +263,7 @@ private fun TransactionShareInput(
             .fillMaxWidth()
             .padding(vertical = 16.dp)
     ) {
-        // 대표 영역: 몇 주 / 약 금액
+        // 대표 영역: 몇 주 / 약 금액 (상단 고정 영역)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -331,7 +344,7 @@ private fun TransactionShareInput(
             }
         }
 
-        // 숫자 키패드 (주 수 입력)
+        // 숫자 키패드 (주 수 입력) - Flexible로 남은 공간 활용
         NumberKeypad(
             currentValue = shareCount.toString(),
             onValueChange = { newSharesString ->
@@ -354,8 +367,12 @@ private fun NumberKeypad(
         listOf("C", "0", "⌫")
     )
 
+    // 고정된 키패드 설정
+    val keypadButtonHeight = 52.dp
+    val keypadSpacing = 6.dp
+
     Column(
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(keypadSpacing)
     ) {
         keys.forEach { row ->
             Row(
@@ -385,7 +402,7 @@ private fun NumberKeypad(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(56.dp),
+                            .height(keypadButtonHeight),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = when (key) {
                                 "C" -> Gray400

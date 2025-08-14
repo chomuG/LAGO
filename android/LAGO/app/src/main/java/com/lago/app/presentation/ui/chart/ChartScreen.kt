@@ -74,11 +74,12 @@ import com.lago.app.domain.entity.CandlestickData
 import com.lago.app.domain.entity.ChartConfig
 import com.lago.app.domain.entity.LineData
 import com.lago.app.domain.entity.VolumeData
-import com.lago.app.domain.entity.StockInfo
+import com.lago.app.domain.entity.ChartStockInfo
 import com.lago.app.domain.entity.MACDResult
 import com.lago.app.domain.entity.BollingerBandsResult
 import com.lago.app.domain.entity.PatternAnalysisResult
 import com.lago.app.domain.entity.PatternItem
+import com.lago.app.domain.entity.SignalSource
 // ViewModel imports
 import com.lago.app.presentation.viewmodel.chart.ChartViewModel
 import com.lago.app.presentation.viewmodel.chart.ChartUiEvent
@@ -90,6 +91,8 @@ import com.skydoves.flexible.core.pxToDp
 import com.lago.app.presentation.ui.chart.v5.MultiPanelChart
 import com.lago.app.presentation.ui.chart.v5.DataConverter
 import com.lago.app.presentation.ui.chart.v5.toEnabledIndicators
+import com.lago.app.presentation.ui.chart.v5.MinuteAggregator
+import com.lago.app.presentation.ui.chart.v5.Tick
 import kotlin.math.absoluteValue
 // Character Dialog import
 import com.lago.app.presentation.components.CharacterSelectionDialog
@@ -145,7 +148,7 @@ data class SafeZones(
 @Composable
 fun ChartScreen(
     stockCode: String? = null,
-    initialStockInfo: StockInfo? = null,
+    initialStockInfo: ChartStockInfo? = null,
     viewModel: ChartViewModel = hiltViewModel(),
     onNavigateToStockPurchase: (String, String) -> Unit = { _, _ -> },
     onNavigateToAIDialog: () -> Unit = {},
@@ -497,7 +500,7 @@ fun ChartScreen(
                     .fillMaxWidth()
                     .weight(1f)  // 자동으로 압축/확장
             ) {
-                // TradingView v5 Multi-Panel Chart with Native API
+                // TradingView v5 Multi-Panel Chart with Native API (기존 방식 유지)
                 val multiPanelData = DataConverter.createMultiPanelData(
                     candlestickData = uiState.candlestickData,
                     volumeData = uiState.volumeData,
@@ -510,6 +513,10 @@ fun ChartScreen(
                     timeFrame = uiState.config.timeFrame
                 )
 
+                // Real-time update state
+                var webView by remember { mutableStateOf<android.webkit.WebView?>(null) }
+                val aggregator = remember { MinuteAggregator() }
+
                 MultiPanelChart(
                     data = multiPanelData,
                     timeFrame = uiState.config.timeFrame,
@@ -517,8 +524,14 @@ fun ChartScreen(
                         .fillMaxSize()
                         .padding(horizontal = Spacing.md),
                     onChartReady = {
-                        // 차트 렌더링 완료 콜백
+                        // 차트 렌더링 완료 콜백 - 이제 안전하게 JS 호출 가능
                         viewModel.onChartReady()
+                        
+                        // 실시간 업데이트를 위한 초기 데이터 설정은 여기서 하지 않음
+                        // (이미 MultiPanelChart에서 데이터를 설정했으므로)
+                    },
+                    onWebViewReady = { webViewInstance ->
+                        webView = webViewInstance
                     },
                     onChartLoading = { isLoading ->
                         // 웹뷰 로딩 상태 콜백
@@ -533,8 +546,43 @@ fun ChartScreen(
                     },
                     onCrosshairMove = { time, value, panelId ->
                         // Handle crosshair move
-                    }
+                    },
                 )
+                
+                // Real-time data updates - observe current stock price changes
+                LaunchedEffect(uiState.currentStock) {
+                    val currentStock = uiState.currentStock
+                    if (currentStock.code.isBlank()) return@LaunchedEffect
+                    
+                    // WebView가 준비되고 차트가 로딩된 후에만 실시간 업데이트
+                    // onChartReady가 호출된 후에 이 로직이 안전하게 실행됨
+                    
+                    // Create tick from current stock price data for live updates  
+                    val tick = Tick(
+                        code = currentStock.code,
+                        date = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HHmmss")),
+                        openPrice = currentStock.currentPrice.toInt(),
+                        highPrice = currentStock.currentPrice.toInt(),
+                        lowPrice = currentStock.currentPrice.toInt(),
+                        closePrice = currentStock.currentPrice.toInt(),
+                        volume = 1000L // Mock volume - replace with actual volume data
+                    )
+                    
+                    aggregator.onTick(tick) { candle, volume ->
+                        // 실시간 업데이트: onChartReady 이후에만 호출되므로 안전함
+                        val barJson = """{"time":${candle.time}, "open":${candle.open}, "high":${candle.high}, "low":${candle.low}, "close":${candle.close}}"""
+                        val volumeJson = """{"time":${volume.time}, "value":${volume.value}}"""
+                        
+                        // WebView는 MultiPanelChart 내부의 remember된 인스턴스를 사용
+                        // 전역 함수 호출로 차트 새로고침 없이 실시간 업데이트
+                        try {
+                            webView?.evaluateJavascript("window.updateBar('main', ${org.json.JSONObject.quote(barJson)})", null)
+                            webView?.evaluateJavascript("window.updateVolume(${org.json.JSONObject.quote(volumeJson)})", null)
+                        } catch (e: Exception) {
+                            android.util.Log.w("ChartScreen", "Real-time update failed: ${e.message}")
+                        }
+                    }
+                }
             }
 
             // 차트와 시간버튼 사이 간격 최소화
@@ -762,8 +810,12 @@ fun ChartScreen(
         if (uiState.showIndicatorSettings) {
             IndicatorSettingsDialog(
                 config = uiState.config,
+                showUserTradingSignals = uiState.showUserTradingSignals,
                 onIndicatorToggle = { indicatorType, enabled ->
                     viewModel.onEvent(ChartUiEvent.ToggleIndicator(indicatorType, enabled))
+                },
+                onTradingSignalsToggle = { enabled ->
+                    viewModel.onEvent(ChartUiEvent.ToggleUserTradingSignals(enabled))
                 },
                 onDismiss = {
                     viewModel.onEvent(ChartUiEvent.HideIndicatorSettings)
@@ -784,10 +836,23 @@ fun ChartScreen(
         // Character Selection Dialog
         if (showCharacterDialog) {
             CharacterSelectionDialog(
+                selectedAI = uiState.selectedAI,
                 onDismiss = { showCharacterDialog = false },
                 onConfirm = { character ->
-                    // 선택한 캐릭터 처리
-                    println("선택된 캐릭터: ${character.name}")
+                    // 선택한 캐릭터에 따라 AI 매매내역 표시
+                    val aiSource = when (character.name) {
+                        "캐릭터 파랑" -> SignalSource.AI_BLUE
+                        "캐릭터 초록" -> SignalSource.AI_GREEN  
+                        "캐릭터 빨강" -> SignalSource.AI_RED
+                        "캐릭터 노랑" -> SignalSource.AI_YELLOW
+                        else -> null
+                    }
+                    viewModel.onEvent(ChartUiEvent.SelectAITradingSignals(aiSource))
+                    showCharacterDialog = false
+                },
+                onClearSelection = {
+                    // AI 선택 해제
+                    viewModel.onEvent(ChartUiEvent.SelectAITradingSignals(null))
                     showCharacterDialog = false
                 }
             )
@@ -800,7 +865,7 @@ private fun TopAppBar(
     onBackClick: () -> Unit,
     isFavorite: Boolean,
     onFavoriteClick: () -> Unit,
-    stockInfo: StockInfo,
+    stockInfo: ChartStockInfo,
     onSettingsClick: () -> Unit = {},
     onNavigateToAIDialog: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -1647,7 +1712,9 @@ private fun PatternAnalysisError(
 @Composable
 private fun IndicatorSettingsDialog(
     config: ChartConfig,
+    showUserTradingSignals: Boolean,
     onIndicatorToggle: (String, Boolean) -> Unit,
+    onTradingSignalsToggle: (Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -1794,6 +1861,29 @@ private fun IndicatorSettingsDialog(
                         checked = config.indicators.bollingerBands,
                         onCheckedChange = { enabled ->
                             onIndicatorToggle("bollingerBands", enabled)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MainPink,
+                            checkedTrackColor = MainPink.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+
+                // 사용자 매매내역 표시
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "매매내역 표시",
+                        style = BodyR16,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Switch(
+                        checked = showUserTradingSignals,
+                        onCheckedChange = { enabled ->
+                            onTradingSignalsToggle(enabled)
                         },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = MainPink,

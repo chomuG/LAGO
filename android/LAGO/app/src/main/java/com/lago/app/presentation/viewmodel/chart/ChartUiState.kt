@@ -3,7 +3,7 @@ package com.lago.app.presentation.viewmodel.chart
 import com.lago.app.domain.entity.*
 
 data class ChartUiState(
-    val currentStock: StockInfo = StockInfo(
+    val currentStock: ChartStockInfo = ChartStockInfo(
         code = "005930",
         name = "삼성전자",
         currentPrice = 74200f,
@@ -36,7 +36,10 @@ data class ChartUiState(
     val patternAnalysis: com.lago.app.domain.entity.PatternAnalysisResult? = null,
     val isPatternAnalyzing: Boolean = false,
     val patternAnalysisError: String? = null,
-    val showIndicatorSettings: Boolean = false
+    val showIndicatorSettings: Boolean = false,
+    val tradingSignals: List<TradingSignal> = emptyList(),
+    val showUserTradingSignals: Boolean = false,
+    val selectedAI: SignalSource? = null
 )
 
 enum class ChartLoadingStage {

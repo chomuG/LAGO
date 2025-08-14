@@ -9,7 +9,15 @@
       "Bash(git push:*)",
       "Bash(find:*)",
       "Bash(rm app/src/main/res/drawable/blank_heart.png app/src/main/res/drawable/pink_heart.png)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(mkdir:*)",
+      "Bash(copy:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(rm:*)",
+      "Bash(gradlew.bat :app:compileDebugKotlin:*)",
+      "Bash(.gradlew:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }
