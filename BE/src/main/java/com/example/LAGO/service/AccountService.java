@@ -90,4 +90,19 @@ public class AccountService {
         
         return accountRepository.save(historicalAccount);
     }
+    
+    /**
+     * 퀴즈 보너스 투자금을 사용자의 모의투자 계좌에 추가
+     */
+    @Transactional
+    public void addQuizBonus(Long userId, Integer bonusAmount) {
+        Account mockTradingAccount = accountRepository.findByUserIdAndType(userId, MOCK_TRADING_TYPE)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "모의투자 계좌를 찾을 수 없습니다. userId=" + userId));
+        
+        // 잔액과 총 자산에 보너스 추가
+        mockTradingAccount.setBalance(mockTradingAccount.getBalance() + bonusAmount);
+        mockTradingAccount.setTotalAsset(mockTradingAccount.getTotalAsset() + bonusAmount);
+        
+        accountRepository.save(mockTradingAccount);
+    }
 }
