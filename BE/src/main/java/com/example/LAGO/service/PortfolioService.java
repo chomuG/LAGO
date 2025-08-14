@@ -137,7 +137,7 @@ public class PortfolioService {
     }
 
     /**
-     * 계좌 현재 상황 조회 (MockTrade 기반)
+     * 계좌 현재 상황 조회 (StockHolding 기반)
      * 프론트에서 실시간 계산을 위한 단순화된 데이터 제공
      * 
      * @param accountId 계좌 ID
@@ -156,25 +156,21 @@ public class PortfolioService {
             throw new RuntimeException("해당 계좌에 대한 접근 권한이 없습니다.");
         }
         
-        // MockTrade에서 현재 보유 종목 정보 조회
-        List<Object[]> holdingData = mockTradeRepository.findCurrentHoldingsByAccountId(accountId);
+        // StockHolding에서 현재 보유 종목 정보 조회
+        List<StockHolding> stockHoldings = stockHoldingRepository.findByAccountId(accountId);
         
         // 보유 종목 정보 변환
-        List<AccountCurrentStatusResponse.CurrentHoldingInfo> holdings = holdingData.stream()
-                .map(data -> {
-                    Integer stockId = (Integer) data[0];
-                    Integer quantity = ((Number) data[1]).intValue();
-                    Integer totalPurchaseAmount = ((Number) data[2]).intValue();
-                    
-                    // 종목 정보 조회
-                    StockInfo stockInfo = stockInfoRepository.findById(stockId)
-                            .orElseThrow(() -> new RuntimeException("종목 정보를 찾을 수 없습니다: " + stockId));
+        List<AccountCurrentStatusResponse.CurrentHoldingInfo> holdings = stockHoldings.stream()
+                .map(holding -> {
+                    // StockInfo 조회
+                    StockInfo stockInfo = stockInfoRepository.findById(holding.getStockInfoId())
+                            .orElseThrow(() -> new RuntimeException("종목 정보를 찾을 수 없습니다: " + holding.getStockInfoId()));
                     
                     return AccountCurrentStatusResponse.CurrentHoldingInfo.builder()
                             .stockCode(stockInfo.getCode())
                             .stockName(stockInfo.getName())
-                            .quantity(quantity)
-                            .totalPurchaseAmount(totalPurchaseAmount)
+                            .quantity(holding.getQuantity())
+                            .totalPurchaseAmount(holding.getTotalPrice())
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -188,7 +184,7 @@ public class PortfolioService {
     }
 
     /**
-     * 사용자 기본 계좌 현재 상황 조회 (MockTrade 기반)
+     * 사용자 기본 계좌 현재 상황 조회 (StockHolding 기반)
      * userId로 타입 0인 기본 계좌를 찾아서 조회
      * 
      * @param userId 사용자 ID
