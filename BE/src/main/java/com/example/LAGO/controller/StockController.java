@@ -2,335 +2,419 @@ package com.example.LAGO.controller;
 
 import com.example.LAGO.domain.TradeType;
 import com.example.LAGO.dto.request.TradeRequest;
-import com.example.LAGO.service.OrderStreamProducer;
-import com.example.LAGO.service.MockTradingService;
-import com.example.LAGO.service.RealtimeTradingService;
-import com.example.LAGO.dto.OrderDto;
-import com.example.LAGO.dto.request.MockTradeRequest;
-import com.example.LAGO.dto.response.MockTradeResponse;
 import com.example.LAGO.domain.User;
 import com.example.LAGO.domain.Account;
 import com.example.LAGO.domain.StockInfo;
+import com.example.LAGO.domain.StockHolding;
+import com.example.LAGO.domain.MockTrade;
 import com.example.LAGO.repository.UserRepository;
 import com.example.LAGO.repository.AccountRepository;
 import com.example.LAGO.repository.StockInfoRepository;
+import com.example.LAGO.repository.StockHoldingRepository;
+import com.example.LAGO.repository.MockTradeRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 /**
- * 주식 매매 관련 API 컨트롤러 (사용자용)
- * 지침서 명세: GET /api/stocks, POST /api/stocks/buy, POST /api/stocks/sell
+ * 주식 매매 관련 API 컨트롤러 - 즉시 매매 처리
  */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/stocks")
-@Tag(name = "주식 매매", description = "사용자 주식 매매 API (AI 봇과 분리)")
+@Tag(name = "주식 매매", description = "사용자 주식 매매 API")
 @Validated
 @Slf4j
 public class StockController {
 
-    private final OrderStreamProducer orderStreamProducer;
-    private final MockTradingService mockTradingService;
-    private final RealtimeTradingService realtimeTradingService;
     private final UserRepository userRepository;
     private final AccountRepository accountRepository;
     private final StockInfoRepository stockInfoRepository;
+    private final StockHoldingRepository stockHoldingRepository;
+    private final MockTradeRepository mockTradeRepository;
 
+    // ========== 상수 정의 ==========
+    private static final Set<Integer> VALID_ACCOUNT_TYPES = Set.of(0, 1, 2);
+    private static final Map<Integer, String> ACCOUNT_TYPE_NAMES = Map.of(
+            0, "실시간 모의투자",
+            1, "역사챌린지",
+            2, "자동매매봇"
+    );
 
+    // ========== Custom Exception Classes ==========
 
+    public static class StockTradingException extends RuntimeException {
+        private final String errorCode;
+        private final Map<String, Object> details;
+
+        public StockTradingException(String errorCode, String message) {
+            super(message);
+            this.errorCode = errorCode;
+            this.details = new HashMap<>();
+        }
+
+        public StockTradingException withDetail(String key, Object value) {
+            this.details.put(key, value);
+            return this;
+        }
+
+        public String getErrorCode() { return errorCode; }
+        public Map<String, Object> getDetails() { return details; }
+    }
+
+    // ========== 메인 API 엔드포인트 ==========
 
     /**
-     * 실시간 가격 매매 주문 (Redis Stream 기반)
-     * 웹소켓으로 받은 실시간 가격으로 즉시 매매 처리
-     * 
-     * @param userId 사용자 ID
-     * @param request 매매 요청 (price=null이면 시장가, 값이 있으면 지정가)
-     * @return 주문 접수 응답
+     * 즉시 매매 처리 API (기존 엔드포인트 유지)
+     * 매수/매도를 즉시 처리하고 결과를 반환
      */
     @PostMapping("/order")
     @Operation(
-        summary = "실시간 가격 매매 주문", 
-        description = "웹소켓 실시간 가격을 사용한 매매 처리. price=null이면 시장가(실시간 가격), 값이 있으면 지정가 주문"
+            summary = "즉시 매매 처리",
+            description = "매수/매도를 즉시 처리합니다 (accountType: 0=실시간모의투자, 1=역사챌린지, 2=자동매매봇)"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "202", description = "주문 접수 완료 (비동기 처리)"),
-        @ApiResponse(responseCode = "400", description = "잘못된 요청"),
-        @ApiResponse(responseCode = "500", description = "서버 내부 오류")
+            @ApiResponse(responseCode = "200", description = "매매 성공"),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청"),
+            @ApiResponse(responseCode = "500", description = "서버 내부 오류")
     })
-    public ResponseEntity<?> submitAsyncOrder(
+    @Transactional
+    public ResponseEntity<?> submitOrder(
             @Parameter(description = "매매 요청 정보", required = true)
-            @RequestBody 
-            @Valid 
-            TradeRequest request
+            @RequestBody @Valid TradeRequest request
     ) {
         try {
-            // 1. 사용자 존재 여부 검증 (예외 처리 강화)
-            User user = null;
-            try {
-                log.debug("사용자 조회 시작: userId={}", request.getUserId());
-                user = userRepository.findById(request.getUserId()).orElse(null);
-                log.debug("사용자 조회 완료: userId={}, user={}", request.getUserId(), 
-                         user != null ? "found" : "not found");
-            } catch (Exception e) {
-                log.error("사용자 조회 중 데이터베이스 오류: userId={}, error={}", 
-                         request.getUserId(), e.getMessage(), e);
-                return ResponseEntity.status(500)
-                    .body(java.util.Map.of(
-                        "success", false,
-                        "error", "DATABASE_ERROR",
-                        "message", "사용자 조회 중 데이터베이스 오류가 발생했습니다.",
-                        "userId", request.getUserId()
-                    ));
-            }
-            
-            if (user == null) {
-                log.warn("존재하지 않는 사용자 주문 시도: userId={}", request.getUserId());
-                return ResponseEntity.badRequest()
-                    .body(java.util.Map.of(
-                        "success", false,
-                        "error", "USER_NOT_FOUND",
-                        "message", "존재하지 않는 사용자입니다.",
-                        "userId", request.getUserId()
-                    ));
-            }
-            
-            // 2. 계좌 타입 유효성 검증 (0, 1, 2만 허용)
-            Integer accountType = request.getAccountType();
-            if (accountType == null || (accountType != 0 && accountType != 1 && accountType != 2)) {
-                log.warn("잘못된 계좌 타입: userId={}, accountType={}", request.getUserId(), accountType);
-                return ResponseEntity.badRequest()
-                    .body(java.util.Map.of(
-                        "success", false,
-                        "error", "INVALID_ACCOUNT_TYPE",
-                        "message", "잘못된 계좌 타입입니다. (0=실시간모의투자, 1=역사챌린지, 2=자동매매봇)",
-                        "userId", request.getUserId(),
-                        "accountType", accountType != null ? accountType : "null"
-                    ));
-            }
-            
-            // 3. 계좌 존재 여부 검증 (예외 처리 강화)
-            Account account = null;
-            try {
-                log.debug("계좌 조회 시작: userId={}, accountType={}", request.getUserId(), accountType);
-                account = accountRepository.findByUserIdAndType(request.getUserId(), accountType)
-                    .orElse(null);
-                log.debug("계좌 조회 완료: userId={}, account={}", request.getUserId(), 
-                         account != null ? "found" : "not found");
-            } catch (Exception e) {
-                log.error("계좌 조회 중 데이터베이스 오류: userId={}, accountType={}, error={}", 
-                         request.getUserId(), accountType, e.getMessage(), e);
-                return ResponseEntity.status(500)
-                    .body(java.util.Map.of(
-                        "success", false,
-                        "error", "DATABASE_ERROR",
-                        "message", "계좌 조회 중 데이터베이스 오류가 발생했습니다.",
-                        "userId", request.getUserId(),
-                        "accountType", accountType
-                    ));
-            }
-            
-            if (account == null) {
-                String accountTypeName = getAccountTypeName(accountType);
-                log.warn("계좌를 찾을 수 없음: userId={}, accountType={} ({})", 
-                        request.getUserId(), accountType, accountTypeName);
-                return ResponseEntity.badRequest()
-                    .body(java.util.Map.of(
-                        "success", false,
-                        "error", "ACCOUNT_NOT_FOUND",
-                        "message", String.format("계좌를 찾을 수 없습니다. (%s)", accountTypeName),
-                        "userId", request.getUserId(),
-                        "accountType", accountType,
-                        "accountTypeName", accountTypeName
-                    ));
-            }
-            
-            // 4. 종목 코드 유효성 검증 (예외 처리 강화)
-            StockInfo stockInfo = null;
-            try {
-                log.debug("종목 조회 시작: stockCode={}", request.getStockCode());
-                stockInfo = stockInfoRepository.findByCode(request.getStockCode()).orElse(null);
-                log.debug("종목 조회 완료: stockCode={}, stock={}", request.getStockCode(), 
-                         stockInfo != null ? "found" : "not found");
-            } catch (Exception e) {
-                log.error("종목 조회 중 데이터베이스 오류: stockCode={}, error={}", 
-                         request.getStockCode(), e.getMessage(), e);
-                return ResponseEntity.status(500)
-                    .body(java.util.Map.of(
-                        "success", false,
-                        "error", "DATABASE_ERROR",
-                        "message", "종목 조회 중 데이터베이스 오류가 발생했습니다.",
-                        "stockCode", request.getStockCode()
-                    ));
-            }
-            
-            if (stockInfo == null) {
-                log.warn("존재하지 않는 종목 코드: userId={}, stockCode={}", 
-                        request.getUserId(), request.getStockCode());
-                return ResponseEntity.badRequest()
-                    .body(java.util.Map.of(
-                        "success", false,
-                        "error", "STOCK_NOT_FOUND",
-                        "message", "존재하지 않는 종목 코드입니다.",
-                        "userId", request.getUserId(),
-                        "stockCode", request.getStockCode()
-                    ));
-            }
-            
-            // 5. 매수 주문인 경우 잔고 충분성 검증
-            if (TradeType.BUY.equals(request.getTradeType())) {
-                Integer price = request.getPrice();
-                Integer quantity = request.getQuantity();
-                Integer requiredAmount = price * quantity;
-                
-                if (account.getBalance() < requiredAmount) {
-                    log.warn("잔고 부족: userId={}, 필요금액={}, 보유잔고={}", 
-                            request.getUserId(), requiredAmount, account.getBalance());
-                    return ResponseEntity.badRequest()
-                        .body(java.util.Map.of(
+            // 1. 주문 검증
+            ValidationResult validation = validateOrder(request);
+
+            // 2. 즉시 매매 처리
+            TradeResult tradeResult = executeTrade(request, validation);
+
+            // 3. 성공 응답
+            return ResponseEntity.ok(createSuccessResponse(tradeResult, request, validation));
+
+        } catch (StockTradingException e) {
+            log.warn("매매 처리 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(createErrorResponse(e));
+
+        } catch (Exception e) {
+            log.error("매매 처리 중 오류 발생", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
                             "success", false,
-                            "error", "INSUFFICIENT_BALANCE",
-                            "message", String.format("잔고가 부족합니다. 필요: %,d원, 보유: %,d원", 
-                                    requiredAmount, account.getBalance()),
-                            "userId", request.getUserId(),
-                            "requiredAmount", requiredAmount,
-                            "currentBalance", account.getBalance()
-                        ));
-                }
+                            "error", "INTERNAL_ERROR",
+                            "message", "매매 처리 중 오류가 발생했습니다",
+                            "timestamp", LocalDateTime.now()
+                    ));
+        }
+    }
+
+    /**
+     * 매수 API (기존 호환성을 위해 유지)
+     */
+    @PostMapping("/buy")
+    @Operation(summary = "주식 매수", description = "주식을 즉시 매수합니다")
+    @Transactional
+    public ResponseEntity<?> buyStock(@RequestBody @Valid TradeRequest request) {
+        request.setTradeType(TradeType.BUY);
+        return submitOrder(request);
+    }
+
+    /**
+     * 매도 API (기존 호환성을 위해 유지)
+     */
+    @PostMapping("/sell")
+    @Operation(summary = "주식 매도", description = "주식을 즉시 매도합니다")
+    @Transactional
+    public ResponseEntity<?> sellStock(@RequestBody @Valid TradeRequest request) {
+        request.setTradeType(TradeType.SELL);
+        return submitOrder(request);
+    }
+
+    // ========== 검증 로직 ==========
+
+    private ValidationResult validateOrder(TradeRequest request) {
+        // 1. 사용자 검증
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new StockTradingException("USER_NOT_FOUND",
+                        "사용자를 찾을 수 없습니다")
+                        .withDetail("userId", request.getUserId()));
+
+        // 2. 계좌 타입 검증
+        if (!VALID_ACCOUNT_TYPES.contains(request.getAccountType())) {
+            throw new StockTradingException("INVALID_ACCOUNT_TYPE",
+                    "잘못된 계좌 타입입니다")
+                    .withDetail("accountType", request.getAccountType())
+                    .withDetail("validTypes", VALID_ACCOUNT_TYPES);
+        }
+
+        // 3. 계좌 검증 - Long 타입으로 변경
+        Account account = accountRepository.findByUserIdAndType(
+                        Long.valueOf(request.getUserId()), request.getAccountType())
+                .orElseThrow(() -> new StockTradingException("ACCOUNT_NOT_FOUND",
+                        String.format("계좌를 찾을 수 없습니다 (%s)",
+                                ACCOUNT_TYPE_NAMES.get(request.getAccountType())))
+                        .withDetail("userId", request.getUserId())
+                        .withDetail("accountType", request.getAccountType()));
+
+        // 4. 종목 검증
+        StockInfo stockInfo = stockInfoRepository.findByCode(request.getStockCode())
+                .orElseThrow(() -> new StockTradingException("STOCK_NOT_FOUND",
+                        "존재하지 않는 종목입니다")
+                        .withDetail("stockCode", request.getStockCode()));
+
+        // 5. 매수 시 잔고 검증
+        if (TradeType.BUY.equals(request.getTradeType())) {
+            int requiredAmount = request.getPrice() * request.getQuantity();
+            if (account.getBalance() < requiredAmount) {
+                throw new StockTradingException("INSUFFICIENT_BALANCE",
+                        String.format("잔고가 부족합니다. 필요: %,d원, 보유: %,d원",
+                                requiredAmount, account.getBalance()))
+                        .withDetail("requiredAmount", requiredAmount)
+                        .withDetail("currentBalance", account.getBalance());
             }
-            
-            // 6. 모든 검증 통과 시 실시간 매매 대기 큐에 주문 추가
-            // TradeRequest를 OrderDto로 변환
-            String orderId = System.currentTimeMillis() + "-" + request.getUserId(); // 고유 주문 ID 생성
-            OrderDto orderDto = OrderDto.builder()
-                    .orderId(orderId)
-                    .userId(request.getUserId())
-                    .stockCode(request.getStockCode())
-                    .tradeType(request.getTradeType())
-                    .quantity(request.getQuantity())
-                    .price(request.getPrice())
-                    .accountId(request.getAccountType().longValue())
-                    .status(OrderDto.OrderStatus.PENDING)
-                    .priority(1) // 일반 주문 우선순위
-                    .build();
-            
-            // 실시간 매매 대기 큐에 주문 추가
-            realtimeTradingService.addPendingOrder(orderDto);
-            
-            // 즉시 주문 접수 응답
-            return ResponseEntity.accepted()
-                    .body(java.util.Map.of(
-                        "success", true,
-                        "orderId", orderDto.getOrderId(),
-                        "userId", request.getUserId(),
-                        "stockCode", request.getStockCode(),
-                        "tradeType", request.getTradeType().name(),
-                        "quantity", request.getQuantity(),
-                        "status", "PENDING_REALTIME",
-                        "message", "주문이 접수되었습니다. 실시간 가격으로 체결될 예정입니다.",
-                        "submittedAt", java.time.LocalDateTime.now()
-                    ));
-            
-        } catch (Exception e) {
-            log.error("비동기 주문 접수 실패: userId={}, stockCode={}, error={}", 
-                    request.getUserId(), request.getStockCode(), e.getMessage(), e);
-            
-            return ResponseEntity.badRequest()
-                    .body(java.util.Map.of(
-                        "success", false,
-                        "error", "ORDER_SUBMISSION_FAILED",
-                        "message", "주문 접수에 실패했습니다: " + e.getMessage(),
-                        "userId", request.getUserId(),
-                        "stockCode", request.getStockCode()
-                    ));
+        }
+
+        // 6. 매도 시 보유 수량 검증 - 실제 Repository 메서드 사용
+        if (TradeType.SELL.equals(request.getTradeType())) {
+            Optional<StockHolding> holding = stockHoldingRepository
+                    .findByAccountIdAndStockCode(account.getAccountId(), request.getStockCode());
+
+            if (holding.isEmpty() || holding.get().getQuantity() < request.getQuantity()) {
+                int currentQuantity = holding.map(StockHolding::getQuantity).orElse(0);
+                throw new StockTradingException("INSUFFICIENT_STOCK",
+                        String.format("보유 수량이 부족합니다. 보유: %d주, 요청: %d주",
+                                currentQuantity, request.getQuantity()))
+                        .withDetail("currentQuantity", currentQuantity)
+                        .withDetail("requestedQuantity", request.getQuantity());
+            }
+        }
+
+        return new ValidationResult(user, account, stockInfo);
+    }
+
+    // ========== 매매 처리 로직 ==========
+
+    private TradeResult executeTrade(TradeRequest request, ValidationResult validation) {
+        Account account = validation.account;
+        StockInfo stockInfo = validation.stockInfo;
+        int tradeAmount = request.getPrice() * request.getQuantity();
+
+        if (TradeType.BUY.equals(request.getTradeType())) {
+            // 매수 처리
+            return processBuy(account, stockInfo, request, tradeAmount);
+        } else {
+            // 매도 처리
+            return processSell(account, stockInfo, request, tradeAmount);
         }
     }
 
-    /**
-     * 주문 상태 조회
-     * 
-     * @param orderId 주문 ID (Redis Stream Record ID)
-     * @return 주문 상태 정보
-     */
-    @GetMapping("/order/{orderId}/status")
-    @Operation(
-        summary = "주문 상태 조회", 
-        description = "비동기 주문의 처리 상태를 조회합니다"
-    )
-    public ResponseEntity<?> getOrderStatus(
-            @Parameter(description = "주문 ID", required = true)
-            @PathVariable String orderId
-    ) {
-        try {
-            // TODO: Redis에서 주문 상태 조회 로직 구현
-            // 현재는 기본 응답 반환
-            return ResponseEntity.ok(java.util.Map.of(
-                "orderId", orderId,
-                "status", "PROCESSING",
-                "message", "주문 처리 중입니다",
-                "checkedAt", java.time.LocalDateTime.now()
-            ));
-            
-        } catch (Exception e) {
-            return ResponseEntity.badRequest()
-                    .body(java.util.Map.of(
-                        "success", false,
-                        "error", "ORDER_STATUS_CHECK_FAILED",
-                        "message", "주문 상태 조회에 실패했습니다: " + e.getMessage(),
-                        "orderId", orderId
-                    ));
+    private TradeResult processBuy(Account account, StockInfo stockInfo,
+                                   TradeRequest request, int tradeAmount) {
+        // 1. 계좌 잔고 차감
+        account.setBalance(account.getBalance() - tradeAmount);
+        accountRepository.save(account);
+
+        // 2. 보유 주식 업데이트 또는 생성 - 실제 Repository 메서드 사용
+        Optional<StockHolding> existingHolding = stockHoldingRepository
+                .findByAccountIdAndStockCode(account.getAccountId(), stockInfo.getCode());
+
+        StockHolding holding;
+        if (existingHolding.isPresent()) {
+            holding = existingHolding.get();
+            holding.setQuantity(holding.getQuantity() + request.getQuantity());
+            holding.setTotalPrice(holding.getTotalPrice() + tradeAmount);
+        } else {
+            holding = new StockHolding();
+            // StockHolding 엔티티의 실제 필드 구조에 맞게 설정
+            holding.setAccountId(account.getAccountId());
+            holding.setStockInfoId(stockInfo.getStockInfoId());
+            holding.setQuantity(request.getQuantity());
+            holding.setTotalPrice(tradeAmount);
+        }
+        stockHoldingRepository.save(holding);
+
+        // 3. 거래 내역 저장
+        MockTrade trade = createTradeRecord(account, stockInfo, request, "BUY");
+        mockTradeRepository.save(trade);
+
+        // 4. 계좌 총 자산 업데이트
+        updateAccountTotalAsset(account);
+
+        return new TradeResult(trade.getTradeId(), account.getBalance(),
+                holding.getQuantity(), tradeAmount);
+    }
+
+    private TradeResult processSell(Account account, StockInfo stockInfo,
+                                    TradeRequest request, int tradeAmount) {
+        // 1. 보유 주식 차감 - 실제 Repository 메서드 사용
+        StockHolding holding = stockHoldingRepository
+                .findByAccountIdAndStockCode(account.getAccountId(), stockInfo.getCode())
+                .orElseThrow(() -> new StockTradingException("NO_HOLDING", "보유 주식이 없습니다"));
+
+        int remainingQuantity = holding.getQuantity() - request.getQuantity();
+        holding.setQuantity(remainingQuantity);
+
+        // 평균 단가 계산 후 총 매입가 조정
+        if (remainingQuantity > 0) {
+            int avgPrice = holding.getTotalPrice() / (holding.getQuantity() + request.getQuantity());
+            holding.setTotalPrice(avgPrice * remainingQuantity);
+            stockHoldingRepository.save(holding);
+        } else {
+            stockHoldingRepository.delete(holding);
+        }
+
+        // 2. 계좌 잔고 증가
+        account.setBalance(account.getBalance() + tradeAmount);
+        accountRepository.save(account);
+
+        // 3. 거래 내역 저장
+        MockTrade trade = createTradeRecord(account, stockInfo, request, "SELL");
+        mockTradeRepository.save(trade);
+
+        // 4. 계좌 총 자산 및 수익률 업데이트
+        updateAccountTotalAsset(account);
+
+        return new TradeResult(trade.getTradeId(), account.getBalance(),
+                remainingQuantity, tradeAmount);
+    }
+
+    private MockTrade createTradeRecord(Account account, StockInfo stockInfo,
+                                        TradeRequest request, String buySell) {
+        MockTrade trade = new MockTrade();
+        // MockTrade 엔티티의 실제 필드 구조에 맞게 설정
+        trade.setAccountId(account.getAccountId());
+        trade.setStockId(stockInfo.getStockInfoId());
+        trade.setTradeType("BUY".equals(buySell) ? TradeType.BUY : TradeType.SELL);
+        trade.setQuantity(request.getQuantity());
+        trade.setPrice(request.getPrice());
+        trade.setTradeAt(LocalDateTime.now());
+        trade.setIsQuiz(false);
+        return trade;
+    }
+
+    private void updateAccountTotalAsset(Account account) {
+        // 보유 주식의 현재 가치 계산 (실제로는 현재가를 조회해야 함)
+        // 여기서는 간단히 매입가 기준으로 계산
+        int totalStockValue = stockHoldingRepository
+                .findByAccountId(account.getAccountId())
+                .stream()
+                .mapToInt(StockHolding::getTotalPrice)
+                .sum();
+
+        account.setTotalAsset(account.getBalance() + totalStockValue);
+        accountRepository.save(account);
+    }
+
+    // ========== 응답 생성 ==========
+
+    private Map<String, Object> createSuccessResponse(TradeResult result,
+                                                      TradeRequest request,
+                                                      ValidationResult validation) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("tradeId", result.tradeId);
+        response.put("userId", request.getUserId());
+        response.put("stockCode", request.getStockCode());
+        response.put("stockName", validation.stockInfo.getName());
+        response.put("tradeType", request.getTradeType().name());
+        response.put("quantity", request.getQuantity());
+        response.put("price", request.getPrice());
+        response.put("tradeAmount", result.tradeAmount);
+        response.put("remainingBalance", result.remainingBalance);
+        response.put("currentHolding", result.currentHolding);
+        response.put("status", "COMPLETED");
+        response.put("message", String.format("%s 완료",
+                TradeType.BUY.equals(request.getTradeType()) ? "매수" : "매도"));
+        response.put("completedAt", LocalDateTime.now());
+        return response;
+    }
+
+    private Map<String, Object> createErrorResponse(StockTradingException e) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("error", e.getErrorCode());
+        response.put("message", e.getMessage());
+        response.putAll(e.getDetails());
+        response.put("timestamp", LocalDateTime.now());
+        return response;
+    }
+
+    // ========== Exception Handler ==========
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<?> handleValidationException(MethodArgumentNotValidException e) {
+        Map<String, String> errors = new HashMap<>();
+        for (FieldError error : e.getBindingResult().getFieldErrors()) {
+            errors.put(error.getField(), error.getDefaultMessage());
+        }
+
+        return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", "VALIDATION_ERROR",
+                "message", "입력값 검증 실패",
+                "details", errors,
+                "timestamp", LocalDateTime.now()
+        ));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<?> handleGenericException(Exception e) {
+        log.error("예상치 못한 오류 발생", e);
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "error", "INTERNAL_ERROR",
+                "message", "서버 내부 오류가 발생했습니다",
+                "timestamp", LocalDateTime.now()
+        ));
+    }
+
+    // ========== Inner Classes ==========
+
+    private static class ValidationResult {
+        final User user;
+        final Account account;
+        final StockInfo stockInfo;
+
+        ValidationResult(User user, Account account, StockInfo stockInfo) {
+            this.user = user;
+            this.account = account;
+            this.stockInfo = stockInfo;
         }
     }
 
-    /**
-     * Stream 상태 확인 (관리자용)
-     * 
-     * @return Stream 상태 정보
-     */
-    @GetMapping("/stream/status")
-    @Operation(
-        summary = "주문 처리 스트림 상태", 
-        description = "Redis Stream 기반 주문 처리 시스템의 상태를 확인합니다"
-    )
-    public ResponseEntity<?> getStreamStatus() {
-        try {
-            String streamInfo = orderStreamProducer.getStreamInfo();
-            boolean streamAvailable = orderStreamProducer.isStreamAvailable();
-            
-            return ResponseEntity.ok(java.util.Map.of(
-                "streamAvailable", streamAvailable,
-                "streamInfo", streamInfo,
-                "checkedAt", java.time.LocalDateTime.now()
-            ));
-            
-        } catch (Exception e) {
-            return ResponseEntity.ok(java.util.Map.of(
-                "streamAvailable", false,
-                "error", e.getMessage(),
-                "checkedAt", java.time.LocalDateTime.now()
-            ));
-        }
-    }
+    private static class TradeResult {
+        final Long tradeId;
+        final Integer remainingBalance;
+        final Integer currentHolding;
+        final Integer tradeAmount;
 
-    /**
-     * 계좌 타입명 반환
-     */
-    private String getAccountTypeName(Integer accountType) {
-        return switch (accountType) {
-            case 0 -> "실시간 모의투자";
-            case 1 -> "역사챌린지";
-            case 2 -> "자동매매봇";
-            default -> "알 수 없는 계좌";
-        };
+        TradeResult(Long tradeId, Integer remainingBalance,
+                    Integer currentHolding, Integer tradeAmount) {
+            this.tradeId = tradeId;
+            this.remainingBalance = remainingBalance;
+            this.currentHolding = currentHolding;
+            this.tradeAmount = tradeAmount;
+        }
     }
 }
