@@ -17,4 +17,5 @@ public class TickPushDto {
     private Integer closePrice;
     private Integer volume;
     private BigDecimal fluctuationRate;  // 등락률
+    private Integer previousDay;         // 전일대비
 }
