@@ -60,6 +60,7 @@ public class KisRealTimeDataProcessor {
     private static final int MKSC_SHRN_ISCD = 0;  // 종목코드
     private static final int STCK_CNTG_HOUR = 1;  // 체결시간
     private static final int STCK_PRPR = 2;       // 현재가
+    private static final int PRDY_VRSS = 4;     // 전일 대비
     private static final int PRDY_CTRT = 5;     // 등락률
     private static final int STCK_OPRC = 7;       // 시가
     private static final int STCK_HGPR = 8;       // 고가
@@ -299,6 +300,7 @@ public class KisRealTimeDataProcessor {
                     .lowPrice(parseInteger(recordFields[STCK_LWPR]))
                     .volume(parseInteger(recordFields[CNTG_VOL]))
                     .fluctuationRate((parseDecimal(recordFields[PRDY_CTRT])))
+                    .previousDay((parseInteger(recordFields[PRDY_VRSS])))   // 전일 대비
                     .build();
                     
         } catch (Exception e) {
