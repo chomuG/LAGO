@@ -1,6 +1,7 @@
 package com.example.LAGO.realtime;
 
 import com.example.LAGO.realtime.dto.TickData;
+import com.example.LAGO.service.RealtimeTradingService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ public class KisRealTimeDataProcessor {
     private final RealtimeDataService realtimeDataService;
     private final ObjectMapper objectMapper;
     private final RealTimeDataBroadcaster broadcaster;
+    private final RealtimeTradingService realtimeTradingService;
     
     // KIS API 데이터 스펙 상수
     private static final int EXPECTED_MIN_FIELDS = 13; // 최소 필요 필드 수
@@ -50,10 +52,12 @@ public class KisRealTimeDataProcessor {
     }
 
 
-    public KisRealTimeDataProcessor(RealtimeDataService realtimeDataService, ObjectMapper objectMapper, RealTimeDataBroadcaster broadcaster) {
+    public KisRealTimeDataProcessor(RealtimeDataService realtimeDataService, ObjectMapper objectMapper, 
+                                    RealTimeDataBroadcaster broadcaster, RealtimeTradingService realtimeTradingService) {
         this.realtimeDataService = realtimeDataService;
         this.objectMapper = objectMapper;
         this.broadcaster = broadcaster;
+        this.realtimeTradingService = realtimeTradingService;
     }
     
     // KIS 실시간 데이터 컬럼 인덱스 (필수 데이터만)
@@ -109,7 +113,10 @@ public class KisRealTimeDataProcessor {
         // 2. 실시간 프론트엔드 전송
         broadcaster.sendRealTimeData(tickData);
         
-        // TODO: 3. 1분봉 집계 서비스로 전달
+        // 3. 실시간 매매 처리 (대기 중인 주문들을 실시간 가격으로 체결)
+        realtimeTradingService.processRealtimeOrders(tickData);
+        
+        // TODO: 4. 1분봉 집계 서비스로 전달
         // minuteCandleService.addTick(tickData);
         
         log.debug("Processed and saved to Redis: {} - {}", tickData.getCode(), tickData.getClosePrice());

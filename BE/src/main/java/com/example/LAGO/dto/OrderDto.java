@@ -151,6 +151,7 @@ public class OrderDto {
     /**
      * 주문의 유효성 검증
      */
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public boolean isValid() {
         return userId != null && userId > 0
             && stockCode != null && !stockCode.trim().isEmpty()

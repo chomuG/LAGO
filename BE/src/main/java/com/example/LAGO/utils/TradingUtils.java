@@ -60,7 +60,7 @@ public final class TradingUtils {
     }
 
     /**
-     * 총 거래비용 계산 (거래금액 + 수수료 + 세금)
+     * 총 거래비용 계산 (거래금액만)
      * 
      * @param quantity 거래 수량
      * @param price 거래 단가
@@ -74,18 +74,15 @@ public final class TradingUtils {
         }
         
         int totalAmount = quantity * price;
-        int commission = calculateCommission(totalAmount);
-        int tax = calculateTax(totalAmount, tradeType);
-        int totalCost = totalAmount + commission + tax;
         
-        log.debug("총 거래비용 계산: 수량={}, 단가={}, 거래금액={}, 수수료={}, 세금={}, 총비용={}", 
-                quantity, price, totalAmount, commission, tax, totalCost);
+        log.debug("총 거래비용 계산: 수량={}, 단가={}, 거래금액={}", 
+                quantity, price, totalAmount);
         
-        return totalCost;
+        return totalAmount;
     }
 
     /**
-     * 총 거래수익 계산 (매도 시: 거래금액 - 수수료 - 세금)
+     * 총 거래수익 계산 (매도 시: 거래금액만)
      * 
      * @param quantity 거래 수량
      * @param price 거래 단가  
@@ -99,14 +96,11 @@ public final class TradingUtils {
         }
         
         int totalAmount = quantity * price;
-        int commission = calculateCommission(totalAmount);
-        int tax = calculateTax(totalAmount, tradeType);
-        int totalRevenue = totalAmount - commission - tax;
         
-        log.debug("총 거래수익 계산: 수량={}, 단가={}, 거래금액={}, 수수료={}, 세금={}, 총수익={}", 
-                quantity, price, totalAmount, commission, tax, totalRevenue);
+        log.debug("총 거래수익 계산: 수량={}, 단가={}, 거래금액={}", 
+                quantity, price, totalAmount);
         
-        return totalRevenue;
+        return totalAmount;
     }
 
     /**

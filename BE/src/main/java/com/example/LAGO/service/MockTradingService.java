@@ -81,15 +81,20 @@ public class MockTradingService {
      */
     @Transactional
     public MockTradeResponse processBuyOrder(Long userId, MockTradeRequest request) {
-        log.info("매수 주문 처리 시작: userId={}, stockCode={}, quantity={}, price={}", 
-                userId, request.getStockCode(), request.getQuantity(), request.getPrice());
+        return processBuyOrder(userId, request, null); // 기본 계좌 사용
+    }
+
+    @Transactional
+    public MockTradeResponse processBuyOrder(Long userId, MockTradeRequest request, Integer accountType) {
+        log.info("매수 주문 처리 시작: userId={}, stockCode={}, quantity={}, price={}, accountType={}", 
+                userId, request.getStockCode(), request.getQuantity(), request.getPrice(), accountType);
 
         try {
             // 1. 사용자 존재 여부 검증
             User user = getUserOrThrow(userId);
             
-            // 2. 계좌 정보 조회 (accountId 지정 또는 기본 계좌)
-            Account account = getAccountOrThrow(userId, null); // MockTradeRequest는 기본 계좌 사용
+            // 2. 계좌 정보 조회 (accountType 지정 또는 기본 계좌)
+            Account account = getAccountOrThrow(userId, accountType);
             
             // 3. 주식 정보 조회 및 검증
             StockInfo stockInfo = getStockInfoOrThrow(request.getStockCode());
@@ -135,7 +140,7 @@ public class MockTradingService {
                     request.getQuantity(),
                     executedPrice,
                     totalCost,
-                    TradingUtils.calculateCommission(request.getQuantity() * executedPrice),
+                    0, // 수수료 없음
                     account.getBalance(),
                     TradingConstants.TRADE_TYPE_BUY
                 );
@@ -176,15 +181,20 @@ public class MockTradingService {
      */
     @Transactional
     public MockTradeResponse processSellOrder(Long userId, MockTradeRequest request) {
-        log.info("매도 주문 처리 시작: userId={}, stockCode={}, quantity={}, price={}", 
-                userId, request.getStockCode(), request.getQuantity(), request.getPrice());
+        return processSellOrder(userId, request, null); // 기본 계좌 사용
+    }
+
+    @Transactional
+    public MockTradeResponse processSellOrder(Long userId, MockTradeRequest request, Integer accountType) {
+        log.info("매도 주문 처리 시작: userId={}, stockCode={}, quantity={}, price={}, accountType={}", 
+                userId, request.getStockCode(), request.getQuantity(), request.getPrice(), accountType);
 
         try {
             // 1. 사용자 존재 여부 검증
             User user = getUserOrThrow(userId);
             
-            // 2. 계좌 정보 조회 (accountId 지정 또는 기본 계좌)
-            Account account = getAccountOrThrow(userId, null); // MockTradeRequest는 기본 계좌 사용
+            // 2. 계좌 정보 조회 (accountType 지정 또는 기본 계좌)
+            Account account = getAccountOrThrow(userId, accountType);
             
             // 3. 주식 정보 조회
             StockInfo stockInfo = getStockInfoOrThrow(request.getStockCode());
@@ -231,7 +241,7 @@ public class MockTradingService {
                     request.getQuantity(),
                     executedPrice,
                     totalRevenue,
-                    TradingUtils.calculateCommission(request.getQuantity() * executedPrice),
+                    0, // 수수료 없음
                     account.getBalance(),
                     TradingConstants.TRADE_TYPE_SELL
                 );
