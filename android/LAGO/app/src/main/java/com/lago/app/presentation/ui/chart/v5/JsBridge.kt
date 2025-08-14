@@ -27,12 +27,20 @@ class JsBridge(private val webView: WebView, private val gson: Gson = Gson()) {
 
     fun updateBar(bar: Candle) {
         val j = gson.toJson(bar)
-        enqueue("""window.updateBar(${j.quote()})""")
+        enqueue("""window.updateBar('main', ${j.quote()})""")
     }
 
     fun updateVolume(vol: VolumeBar) {
         val j = gson.toJson(vol)
         enqueue("""window.updateVolume(${j.quote()})""")
+    }
+
+    fun updateSymbolName(symbolName: String) {
+        enqueue("""window.updateSymbolName('${symbolName.replace("'", "\\'")}')""")
+    }
+
+    fun updateTimeFrame(timeFrame: String) {
+        enqueue("""window.updateTimeFrame('${timeFrame}')""")
     }
 
     private fun enqueue(script: String) {

@@ -172,8 +172,8 @@ fun MultiPanelChart(
     }
     
     // Generate HTML content with embedded JavaScript
-    val htmlContent = remember(data, finalChartOptions, tradingSignals) {
-        generateMultiPanelHtml(data, finalChartOptions, tradingSignals)
+    val htmlContent = remember(data, finalChartOptions, tradingSignals, timeFrame) {
+        generateMultiPanelHtml(data, finalChartOptions, tradingSignals, timeFrame)
     }
     
     // Use WebChartScreen with dark mode optimization
@@ -217,7 +217,8 @@ class MultiPanelJavaScriptInterface(
 private fun generateMultiPanelHtml(
     data: MultiPanelData,
     options: ChartOptions,
-    tradingSignals: List<TradingSignal> = emptyList()
+    tradingSignals: List<TradingSignal> = emptyList(),
+    timeFrame: String = "D"
 ): String {
     val json = Json { ignoreUnknownKeys = true }
     
@@ -354,6 +355,15 @@ private fun generateMultiPanelHtml(
         let panes = [];
         let series = [];
         
+        // TradingView 공식 레전드 시스템 변수
+        let legend;
+        let legendRows = [];
+        let currentSymbol = 'STOCK';
+        let seriesMap = new Map();
+        
+        // 시간프레임별 업데이트를 위한 변수
+        let currentTimeFrame = '${timeFrame}'; // Kotlin에서 전달받는 timeFrame
+        
         // TradingView Lightweight Charts v5.0.8 라이브러리 로드 (addPane API 지원)
         loadScript('https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js', function() {
             initLAGOMultiPanelChart();
@@ -434,6 +444,14 @@ private fun generateMultiPanelHtml(
                 
                 // seriesMap에 메인 시리즈 추가 (기존 volume 등 보존)
                 window.seriesMap.main = mainSeries;
+                seriesMap.set('main', mainSeries);
+                
+                // TradingView 공식 레전드 생성
+                const container = document.getElementById('chart-container');
+                createLegend(container);
+                
+                // 크로스헤어 이벤트 구독
+                chart.subscribeCrosshairMove(updateLegend);
                 
                 // 매수/매도 신호 마커 시스템 초기화
                 let markersApi = null;
@@ -534,7 +552,10 @@ private fun generateMultiPanelHtml(
                     series.push({ series: upperBandSeries, name: 'BB상한', paneIndex: 0, color: '#9E9E9E' });
                     series.push({ series: middleBandSeries, name: 'BB중심', paneIndex: 0, color: '#FF9800' });
                     series.push({ series: lowerBandSeries, name: 'BB하한', paneIndex: 0, color: '#9E9E9E' });
-                    mainLegendItems.push('볼린저밴드');
+                    
+                    // 볼린저밴드 레전드 추가
+                    seriesMap.set('bollinger', middleBandSeries);
+                    addLegendRow('bollinger', '볼린저밴드', '#FF9800');
                 }
                 
                 // SMA5를 메인 차트에 오버레이로 추가 (정수 포맷)
@@ -551,7 +572,10 @@ private fun generateMultiPanelHtml(
                     });
                     sma5Series.setData(sma5DataDecoded);
                     series.push({ series: sma5Series, name: 'SMA5', paneIndex: 0, color: '#FF5722' });
-                    mainLegendItems.push('5일선');
+                    
+                    // SMA5 레전드 추가
+                    seriesMap.set('sma5', sma5Series);
+                    addLegendRow('sma5', '5일선', '#FF5722');
                 }
                 
                 // SMA20을 메인 차트에 오버레이로 추가 (정수 포맷)
@@ -568,13 +592,13 @@ private fun generateMultiPanelHtml(
                     });
                     sma20Series.setData(sma20DataDecoded);
                     series.push({ series: sma20Series, name: 'SMA20', paneIndex: 0, color: '#4CAF50' });
-                    mainLegendItems.push('20일선');
+                    
+                    // SMA20 레전드 추가
+                    seriesMap.set('sma20', sma20Series);
+                    addLegendRow('sma20', '20일선', '#4CAF50');
                 }
                 
-                // 메인 패널 레전드 생성 (지표가 있을 때만)
-                if (mainLegendItems.length > 0) {
-                    createPaneLegend(0, mainLegendItems);
-                }
+                // 메인 패널 레전드는 TradingView 방식으로 이미 생성됨
                 
                 // 보조지표용 패널들 추가
                 console.log('🔍 LAGO: Creating', indicators.length, 'indicator panels');
@@ -599,49 +623,8 @@ private fun generateMultiPanelHtml(
                 window.chartSeries = series;
                 
                 // 전체 레전드 시스템 초기화 (렌더링 완료 후)
-                setTimeout(() => {
-                    console.log('\\n=== Initializing All Legends ===');
-                    console.log('Chart container display:', document.getElementById('chart-container').style.display);
-                    console.log('Total panes:', chart.panes().length);
-                    
-                    // 모든 Canvas 요소 확인
-                    const allCanvases = document.querySelectorAll('canvas');
-                    console.log('Total canvas elements found:', allCanvases.length);
-                    allCanvases.forEach((canvas, idx) => {
-                        const rect = canvas.getBoundingClientRect();
-                        console.log('Canvas ' + idx + ':', 'size=' + rect.width + 'x' + rect.height, 'pos=(' + rect.left + ',' + rect.top + ')');
-                    });
-                    
-                    // 메인 패널 레전드 강제 재생성
-                    if (mainLegendItems.length > 0) {
-                        console.log('Creating main panel legend with items:', mainLegendItems);
-                        createSimpleLegend(0, mainLegendItems);
-                    }
-                    
-                    // 보조지표 레전드 강제 재생성
-                    indicators.forEach((indicator, index) => {
-                        const paneIndex = index + 1;
-                        let legendItems = [];
-                        
-                        switch (indicator.type.toLowerCase()) {
-                            case 'macd':
-                                legendItems = ['MACD (12,26,9)'];
-                                break;
-                            case 'rsi':
-                                legendItems = ['RSI'];
-                                break;
-                            case 'volume':
-                                legendItems = ['거래량'];
-                                break;
-                        }
-                        
-                        if (legendItems.length > 0) {
-                            console.log('Creating legend for pane ' + paneIndex + ' with items:', legendItems);
-                            createSimpleLegend(paneIndex, legendItems);
-                        }
-                    });
-                    
-                }, 2500);
+                // TradingView 공식 레전드 시스템 사용 - 별도 초기화 불필요
+                console.log('\\n=== TradingView Legend System Initialized ===');
                 
                 console.log('LAGO Multi-Panel Chart v5 initialized successfully');
                 
@@ -720,8 +703,9 @@ private fun generateMultiPanelHtml(
                         ]);
                     }
                     
-                    // RSI 패널 레전드 생성
-                    createPaneLegend(pane.paneIndex(), ['RSI']);
+                    // RSI 레전드 추가
+                    seriesMap.set('rsi', indicatorSeries);
+                    addLegendRow('rsi', 'RSI', '#9C27B0');
                     console.log('✅ RSI panel completed, indicatorSeries:', indicatorSeries);
                     break;
                     
@@ -782,8 +766,9 @@ private fun generateMultiPanelHtml(
                             ]);
                         }
                         
-                        // MACD 패널 레전드 생성
-                        createPaneLegend(pane.paneIndex(), ['MACD (12,26,9)']);
+                        // MACD 레전드 추가
+                        seriesMap.set('macd', histogramSeries);
+                        addLegendRow('macd', 'MACD(12,26,9)', '#2196F3');
                         
                         // 메인 시리즈는 히스토그램으로 설정
                         indicatorSeries = histogramSeries;
@@ -819,8 +804,9 @@ private fun generateMultiPanelHtml(
                     // seriesMap에 볼륨 시리즈 추가 (전역)
                     window.seriesMap.volume = indicatorSeries;
                     
-                    // 거래량 패널 레전드 생성
-                    createPaneLegend(pane.paneIndex(), ['거래량']);
+                    // 거래량 레전드 추가
+                    seriesMap.set('volume', indicatorSeries);
+                    addLegendRow('volume', '거래량', '#FF9800');
                     console.log('✅ Volume panel completed, indicatorSeries:', indicatorSeries);
                     break;
                     
@@ -1033,8 +1019,8 @@ private fun generateMultiPanelHtml(
             if (items && items.length > 0) {
                 let legendHTML = '';
                 items.forEach(item => {
-                    const color = getDefaultColor(item);
-                    legendHTML += '<span style="color: ' + color + '; font-size: 10px; margin-right: 8px; display: inline-block;">■ ' + item + '</span>';
+                    const color = item.color || getDefaultColor(item.name);
+                    legendHTML += '<span class="legend-item"><span class="legend-color" style="background-color: ' + color + ';"></span>' + item.name + '</span>';
                 });
                 legend.innerHTML = legendHTML;
                 console.log('Legend HTML for panel ' + paneIndex + ':', legendHTML);
@@ -1044,23 +1030,18 @@ private fun generateMultiPanelHtml(
                 console.log('Using default legend for panel ' + paneIndex);
             }
             
-            // 스타일 설정 (명시적으로)
+            // 기존 커스텀 스타일 적용
             legend.style.position = 'absolute';
-            legend.style.top = '6px';
-            legend.style.left = '6px';
+            legend.style.top = '4px';
+            legend.style.left = '4px';
             legend.style.zIndex = '1000';
-            legend.style.fontSize = '10px';
-            legend.style.fontFamily = 'Arial, sans-serif';
-            legend.style.color = '#666';
-            legend.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
-            legend.style.padding = '4px 6px';
-            legend.style.borderRadius = '4px';
-            legend.style.border = '1px solid rgba(200, 200, 200, 0.5)';
+            legend.style.fontSize = '11px';
+            legend.style.fontFamily = "'Segoe UI', -apple-system, sans-serif";
+            legend.style.fontWeight = '400';
+            legend.style.color = '#555';
             legend.style.pointerEvents = 'none';
+            legend.style.lineHeight = '1.2';
             legend.style.whiteSpace = 'nowrap';
-            legend.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-            legend.style.minWidth = '50px';
-            legend.style.minHeight = '20px';
             legend.style.display = 'block';
             
             // 부모 요소에 relative position 설정
@@ -1186,6 +1167,200 @@ private fun generateMultiPanelHtml(
             return colorMap[item] || '#333333';
         }
         
+        // ========== TradingView 공식 레전드 시스템 ========== 
+        
+        // TradingView 공식 레전드 생성
+        function createLegend(container) {
+            legend = document.createElement('div');
+            legend.style = `position: absolute; left: 4px; top: 4px; z-index: 1000; font-size: 11px; font-family: 'Segoe UI', -apple-system, sans-serif; line-height: 1.2; font-weight: 400; color: #555; pointer-events: none;`;
+            container.appendChild(legend);
+            
+            // 메인 시리즈 행 (종목명 + OHLC)
+            const mainRow = document.createElement('div');
+            mainRow.style.color = '#333';
+            mainRow.innerHTML = currentSymbol;
+            legend.appendChild(mainRow);
+            legendRows.push({ element: mainRow, seriesKey: 'main', type: 'main' });
+            
+            // 보조지표 행들은 동적으로 추가
+        }
+        
+        // 레전드 업데이트 (크로스헤어 이동 시)
+        function updateLegend(param) {
+            legendRows.forEach(row => {
+                if (row.type === 'main') {
+                    // 메인 시리즈 (OHLC 표시)
+                    let displayText = currentSymbol;
+                    if (param.time) {
+                        const data = param.seriesData.get(seriesMap.get('main'));
+                        if (data) {
+                            const o = data.open !== undefined ? data.open.toFixed(0) : '';
+                            const h = data.high !== undefined ? data.high.toFixed(0) : '';
+                            const l = data.low !== undefined ? data.low.toFixed(0) : '';
+                            const c = data.close !== undefined ? data.close.toFixed(0) : '';
+                            displayText = `$\{currentSymbol} <strong>O:$\{o} H:$\{h} L:$\{l} C:$\{c}</strong>`;
+                        }
+                    }
+                    row.element.innerHTML = displayText;
+                } else {
+                    // 보조지표 시리즈
+                    const seriesData = param.seriesData.get(seriesMap.get(row.seriesKey));
+                    let displayText = row.label;
+                    if (param.time && seriesData) {
+                        const value = seriesData.value !== undefined ? seriesData.value : seriesData.close;
+                        if (value !== undefined) {
+                            displayText = `$\{row.label} <strong>$\{value.toFixed(2)}</strong>`;
+                        }
+                    }
+                    row.element.innerHTML = displayText;
+                }
+            });
+        }
+        
+        // 레전드에 보조지표 행 추가
+        function addLegendRow(seriesKey, label, color = '#333') {
+            const row = document.createElement('div');
+            row.style.cssText = `display: inline-block; margin-right: 6px; margin-bottom: 1px; color: $\{color};`;
+            
+            // 기존 커스텀 스타일에 맞춘 색상 표시기와 텍스트
+            const colorBox = document.createElement('span');
+            colorBox.style.cssText = `display: inline-block; width: 8px; height: 1.5px; margin-right: 3px; vertical-align: middle; background-color: $\{color};`;
+            
+            row.appendChild(colorBox);
+            row.appendChild(document.createTextNode(label));
+            
+            legend.appendChild(row);
+            legendRows.push({ element: row, seriesKey: seriesKey, type: 'indicator', label: label });
+        }
+        
+        // 레전드에서 보조지표 행 제거
+        function removeLegendRow(seriesKey) {
+            const index = legendRows.findIndex(row => row.seriesKey === seriesKey);
+            if (index !== -1) {
+                const row = legendRows[index];
+                legend.removeChild(row.element);
+                legendRows.splice(index, 1);
+            }
+        }
+        
+        // 종목명 업데이트 함수
+        function updateSymbolName(symbolName) {
+            currentSymbol = symbolName || 'STOCK';
+            // 메인 레전드 행 업데이트
+            const mainRow = legendRows.find(row => row.type === 'main');
+            if (mainRow) {
+                mainRow.element.innerHTML = currentSymbol;
+            }
+        }
+        
+        // 시간프레임별 실시간 업데이트 로직
+        function updateBarWithTimeFrame(barData) {
+            const bar = JSON.parse(barData);
+            
+            // 시간프레임에 따른 업데이트 처리
+            switch (currentTimeFrame) {
+                case '1':
+                case '3': 
+                case '5':
+                case '10':
+                case '15':
+                case '30':
+                    // 분봉: 마지막 캔들 업데이트 또는 새 캔들 생성
+                    updateMinuteBar(bar);
+                    break;
+                case '60':
+                    // 시간봉: 현재 시간의 캔들만 업데이트
+                    updateHourlyBar(bar);
+                    break;
+                case 'D':
+                case 'W':
+                case 'M':
+                case 'Y':
+                    // 일봉/주봉/월봉/년봉: 현재 기간의 마지막 캔들만 업데이트
+                    updatePeriodBar(bar, currentTimeFrame);
+                    break;
+                default:
+                    // 기본: 단순 업데이트
+                    window.seriesMap.main.update(bar);
+                    break;
+            }
+        }
+        
+        // 분봉용 업데이트 (새 캔들 생성 또는 마지막 캔들 업데이트)
+        function updateMinuteBar(bar) {
+            if (window.seriesMap.main) {
+                const mainData = window.seriesMap.main.data();
+                const lastCandle = mainData[mainData.length - 1];
+                
+                if (lastCandle && Math.abs(bar.time - lastCandle.time) < 60) {
+                    // 같은 분: 마지막 캔들 업데이트
+                    window.seriesMap.main.update(bar);
+                } else {
+                    // 다른 분: 새 캔들 생성
+                    window.seriesMap.main.update(bar);
+                }
+                chart.timeScale().scrollToRealTime();
+            }
+        }
+        
+        // 시간봉용 업데이트 (현재 시간의 캔들만)
+        function updateHourlyBar(bar) {
+            if (window.seriesMap.main) {
+                // 현재 시간으로 시간 설정 (분/초 제거)
+                const now = new Date();
+                const hourStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours());
+                const hourStartEpoch = Math.floor(hourStart.getTime() / 1000);
+                
+                const hourlyBar = {
+                    ...bar,
+                    time: hourStartEpoch
+                };
+                
+                window.seriesMap.main.update(hourlyBar);
+                chart.timeScale().scrollToRealTime();
+            }
+        }
+        
+        // 기간봉용 업데이트 (일/주/월/년봉)
+        function updatePeriodBar(bar, timeFrame) {
+            if (window.seriesMap.main) {
+                const now = new Date();
+                let periodStart;
+                
+                switch (timeFrame) {
+                    case 'D':
+                        // 일봉: 오늘 00:00
+                        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                        break;
+                    case 'W':
+                        // 주봉: 이번 주 월요일 00:00
+                        const monday = new Date(now);
+                        monday.setDate(now.getDate() - now.getDay() + 1);
+                        periodStart = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate());
+                        break;
+                    case 'M':
+                        // 월봉: 이번 달 1일 00:00
+                        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                        break;
+                    case 'Y':
+                        // 년봉: 올해 1월 1일 00:00
+                        periodStart = new Date(now.getFullYear(), 0, 1);
+                        break;
+                    default:
+                        periodStart = now;
+                }
+                
+                const periodStartEpoch = Math.floor(periodStart.getTime() / 1000);
+                const periodBar = {
+                    ...bar,
+                    time: periodStartEpoch
+                };
+                
+                window.seriesMap.main.update(periodBar);
+                console.log(`$\{timeFrame}봉 업데이트: 시간=$\{periodStartEpoch}, 가격=$\{bar.close}`);
+            }
+        }
+
         // ========== 실시간 업데이트용 전역 함수들 (최소 변경) ==========
         
         // 1) 혹시라도 너무 빨리 호출될 때 ReferenceError 방지용 "빈 함수"를 먼저 깔아둠
@@ -1193,6 +1368,8 @@ private fun generateMultiPanelHtml(
         window.setInitialData = window.setInitialData || function(){ console.warn('setInitialData called before init'); };
         window.updateBar      = window.updateBar      || function(){ console.warn('updateBar called before init'); };
         window.updateVolume   = window.updateVolume   || function(){ console.warn('updateVolume called before init'); };
+        window.updateSymbolName = window.updateSymbolName || function(){ console.warn('updateSymbolName called before init'); };
+        window.updateTimeFrame = window.updateTimeFrame || function(){ console.warn('updateTimeFrame called before init'); };
         
         // (mainSeries와 chart가 생성된 "이후"에 실제 구현으로 덮어쓰기)
         
@@ -1214,26 +1391,73 @@ private fun generateMultiPanelHtml(
         // 3) 실시간 캔들 업데이트 (같은 time→교체, 큰 time→새 바 추가)
         window.updateBar = function(seriesId, jsonBar) {
             try {
-                const bar = JSON.parse(jsonBar); // {time,open,high,low,close}
-                const s = window.seriesMap[seriesId];
-                if (s) {
-                    s.update(bar);
-                    // console.log('LAGO: updateBar', seriesId, bar.time);
+                if (seriesId === 'main' && window.seriesMap.main) {
+                    // 메인 시리즈는 시간프레임별 로직 사용
+                    updateBarWithTimeFrame(jsonBar);
                 } else {
-                    console.warn('LAGO: unknown seriesId in updateBar', seriesId);
+                    // 다른 시리즈는 기존 방식
+                    const bar = JSON.parse(jsonBar);
+                    const s = window.seriesMap[seriesId];
+                    if (s) {
+                        s.update(bar);
+                        chart.timeScale().scrollToRealTime();
+                    } else {
+                        console.warn('LAGO: unknown seriesId in updateBar', seriesId);
+                    }
                 }
             } catch (e) { console.error('LAGO updateBar error', e); }
         };
         
-        // 4) 실시간 거래량 업데이트 (HistogramSeries)
+        // 4) 실시간 거래량 업데이트 (HistogramSeries) - 캔들 색상과 동기화
         window.updateVolume = function(jsonBar) {
             try {
                 const v = JSON.parse(jsonBar); // {time, value}
-                if (window.seriesMap.volume) {
-                    window.seriesMap.volume.update(v);
-                    // console.log('LAGO: updateVolume', v.time);
+                if (window.seriesMap.volume && window.seriesMap.main) {
+                    // 같은 시간대의 캔들 데이터 확인
+                    const mainData = window.seriesMap.main.data();
+                    const lastCandle = mainData[mainData.length - 1];
+                    
+                    if (lastCandle && v.time === lastCandle.time) {
+                        // 캔들 색상에 따라 볼륨 색상 결정
+                        const isRising = lastCandle.close >= lastCandle.open;
+                        const volumeColor = isRising ? '#FF99C5' : '#42A6FF'; // MainPink : MainBlue
+                        
+                        // 색상 정보가 포함된 볼륨 데이터 업데이트
+                        const coloredVolumeData = {
+                            time: v.time,
+                            value: v.value,
+                            color: volumeColor
+                        };
+                        
+                        window.seriesMap.volume.update(coloredVolumeData);
+                        console.log('LAGO: updateVolume with color sync', coloredVolumeData);
+                    } else {
+                        // 시간이 다르면 기본 상승 색상 사용
+                        const coloredVolumeData = {
+                            time: v.time,
+                            value: v.value,
+                            color: '#FF99C5' // MainPink
+                        };
+                        window.seriesMap.volume.update(coloredVolumeData);
+                    }
                 }
             } catch (e) { console.error('LAGO updateVolume error', e); }
+        };
+        
+        // 5) 종목명 업데이트 (TradingView 레전드 연동)
+        window.updateSymbolName = function(symbolName) {
+            try {
+                updateSymbolName(symbolName);
+                console.log('LAGO: Symbol name updated to', symbolName);
+            } catch (e) { console.error('LAGO updateSymbolName error', e); }
+        };
+        
+        // 6) 시간프레임 업데이트
+        window.updateTimeFrame = function(timeFrame) {
+            try {
+                currentTimeFrame = timeFrame;
+                console.log('LAGO: Time frame updated to', timeFrame);
+            } catch (e) { console.error('LAGO updateTimeFrame error', e); }
         };
         
     </script>
