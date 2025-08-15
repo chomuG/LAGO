@@ -2,8 +2,6 @@ package com.lago.app.data.repository
 
 import com.lago.app.data.local.prefs.UserPreferences
 import com.lago.app.data.cache.ChartMemoryCache
-import com.lago.app.data.mapper.ChartDataMapper
-import com.lago.app.data.mapper.ChartDataMapper.toCandlestickDataList
 import com.lago.app.data.mapper.ChartDataMapper.toDomain
 import com.lago.app.data.mapper.ChartDataMapper.toHoldingItemList
 import com.lago.app.data.mapper.ChartDataMapper.toLineDataList
@@ -64,7 +62,8 @@ class ChartRepositoryImpl @Inject constructor(
                     name = getStockName(stockCode),
                     currentPrice = latestData.closePrice.toFloat(),
                     priceChange = (latestData.closePrice - latestData.openPrice).toFloat(),
-                    priceChangePercent = latestData.fluctuationRate
+                    priceChangePercent = latestData.fluctuationRate,
+                    previousDay = null // 웹소켓으로 업데이트
                 )
                 
                 // 4. 메모리 캐시에 저장 (5분 TTL)
@@ -601,6 +600,306 @@ class ChartRepositoryImpl @Inject constructor(
             emit(Resource.Error("Connection error: ${e.localizedMessage}"))
         } catch (e: Exception) {
             emit(Resource.Error("Unexpected error: ${e.localizedMessage}"))
+        }
+    }
+    
+    override suspend fun getHistoricalCandlestickData(
+        stockCode: String,
+        timeFrame: String,
+        beforeTime: Long?,
+        limit: Int
+    ): Flow<Resource<List<CandlestickData>>> = flow {
+        try {
+            emit(Resource.Loading())
+            
+            // 주식 코드를 주식 ID로 변환
+            val stockId = StockCodeMapper.getStockId(stockCode)
+            if (stockId == null) {
+                emit(Resource.Error("Unknown stock code: $stockCode"))
+                return@flow
+            }
+            
+            // beforeTime 기준으로 과거 데이터 계산
+            val endTime = beforeTime?.let { Date(it) } ?: Date()
+            
+            val candlestickData = when (timeFrame) {
+                "D" -> {
+                    // 일별 데이터
+                    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    val calendar = Calendar.getInstance().apply { time = endTime }
+                    calendar.add(Calendar.DAY_OF_MONTH, -1) // beforeTime 하루 전부터
+                    val endDate = dateFormat.format(calendar.time)
+                    calendar.add(Calendar.DAY_OF_MONTH, -limit) 
+                    val startDate = dateFormat.format(calendar.time)
+                    
+                    val response = apiService.getStockDayData(stockId, startDate, endDate)
+                    response.reversed() // 최신순 -> 과거순 정렬
+                        .map { dto ->
+                            CandlestickData(
+                                time = parseDate(dto.date) * 1000,
+                                open = dto.openPrice.toFloat(),
+                                high = dto.highPrice.toFloat(),
+                                low = dto.lowPrice.toFloat(),
+                                close = dto.closePrice.toFloat(),
+                                volume = dto.volume.toLong()
+                            )
+                        }
+                }
+                "1", "3", "5", "15", "30", "60" -> {
+                    // 분봉 데이터
+                    val dateTimeFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                    val calendar = Calendar.getInstance().apply { time = endTime }
+                    calendar.add(Calendar.HOUR_OF_DAY, -1) // beforeTime 1시간 전부터
+                    val endDateTime = dateTimeFormat.format(calendar.time)
+                    calendar.add(Calendar.HOUR_OF_DAY, -limit)
+                    val startDateTime = dateTimeFormat.format(calendar.time)
+                    
+                    val response = apiService.getStockMinuteData(stockId, startDateTime, endDateTime)
+                    response.reversed() // 최신순 -> 과거순 정렬
+                        .map { dto ->
+                            CandlestickData(
+                                time = parseDateTime(dto.date) * 1000,
+                                open = dto.openPrice.toFloat(),
+                                high = dto.highPrice.toFloat(),
+                                low = dto.lowPrice.toFloat(),
+                                close = dto.closePrice.toFloat(),
+                                volume = dto.volume.toLong()
+                            )
+                        }
+                }
+                "M" -> {
+                    // 월별 데이터
+                    val calendar = Calendar.getInstance().apply { time = endTime }
+                    val endMonth = calendar.get(Calendar.YEAR) * 100 + (calendar.get(Calendar.MONTH) + 1)
+                    calendar.add(Calendar.MONTH, -limit)
+                    val startMonth = calendar.get(Calendar.YEAR) * 100 + (calendar.get(Calendar.MONTH) + 1)
+                    
+                    val response = apiService.getStockMonthData(stockId, startMonth, endMonth)
+                    response.reversed() // 최신순 -> 과거순 정렬
+                        .map { dto ->
+                            CandlestickData(
+                                time = parseMonthDate(dto.date) * 1000,
+                                open = dto.openPrice.toFloat(),
+                                high = dto.highPrice.toFloat(),
+                                low = dto.lowPrice.toFloat(),
+                                close = dto.closePrice.toFloat(),
+                                volume = dto.volume.toLong()
+                            )
+                        }
+                }
+                "Y" -> {
+                    // 년별 데이터
+                    val calendar = Calendar.getInstance().apply { time = endTime }
+                    val endYear = calendar.get(Calendar.YEAR)
+                    val startYear = endYear - limit
+                    
+                    val response = apiService.getStockYearData(stockId, startYear, endYear)
+                    response.reversed() // 최신순 -> 과거순 정렬
+                        .map { dto ->
+                            CandlestickData(
+                                time = parseYearDate(dto.date) * 1000,
+                                open = dto.openPrice.toFloat(),
+                                high = dto.highPrice.toFloat(),
+                                low = dto.lowPrice.toFloat(),
+                                close = dto.closePrice.toFloat(),
+                                volume = dto.volume.toLong()
+                            )
+                        }
+                }
+                else -> {
+                    emit(Resource.Error("Unsupported timeframe: $timeFrame"))
+                    return@flow
+                }
+            }
+            
+            emit(Resource.Success(candlestickData))
+            
+        } catch (e: HttpException) {
+            emit(Resource.Error("HTTP error: ${e.localizedMessage}"))
+        } catch (e: IOException) {
+            emit(Resource.Error("Network connection failed"))
+        } catch (e: Exception) {
+            emit(Resource.Error("과거 데이터 로딩 실패: ${e.message}"))
+        }
+    }
+    
+    private fun parseYearDate(year: Int): Long {
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.YEAR, year)
+            set(Calendar.MONTH, Calendar.JANUARY)
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return calendar.timeInMillis / 1000
+    }
+
+    // ===== 역사챌린지 관련 메서드 구현 =====
+
+    override suspend fun getHistoryChallenge(): Flow<Resource<com.lago.app.data.remote.dto.HistoryChallengeResponse>> = flow {
+        try {
+            emit(Resource.Loading())
+            android.util.Log.d("ChartRepositoryImpl", "🔥 getHistoryChallenge 호출 시작 (인증 없이)")
+
+            android.util.Log.d("ChartRepositoryImpl", "🔥 API 호출: /api/history-challenge (토큰 없이)")
+            val response = apiService.getHistoryChallenge()
+            android.util.Log.d("ChartRepositoryImpl", "🔥 API 응답 성공: ${response.stockName}")
+            emit(Resource.Success(response))
+        } catch (e: HttpException) {
+            android.util.Log.e("ChartRepositoryImpl", "🚨 HTTP 오류: ${e.code()} - ${e.message()}")
+            when (e.code()) {
+                401 -> emit(Resource.Error("Authentication failed"))
+                403 -> emit(Resource.Error("Access denied"))
+                else -> emit(Resource.Error("Network error: ${e.localizedMessage}"))
+            }
+        } catch (e: IOException) {
+            android.util.Log.e("ChartRepositoryImpl", "🚨 네트워크 연결 실패", e)
+            emit(Resource.Error("Network connection failed"))
+        } catch (e: Exception) {
+            android.util.Log.e("ChartRepositoryImpl", "🚨 예상치 못한 오류", e)
+            emit(Resource.Error("Unexpected error: ${e.localizedMessage}"))
+        }
+    }
+
+    override suspend fun getHistoryChallengeChart(
+        challengeId: Int,
+        interval: String,
+        fromDateTime: String,
+        toDateTime: String
+    ): Flow<Resource<List<CandlestickData>>> = flow {
+        try {
+            emit(Resource.Loading())
+
+            val token = userPreferences.getAuthToken()
+            if (token.isNullOrEmpty()) {
+                emit(Resource.Error("Authentication required"))
+                return@flow
+            }
+
+            val response = apiService.getHistoryChallengeChart(
+                authorization = "Bearer $token",
+                challengeId = challengeId,
+                interval = interval,
+                fromDateTime = fromDateTime,
+                toDateTime = toDateTime
+            )
+
+            // Convert HistoryChallengeDataResponse to CandlestickData
+            val candlestickData = response.map { dto ->
+                CandlestickData(
+                    time = parseHistoryChallengeDateTime(dto.originDateTime),
+                    open = dto.openPrice.toFloat(),
+                    high = dto.highPrice.toFloat(),
+                    low = dto.lowPrice.toFloat(),
+                    close = dto.closePrice.toFloat(),
+                    volume = dto.volume.toLong()
+                )
+            }
+
+            emit(Resource.Success(candlestickData))
+        } catch (e: HttpException) {
+            when (e.code()) {
+                401 -> emit(Resource.Error("Authentication failed"))
+                403 -> emit(Resource.Error("Access denied"))
+                404 -> emit(Resource.Error("Challenge not found"))
+                else -> emit(Resource.Error("Network error: ${e.localizedMessage}"))
+            }
+        } catch (e: IOException) {
+            emit(Resource.Error("Network connection failed"))
+        } catch (e: Exception) {
+            emit(Resource.Error("Unexpected error: ${e.localizedMessage}"))
+        }
+    }
+
+    override suspend fun getHistoryChallengeNews(
+        challengeId: Int,
+        pastDateTime: String
+    ): Flow<Resource<List<com.lago.app.data.remote.dto.HistoryChallengeNewsResponse>>> = flow {
+        try {
+            emit(Resource.Loading())
+
+            val token = userPreferences.getAuthToken()
+            if (token.isNullOrEmpty()) {
+                emit(Resource.Error("Authentication required"))
+                return@flow
+            }
+
+            val response = apiService.getHistoryChallengeNews(
+                authorization = "Bearer $token",
+                challengeId = challengeId,
+                pastDateTime = pastDateTime
+            )
+
+            emit(Resource.Success(response))
+        } catch (e: HttpException) {
+            when (e.code()) {
+                401 -> emit(Resource.Error("Authentication failed"))
+                403 -> emit(Resource.Error("Access denied"))
+                404 -> emit(Resource.Error("Challenge not found"))
+                else -> emit(Resource.Error("Network error: ${e.localizedMessage}"))
+            }
+        } catch (e: IOException) {
+            emit(Resource.Error("Network connection failed"))
+        } catch (e: Exception) {
+            emit(Resource.Error("Unexpected error: ${e.localizedMessage}"))
+        }
+    }
+
+    override suspend fun getDayCandles(
+        stockCode: String,
+        startDate: String,
+        endDate: String
+    ): Flow<Resource<List<CandlestickData>>> = flow {
+        try {
+            emit(Resource.Loading())
+
+            val stockId = StockCodeMapper.getStockId(stockCode)
+            if (stockId == null) {
+                emit(Resource.Error("Unknown stock code: $stockCode"))
+                return@flow
+            }
+
+            val response = apiService.getStockDayData(stockId, startDate, endDate)
+            val candlestickData = response.map { dto ->
+                CandlestickData(
+                    time = parseDate(dto.date) * 1000,
+                    open = dto.openPrice.toFloat(),
+                    high = dto.highPrice.toFloat(),
+                    low = dto.lowPrice.toFloat(),
+                    close = dto.closePrice.toFloat(),
+                    volume = dto.volume.toLong()
+                )
+            }
+
+            emit(Resource.Success(candlestickData))
+        } catch (e: HttpException) {
+            emit(Resource.Error("Network error: ${e.localizedMessage}"))
+        } catch (e: IOException) {
+            emit(Resource.Error("Network connection failed"))
+        } catch (e: Exception) {
+            emit(Resource.Error("Unexpected error: ${e.localizedMessage}"))
+        }
+    }
+
+    /**
+     * 역사챌린지 날짜시간 문자열을 timestamp로 변환
+     * originDateTime이나 eventDateTime 형태를 처리
+     */
+    private fun parseHistoryChallengeDateTime(dateTimeString: String): Long {
+        return try {
+            // LocalDateTime 형태의 문자열을 처리 (2020-07-08T15:10:00 형태)
+            val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            format.parse(dateTimeString)?.time ?: 0L
+        } catch (e: Exception) {
+            try {
+                // 다른 형태의 날짜 문자열 처리 시도
+                val format2 = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                format2.parse(dateTimeString)?.time ?: 0L
+            } catch (e2: Exception) {
+                0L
+            }
         }
     }
 }

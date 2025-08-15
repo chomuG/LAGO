@@ -42,6 +42,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.lago.app.presentation.viewmodel.historychallenge.HistoryChallengeChartViewModel
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 // 커스텀 바텀시트를 위한 imports
@@ -77,16 +78,19 @@ import com.lago.app.domain.entity.MACDResult
 import com.lago.app.domain.entity.BollingerBandsResult
 import com.lago.app.domain.entity.PatternAnalysisResult
 import com.lago.app.domain.entity.PatternItem
+import com.lago.app.domain.entity.SignalSource
 // ViewModel imports
-import com.lago.app.presentation.viewmodel.chart.ChartViewModel
 import com.lago.app.presentation.viewmodel.chart.ChartUiEvent
 import com.lago.app.presentation.viewmodel.chart.HoldingItem
 import com.lago.app.presentation.viewmodel.chart.TradingItem
+import com.lago.app.presentation.viewmodel.chart.ChartLoadingStage
 import com.skydoves.flexible.core.pxToDp
 // Chart imports - v5 Multi-Panel Chart
 import com.lago.app.presentation.ui.chart.v5.MultiPanelChart
 import com.lago.app.presentation.ui.chart.v5.DataConverter
 import com.lago.app.presentation.ui.chart.v5.toEnabledIndicators
+import com.lago.app.presentation.ui.chart.v5.MinuteAggregator
+import com.lago.app.presentation.ui.chart.v5.Tick
 import kotlin.math.absoluteValue
 
 
@@ -126,7 +130,7 @@ data class SafeZones(
 @Composable
 fun HistoryChallengeChartScreen(
     stockCode: String? = null,
-    viewModel: ChartViewModel = hiltViewModel(),
+    viewModel: HistoryChallengeChartViewModel = hiltViewModel(),
     onNavigateToStockPurchase: (String, String) -> Unit = { _, _ -> },
     onNavigateBack: () -> Unit = {}
 ) {
@@ -136,6 +140,9 @@ fun HistoryChallengeChartScreen(
     val screenHeight = configuration.screenHeightDp.dp
     val screenWidth = configuration.screenWidthDp.dp
     val coroutineScope = rememberCoroutineScope()
+    
+    // 로딩 진행도 상태
+    var loadingProgress by remember { mutableStateOf(0) }
     
     // Device classification
     val isCompactScreen = screenWidth < 400.dp || screenHeight < 700.dp
@@ -455,7 +462,7 @@ fun HistoryChallengeChartScreen(
                     .fillMaxWidth()
                     .weight(1f)  // 자동으로 압축/확장
             ) {
-                // TradingView v5 Multi-Panel Chart with Native API
+                // TradingView v5 Multi-Panel Chart with Native API (기존 방식 유지)
                 val multiPanelData = DataConverter.createMultiPanelData(
                     candlestickData = uiState.candlestickData,
                     volumeData = uiState.volumeData,
@@ -468,21 +475,47 @@ fun HistoryChallengeChartScreen(
                     timeFrame = uiState.config.timeFrame
                 )
 
+                // 기존 MultiPanelChart 사용 + 실시간 업데이트 추가
+                var chartWebView by remember { mutableStateOf<android.webkit.WebView?>(null) }
+                
                 MultiPanelChart(
                     data = multiPanelData,
                     timeFrame = uiState.config.timeFrame,
+                    tradingSignals = uiState.tradingSignals, // 역사챌린지도 매매신호 표시
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = Spacing.md),
                     onChartReady = {
-                        // Chart ready callback
+                        // 차트 렌더링 완료 콜백 - 이제 안전하게 JS 호출 가능
+                        viewModel.onChartReady()
+                        
+                        // JsBridge 설정 (WebView가 준비된 후, 무한 히스토리 리스너 포함)
+                        chartWebView?.let { webView ->
+                            val bridge = com.lago.app.presentation.ui.chart.v5.JsBridge(
+                                webView = webView,
+                                historicalDataListener = viewModel
+                            )
+                            bridge.markReady() // 즉시 준비 상태로 설정
+                            viewModel.setChartBridge(bridge)
+                        }
+                    },
+                    onWebViewReady = { webViewInstance ->
+                        chartWebView = webViewInstance
+                    },
+                    onChartLoading = { isLoading ->
+                        // 웹뷰 로딩 상태 콜백
+                        viewModel.onChartLoadingChanged(isLoading)
+                    },
+                    onLoadingProgress = { progress ->
+                        // 로딩 진행도 콜백
+                        loadingProgress = progress
                     },
                     onDataPointClick = { time, value, panelId ->
                         // Handle data point click
                     },
                     onCrosshairMove = { time, value, panelId ->
                         // Handle crosshair move
-                    }
+                    },
                 )
             }
 
@@ -709,8 +742,12 @@ fun HistoryChallengeChartScreen(
         if (uiState.showIndicatorSettings) {
             IndicatorSettingsDialog(
                 config = uiState.config,
+                showUserTradingSignals = uiState.showUserTradingSignals,
                 onIndicatorToggle = { indicatorType, enabled ->
                     viewModel.onEvent(ChartUiEvent.ToggleIndicator(indicatorType, enabled))
+                },
+                onTradingSignalsToggle = { enabled ->
+                    viewModel.onEvent(ChartUiEvent.ToggleUserTradingSignals(enabled))
                 },
                 onDismiss = {
                     viewModel.onEvent(ChartUiEvent.HideIndicatorSettings)
@@ -718,7 +755,7 @@ fun HistoryChallengeChartScreen(
             )
         }
 
-        // 로딩 상태
+        // 로딩 인디케이터 (텍스트 없이)
         if (uiState.isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -936,7 +973,7 @@ fun TimeFrameSelection(
 
 @Composable
 private fun BottomSheetContent(
-    viewModel: ChartViewModel,
+    viewModel: HistoryChallengeChartViewModel,
     nestedScrollConnection: NestedScrollConnection,
     holdingsListState: LazyListState,
     tradingHistoryListState: LazyListState,
@@ -1520,7 +1557,9 @@ private fun PatternAnalysisError(
 @Composable
 private fun IndicatorSettingsDialog(
     config: ChartConfig,
+    showUserTradingSignals: Boolean,
     onIndicatorToggle: (String, Boolean) -> Unit,
+    onTradingSignalsToggle: (Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -1667,6 +1706,29 @@ private fun IndicatorSettingsDialog(
                         checked = config.indicators.bollingerBands,
                         onCheckedChange = { enabled ->
                             onIndicatorToggle("bollingerBands", enabled)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MainPink,
+                            checkedTrackColor = MainPink.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+
+                // 사용자 매매내역 표시
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "매매내역 표시",
+                        style = BodyR16,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Switch(
+                        checked = showUserTradingSignals,
+                        onCheckedChange = { enabled ->
+                            onTradingSignalsToggle(enabled)
                         },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = MainPink,

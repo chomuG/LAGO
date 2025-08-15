@@ -45,6 +45,16 @@ interface ChartRepository {
     suspend fun getUserHoldings(): Flow<Resource<List<HoldingItem>>>
     
     /**
+     * 과거 캔들스틱 데이터 조회 (무한 히스토리용)
+     */
+    suspend fun getHistoricalCandlestickData(
+        stockCode: String,
+        timeFrame: String,
+        beforeTime: Long? = null,  // 이 시간 이전 데이터
+        limit: Int = 50
+    ): Flow<Resource<List<CandlestickData>>>
+    
+    /**
      * 거래 내역 조회
      */
     suspend fun getTradingHistory(
@@ -82,4 +92,38 @@ interface ChartRepository {
         startTime: String? = null,
         endTime: String? = null
     ): Flow<Resource<PatternAnalysisResult>>
+
+    // ===== 역사챌린지 관련 메서드 =====
+
+    /**
+     * 역사챌린지 조회 (단일 챌린지)
+     */
+    suspend fun getHistoryChallenge(): Flow<Resource<com.lago.app.data.remote.dto.HistoryChallengeResponse>>
+
+    /**
+     * 역사챌린지 차트 데이터 조회
+     */
+    suspend fun getHistoryChallengeChart(
+        challengeId: Int,
+        interval: String,
+        fromDateTime: String,
+        toDateTime: String
+    ): Flow<Resource<List<CandlestickData>>>
+
+    /**
+     * 역사챌린지 뉴스 목록 조회
+     */
+    suspend fun getHistoryChallengeNews(
+        challengeId: Int,
+        pastDateTime: String
+    ): Flow<Resource<List<com.lago.app.data.remote.dto.HistoryChallengeNewsResponse>>>
+
+    /**
+     * 일봉 데이터 조회 (초기 주가 데이터)
+     */
+    suspend fun getDayCandles(
+        stockCode: String,
+        startDate: String,
+        endDate: String
+    ): Flow<Resource<List<CandlestickData>>>
 }

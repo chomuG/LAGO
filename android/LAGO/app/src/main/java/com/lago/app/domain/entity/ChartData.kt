@@ -5,7 +5,8 @@ data class ChartStockInfo(
     val name: String,
     val currentPrice: Float,
     val priceChange: Float,
-    val priceChangePercent: Float
+    val priceChangePercent: Float,
+    val previousDay: Int?
 )
 
 data class CandlestickData(

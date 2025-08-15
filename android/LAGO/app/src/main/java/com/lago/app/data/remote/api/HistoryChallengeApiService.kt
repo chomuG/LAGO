@@ -13,4 +13,7 @@ interface HistoryChallengeApiService {
     suspend fun getHistoryChallengeStocksByChallenge(
         @Path("challengeId") challengeId: Int
     ): Response<List<HistoryChallengeStockDto>>
+    
+    @GET("api/history-challenge")
+    suspend fun getHistoryChallenge(): Response<com.lago.app.data.remote.dto.HistoryChallengeResponse>
 }

@@ -11,6 +11,6 @@ data class HistoryChallengeStock(
     val closePrice: Float,
     val fluctuationRate: Float,
     val tradingVolume: Long,
-    val marketCap: Long,
+    val marketCap: Long? = null,
     val profitRate: Float? = null
 )

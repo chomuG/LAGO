@@ -142,42 +142,60 @@ interface ChartApiService {
     ): PatternAnalysisResponse
 
     // =================================================
-    // 모의투자 관련 API (실제 DB 스키마 기반)
+    // 모의투자 관련 API (백엔드 실제 엔드포인트 기반)
     // =================================================
 
     /**
-     * 주식 매수 주문 (MOCK_TRADE 테이블에 INSERT)
+     * 주식 매수 주문 (백엔드: POST /api/stocks/buy)
      */
-    @POST("api/mock-trade/buy")
+    @POST("api/stocks/buy")
     suspend fun buyStock(
-        @Header("Authorization") token: String,
+        @Header("User-Id") userId: String,
         @Body request: MockTradeRequest
-    ): BaseResponse<MockTradeResponse>
+    ): TradeApiResponse
 
     /**
-     * 주식 매도 주문 (MOCK_TRADE 테이블에 INSERT)
+     * 주식 매도 주문 (백엔드: POST /api/stocks/sell)
      */
-    @POST("api/mock-trade/sell")
+    @POST("api/stocks/sell")
     suspend fun sellStock(
-        @Header("Authorization") token: String,
+        @Header("User-Id") userId: String,
         @Body request: MockTradeRequest
-    ): BaseResponse<MockTradeResponse>
+    ): TradeApiResponse
 
     /**
-     * 계좌 잔고 정보 조회 (ACCOUNTS 테이블)
+     * 통합 매매 주문 (백엔드: POST /api/stocks/trade)
      */
-    @GET("api/accounts/balance")
-    suspend fun getAccountBalance(
-        @Header("Authorization") token: String
-    ): AccountBalanceResponse
+    @POST("api/stocks/trade")
+    suspend fun executeTradeOrder(
+        @Header("User-Id") userId: String,
+        @Body request: MockTradeRequest
+    ): TradeApiResponse
 
     /**
-     * 보유 주식 현황 조회 (STOCK_HOLDING + STOCK_INFO + TICKS 조인)
+     * 계좌 정보 조회 (백엔드: GET /api/accounts/{accountId})
      */
-    @GET("api/accounts/holdings")
-    suspend fun getStockHoldings(
-        @Header("Authorization") token: String
-    ): StockHoldingsResponse
+    @GET("api/accounts/{accountId}")
+    suspend fun getAccount(
+        @Path("accountId") accountId: Long
+    ): AccountDto
+
+    /**
+     * 사용자 포트폴리오 조회 (백엔드: GET /api/users/me/portfolio)
+     */
+    @GET("api/users/me/portfolio")
+    suspend fun getUserPortfolio(
+        @Header("User-Id") userId: String
+    ): List<StockHoldingApiResponse>
+
+    /**
+     * 계좌별 보유주식 조회 (백엔드: GET /api/accounts/{accountId}/holdings)
+     */
+    @GET("api/accounts/{accountId}/holdings")
+    suspend fun getAccountHoldings(
+        @Path("accountId") accountId: Long,
+        @Header("User-Id") userId: String
+    ): List<StockHoldingApiResponse>
 
     /**
      * 거래 내역 조회 (MOCK_TRADE 테이블 페이징)
@@ -265,13 +283,58 @@ interface ChartApiService {
         @Header("Authorization") token: String
     ): AccountResetResponse
 
+    // ===== 역사챌린지 관련 API =====
+
     /**
-     * 종목 코드로 일봉 데이터 조회 (장 마감 시 종가 조회용)
+     * 역사챌린지 조회 (단일 챌린지)
+     */
+    @GET("api/history-challenge")
+    suspend fun getHistoryChallenge(): HistoryChallengeResponse
+
+    /**
+     * 역사챌린지 차트 데이터 조회
+     */
+    @GET("api/history-challenge/{challengeId}")
+    suspend fun getHistoryChallengeChart(
+        @Header("Authorization") authorization: String,
+        @Path("challengeId") challengeId: Int,
+        @Query("interval") interval: String,
+        @Query("fromDateTime") fromDateTime: String,
+        @Query("toDateTime") toDateTime: String
+    ): List<HistoryChallengeDataResponse>
+
+    /**
+     * 역사챌린지 뉴스 목록 조회
+     */
+    @GET("api/history-challenge/{challengeId}/news")
+    suspend fun getHistoryChallengeNews(
+        @Header("Authorization") authorization: String,
+        @Path("challengeId") challengeId: Int,
+        @Query("pastDateTime") pastDateTime: String
+    ): List<HistoryChallengeNewsResponse>
+
+    /**
+     * 역사챌린지 뉴스 상세 조회
+     */
+    @GET("api/history-challenge/{challengeId}/news/{challengeNewsId}")
+    suspend fun getHistoryChallengeNewsDetail(
+        @Path("challengeId") challengeId: Int,
+        @Path("challengeNewsId") challengeNewsId: Int
+    ): HistoryChallengeNewsResponse
+
+    /**
+     * 차트 패턴 목록 조회
+     */
+    @GET("api/study/chart")
+    suspend fun getChartPatterns(): List<ChartPatternResponse>
+
+    /**
+     * 일봉 데이터 조회 (초기 주가 데이터)
      */
     @GET("api/stocks/day/{code}")
-    suspend fun getStockDayByCode(
+    suspend fun getDayCandles(
         @Path("code") stockCode: String,
         @Query("start") startDate: String,
         @Query("end") endDate: String
-    ): List<StockDayDto>
+    ): List<StockDayCandleDto>
 }

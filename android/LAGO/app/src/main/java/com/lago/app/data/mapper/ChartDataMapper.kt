@@ -11,7 +11,8 @@ object ChartDataMapper {
             name = name,
             currentPrice = currentPrice.toFloat(),
             priceChange = priceChange.toFloat(),
-            priceChangePercent = priceChangeRate.toFloat()
+            priceChangePercent = priceChangeRate.toFloat(),
+            previousDay = null
         )
     }
 
