@@ -28,6 +28,9 @@ interface ApiService {
     @GET("api/accounts/{userId}/history")
     suspend fun getHistoryTransactions(@Path("userId") userId: Long): List<TransactionDto>
 
+    @GET("api/accounts/ai/{aiId}/transactions")
+    suspend fun getAiTransactions(@Path("aiId") aiId: Long): List<TransactionDto>
+
     @GET("api/users/{userId}/current-status")
     suspend fun getUserCurrentStatus(@Path("userId") userId: Int): UserCurrentStatusDto
 

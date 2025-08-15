@@ -56,6 +56,7 @@ fun OrderHistoryScreen(
     }
     
     LaunchedEffect(userId, type) {
+        android.util.Log.d("ORDER_HISTORY", "OrderHistoryScreen LaunchedEffect - userId=$userId, type=$type")
         viewModel.loadTransactions(userId, type)
     }
     
