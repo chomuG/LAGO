@@ -35,12 +35,12 @@ public interface HistoryChallengeDataRepository extends JpaRepository<HistoryCha
             "    sub.* " +
             "FROM (" +
                 "SELECT " +
-                    "time_bucket(CAST(:interval AS INTERVAL), hcd.event_date_time) AS bucket, " +
-                    "FIRST(hcd.origin_date_time, hcd.event_date_time) AS origin_date, " +
-                    "FIRST(hcd.open_price, hcd.event_date_time) AS open, " +
+                    "time_bucket(CAST(:interval AS INTERVAL), hcd.origin_date_time) AS bucket, " +
+                    "FIRST(hcd.event_date_time, hcd.origin_date_time) AS event_date, " +
+                    "FIRST(hcd.open_price, hcd.origin_date_time) AS open, " +
                     "MAX(hcd.high_price) AS high, " +
                     "MIN(hcd.low_price) AS low, " +
-                    "LAST(hcd.close_price, hcd.event_date_time) AS close, " +
+                    "LAST(hcd.close_price, hcd.origin_date_time) AS close, " +
                     "SUM(hcd.volume) AS volume " +
                 "FROM history_challenge_data hcd " +
                 "WHERE hcd.challenge_id = :challengeId " +
@@ -64,16 +64,16 @@ public interface HistoryChallengeDataRepository extends JpaRepository<HistoryCha
      * @return 집계된 주가 데이터 목록
      */
     @Query(value = "SELECT \n" +
-            "    time_bucket(CAST(:interval AS INTERVAL), hcd.event_date_time) AS bucket, " +
-            "    FIRST(hcd.open_price, hcd.event_date_time) AS open, " +
+            "    time_bucket(CAST(:interval AS INTERVAL), hcd.origin_date_time) AS bucket, " +
+            "    FIRST(hcd.open_price, hcd.origin_date_time) AS open, " +
             "    MAX(hcd.high_price) AS high, " +
             "    MIN(hcd.low_price) AS low, " +
-            "    LAST(hcd.close_price, hcd.event_date_time) AS close, " +
+            "    LAST(hcd.close_price, hcd.origin_date_time) AS close, " +
             "    SUM(hcd.volume) AS volume " +
             "FROM history_challenge_data hcd " +
                 "JOIN history_challenge hc ON hcd.challenge_id = hc.challenge_id " +
             "WHERE hc.stock_code = :stockCode " +
-                "AND hcd.event_date_time BETWEEN :fromDateTime AND :toDateTime " +
+                "AND hcd.origin_date_time BETWEEN :fromDateTime AND :toDateTime " +
             "GROUP BY bucket " +
             "ORDER BY bucket", nativeQuery = true)
     List<Object[]> findAggregatedByStockCodeAndDateRangeAndInterval(
