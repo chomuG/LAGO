@@ -2,11 +2,11 @@ package com.example.LAGO.service;
 
 import com.example.LAGO.domain.News;
 import com.example.LAGO.domain.StockInfo;
-import com.example.LAGO.domain.WatchList;  // 관심종목 엔티티
+import com.example.LAGO.domain.Interest;  // 관심종목 엔티티
 import com.example.LAGO.dto.response.NewsResponse;
 import com.example.LAGO.repository.NewsRepository;
 import com.example.LAGO.repository.StockInfoRepository;
-import com.example.LAGO.repository.WatchListRepository;  // 관심종목 Repository
+import com.example.LAGO.repository.InterestRepository;  // 관심종목 Repository
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,7 +32,7 @@ public class NewsService {
 
     private final NewsRepository newsRepository;
     private final StockInfoRepository stockInfoRepository;
-    private final WatchListRepository watchListRepository;  // 관심종목 Repository
+    private final InterestRepository interestRepository;  // 관심종목 Repository
     private final RestTemplate restTemplate;
     private final NewsSaver newsSaver;
 
@@ -83,31 +83,31 @@ public class NewsService {
         log.info("=== DB 기반 관심종목 뉴스 수집 시작 ===");
 
         try {
-            // 사용자가 하트 누른 관심종목 조회
-            List<WatchList> watchListItems = watchListRepository.findAllActive();
+            // 모든 관심종목 조회 (stockInfo도 함께 로드)
+            List<Interest> interestItems = interestRepository.findAll();
 
-            if (watchListItems.isEmpty()) {
-                log.info("활성화된 관심종목이 없습니다.");
+            if (interestItems.isEmpty()) {
+                log.info("등록된 관심종목이 없습니다.");
                 return;
             }
 
-            log.info("관심종목 {}개 발견", watchListItems.size());
+            log.info("관심종목 {}개 발견", interestItems.size());
 
             // 종목별로 순차 처리
-            for (WatchList watchItem : watchListItems) {
+            for (Interest interest : interestItems) {
                 try {
-                    StockInfo stock = watchItem.getStock();
+                    StockInfo stock = interest.getStockInfo();
 
                     if (stock == null) {
-                        log.warn("관심종목에 연결된 종목 정보가 없습니다: {}", watchItem.getId());
+                        log.warn("관심종목에 연결된 종목 정보가 없습니다: {}", interest.getInterestId());
                         continue;
                     }
 
-                    log.info("관심종목 뉴스 수집: {} ({})", stock.getCompanyName(), stock.getCode());
+                    log.info("관심종목 뉴스 수집: {} ({})", stock.getName(), stock.getCode());
 
                     collectSingleWatchlistNews(
                             stock.getCode(),
-                            stock.getCompanyName(),
+                            stock.getName(),
                             getAliasesForStock(stock),
                             5  // 종목당 5개 뉴스
                     );
@@ -117,7 +117,7 @@ public class NewsService {
 
                 } catch (Exception e) {
                     log.error("관심종목 뉴스 수집 실패 - ID: {}, 오류: {}",
-                            watchItem.getId(), e.getMessage());
+                            interest.getInterestId(), e.getMessage());
                 }
             }
 
@@ -250,15 +250,13 @@ public class NewsService {
         List<String> aliases = new ArrayList<>();
 
         // 회사명 변형 추가
-        String companyName = stock.getCompanyName();
+        String companyName = stock.getName();
         if (companyName != null) {
             // 기본 회사명
             aliases.add(companyName);
 
             // 영문명이 있으면 추가
-            if (stock.getCompanyNameEn() != null) {
-                aliases.add(stock.getCompanyNameEn());
-            }
+            // 영문명은 StockInfo에서 제거됨
 
             // 일반적인 약칭 생성
             if (companyName.endsWith("전자")) {
@@ -294,16 +292,25 @@ public class NewsService {
      * 관심종목 뉴스 조회
      */
     public Page<NewsResponse> getWatchlistNews(Long userId, Pageable pageable) {
-        // 사용자의 관심종목 코드 조회
-        List<String> stockCodes = watchListRepository.findActiveStockCodesByUserId(userId);
+        // 사용자의 관심종목 조회 (stockInfo도 함께 로드)
+        List<Interest> userInterests = interestRepository.findWithStockInfoByUserId(userId);
 
-        if (stockCodes.isEmpty()) {
+        if (userInterests.isEmpty()) {
             return Page.empty(pageable);
         }
 
-        // 관심종목 뉴스 조회
-        // 새 스키마에서는 stock_code가 없으므로 전체 뉴스 반환
-        Page<News> newsPage = newsRepository.findAllByOrderByPublishedAtDesc(pageable);
+        // 관심종목의 종목명들로 뉴스 키워드 검색
+        List<String> stockNames = userInterests.stream()
+                .map(interest -> interest.getStockInfo().getName())
+                .distinct()
+                .collect(Collectors.toList());
+        
+        log.info("사용자 {}의 관심종목: {}", userId, stockNames);
+
+        // 키워드로 뉴스 검색 (여러 종목명 OR 조건)
+        String searchKeyword = String.join("|", stockNames);
+        Page<News> newsPage = newsRepository.findByKeywordSearch(searchKeyword, pageable);
+        
         return newsPage.map(NewsResponse::from);
     }
 
@@ -398,14 +405,14 @@ public class NewsService {
         
         for (StockInfo stock : majorStocks) {
             try {
-                collectHistoricalNewsForStock(stock.getCode(), stock.getCompanyName(),
+                collectHistoricalNewsForStock(stock.getCode(), stock.getName(),
                                             date, getAliasesForStock(stock));
                 
                 // API 부하 방지를 위한 지연
                 Thread.sleep(2000);
             } catch (Exception e) {
                 log.error("역사적 뉴스 수집 실패 - 종목: {}, 오류: {}", 
-                         stock.getCompanyName(), e.getMessage());
+                         stock.getName(), e.getMessage());
             }
         }
         
