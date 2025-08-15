@@ -55,7 +55,7 @@ data class AiPieChartData(
 fun AiPortfolioScreen(
     onBackClick: () -> Unit = {},
     onStockClick: (String) -> Unit = {},
-    onOrderHistoryClick: (Int) -> Unit = {},
+    onOrderHistoryClick: (Int, Int) -> Unit = { _, _ -> },
     userId: Int = 1,
     botViewModel: BotPortfolioViewModel = hiltViewModel()
 ) {
@@ -73,7 +73,11 @@ fun AiPortfolioScreen(
     // 해당 userId로 데이터 로드
     LaunchedEffect(userId) {
         android.util.Log.d("AiPortfolioScreen", "🤖 매매봇 화면 로드: userId=$userId, botName=$botName")
-        botViewModel.loadBotPortfolio(userId)
+        runCatching {
+            botViewModel.loadBotPortfolio(userId)
+        }.onFailure { e ->
+            android.util.Log.e("AiPortfolioScreen", "포트폴리오 로드 실패", e)
+        }
     }
     // API 데이터를 기반으로 주식 리스트 생성
     val aiStockList = if (uiState.portfolioSummary != null) {
@@ -101,6 +105,11 @@ fun AiPortfolioScreen(
         AiPieChartData(stock.name, stock.percentage.removeSuffix("%").toFloatOrNull() ?: 0f, stock.color)
     }
 
+    val safeOnOrderHistoryClick: (Int, Int) -> Unit = { uid, type ->
+        runCatching { onOrderHistoryClick(uid, type) }
+            .onFailure { e -> android.util.Log.e("AiPortfolioScreen", "거래내역 클릭 오류", e) }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -125,7 +134,12 @@ fun AiPortfolioScreen(
             item { AiProfileSection(botName) }
 
             // 자산 현황 타이틀 섹션
-            item { AiAssetTitleSection(onOrderHistoryClick, userId) }
+            item {
+                AiAssetTitleSection(
+                    onOrderHistoryClick = onOrderHistoryClick,
+                    userId = userId
+                )
+            }
 
             // 자산 현황 섹션
             item { AiAssetStatusSection(uiState.portfolioSummary, botViewModel) }
@@ -165,7 +179,8 @@ fun AiProfileSection(botName: String) {
 }
 
 @Composable
-fun AiAssetTitleSection(onOrderHistoryClick: (Int) -> Unit = {}, userId: Int) {
+fun AiAssetTitleSection(onOrderHistoryClick: (Int, Int) -> Unit = { _, _ -> },
+                        userId: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -181,7 +196,10 @@ fun AiAssetTitleSection(onOrderHistoryClick: (Int) -> Unit = {}, userId: Int) {
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clickable { onOrderHistoryClick(userId) }
+            modifier = Modifier.clickable { 
+                android.util.Log.d("AI_PORTFOLIO", "AiAssetTitleSection - 거래내역 클릭: userId=$userId, type=2")
+                onOrderHistoryClick(userId, 2) 
+            }
         ) {
             Text(
                 text = "거래내역 >",

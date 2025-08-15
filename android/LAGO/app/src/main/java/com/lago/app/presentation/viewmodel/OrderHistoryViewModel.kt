@@ -26,19 +26,26 @@ class OrderHistoryViewModel @Inject constructor(
         viewModelScope.launch {
             android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Loading transactions for userId: $userId, type: $type")
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            
-            // 개발용: 항상 userId 5 고정 사용
-            val actualUserId = 5
-            android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Using fixed userId: $actualUserId, type: $type")
+
+            // userId가 null이면 fallback: 일반 사용자 5
+            val actualUserId = userId ?: 5
+            android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Using userId: $actualUserId for type: $type")
             
             val userIdLong = actualUserId.toLong()
             
-            val result = if (type == 1) {
-                // 역사모드: history API 호출
-                transactionRepository.getHistoryTransactions(userIdLong)
-            } else {
-                // 모의투자: 기본 transactions API 호출
-                transactionRepository.getTransactions(userIdLong)
+            val result = when (type) {
+                1 -> {
+                    // 역사모드: history API 호출
+                    transactionRepository.getHistoryTransactions(userIdLong)
+                }
+                2 -> {
+                    // AI 매매봇: AI transactions API 호출 (userId를 aiId로 사용)
+                    transactionRepository.getAiTransactions(userIdLong)
+                }
+                else -> {
+                    // 모의투자: 기본 transactions API 호출  
+                    transactionRepository.getTransactions(userIdLong)
+                }
             }
             
             result.fold(
