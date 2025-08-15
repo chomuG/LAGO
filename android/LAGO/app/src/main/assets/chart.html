@@ -579,6 +579,32 @@
             console.log('Sample data added to chart with volume colors');
         };
         
+        // Android에서 호출하는 함수명과의 호환성을 위한 wrapper 함수들
+        window.setSeriesData = function (data) { 
+            return window.updateCandleData ? window.updateCandleData(data) : undefined;
+        };
+        
+        window.updateRealTimeBar = function (bar) { 
+            return window.updateBarSimple ? window.updateBarSimple(bar) : undefined;
+        };
+        
+        window.updateRealTimeVolume = function (vbar) { 
+            return window.updateVolume ? window.updateVolume(vbar) : undefined;
+        };
+
+        // LAGO 네임스페이스 래퍼 (사용자 요청 함수명들)
+        window.LAGO = {
+            setInitialData: function(data) {
+                return window.updateCandleData ? window.updateCandleData(data) : undefined;
+            },
+            updateBar: function(bar) {
+                return window.updateBarSimple ? window.updateBarSimple(bar) : undefined;
+            },
+            updateVolume: function(vbar) {
+                return window.updateVolume ? window.updateVolume(vbar) : undefined;
+            }
+        };
+        
         // 차트 초기화 실행
         document.addEventListener('DOMContentLoaded', initChart);
     </script>

@@ -92,7 +92,16 @@ import com.lago.app.presentation.ui.chart.v5.toEnabledIndicators
 import com.lago.app.presentation.ui.chart.v5.MinuteAggregator
 import com.lago.app.presentation.ui.chart.v5.Tick
 import kotlin.math.absoluteValue
+import java.time.LocalDate
+import java.time.ZoneOffset
 
+
+/**
+ * 일봉 문자열을 UTC 자정 기준 epoch seconds로 변환
+ * 예: "2020-07-08" → 1594166400L
+ */
+private fun String.toEpochSecUtcMidnight(): Long =
+    LocalDate.parse(this).atStartOfDay(ZoneOffset.UTC).toEpochSecond()
 
 /**
  * HistoryChallengeChartScreen - 역사 챌린지 전용 차트 화면
@@ -475,47 +484,12 @@ fun HistoryChallengeChartScreen(
                     timeFrame = uiState.config.timeFrame
                 )
 
-                // 기존 MultiPanelChart 사용 + 실시간 업데이트 추가
-                var chartWebView by remember { mutableStateOf<android.webkit.WebView?>(null) }
-                
-                MultiPanelChart(
-                    data = multiPanelData,
-                    timeFrame = uiState.config.timeFrame,
-                    tradingSignals = uiState.tradingSignals, // 역사챌린지도 매매신호 표시
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = Spacing.md),
-                    onChartReady = {
-                        // 차트 렌더링 완료 콜백 - 이제 안전하게 JS 호출 가능
-                        viewModel.onChartReady()
-                        
-                        // JsBridge 설정 (WebView가 준비된 후, 무한 히스토리 리스너 포함)
-                        chartWebView?.let { webView ->
-                            val bridge = com.lago.app.presentation.ui.chart.v5.JsBridge(
-                                webView = webView,
-                                historicalDataListener = viewModel
-                            )
-                            bridge.markReady() // 즉시 준비 상태로 설정
-                            viewModel.setChartBridge(bridge)
-                        }
-                    },
-                    onWebViewReady = { webViewInstance ->
-                        chartWebView = webViewInstance
-                    },
-                    onChartLoading = { isLoading ->
-                        // 웹뷰 로딩 상태 콜백
-                        viewModel.onChartLoadingChanged(isLoading)
-                    },
+                // 차트를 완전한 "상태 섬"으로 고립 - 외부 상태와 완전 분리
+                StableChartComponent(
+                    viewModel = viewModel,
                     onLoadingProgress = { progress ->
-                        // 로딩 진행도 콜백
                         loadingProgress = progress
-                    },
-                    onDataPointClick = { time, value, panelId ->
-                        // Handle data point click
-                    },
-                    onCrosshairMove = { time, value, panelId ->
-                        // Handle crosshair move
-                    },
+                    }
                 )
             }
 
@@ -1750,6 +1724,41 @@ private fun IndicatorSettingsDialog(
                 )
             }
         }
+    )
+}
+
+/**
+ * 완전 정적 차트 컴포넌트 - 절대 recomposition 되지 않음
+ * 외부 데이터는 ViewModel을 통해 JavaScript로만 전달
+ */
+@Composable
+private fun StableChartComponent(
+    viewModel: HistoryChallengeChartViewModel,
+    onLoadingProgress: (Int) -> Unit
+) {
+    // 완전 정적 차트 - 빈 데이터로 한 번만 생성
+    MultiPanelChart(
+        data = com.lago.app.presentation.ui.chart.v5.MultiPanelData(priceData = emptyList()),
+        timeFrame = "D", // 완전 고정
+        tradingSignals = emptyList(), // 완전 고정
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = Spacing.md),
+        onChartReady = {
+            viewModel.onChartReady()
+        },
+        onWebViewReady = { webViewInstance ->
+            val bridge = com.lago.app.presentation.ui.chart.v5.JsBridge(
+                webView = webViewInstance,
+                historicalDataListener = viewModel
+            )
+            bridge.markReady()
+            viewModel.setChartBridge(bridge)
+        },
+        onChartLoading = { isLoading ->
+            viewModel.onChartLoadingChanged(isLoading)
+        },
+        onLoadingProgress = onLoadingProgress
     )
 }
 

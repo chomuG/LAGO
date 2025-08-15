@@ -170,15 +170,16 @@ fun MultiPanelChart(
     onLoadingProgress: ((Int) -> Unit)? = null
 ) {
     
-    // Create chart options with timeFrame-specific timeScale
-    val finalChartOptions = remember(timeFrame, chartOptions) {
+    // Create chart options with timeFrame-specific timeScale (고정된 상수 키 사용)
+    val finalChartOptions = remember("chart_options_key") {
         val timeScaleOptions = DataConverter.createTimeScaleOptions(timeFrame)
         chartOptions.copy(timeScale = timeScaleOptions)
     }
     
-    // Generate HTML content with embedded JavaScript
-    val htmlContent = remember(data, finalChartOptions, tradingSignals, timeFrame) {
-        generateMultiPanelHtml(data, finalChartOptions, tradingSignals, timeFrame)
+    // Generate HTML content - 초기 빈 데이터로 한 번만 생성
+    val htmlContent = remember("html_content_key") {
+        val emptyData = MultiPanelData(priceData = emptyList())
+        generateMultiPanelHtml(emptyData, finalChartOptions, emptyList(), timeFrame)
     }
     
     // Use WebChartScreen with dark mode optimization
@@ -1547,6 +1548,34 @@ private fun generateMultiPanelHtml(
                 isLoadingHistory = false;
             }
         }
+        
+        // ========== Android 호환성을 위한 wrapper 함수들 ==========
+        
+        // Android에서 호출하는 함수명과의 호환성을 위한 wrapper 함수들
+        window.setSeriesData = function (data) { 
+            return window.setInitialData ? window.setInitialData('main', data) : undefined;
+        };
+        
+        window.updateRealTimeBar = function (bar) { 
+            return window.updateBar ? window.updateBar('main', bar) : undefined;
+        };
+        
+        window.updateRealTimeVolume = function (vbar) { 
+            return window.updateVolume ? window.updateVolume(vbar) : undefined;
+        };
+
+        // LAGO 네임스페이스 래퍼 (사용자 요청 함수명들)
+        window.LAGO = {
+            setInitialData: function(data) {
+                return window.setInitialData ? window.setInitialData('main', data) : undefined;
+            },
+            updateBar: function(bar) {
+                return window.updateBar ? window.updateBar('main', bar) : undefined;
+            },
+            updateVolume: function(vbar) {
+                return window.updateVolume ? window.updateVolume(vbar) : undefined;
+            }
+        };
         
         // Android에서 호출할 함수 - 과거 데이터 추가
         window.addHistoricalData = function(newDataJson) {
