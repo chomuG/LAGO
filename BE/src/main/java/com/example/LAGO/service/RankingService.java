@@ -48,6 +48,8 @@ public class RankingService {
                 SELECT 
                     a.user_id,
                     u.nickname,
+                    u.personality,
+                    u.is_ai,
                     a.total_asset,
                     a.profit_rate,
                     a.profit,
@@ -61,6 +63,8 @@ public class RankingService {
                 rank,
                 user_id,
                 nickname,
+                personality,
+                is_ai,
                 total_asset,
                 profit_rate,
                 profit
@@ -80,6 +84,8 @@ public class RankingService {
                             .rank(rs.getInt("rank"))
                             .userId(rs.getLong("user_id"))
                             .username(rs.getString("nickname"))
+                            .personality(rs.getString("personality"))
+                            .isAi(rs.getBoolean("is_ai"))
                             .totalAsset(rs.getInt("total_asset"))
                             .profitRate(rs.getDouble("profit_rate"))
                             .totalProfit(rs.getInt("profit"))
@@ -113,6 +119,8 @@ public class RankingService {
                 SELECT 
                     a.user_id,
                     u.nickname,
+                    u.personality,
+                    u.is_ai,
                     a.total_asset,
                     a.profit_rate,
                     a.profit,
@@ -126,6 +134,8 @@ public class RankingService {
                 rank,
                 user_id,
                 nickname,
+                personality,
+                is_ai,
                 total_asset,
                 profit_rate,
                 profit
@@ -144,6 +154,8 @@ public class RankingService {
                             .rank(rs.getInt("rank"))
                             .userId(rs.getLong("user_id"))
                             .username(rs.getString("nickname"))
+                            .personality(rs.getString("personality"))
+                            .isAi(rs.getBoolean("is_ai"))
                             .totalAsset(rs.getInt("total_asset"))
                             .profitRate(rs.getDouble("profit_rate"))
                             .totalProfit(rs.getInt("profit"))
