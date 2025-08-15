@@ -1,0 +1,36 @@
+Merge branch 'android-dev' of https://lab.ssafy.com/s13-webmobile4-sub1/S13P11D203 into android-dev
+
+# Conflicts:
+#	android/LAGO/app/src/main/java/com/lago/app/data/remote/RemoteDataSource.kt
+#	android/LAGO/app/src/main/java/com/lago/app/presentation/ui/mypage/AiPortfolioScreen.kt
+#
+# It looks like you may be committing a merge.
+# If this is not correct, please run
+#	git update-ref -d MERGE_HEAD
+# and try again.
+
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch android-dev
+# Your branch and 'origin/android-dev' have diverged,
+# and have 3 and 3 different commits each, respectively.
+#
+# All conflicts fixed but you are still merging.
+#
+# Changes to be committed:
+#	modified:   android/LAGO/app/src/main/java/com/lago/app/MainActivity.kt
+#	modified:   android/LAGO/app/src/main/java/com/lago/app/data/remote/ApiService.kt
+#	modified:   android/LAGO/app/src/main/java/com/lago/app/data/remote/RemoteDataSource.kt
+#	modified:   android/LAGO/app/src/main/java/com/lago/app/data/repository/TransactionRepositoryImpl.kt
+#	modified:   android/LAGO/app/src/main/java/com/lago/app/domain/repository/TransactionRepository.kt
+#	modified:   android/LAGO/app/src/main/java/com/lago/app/presentation/navigation/NavGraph.kt
+#	modified:   android/LAGO/app/src/main/java/com/lago/app/presentation/ui/home/OrderHistoryScreen.kt
+#	modified:   android/LAGO/app/src/main/java/com/lago/app/presentation/ui/mypage/AiPortfolioScreen.kt
+#	modified:   android/LAGO/app/src/main/java/com/lago/app/presentation/viewmodel/OrderHistoryViewModel.kt
+#	new file:   android/LAGO/app/src/main/res/drawable/profile_blue.png
+#	new file:   android/LAGO/app/src/main/res/drawable/profile_green.png
+#	new file:   android/LAGO/app/src/main/res/drawable/profile_red.png
+#	new file:   android/LAGO/app/src/main/res/drawable/profile_yellow.png
+#

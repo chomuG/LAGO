@@ -207,8 +207,7 @@ fun AiAssetTitleSection(onOrderHistoryClick: (Int, Int) -> Unit = { _, _ -> },
             modifier = Modifier.clickable {
                 android.util.Log.d("AI_PORTFOLIO", "AiAssetTitleSection - 거래내역 클릭: userId=$userId, type=2")
                 onOrderHistoryClick(userId, 2)
-            }
-            modifier = Modifier.clickable { onOrderHistoryClick(userId) } // userId는 봇ID(1~4), 내부에서 type=2 처리
+            },
         ) {
             Text(
                 text = "거래내역 >",
