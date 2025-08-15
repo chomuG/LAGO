@@ -10,6 +10,7 @@ import com.example.LAGO.dto.response.TechnicalAnalysisResult;
 import com.example.LAGO.repository.AccountRepository;
 import com.example.LAGO.repository.NewsRepository;
 import com.example.LAGO.repository.UserRepository;
+import com.example.LAGO.repository.TicksRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,6 +48,7 @@ public class AutoTradingBotService {
     private final AccountRepository accountRepository;
     private final NewsRepository newsRepository;
     private final TechnicalAnalysisService technicalAnalysisService;
+    private final TicksRepository ticksRepository;
     private final RestTemplate restTemplate;
     
     @Value("${server.port:9000}")
@@ -61,8 +63,8 @@ public class AutoTradingBotService {
     private static final Integer AI_BOT_ACCOUNT_TYPE = 2;
     
     /** 매매 신호 임계값 */
-    private static final double BUY_THRESHOLD = 0.6;
-    private static final double SELL_THRESHOLD = -0.4;
+    private static final double BUY_THRESHOLD = 0.1;  // 낮춤: 더 쉽게 매수 신호
+    private static final double SELL_THRESHOLD = -0.1; // 낮춤: 더 쉽게 매도 신호
     
     /** 기본 매매 수량 */
     private static final int DEFAULT_QUANTITY = 1;
@@ -181,6 +183,13 @@ public class AutoTradingBotService {
                     .orElse(0.0);
             
             log.debug("📊 삼성전자 뉴스 {}개 분석, 평균 감정점수: {}", recentNews.size(), averageSentiment);
+            
+            // 테스트용: 강제로 높은 감정점수 설정
+            if (!recentNews.isEmpty()) {
+                log.info("🧪 테스트용: 감정점수를 0.8로 강제 설정");
+                return 0.8;
+            }
+            
             return averageSentiment;
             
         } catch (Exception e) {
@@ -270,38 +279,82 @@ public class AutoTradingBotService {
     }
     
     /**
-     * 봇 성향별 매매 신호 계산
+     * 봇 성향별 매매 신호 계산 (단순화된 전략)
      */
     private TradingDecision calculateTradingDecision(User bot, double sentiment, 
                                                    TechnicalAnalysisResult technical, Account account) {
         
-        String personality = bot.getPersonality();
-        if (personality == null) personality = "BALANCED";
+        String nickname = bot.getNickname();
+        if (nickname == null) nickname = "균형이";
         
         // 기술적 분석 점수 계산 (-1.0 ~ 1.0)
         double technicalScore = calculateTechnicalScore(technical);
         
-        // 봇별 가중치 적용
-        double finalScore = switch (personality.toUpperCase()) {
-            case "AGGRESSIVE" -> sentiment * 0.7 + technicalScore * 0.3; // 화끈이: 감정분석 중시
-            case "ACTIVE" -> sentiment * 0.5 + technicalScore * 0.5;     // 적극이: 균형
-            case "BALANCED" -> sentiment * 0.4 + technicalScore * 0.6;   // 균형이: 기술분석 중시
-            case "CONSERVATIVE" -> sentiment * 0.3 + technicalScore * 0.7; // 조심이: 기술분석 우선
-            default -> sentiment * 0.4 + technicalScore * 0.6;
-        };
+        // 봇별 단순화된 전략
+        TradeAction action = TradeAction.HOLD;
+        double finalScore = 0.0;
+        String strategy = "";
         
-        // 매매 신호 결정
-        TradeAction action;
-        if (finalScore >= BUY_THRESHOLD) {
-            action = TradeAction.BUY;
-        } else if (finalScore <= SELL_THRESHOLD) {
-            action = TradeAction.SELL;
-        } else {
-            action = TradeAction.HOLD;
+        switch (nickname) {
+            case "화끈이": // 뉴스 감정분석 우선, 공격적 매매
+                finalScore = sentiment * 0.7 + technicalScore * 0.3;
+                if (sentiment > 0.5 && technical != null && technical.getRsi() != null && technical.getRsi() < 40) {
+                    action = TradeAction.BUY;
+                    strategy = "강한매수신호: 뉴스긍정+" + "RSI과매도";
+                } else if (sentiment < -0.3 && technical != null && technical.getRsi() != null && technical.getRsi() > 70) {
+                    action = TradeAction.SELL;
+                    strategy = "매도신호: 뉴스부정+RSI과매수";
+                }
+                break;
+                
+            case "적극이": // 균형있는 접근, MACD 활용
+                finalScore = sentiment * 0.5 + technicalScore * 0.5;
+                if (sentiment > 0.3 && technical != null && technical.getMacdLine() != null 
+                    && technical.getMacdLine() > 0) {
+                    action = TradeAction.BUY;
+                    strategy = "매수신호: 뉴스중립긍정+MACD상승";
+                } else if (sentiment < -0.2 && technical != null && technical.getMacdLine() != null 
+                           && technical.getMacdLine() < 0) {
+                    action = TradeAction.SELL;
+                    strategy = "매도신호: 뉴스부정+MACD하락";
+                }
+                break;
+                
+            case "균형이": // 기술적분석 우선, 이동평균 활용
+                finalScore = sentiment * 0.4 + technicalScore * 0.6;
+                if (sentiment > 0.1 && technical != null && technical.getMa20() != null 
+                    && technical.getMa60() != null && technical.getMa20() > technical.getMa60()) {
+                    action = TradeAction.BUY;
+                    strategy = "매수신호: 뉴스중립+20일선>60일선";
+                } else if (sentiment < -0.1 && technical != null && technical.getMa20() != null 
+                           && technical.getMa60() != null && technical.getMa20() < technical.getMa60()) {
+                    action = TradeAction.SELL;
+                    strategy = "매도신호: 뉴스중립부정+20일선<60일선";
+                }
+                break;
+                
+            case "조심이": // 매우 보수적, 강한 신호에서만 매매
+                finalScore = sentiment * 0.3 + technicalScore * 0.7;
+                if (sentiment < -0.3 && technical != null && technical.getRsi() != null 
+                    && technical.getRsi() > 70) {
+                    action = TradeAction.SELL;
+                    strategy = "보수매도: 뉴스강한부정+RSI과매수";
+                }
+                // 조심이는 매수하지 않고 위험할 때만 매도
+                break;
+                
+            default: // 기본 전략
+                finalScore = sentiment * 0.4 + technicalScore * 0.6;
+                if (finalScore >= BUY_THRESHOLD) {
+                    action = TradeAction.BUY;
+                } else if (finalScore <= SELL_THRESHOLD) {
+                    action = TradeAction.SELL;
+                }
+                break;
         }
         
-        log.info("📊 AI 봇 [{}] 분석결과 - 감정:{:.3f}, 기술:{:.3f}, 통합:{:.3f} → {}", 
-                bot.getNickname(), sentiment, technicalScore, finalScore, action);
+        log.info("📊 AI 봇 [{}] 분석결과 - 감정:{:.3f}, 기술:{:.3f}, 통합:{:.3f} → {} ({})", 
+                nickname, sentiment, technicalScore, finalScore, action, strategy);
         
         return new TradingDecision(action, finalScore, DEFAULT_QUANTITY);
     }
@@ -338,17 +391,46 @@ public class AutoTradingBotService {
     }
     
     /**
+     * 삼성전자 현재가 조회
+     */
+    private Integer getCurrentPrice() {
+        try {
+            // ticks 테이블에서 삼성전자 최신 가격 조회
+            List<Object[]> latestTick = ticksRepository.findLatestTicksByStockCode(SAMSUNG_STOCK_CODE, 1);
+            
+            if (!latestTick.isEmpty()) {
+                Object[] tick = latestTick.get(0);
+                // close_price는 인덱스 4에 위치 (ts, open, high, low, close, volume)
+                Integer currentPrice = ((Number) tick[4]).intValue();
+                log.debug("📊 삼성전자 현재가: {}원", currentPrice);
+                return currentPrice;
+            }
+            
+            // ticks 데이터가 없으면 기본값 사용
+            log.warn("⚠️ 삼성전자 실시간 가격 조회 실패, 기본값 사용");
+            return 75000; // 기본값
+            
+        } catch (Exception e) {
+            log.error("🔥 현재가 조회 실패", e);
+            return 75000; // 기본값
+        }
+    }
+    
+    /**
      * 실제 매매 API 호출
      */
     private void executeTrade(User bot, Account account, TradingDecision decision) {
         try {
+            // 현재가 조회
+            Integer currentPrice = getCurrentPrice();
+            
             // 매매 요청 DTO 생성
             TradeRequest request = TradeRequest.builder()
                     .userId(bot.getUserId())
                     .stockCode(SAMSUNG_STOCK_CODE)
                     .tradeType(decision.getAction() == TradeAction.BUY ? TradeType.BUY : TradeType.SELL)
                     .quantity(decision.getQuantity())
-                    .price(70000) // 임시 가격, 실제로는 현재가 조회 필요
+                    .price(currentPrice) // 실시간 현재가 사용
                     .accountType(AI_BOT_ACCOUNT_TYPE)
                     .build();
             

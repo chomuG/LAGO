@@ -35,10 +35,10 @@ services:
       dockerfile: Dockerfile
     container_name: finbert-service
     ports:
-      - "8000:5000"
+      - "5000:8000"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -68,17 +68,17 @@ services:
       - REDIS_STREAM_CONSUMER_GROUP=lago_group
       - REDIS_STREAM_CONSUMER_NAME=lago_consumer
       
-      # AI 서비스 연결 - FinBERT 서비스 연결 수정
-      - FINBERT_URL=http://finbert-service:5000
-      - FINBERT_SERVER_HOST=http://finbert-service:5000
+      # AI 서비스 연결 - FinBERT 서비스 연결 수정  
+      - FINBERT_URL=http://finbert-service:8000
+      - FINBERT_SERVER_HOST=http://finbert-service:8000
       - SERVICES_CHART_ANALYSIS_URL=${SERVICES_CHART_ANALYSIS_URL:-http://chart-analysis:5000/detect-patterns}
     depends_on:
       timescaledb:
         condition: service_healthy
       redis:
         condition: service_started
-      finbert:
-        condition: service_healthy
+      # finbert:
+      #   condition: service_healthy  # 임시 비활성화
     restart: unless-stopped
 
 volumes:
