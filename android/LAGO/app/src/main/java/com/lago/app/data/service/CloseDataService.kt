@@ -87,7 +87,7 @@ class CloseDataService @Inject constructor(
     private suspend fun fetchStockDayData(stockCode: String, date: String): StockDayDto? {
         return try {
             Log.d(TAG, "API 호출: $stockCode, $date")
-            val response = chartApiService.getStockDayByCode(stockCode, date, date)
+            val response = chartApiService.getDayCandles(stockCode, date, date)
             
             if (response.isNotEmpty()) {
                 Log.d(TAG, "API 응답 성공: $stockCode, 종가=${response[0].closePrice}")

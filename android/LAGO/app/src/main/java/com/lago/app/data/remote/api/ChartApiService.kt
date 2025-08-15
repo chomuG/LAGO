@@ -336,5 +336,5 @@ interface ChartApiService {
         @Path("code") stockCode: String,
         @Query("start") startDate: String,
         @Query("end") endDate: String
-    ): List<StockDayCandleDto>
+    ): List<StockDayDto>
 }

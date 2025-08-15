@@ -1,6 +1,8 @@
 package com.lago.app.data.service
 
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import com.lago.app.data.remote.api.ChartApiService
 import com.lago.app.data.remote.dto.StockDayDto
 import com.lago.app.util.MarketTimeUtils
@@ -25,6 +27,7 @@ class InitialPriceService @Inject constructor(
     companion object {
         private const val TAG = "InitialPriceService"
         private const val WEEK_DAYS = 7
+        @RequiresApi(Build.VERSION_CODES.O)
         private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     }
     
@@ -33,6 +36,7 @@ class InitialPriceService @Inject constructor(
      * @param stockCodes 종목 코드 리스트
      * @return Map<종목코드, 최신 거래일 종가>
      */
+    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getLatestClosePrices(stockCodes: List<String>): Map<String, Int> = withContext(Dispatchers.IO) {
         if (stockCodes.isEmpty()) {
             Log.d(TAG, "종목 코드 리스트가 비어있음")
@@ -90,7 +94,7 @@ class InitialPriceService @Inject constructor(
         return try {
             Log.v(TAG, "일봉 데이터 조회: $stockCode ($startDate ~ $endDate)")
             
-            val dayDataList = chartApiService.getStockDayByCode(stockCode, startDate, endDate)
+            val dayDataList = chartApiService.getDayCandles(stockCode, startDate, endDate)
             
             if (dayDataList.isEmpty()) {
                 Log.w(TAG, "일봉 데이터 없음: $stockCode")
@@ -121,6 +125,7 @@ class InitialPriceService @Inject constructor(
      * @param stockCode 종목 코드
      * @return 최신 거래일 종가 (실패 시 null)
      */
+    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getLatestClosePrice(stockCode: String): Int? = withContext(Dispatchers.IO) {
         val endDate = LocalDate.now()
         val startDate = endDate.minusDays(WEEK_DAYS.toLong())
@@ -135,6 +140,7 @@ class InitialPriceService @Inject constructor(
      * @param stockCodes 종목 코드 리스트
      * @return Map<종목코드, PriceInfo>
      */
+    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getLatestPriceInfo(stockCodes: List<String>): Map<String, PriceInfo> = withContext(Dispatchers.IO) {
         if (stockCodes.isEmpty()) {
             return@withContext emptyMap()
@@ -182,7 +188,7 @@ class InitialPriceService @Inject constructor(
         endDate: String
     ): PriceInfo? {
         return try {
-            val dayDataList = chartApiService.getStockDayByCode(stockCode, startDate, endDate)
+            val dayDataList = chartApiService.getDayCandles(stockCode, startDate, endDate)
             
             if (dayDataList.isEmpty()) {
                 return null
@@ -227,6 +233,7 @@ class InitialPriceService @Inject constructor(
     /**
      * 서비스 상태 정보 (디버깅용)
      */
+    @RequiresApi(Build.VERSION_CODES.O)
     fun getServiceStatus(): String {
         val endDate = LocalDate.now()
         val startDate = endDate.minusDays(WEEK_DAYS.toLong())
