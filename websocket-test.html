@@ -12,7 +12,7 @@
 
     <script type="text/javascript">
         // Connect to the WebSocket endpoint
-        var socket = new SockJS('http://localhost:8081/ws-stock');
+        var socket = new SockJS('http://i13d203.p.ssafy.io:8081/ws-stock');
         var stompClient = Stomp.over(socket);
 
         stompClient.connect({}, function (frame) {
