@@ -12,13 +12,13 @@ import org.springframework.data.domain.Pageable;
 
 public interface Ticks30mRepository extends JpaRepository<Ticks30m, Ticks30mId> {
 
-    @Query("SELECT t FROM Ticks30m t JOIN t.stockInfo s WHERE s.code = :code AND t.id.bucket >= :startTime AND t.id.bucket < :endTime ORDER BY t.id.bucket ASC")
+    @Query("SELECT t FROM Ticks30m t JOIN FETCH t.stockInfo s WHERE s.code = :code AND t.id.bucket >= :startTime AND t.id.bucket < :endTime ORDER BY t.id.bucket ASC")
     List<Ticks30m> findByCodeAndBucketRange(
             @Param("code") String code,
             @Param("startTime") OffsetDateTime startTime,
             @Param("endTime") OffsetDateTime endTime
     );
 
-    @Query("SELECT t FROM Ticks30m t JOIN t.stockInfo s WHERE s.code = :code ORDER BY t.id.bucket DESC")
+    @Query("SELECT t FROM Ticks30m t JOIN FETCH t.stockInfo s WHERE s.code = :code ORDER BY t.id.bucket DESC")
     List<Ticks30m> findLatestByCode(@Param("code") String code, Pageable pageable);
 }

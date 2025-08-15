@@ -21,7 +21,7 @@ public interface Ticks1mRepository extends JpaRepository<Ticks1m, Ticks1mId> {
      * @param endTime 종료 시간 (UTC)
      * @return 1분봉 데이터 리스트 (시간순 정렬)
      */
-    @Query("SELECT t FROM Ticks1m t JOIN t.stockInfo s WHERE s.code = :code AND t.id.bucket >= :startTime AND t.id.bucket < :endTime ORDER BY t.id.bucket ASC")
+    @Query("SELECT t FROM Ticks1m t JOIN FETCH t.stockInfo s WHERE s.code = :code AND t.id.bucket >= :startTime AND t.id.bucket < :endTime ORDER BY t.id.bucket ASC")
     List<Ticks1m> findByCodeAndBucketRange(
             @Param("code") String code,
             @Param("startTime") OffsetDateTime startTime,
@@ -35,6 +35,6 @@ public interface Ticks1mRepository extends JpaRepository<Ticks1m, Ticks1mId> {
      * @param pageable 페이징 정보 (LIMIT 적용)
      * @return 최신 1분봉 데이터 리스트
      */
-    @Query("SELECT t FROM Ticks1m t JOIN t.stockInfo s WHERE s.code = :code ORDER BY t.id.bucket DESC")
+    @Query("SELECT t FROM Ticks1m t JOIN FETCH t.stockInfo s WHERE s.code = :code ORDER BY t.id.bucket DESC")
     List<Ticks1m> findLatestByCode(@Param("code") String code, Pageable pageable);
 }
