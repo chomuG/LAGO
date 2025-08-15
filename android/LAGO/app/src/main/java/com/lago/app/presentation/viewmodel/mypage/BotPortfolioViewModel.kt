@@ -9,6 +9,7 @@ import com.lago.app.data.remote.dto.PieChartItem
 import com.lago.app.data.remote.dto.UserCurrentStatusDto
 import com.lago.app.data.remote.websocket.SmartStockWebSocketService
 import com.lago.app.util.PortfolioCalculator
+import com.lago.app.util.HybridPriceCalculator
 import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -23,7 +24,8 @@ import javax.inject.Inject
 class BotPortfolioViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val realTimeStockCache: RealTimeStockCache,
-    private val smartWebSocketService: SmartStockWebSocketService
+    private val smartWebSocketService: SmartStockWebSocketService,
+    private val hybridPriceCalculator: HybridPriceCalculator
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MyPageUiState())
@@ -31,6 +33,9 @@ class BotPortfolioViewModel @Inject constructor(
 
     // 캐시된 API 데이터
     private var cachedUserStatus: UserCurrentStatusDto? = null
+    
+    // 하이브리드 가격 데이터
+    private var hybridPrices: Map<String, HybridPriceCalculator.HybridPriceData> = emptyMap()
 
     init {
         // 매매봇용이므로 init에서는 아무것도 로드하지 않음
@@ -44,6 +49,7 @@ class BotPortfolioViewModel @Inject constructor(
         viewModelScope.launch {
             // 상태 완전 리셋
             cachedUserStatus = null
+            hybridPrices = emptyMap()
             _uiState.value = MyPageUiState(isLoading = true)
             
             try {
@@ -64,8 +70,8 @@ class BotPortfolioViewModel @Inject constructor(
                             val stockCodes = userStatus.holdings.map { it.stockCode }
                             smartWebSocketService.updatePortfolioStocks(stockCodes)
                             
-                            // 실시간 데이터와 결합하여 포트폴리오 계산
-                            updatePortfolioWithRealTimeData(userStatus)
+                            // 하이브리드 가격 계산으로 초기 포트폴리오 계산
+                            initializeHybridPrices(stockCodes, userStatus)
                         }
                         is Resource.Error -> {
                             android.util.Log.e("BotPortfolioViewModel", "❌ 매매봇 API 에러: ${resource.message}")
@@ -91,6 +97,30 @@ class BotPortfolioViewModel @Inject constructor(
     }
 
     /**
+     * 하이브리드 가격 초기화
+     */
+    private fun initializeHybridPrices(stockCodes: List<String>, userStatus: UserCurrentStatusDto) {
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("BotPortfolioViewModel", "🔄 하이브리드 가격 초기화 시작: ${stockCodes.size}개 종목")
+                
+                val initialResult = hybridPriceCalculator.calculateInitialPrices(stockCodes)
+                hybridPrices = initialResult.prices
+                
+                android.util.Log.d("BotPortfolioViewModel", "✅ 초기 가격 계산 완료: ${initialResult.successCount}/${stockCodes.size}개 성공")
+                
+                // 초기 포트폴리오 계산
+                updatePortfolioWithHybridPrices(userStatus)
+                
+            } catch (e: Exception) {
+                android.util.Log.e("BotPortfolioViewModel", "❌ 하이브리드 가격 초기화 실패", e)
+                // 실패 시 기존 방식으로 폴백
+                updatePortfolioWithRealTimeData(userStatus)
+            }
+        }
+    }
+    
+    /**
      * 실시간 데이터 업데이트 감시 (성능 최적화)
      */
     private fun observeRealTimeUpdates() {
@@ -100,14 +130,81 @@ class BotPortfolioViewModel @Inject constructor(
                 .sample(1000.milliseconds)
                 .collect { quotesMap ->
                     cachedUserStatus?.let { userStatus ->
-                        updatePortfolioWithRealTimeData(userStatus)
+                        if (hybridPrices.isNotEmpty()) {
+                            // 하이브리드 모드: 실시간 데이터로 업데이트
+                            updateHybridPricesWithRealTime(quotesMap, userStatus)
+                        } else {
+                            // 폴백 모드: 기존 방식
+                            updatePortfolioWithRealTimeData(userStatus)
+                        }
                     }
                 }
         }
     }
 
     /**
-     * 실시간 데이터와 결합하여 포트폴리오 계산
+     * 하이브리드 가격으로 포트폴리오 계산
+     */
+    private fun updatePortfolioWithHybridPrices(userStatus: UserCurrentStatusDto) {
+        try {
+            // 하이브리드 가격을 StockRealTimeData 형태로 변환
+            val hybridRealTimePrices = hybridPriceCalculator.toStockRealTimeDataMap(hybridPrices)
+            
+            // 포트폴리오 계산
+            val portfolioSummary = PortfolioCalculator.calculateMyPagePortfolio(
+                userStatus = userStatus,
+                realTimePrices = hybridRealTimePrices
+            )
+            
+            // 비율 계산
+            val holdingsWithWeights = PortfolioCalculator.calculateHoldingWeights(
+                portfolioSummary.holdings
+            )
+            
+            // 파이차트 데이터 생성
+            val pieChartData = PortfolioCalculator.createPieChartData(holdingsWithWeights)
+            
+            // UI 상태 업데이트
+            _uiState.update { 
+                it.copy(
+                    portfolioSummary = portfolioSummary.copy(holdings = holdingsWithWeights),
+                    pieChartData = pieChartData,
+                    isLoading = false,
+                    errorMessage = null
+                )
+            }
+            
+            android.util.Log.d("BotPortfolioViewModel", "📊 하이브리드 포트폴리오 계산 완료")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("BotPortfolioViewModel", "💥 하이브리드 포트폴리오 계산 오류: ${e.localizedMessage}", e)
+            _uiState.update { 
+                it.copy(
+                    isLoading = false,
+                    errorMessage = "포트폴리오 계산 중 오류가 발생했습니다: ${e.localizedMessage}"
+                )
+            }
+        }
+    }
+    
+    /**
+     * 실시간 데이터로 하이브리드 가격 업데이트
+     */
+    private fun updateHybridPricesWithRealTime(realTimeQuotes: Map<String, com.lago.app.domain.entity.StockRealTimeData>, userStatus: UserCurrentStatusDto) {
+        try {
+            // 하이브리드 가격을 실시간 데이터로 업데이트
+            hybridPrices = hybridPriceCalculator.updateWithRealTimeData(hybridPrices, realTimeQuotes)
+            
+            // 업데이트된 하이브리드 가격으로 포트폴리오 재계산
+            updatePortfolioWithHybridPrices(userStatus)
+            
+        } catch (e: Exception) {
+            android.util.Log.e("BotPortfolioViewModel", "💥 하이브리드 실시간 업데이트 오류: ${e.localizedMessage}", e)
+        }
+    }
+    
+    /**
+     * 실시간 데이터와 결합하여 포트폴리오 계산 (폴백용)
      */
     private fun updatePortfolioWithRealTimeData(userStatus: UserCurrentStatusDto) {
         viewModelScope.launch {
