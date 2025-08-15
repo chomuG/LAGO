@@ -48,6 +48,7 @@ public class RankingService {
                 SELECT 
                     a.user_id,
                     u.nickname,
+                    u.personality,
                     a.total_asset,
                     a.profit_rate,
                     a.profit,
@@ -61,6 +62,7 @@ public class RankingService {
                 rank,
                 user_id,
                 nickname,
+                personality,
                 total_asset,
                 profit_rate,
                 profit
@@ -80,6 +82,7 @@ public class RankingService {
                             .rank(rs.getInt("rank"))
                             .userId(rs.getLong("user_id"))
                             .username(rs.getString("nickname"))
+                            .personality(rs.getString("personality"))
                             .totalAsset(rs.getInt("total_asset"))
                             .profitRate(rs.getDouble("profit_rate"))
                             .totalProfit(rs.getInt("profit"))
@@ -113,6 +116,7 @@ public class RankingService {
                 SELECT 
                     a.user_id,
                     u.nickname,
+                    u.personality,
                     a.total_asset,
                     a.profit_rate,
                     a.profit,
@@ -126,6 +130,7 @@ public class RankingService {
                 rank,
                 user_id,
                 nickname,
+                personality,
                 total_asset,
                 profit_rate,
                 profit
@@ -144,6 +149,7 @@ public class RankingService {
                             .rank(rs.getInt("rank"))
                             .userId(rs.getLong("user_id"))
                             .username(rs.getString("nickname"))
+                            .personality(rs.getString("personality"))
                             .totalAsset(rs.getInt("total_asset"))
                             .profitRate(rs.getDouble("profit_rate"))
                             .totalProfit(rs.getInt("profit"))
