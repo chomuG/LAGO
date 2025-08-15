@@ -69,7 +69,8 @@ data class Stock(
 @Composable
 fun HomeScreen(
     userPreferences: UserPreferences,
-    onOrderHistoryClick: () -> Unit = {},
+    initialType: Int = 0, // 0: 모의투자, 1: 역사모드
+    onOrderHistoryClick: (Int) -> Unit = {}, // type을 파라미터로 전달
     onLoginClick: () -> Unit = {},
     onTradingBotClick: (Int) -> Unit = {},
     onStockClick: (String) -> Unit = {},
@@ -209,6 +210,8 @@ fun HomeScreen(
                 isLoggedIn = isLoggedIn,
                 portfolioSummary = uiState.portfolioSummary,
                 viewModel = viewModel,
+                userPreferences = userPreferences,
+                initialType = initialType,
                 onOrderHistoryClick = onOrderHistoryClick
             )
         }
@@ -247,9 +250,14 @@ private fun InvestmentSection(
     isLoggedIn: Boolean = true,
     portfolioSummary: com.lago.app.data.remote.dto.MyPagePortfolioSummary? = null,
     viewModel: com.lago.app.presentation.viewmodel.home.HomeViewModel? = null,
-    onOrderHistoryClick: () -> Unit = {}
+    userPreferences: UserPreferences,
+    initialType: Int = 0,
+    onOrderHistoryClick: (Int) -> Unit = {}
 ) {
-    var isHistoryMode by remember { mutableStateOf(false) }
+    // UserPreferences에서 저장된 투자 모드를 가져옴
+    var isHistoryMode by remember { 
+        mutableStateOf(userPreferences.getInvestmentMode() == 1)
+    }
     Column(
         modifier = Modifier.padding(horizontal = 20.dp)
     ) {
@@ -312,7 +320,12 @@ private fun InvestmentSection(
                                 // Material3 Switch
                                 Switch(
                                     checked = isHistoryMode,
-                                    onCheckedChange = { isHistoryMode = it },
+                                    onCheckedChange = { newMode ->
+                                        isHistoryMode = newMode
+                                        val mode = if (newMode) 1 else 0
+                                        userPreferences.setInvestmentMode(mode)
+                                        android.util.Log.d("HomeScreen", "Investment mode changed to: $mode")
+                                    },
                                     modifier = Modifier
                                         .padding(start = 8.dp)
                                         .scale(0.8f),
@@ -360,7 +373,10 @@ private fun InvestmentSection(
                         // 아래쪽 주문내역
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { onOrderHistoryClick() }
+                            modifier = Modifier.clickable { 
+                                val type = if (isHistoryMode) 1 else 0
+                                onOrderHistoryClick(type)
+                            }
                         ) {
                             Text(
                                 text = "거래내역",

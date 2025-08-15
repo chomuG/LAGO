@@ -53,8 +53,30 @@ fun NavGraph(
         composable(NavigationItem.Home.route) {
             HomeScreen(
                 userPreferences = userPreferences,
-                onOrderHistoryClick = {
-                    navController.navigate(NavigationItem.OrderHistory.route)
+                initialType = 0, // 기본값
+                onOrderHistoryClick = { type ->
+                    navController.navigate("${NavigationItem.OrderHistory.route}/$type")
+                },
+                onLoginClick = {
+                    navController.navigate("login");
+                },
+                onTradingBotClick = { userId ->
+                    navController.navigate("ai_portfolio/$userId")
+                }
+            )
+        }
+        
+        // Type이 포함된 Home route
+        composable(
+            route = "${NavigationItem.Home.route}/{type}",
+            arguments = listOf(navArgument("type") { type = NavType.IntType })
+        ) {
+            val type = it.arguments?.getInt("type") ?: 0
+            HomeScreen(
+                userPreferences = userPreferences,
+                initialType = type,
+                onOrderHistoryClick = { currentType ->
+                    navController.navigate("${NavigationItem.OrderHistory.route}/$currentType")
                 },
                 onLoginClick = {
                     navController.navigate("login");
@@ -417,10 +439,17 @@ fun NavGraph(
             )
         }
 
-        composable(NavigationItem.OrderHistory.route) {
+        composable(
+            route = "${NavigationItem.OrderHistory.route}/{type}",
+            arguments = listOf(navArgument("type") { type = NavType.IntType })
+        ) {
+            val type = it.arguments?.getInt("type") ?: 0
             OrderHistoryScreen(
+                type = type,
                 onBackClick = {
-                    navController.popBackStack()
+                    navController.navigate("${NavigationItem.Home.route}/$type") {
+                        popUpTo(NavigationItem.Home.route) { inclusive = true }
+                    }
                 }
             )
         }

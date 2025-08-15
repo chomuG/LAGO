@@ -8,78 +8,56 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.lago.app.R
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lago.app.domain.entity.Transaction
 import com.lago.app.presentation.theme.*
 import com.lago.app.presentation.ui.components.CommonTopAppBar
-
-data class OrderHistoryItem(
-    val date: String,
-    val month: String,
-    val stockName: String,
-    val orderType: String, // "매수", "매도"
-    val shares: Int,
-    val pricePerShare: Int
-)
-
-enum class OrderType(val displayName: String) {
-    ALL("전체"),
-    BUY("구매"),
-    SELL("판매")
-}
+import com.lago.app.presentation.viewmodel.OrderHistoryViewModel
+import com.lago.app.presentation.viewmodel.OrderType
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderHistoryScreen(
     onBackClick: () -> Unit = {},
-    userId: Int? = null
+    userId: Int? = null, // null이면 ViewModel에서 UserPreferences에서 가져옴
+    type: Int = 0, // 0: 모의투자, 1: 역사모드
+    viewModel: OrderHistoryViewModel = hiltViewModel()
 ) {
-    var selectedDate by remember { mutableStateOf("2025년 8월") }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
     var selectedOrderType by remember { mutableStateOf(OrderType.ALL) }
     var isDateDropdownExpanded by remember { mutableStateOf(false) }
     var isOrderTypeDropdownExpanded by remember { mutableStateOf(false) }
     
-    // 매매봇 userId 로그 (디버깅용)
-    LaunchedEffect(userId) {
-        if (userId != null) {
-            android.util.Log.d("OrderHistoryScreen", "🤖 매매봇 거래내역 조회: userId=$userId")
-        }
+    val dateOptions = if (uiState.transactions.isNotEmpty()) {
+        viewModel.getAvailableMonths()
+    } else {
+        emptyList()
     }
     
-    val allOrderHistory = listOf(
-        OrderHistoryItem("8.05", "2025년 8월", "삼성전자", "판매", 5, 72500),
-        OrderHistoryItem("", "2025년 8월", "한화생명", "구매", 2, 275000),
-        OrderHistoryItem("", "2025년 8월", "삼성전자", "판매", 3, 71800),
-        OrderHistoryItem("8.06", "2025년 8월", "한화생명", "구매", 1, 273000),
-        OrderHistoryItem("", "2025년 8월", "삼성전자", "구매", 10, 82000),
-        OrderHistoryItem("", "2025년 8월", "한화생명", "판매", 2, 274500),
-        OrderHistoryItem("", "2025년 8월", "삼성전자", "구매", 5, 81500),
-        OrderHistoryItem("", "2025년 8월", "삼성전자", "판매", 8, 82200),
-        OrderHistoryItem("7.28", "2025년 7월", "삼성전자", "구매", 15, 74000),
-        OrderHistoryItem("", "2025년 7월", "한화생명", "판매", 3, 268000),
-        OrderHistoryItem("", "2025년 7월", "삼성전자", "구매", 7, 73500),
-        OrderHistoryItem("7.30", "2025년 7월", "한화생명", "구매", 2, 270000)
-    )
-    
-    val filteredHistory = allOrderHistory.filter { item ->
-        val dateMatches = item.month == selectedDate
-        val orderTypeMatches = when (selectedOrderType) {
-            OrderType.ALL -> true
-            OrderType.BUY -> item.orderType == "구매"
-            OrderType.SELL -> item.orderType == "판매"
-        }
-        dateMatches && orderTypeMatches
+    var selectedDate by remember(dateOptions) {
+        mutableStateOf(dateOptions.firstOrNull() ?: "2025년 8월")
+    }
+
+    val filteredHistory = if (uiState.transactions.isNotEmpty()) {
+        viewModel.getFilteredTransactions(selectedOrderType, selectedDate)
+    } else {
+        emptyList()
     }
     
-    val dateOptions = listOf("2025년 8월", "2025년 7월", "2025년 6월")
+    LaunchedEffect(userId, type) {
+        viewModel.loadTransactions(userId, type)
+    }
     
     Column(
         modifier = Modifier
@@ -91,6 +69,7 @@ fun OrderHistoryScreen(
             onBackClick = onBackClick
         )
         
+
         // Filter Row
         Row(
             modifier = Modifier
@@ -172,7 +151,7 @@ fun OrderHistoryScreen(
                     expanded = isOrderTypeDropdownExpanded,
                     onDismissRequest = { isOrderTypeDropdownExpanded = false }
                 ) {
-                    OrderType.values().forEach { orderType ->
+                    OrderType.entries.forEach { orderType ->
                         DropdownMenuItem(
                             text = { Text(orderType.displayName) },
                             onClick = {
@@ -192,8 +171,29 @@ fun OrderHistoryScreen(
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
-            items(filteredHistory) { item ->
-                OrderHistoryItemRow(item)
+            if (uiState.isLoading) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            } else if (uiState.error != null) {
+                item {
+                    Text(
+                        text = uiState.error ?: "오류가 발생했습니다",
+                        color = Color.Red,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            } else {
+                items(filteredHistory) { transaction ->
+                    TransactionItemRow(transaction)
+                }
             }
             
             item {
@@ -204,7 +204,16 @@ fun OrderHistoryScreen(
 }
 
 @Composable
-private fun OrderHistoryItemRow(item: OrderHistoryItem) {
+private fun TransactionItemRow(transaction: Transaction) {
+    val dateFormat = SimpleDateFormat("M.dd", Locale.getDefault())
+    val displayDate = dateFormat.format(transaction.tradeAt)
+
+    val orderTypeKorean = when (transaction.buySell) {
+        "BUY" -> "구매"
+        "SELL" -> "판매"
+        else -> transaction.buySell
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -217,32 +226,28 @@ private fun OrderHistoryItemRow(item: OrderHistoryItem) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Date on the left
-            if (item.date.isNotEmpty()) {
-                Text(
-                    text = item.date,
-                    style = TitleB16,
-                    color = Color.Black,
-                    modifier = Modifier.width(45.dp)
-                )
-            } else {
-                Spacer(modifier = Modifier.width(45.dp))
-            }
+            Text(
+                text = displayDate,
+                style = TitleB16,
+                color = Color.Black,
+                modifier = Modifier.width(45.dp)
+            )
             
             Spacer(modifier = Modifier.width(16.dp))
             
             // Stock info
             Column {
                 Text(
-                    text = item.stockName,
+                    text = transaction.stockName,
                     style = SubtitleSb16,
                     color = Color.Black
                 )
                 
                 Text(
-                    text = "${item.shares}주 ${item.orderType}",
+                    text = "${transaction.quantity}주 $orderTypeKorean",
                     style = BodyR14,
-                    color = when (item.orderType) {
-                        "판매" -> MainBlue
+                    color = when (transaction.buySell) {
+                        "SELL" -> MainBlue
                         else -> Color.Gray
                     }
                 )
@@ -250,7 +255,7 @@ private fun OrderHistoryItemRow(item: OrderHistoryItem) {
         }
         
         Text(
-            text = "주당 ${String.format("%,d", item.pricePerShare)}원",
+            text = "주당 ${String.format(Locale.getDefault(), "%,d", transaction.price)}원",
             style = SubtitleSb16,
             color = Color.Black
         )
@@ -259,8 +264,8 @@ private fun OrderHistoryItemRow(item: OrderHistoryItem) {
 
 @Preview(showBackground = true)
 @Composable
-fun OrderHistoryScreen() {
+fun OrderHistoryScreenPreview() {
     LagoTheme {
-        OrderHistoryScreen()
+        OrderHistoryScreen(userId = 1)
     }
 }

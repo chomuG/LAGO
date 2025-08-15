@@ -280,14 +280,26 @@ class MyPageViewModel @Inject constructor(
     fun logout() {
         viewModelScope.launch {
             try {
-                // 토큰 제거
-                userPreferences.clearAuthToken()
-                
-                // 상태 초기화
-                cachedUserStatus = null
-                _uiState.update { 
-                    MyPageUiState(isLoggedIn = false)
-                }
+                // UserRepository를 통한 완전한 로그아웃 처리
+                userRepository.logout().fold(
+                    onSuccess = {
+                        android.util.Log.d("MyPageViewModel", "로그아웃 성공")
+                        // 상태 초기화
+                        cachedUserStatus = null
+                        _uiState.update { 
+                            MyPageUiState(isLoggedIn = false)
+                        }
+                    },
+                    onFailure = { exception ->
+                        android.util.Log.e("MyPageViewModel", "로그아웃 실패", exception)
+                        // 실패해도 로컬 데이터는 지우고 로그아웃 처리
+                        userPreferences.clearAllData()
+                        cachedUserStatus = null
+                        _uiState.update { 
+                            MyPageUiState(isLoggedIn = false)
+                        }
+                    }
+                )
                 
             } catch (e: Exception) {
                 _uiState.update { 

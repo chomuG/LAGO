@@ -1,6 +1,7 @@
 package com.lago.app.data.repository
 
 import com.lago.app.data.local.LocalDataSource
+import com.lago.app.data.local.prefs.UserPreferences
 import com.lago.app.data.remote.ApiResponse
 import com.lago.app.data.remote.RemoteDataSource
 import com.lago.app.data.remote.UpdateUserRequest
@@ -17,7 +18,8 @@ import javax.inject.Singleton
 @Singleton
 class UserRepositoryImpl @Inject constructor(
     private val remoteDataSource: RemoteDataSource,
-    private val localDataSource: LocalDataSource
+    private val localDataSource: LocalDataSource,
+    private val userPreferences: UserPreferences
 ) : UserRepository {
     
     override suspend fun getUserProfile(): Result<UserProfile> {
@@ -74,6 +76,10 @@ class UserRepositoryImpl @Inject constructor(
                     // Save tokens locally
                     localDataSource.saveUserData(authToken.accessToken)
                     
+                    // 개발용: userId를 5로 고정
+                    userPreferences.setUserId("5")
+                    android.util.Log.d("UserRepository", "Login successful - userId set to 5")
+                    
                     Result.success(authToken)
                 }
                 is ApiResponse.Error -> {
@@ -88,6 +94,8 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun logout(): Result<Unit> {
         return try {
             localDataSource.clearUserData()
+            userPreferences.clearAllData() // userId도 함께 지움
+            android.util.Log.d("UserRepository", "Logout successful - userId cleared")
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
