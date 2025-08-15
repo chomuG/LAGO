@@ -76,6 +76,13 @@ class HomeViewModel @Inject constructor(
         observeRealTimeUpdates()
         loadUserPortfolio()
         loadTradingBots()
+        
+        // WebSocket 연결 상태 모니터링 추가
+        viewModelScope.launch {
+            smartWebSocketService.connectionState.collect { state ->
+                android.util.Log.d("HomeViewModel", "🔗 WebSocket 연결 상태: $state")
+            }
+        }
     }
 
     /**
