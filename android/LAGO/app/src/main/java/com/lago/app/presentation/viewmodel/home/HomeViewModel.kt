@@ -56,7 +56,8 @@ class HomeViewModel @Inject constructor(
     private val smartWebSocketService: SmartStockWebSocketService,
     private val smartUpdateScheduler: SmartUpdateScheduler,
     private val closeDataService: CloseDataService,
-    private val hybridPriceCalculator: HybridPriceCalculator
+    private val hybridPriceCalculator: HybridPriceCalculator,
+    private val initialPriceService: com.lago.app.data.service.InitialPriceService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -77,10 +78,17 @@ class HomeViewModel @Inject constructor(
         loadUserPortfolio()
         loadTradingBots()
         
+        // WebSocket 연결 시작
+        viewModelScope.launch {
+            android.util.Log.d("HomeViewModel", "🔌 HomeViewModel WebSocket 연결 시작")
+            smartWebSocketService.connect()
+        }
+        
         // WebSocket 연결 상태 모니터링 추가
         viewModelScope.launch {
             smartWebSocketService.connectionState.collect { state ->
                 android.util.Log.d("HomeViewModel", "🔗 WebSocket 연결 상태: $state")
+                android.util.Log.d("HomeViewModel", "📊 구독 통계: ${smartWebSocketService.getSubscriptionStats()}")
             }
         }
     }
@@ -108,6 +116,8 @@ class HomeViewModel @Inject constructor(
                 val userId = 5 // 임시 테스트용
                 val type = userPreferences.getInvestmentMode() // 저장된 투자 모드 사용
                 android.util.Log.d("HomeViewModel", "📡 API 요청 시작: userId=$userId, type=$type")
+                android.util.Log.d("HomeViewModel", "🔍 현재 투자모드 상세: ${if (type == 1) "역사챌린지" else "모의투자"}")
+                android.util.Log.d("HomeViewModel", "🎯 UserPreferences 저장값: ${userPreferences.getInvestmentMode()}")
 
                 userRepository.getUserCurrentStatus(userId, type).collect { resource ->
                     when (resource) {
@@ -130,8 +140,10 @@ class HomeViewModel @Inject constructor(
                                 // 역사챌린지 모드: 역사챌린지 가격 사용
                                 loadHistoryChallengePrice(stockCodes, userStatus)
                             } else {
-                                // 일반 모드: 하이브리드 가격 계산
-                                initializeHybridPrices(stockCodes, userStatus)
+                                // 모의투자 모드: REST API로 초기 가격 설정 후 실시간 업데이트
+                                android.util.Log.d("HomeViewModel", "💼 모의투자 모드: REST API로 초기 데이터 로드")
+                                android.util.Log.d("HomeViewModel", "📋 모의투자 보유종목: ${stockCodes.joinToString()}")
+                                loadInitialPricesFromApi(stockCodes, userStatus)
                             }
                         }
                         is Resource.Error -> {
@@ -158,7 +170,90 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * 하이브리드 가격 초기화
+     * REST API로 초기 가격 로드 (모의투자용)
+     */
+    private fun loadInitialPricesFromApi(stockCodes: List<String>, userStatus: UserCurrentStatusDto) {
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("HomeViewModel", "📡 REST API로 최신 종가 조회 시작: ${stockCodes.size}개 종목")
+                android.util.Log.d("HomeViewModel", "📋 대상 종목들: ${stockCodes.joinToString()}")
+                stockCodes.forEachIndexed { index, code ->
+                    android.util.Log.d("HomeViewModel", "🔍 종목[$index]: '$code' (타입: ${code.javaClass.simpleName}, 길이: ${code.length})")
+                }
+                
+                @Suppress("NewApi")
+                val initialPrices = initialPriceService.getLatestClosePrices(stockCodes)
+                
+                android.util.Log.d("HomeViewModel", "📊 REST API 응답 확인: ${initialPrices.size}개 종목 가격 수신")
+                
+                android.util.Log.d("HomeViewModel", "✅ 초기 가격 조회 완료: ${initialPrices.size}/${stockCodes.size}개 성공")
+                
+                // 가격 정보를 StockRealTimeData 형태로 변환
+                val initialRealTimePrices = initialPrices.mapValues { (stockCode, closePrice) ->
+                    android.util.Log.d("HomeViewModel", "💰 $stockCode 초기 종가: ${closePrice}원")
+                    com.lago.app.domain.entity.StockRealTimeData(
+                        stockCode = stockCode,
+                        closePrice = closePrice.toLong(),
+                        tradePrice = closePrice.toLong(),
+                        currentPrice = closePrice.toLong(),
+                        changePrice = 0L,
+                        changeRate = 0.0
+                    )
+                }
+                
+                // 초기 포트폴리오 계산
+                updatePortfolioWithInitialPrices(userStatus, initialRealTimePrices)
+                
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "❌ REST API 초기 가격 로드 실패", e)
+                // 실패 시 기존 하이브리드 방식으로 폴백
+                initializeHybridPrices(stockCodes, userStatus)
+            }
+        }
+    }
+    
+    /**
+     * 초기 가격으로 포트폴리오 계산
+     */
+    private fun updatePortfolioWithInitialPrices(userStatus: UserCurrentStatusDto, initialPrices: Map<String, com.lago.app.domain.entity.StockRealTimeData>) {
+        try {
+            // 포트폴리오 계산
+            val portfolioSummary = com.lago.app.util.PortfolioCalculator.calculateMyPagePortfolio(
+                userStatus = userStatus,
+                realTimePrices = initialPrices
+            )
+            
+            // 홈 화면용 주식 데이터 생성
+            val stockList = userStatus.holdings.map { holding ->
+                val initialPrice = initialPrices[holding.stockCode]
+                createHomeStock(holding, initialPrice?.price?.toDouble())
+            }
+            
+            // UI 상태 업데이트
+            _uiState.update { 
+                it.copy(
+                    portfolioSummary = portfolioSummary,
+                    stockList = stockList,
+                    isLoading = false,
+                    errorMessage = null
+                )
+            }
+            
+            android.util.Log.d("HomeViewModel", "✅ 초기 가격 기반 포트폴리오 계산 완료")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "💥 초기 가격 포트폴리오 계산 오류: ${e.localizedMessage}", e)
+            _uiState.update { 
+                it.copy(
+                    isLoading = false,
+                    errorMessage = "초기 데이터 로드 중 오류가 발생했습니다: ${e.localizedMessage}"
+                )
+            }
+        }
+    }
+
+    /**
+     * 하이브리드 가격 초기화 (폴백용)
      */
     private fun initializeHybridPrices(stockCodes: List<String>, userStatus: UserCurrentStatusDto) {
         viewModelScope.launch {
@@ -346,6 +441,9 @@ class HomeViewModel @Inject constructor(
             historyChallengePrice.forEach { (code, price) ->
                 android.util.Log.d("HomeViewModel", "🏛️ 역사가격: $code = ${price}원")
             }
+            
+            // 사용자 보유종목 로그
+            android.util.Log.d("HomeViewModel", "💼 보유종목: ${userStatus.holdings.map { "${it.stockCode}(${it.stockName})" }.joinToString()}")
             
             // 기존 역사챌린지 가격을 실시간 데이터로 업데이트
             val updatedHistoryPrice = historyChallengePrice.toMutableMap()

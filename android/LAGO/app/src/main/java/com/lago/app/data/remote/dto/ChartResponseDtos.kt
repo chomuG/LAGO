@@ -46,6 +46,19 @@ data class VolumeDto(
     @SerializedName("color") val color: String?
 )
 
+// Stock Price Data Response (for initial data)
+data class StockPriceDataDto(
+    @SerializedName("stockInfoId") val stockInfoId: Int,
+    @SerializedName("bucket") val bucket: String,
+    @SerializedName("code") val code: String,
+    @SerializedName("interval") val interval: String,
+    @SerializedName("openPrice") val openPrice: Long,
+    @SerializedName("highPrice") val highPrice: Long,
+    @SerializedName("lowPrice") val lowPrice: Long,
+    @SerializedName("closePrice") val closePrice: Long,
+    @SerializedName("volume") val volume: Long
+)
+
 // Indicators Response
 data class IndicatorsResponse(
     @SerializedName("success") val success: Boolean,

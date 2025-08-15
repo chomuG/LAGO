@@ -86,36 +86,61 @@ class InitialPriceService @Inject constructor(
      * @param endDate 종료 날짜 (yyyy-MM-dd)
      * @return 최신 거래일 종가 (실패 시 null)
      */
+    @RequiresApi(Build.VERSION_CODES.O)
     private suspend fun getLatestClosePriceForStock(
         stockCode: String, 
         startDate: String, 
         endDate: String
     ): Int? {
         return try {
-            Log.v(TAG, "일봉 데이터 조회: $stockCode ($startDate ~ $endDate)")
+            Log.v(TAG, "주식 시세 데이터 조회: $stockCode")
+            Log.d(TAG, "🔍 종목코드 형태 확인: '$stockCode' (길이: ${stockCode.length}자)")
             
-            val dayDataList = chartApiService.getDayCandles(stockCode, startDate, endDate)
+            // 새로운 API 사용: /api/stocks/{stockCode}?interval=DAY&fromDateTime=...&toDateTime=...
+            val twoWeeksAgo = java.time.LocalDateTime.now().minusDays(14)
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"))
+            val now = java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"))
             
-            if (dayDataList.isEmpty()) {
-                Log.w(TAG, "일봉 데이터 없음: $stockCode")
+            Log.d(TAG, "🌐 API 호출: GET /api/stocks/$stockCode?interval=DAY&fromDateTime=$twoWeeksAgo&toDateTime=$now")
+            
+            val priceDataList = chartApiService.getStockPriceData(stockCode, "DAY", twoWeeksAgo, now)
+            
+            Log.d(TAG, "📡 API 응답: ${priceDataList.size}개 데이터 수신")
+            
+            if (priceDataList.isEmpty()) {
+                Log.w(TAG, "주식 시세 데이터 없음: $stockCode")
                 return null
+            } else {
+                Log.d(TAG, "✅ 첫 번째 데이터: ${priceDataList[0]}")
             }
             
-            // 날짜순 정렬 후 최신 데이터 선택
-            val latestData = dayDataList
+            // 날짜순 정렬 후 최신 데이터 선택 (StockPriceDataDto 사용)
+            val latestData = priceDataList
                 .filter { it.closePrice > 0 } // 유효한 종가만 필터링
-                .maxByOrNull { it.date } // 가장 최신 날짜
+                .maxByOrNull { it.bucket } // 가장 최신 날짜
             
             if (latestData != null) {
-                Log.d(TAG, "최신 종가 추출: $stockCode = ${latestData.closePrice} (${latestData.date})")
-                latestData.closePrice
+                Log.d(TAG, "최신 종가 추출: $stockCode = ${latestData.closePrice} (${latestData.bucket})")
+                latestData.closePrice.toInt()
             } else {
                 Log.w(TAG, "유효한 종가 없음: $stockCode")
                 null
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "일봉 데이터 조회 실패: $stockCode", e)
+            Log.e(TAG, "💥 주식 시세 데이터 조회 실패: $stockCode", e)
+            Log.e(TAG, "💥 에러 타입: ${e.javaClass.simpleName}")
+            Log.e(TAG, "💥 에러 메시지: ${e.message}")
+            if (e is retrofit2.HttpException) {
+                Log.e(TAG, "💥 HTTP 상태: ${e.code()}")
+                Log.e(TAG, "💥 HTTP 메시지: ${e.message()}")
+                try {
+                    Log.e(TAG, "💥 응답 본문: ${e.response()?.errorBody()?.string()}")
+                } catch (ex: Exception) {
+                    Log.e(TAG, "💥 응답 본문 읽기 실패", ex)
+                }
+            }
             null
         }
     }
@@ -182,54 +207,49 @@ class InitialPriceService @Inject constructor(
     /**
      * 단일 종목의 가격 정보 조회
      */
+    @RequiresApi(Build.VERSION_CODES.O)
     private suspend fun getPriceInfoForStock(
         stockCode: String,
-        startDate: String,
-        endDate: String
+        startDate: String,  // 예: "2024-08-01T09:00:00"
+        endDate: String     // 예: "2024-08-16T15:30:00"
     ): PriceInfo? {
         return try {
-            val dayDataList = chartApiService.getDayCandles(stockCode, startDate, endDate)
-            
-            if (dayDataList.isEmpty()) {
-                return null
-            }
-            
-            // 최신 거래일 데이터
-            val latestData = dayDataList
+            // ✅ 전달받은 기간을 그대로 사용
+            val priceDataList = chartApiService.getStockPriceData(
+                stockCode = stockCode,
+                interval = "DAY",
+                fromDateTime = startDate,
+                toDateTime = endDate
+            )
+
+            if (priceDataList.isEmpty()) return null
+
+            val latestData = priceDataList
                 .filter { it.closePrice > 0 }
-                .maxByOrNull { it.date }
-                ?: return null
-            
-            // 이전 거래일 데이터 (변동률 계산용)
-            val previousData = dayDataList
-                .filter { it.closePrice > 0 && it.date < latestData.date }
-                .maxByOrNull { it.date }
-            
-            val changePrice = if (previousData != null) {
-                latestData.closePrice - previousData.closePrice
-            } else {
-                0
-            }
-            
-            val changeRate = if (previousData != null && previousData.closePrice > 0) {
-                ((latestData.closePrice - previousData.closePrice).toDouble() / previousData.closePrice) * 100
-            } else {
-                0.0
-            }
-            
+                .maxByOrNull { it.bucket } ?: return null
+
+            val previousData = priceDataList
+                .filter { it.closePrice > 0 && it.bucket < latestData.bucket }
+                .maxByOrNull { it.bucket }
+
+            val changePrice = previousData?.let { (latestData.closePrice - it.closePrice).toInt() } ?: 0
+            val changeRate = previousData?.takeIf { it.closePrice > 0 }?.let {
+                ((latestData.closePrice - it.closePrice).toDouble() / it.closePrice) * 100
+            } ?: 0.0
+
             PriceInfo(
-                closePrice = latestData.closePrice,
+                closePrice = latestData.closePrice.toInt(),
                 changePrice = changePrice,
                 changeRate = changeRate,
-                date = latestData.date
+                date = latestData.bucket
             )
-            
         } catch (e: Exception) {
             Log.e(TAG, "가격 정보 처리 실패: $stockCode", e)
             null
         }
     }
-    
+
+
     /**
      * 서비스 상태 정보 (디버깅용)
      */
