@@ -176,6 +176,8 @@ public class StockChartService {
      */
     private StockChartDto convertToDto(Object tick, String interval) {
         try {
+            log.debug("엔티티 변환 시작: tick 클래스={}, interval={}", tick.getClass().getSimpleName(), interval);
+            
             // 공통 인터페이스가 없으므로 리플렉션 사용
             var getBucketMethod = tick.getClass().getMethod("getBucket");
             var getStockInfoIdMethod = tick.getClass().getMethod("getStockInfoId");
