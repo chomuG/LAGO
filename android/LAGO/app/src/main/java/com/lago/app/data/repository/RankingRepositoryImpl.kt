@@ -45,7 +45,7 @@ class RankingRepositoryImpl @Inject constructor(
             (profit.toDouble() / initialAsset) * 100
         } else 0.0
         
-        android.util.Log.d("RankingRepository", "🏆 ${dto.username}: 총자산 ${dto.totalAsset}원 → 수익 ${profit}원 (${String.format("%.1f", profitRate)}%)")
+        android.util.Log.d("RankingRepository", "🏆 ${dto.username}: 총자산 ${dto.totalAsset}원 → 수익 ${profit}원 (${String.format("%.1f", profitRate)}%), isAi: ${dto.isAi}")
         
         return CalculatedRankingUser(
             rank = dto.rank,
@@ -55,7 +55,7 @@ class RankingRepositoryImpl @Inject constructor(
             calculatedProfitRate = profitRate,
             calculatedProfit = profit,
             isCurrentUser = dto.userId == 5, // 임시 테스트용 사용자 ID
-            isAi = dto.username.contains("AI") || dto.username.contains("봇"), // AI 봇 판별
+            isAi = dto.isAi, // API에서 받은 isAi 값 사용
             personality = dto.personality
         )
     }

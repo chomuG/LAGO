@@ -19,8 +19,9 @@ data class RankingDto(
     @SerializedName("totalProfit")
     val totalProfit: Long,
     @SerializedName("personality")
-    val personality: String
-    // profitRate, totalProfit는 제거 - 클라이언트에서 계산
+    val personality: String,
+    @SerializedName("isAi")
+    val isAi: Boolean = false
 )
 
 /**

@@ -180,7 +180,7 @@ fun AssetInfoRow(label: String, value: String) {
 fun PortfolioSection(
     pieChartData: List<PieChartData>, 
     stockList: List<StockInfo>,
-    onStockClick: (String) -> Unit = {},
+    onStockClick: (String, String) -> Unit = { _, _ ->},
     isLoggedIn: Boolean = true,
     portfolioSummary: com.lago.app.data.remote.dto.MyPagePortfolioSummary? = null
 ) {
@@ -315,7 +315,7 @@ fun DonutChart(
 @Composable
 fun StockListItemInCard(
     stock: StockInfo,
-    onStockClick: (String) -> Unit = {},
+    onStockClick: (String, String) -> Unit = { _, _ ->},
     isLoggedIn: Boolean = true
 ) {
     val isClickable = stock.name != "기타"
@@ -325,7 +325,7 @@ fun StockListItemInCard(
             .fillMaxWidth()
             .then(
                 if (isClickable) {
-                    Modifier.clickable { onStockClick(stock.stockCode) }
+                    Modifier.clickable { onStockClick(stock.stockCode, stock.name) }
                 } else {
                     Modifier
                 }

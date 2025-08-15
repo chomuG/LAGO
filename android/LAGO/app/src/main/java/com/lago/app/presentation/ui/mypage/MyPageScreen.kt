@@ -27,7 +27,7 @@ import com.lago.app.data.remote.dto.PieChartItem
 fun MyPageScreen(
     userPreferences: com.lago.app.data.local.prefs.UserPreferences,
     onRankingClick: () -> Unit = {},
-    onStockClick: (String) -> Unit = {},
+    onStockClick: (String, String) -> Unit = { _, _ ->},
     onLoginClick: () -> Unit = {},
     onLogoutComplete: () -> Unit = {},
     viewModel: MyPageViewModel = hiltViewModel()
