@@ -250,11 +250,14 @@ fun NavGraph(
                 onBackClick = {
                     navController.popBackStack()
                 },
-                onUserClick = {
-                    navController.navigate("portfolio")
+                onUserClick = { userId, userName ->
+                    android.util.Log.d("NAV_GRAPH", "일반 사용자 포트폴리오 네비게이션 - userId: $userId, userName: $userName")
+                    val encodedName = java.net.URLEncoder.encode(userName, "UTF-8")
+                    navController.navigate("portfolio/$userId/$encodedName")
                 },
-                onAiPortfolioClick = {
-                    navController.navigate("ai_portfolio")
+                onAiPortfolioClick = { userId ->
+                    android.util.Log.d("NAV_GRAPH", "AI 포트폴리오 네비게이션 - userId: $userId")
+                    navController.navigate("ai_portfolio/$userId")
                 },
                 onLoginClick = {
                     navController.navigate("login")
@@ -262,6 +265,33 @@ fun NavGraph(
             )
         }
 
+        composable(
+            route = "portfolio/{userId}/{userName}",
+            arguments = listOf(
+                navArgument("userId") { type = NavType.IntType },
+                navArgument("userName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getInt("userId") ?: 1
+            val userName = java.net.URLDecoder.decode(
+                backStackEntry.arguments?.getString("userName") ?: "사용자", 
+                "UTF-8"
+            )
+            PortfolioScreen(
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    android.util.Log.d("PORTFOLIO_NAV", "Portfolio 주식 클릭 - stockCode: $stockCode, stockName: $stockName, encodedName: $encodedName")
+                    navController.navigate("chart/$stockCode/$encodedName")
+                },
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                userName = userName,
+                userId = userId
+            )
+        }
+
+        // Backward compatibility for portfolio without parameters
         composable("portfolio") {
             PortfolioScreen(
                 onStockClick = { stockCode, stockName ->

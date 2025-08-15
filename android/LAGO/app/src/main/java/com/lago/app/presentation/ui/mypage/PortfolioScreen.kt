@@ -26,8 +26,10 @@ fun PortfolioScreen(
     onRankingClick: () -> Unit = {},
     onStockClick: (String, String) -> Unit = { _, _ ->},
     onBackClick: () -> Unit = {},
-    userName: String = "박두칠"
+    userName: String = "박두칠",
+    userId: Int = 5
 ) {
+    android.util.Log.d("PORTFOLIO_SCREEN", "포트폴리오 화면 - userId: $userId, userName: $userName")
     val stockList = listOf(
         StockInfo("삼성전자", "1주 평균 42,232원", "40.7%", MainBlue, "005930"),
         StockInfo("한화생명", "1주 평균 52,232원", "25.4%", MainPink, "088350"),
