@@ -135,20 +135,29 @@ fun NewsScreen(
                     News(
                         newsId = 1,
                         title = "삼성전자, 3분기 영업이익 전년 동기 대비 277% 증가",
+                        content = "삼성전자가 3분기 실적을 발표하며...",
+                        summary = "{3분기 실적, 영업이익 증가, 반도체 회복}",
                         publishedAt = "2024-10-31T10:30:00Z",
                         sentiment = "호재",
+                        type = "da"
                     ),
                     News(
                         newsId = 2,
                         title = "SK하이닉스, HBM 시장 확대로 주가 상승 전망",
+                        content = "SK하이닉스가 HBM 메모리 시장에서...",
+                        summary = "{HBM 시장, 주가 상승, 메모리 반도체}",
                         publishedAt = "2024-10-31T09:15:00Z",
                         sentiment = "호재",
+                        type = "da"
                     ),
                     News(
                         newsId = 3,
                         title = "현대차, 전기차 판매 부진으로 실적 우려",
+                        content = "현대차의 전기차 판매량이 예상보다...",
+                        summary = "{전기차 판매, 실적 우려, 자동차 산업}",
                         publishedAt = "2024-10-31T08:45:00Z",
                         sentiment = "악재",
+                        type = "da"
                     )
                 )
                 

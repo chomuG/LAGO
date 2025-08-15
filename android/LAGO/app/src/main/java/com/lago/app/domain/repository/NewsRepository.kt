@@ -5,4 +5,5 @@ import com.lago.app.domain.entity.News
 interface NewsRepository {
     suspend fun getNews(): Result<List<News>>
     suspend fun getInterestNews(): Result<List<News>>
+    suspend fun getNewsDetail(newsId: Int): Result<News>
 }

@@ -37,13 +37,28 @@ class NewsRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+    
+    override suspend fun getNewsDetail(newsId: Int): Result<News> {
+        return try {
+            val response = newsApiService.getNewsDetail(newsId)
+            android.util.Log.d("NewsRepository", "📰 뉴스 상세 API 응답: newsId=${response.newsId}, title=${response.title}")
+            val news = response.toDomain()
+            Result.success(news)
+        } catch (e: Exception) {
+            android.util.Log.e("NewsRepository", "📰 뉴스 상세 로드 실패: ${e.localizedMessage}", e)
+            Result.failure(e)
+        }
+    }
 }
 
 private fun NewsDto.toDomain(): News {
     return News(
         newsId = this.newsId,
         title = this.title,
+        content = this.content,
+        summary = this.summary,
         sentiment = this.sentiment,
-        publishedAt = this.publishedAt
+        publishedAt = this.publishedAt,
+        type = this.type
     )
 }
