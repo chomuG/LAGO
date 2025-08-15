@@ -26,6 +26,9 @@ public class StockChartService {
     private final Ticks30mRepository ticks30mRepository;
     private final Ticks60mRepository ticks60mRepository;
     private final Ticks1dRepository ticks1dRepository;
+    private final Ticks1wRepository ticks1wRepository;
+    private final Ticks1monRepository ticks1monRepository;
+    private final Ticks1yRepository ticks1yRepository;
     
     /**
      * 특정 종목의 기간별 차트 데이터 조회 (KST 입력 -> UTC 조회 -> KST 응답)
@@ -73,6 +76,12 @@ public class StockChartService {
                         .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
                 case "1d" -> ticks1dRepository.findByCodeAndBucketRange(code, startTimeUtc, endTimeUtc)
                         .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
+                case "1w" -> ticks1wRepository.findByCodeAndBucketRange(code, startTimeUtc, endTimeUtc)
+                        .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
+                case "1mon" -> ticks1monRepository.findByCodeAndBucketRange(code, startTimeUtc, endTimeUtc)
+                        .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
+                case "1y" -> ticks1yRepository.findByCodeAndBucketRange(code, startTimeUtc, endTimeUtc)
+                        .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
                 default -> throw new IllegalArgumentException("지원하지 않는 시간 간격: " + interval);
             };
             
@@ -119,6 +128,12 @@ public class StockChartService {
                         .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
                 case "1d" -> ticks1dRepository.findLatestByCode(code, pageable)
                         .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
+                case "1w" -> ticks1wRepository.findLatestByCode(code, pageable)
+                        .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
+                case "1mon" -> ticks1monRepository.findLatestByCode(code, pageable)
+                        .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
+                case "1y" -> ticks1yRepository.findLatestByCode(code, pageable)
+                        .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
                 default -> throw new IllegalArgumentException("지원하지 않는 시간 간격: " + interval);
             };
             
@@ -139,7 +154,7 @@ public class StockChartService {
      * @return 지원하는 시간 간격 리스트
      */
     public List<String> getSupportedIntervals() {
-        return List.of("1m", "3m", "5m", "10m", "15m", "30m", "60m", "1d");
+        return List.of("1m", "3m", "5m", "10m", "15m", "30m", "60m", "1d", "1w", "1mon", "1y");
     }
     
     /**
