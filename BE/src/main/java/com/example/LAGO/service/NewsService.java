@@ -315,16 +315,31 @@ public class NewsService {
         
         log.info("사용자 {}의 관심종목: {}", userId, stockNames);
 
-        // 키워드로 뉴스 검색 (여러 종목명 OR 조건)
-        String searchKeyword = String.join("|", stockNames);
-        log.info("검색 키워드: '{}'", searchKeyword);
-        
-        Page<News> newsPage = newsRepository.findByKeywordSearch(searchKeyword, pageable);
-        log.info("검색된 뉴스 개수: {}", newsPage.getTotalElements());
-        
-        if (newsPage.isEmpty()) {
-            log.info("검색 결과가 없음 - 키워드: '{}'", searchKeyword);
+        // 각 종목명으로 개별 검색 후 결과 합치기
+        Set<Long> foundNewsIds = new HashSet<>();
+        for (String stockName : stockNames) {
+            log.info("개별 검색: '{}'", stockName);
+            Page<News> individualResult = newsRepository.findByKeywordSearch(stockName, 
+                org.springframework.data.domain.PageRequest.of(0, 100)); // 충분히 큰 사이즈로 검색
+            
+            individualResult.getContent().forEach(news -> {
+                foundNewsIds.add(news.getId());
+                log.debug("매칭된 뉴스: {}", news.getTitle());
+            });
+            log.info("'{}' 검색 결과: {}개", stockName, individualResult.getTotalElements());
         }
+        
+        log.info("총 매칭된 뉴스 ID 개수: {}", foundNewsIds.size());
+        
+        if (foundNewsIds.isEmpty()) {
+            log.info("검색 결과가 없음 - 종목명들: {}", stockNames);
+            return Page.empty(pageable);
+        }
+        
+        // 매칭된 뉴스 ID들로 최종 페이징 조회
+        Page<News> newsPage = newsRepository.findByIdInOrderByPublishedAtDesc(
+            new ArrayList<>(foundNewsIds), pageable);
+        log.info("최종 반환되는 뉴스 개수: {}", newsPage.getTotalElements());
         
         return newsPage.map(NewsResponse::from);
     }
