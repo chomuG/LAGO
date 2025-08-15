@@ -17,17 +17,19 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lago.app.domain.entity.Transaction
 import com.lago.app.presentation.theme.*
 import com.lago.app.presentation.ui.components.CommonTopAppBar
 import com.lago.app.presentation.viewmodel.OrderHistoryViewModel
 import com.lago.app.presentation.viewmodel.OrderType
+import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderHistoryScreen(
     onBackClick: () -> Unit = {},
-    userId: Int? = null,
+    userId: Int? = null, // null이면 ViewModel에서 UserPreferences에서 가져옴
     viewModel: OrderHistoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -263,6 +265,6 @@ private fun TransactionItemRow(transaction: Transaction) {
 @Composable
 fun OrderHistoryScreenPreview() {
     LagoTheme {
-        OrderHistoryScreen(userId = 5)
+        OrderHistoryScreen(userId = 1)
     }
 }

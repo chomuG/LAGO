@@ -2,6 +2,7 @@ package com.lago.app.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lago.app.data.local.prefs.UserPreferences
 import com.lago.app.domain.entity.Transaction
 import com.lago.app.domain.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -9,24 +10,40 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
 
 @HiltViewModel
 class OrderHistoryViewModel @Inject constructor(
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val userPreferences: UserPreferences
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(OrderHistoryUiState())
     val uiState: StateFlow<OrderHistoryUiState> = _uiState.asStateFlow()
     
-    fun loadTransactions(userId: Long) {
+    fun loadTransactions(userId: Int?) {
         viewModelScope.launch {
             android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Loading transactions for userId: $userId")
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
-            transactionRepository.getTransactions(userId).fold(
+            // userId가 null이면 UserPreferences에서 가져오기 시도
+            val actualUserId = userId ?: run {
+                val storedUserId = userPreferences.getUserId()
+                android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Using stored userId: $storedUserId")
+                storedUserId?.toIntOrNull()
+            }
+            
+            val userIdLong = actualUserId?.toLong() ?: run {
+                android.util.Log.e("VIEWMODEL", "OrderHistoryViewModel - No valid userId found")
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "사용자 ID가 없습니다. 다시 로그인해주세요."
+                )
+                return@launch
+            }
+            
+            transactionRepository.getTransactions(userIdLong).fold(
                 onSuccess = { transactions ->
                     android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Success: Loaded ${transactions.size} transactions")
                     transactions.forEachIndexed { index, transaction ->
@@ -66,6 +83,12 @@ class OrderHistoryViewModel @Inject constructor(
             .map { formatMonth(it.tradeAt) }
             .distinct()
             .sortedDescending()
+    }
+    
+    // 개발자용 테스트 함수 - 특정 사용자 ID로 강제 로드
+    fun loadTransactionsForDeveloper(developerId: Int) {
+        android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Developer mode: Loading transactions for developerId: $developerId")
+        loadTransactions(developerId)
     }
     
     private fun formatMonth(date: Date): String {
