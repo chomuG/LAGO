@@ -73,7 +73,7 @@ fun HomeScreen(
     onOrderHistoryClick: (Int) -> Unit = {}, // type을 파라미터로 전달
     onLoginClick: () -> Unit = {},
     onTradingBotClick: (Int) -> Unit = {},
-    onStockClick: (String) -> Unit = {},
+    onStockClick: (String, String) -> Unit = { _, _ ->},
     viewModel: com.lago.app.presentation.viewmodel.home.HomeViewModel = hiltViewModel()
 ) {
     val isLoggedIn = userPreferences.getAuthToken() != null
@@ -600,7 +600,7 @@ private fun StockSection(
     isLoggedIn: Boolean = true,
     homeStocks: List<com.lago.app.presentation.viewmodel.home.HomeStock> = emptyList(),
     viewModel: com.lago.app.presentation.viewmodel.home.HomeViewModel? = null,
-    onStockClick: (String) -> Unit = {}
+    onStockClick: (String, String) -> Unit = { _, _ ->}
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp)
@@ -724,12 +724,12 @@ private fun StockItem(stock: Stock) {
 private fun HomeStockItem(
     homeStock: com.lago.app.presentation.viewmodel.home.HomeStock,
     viewModel: com.lago.app.presentation.viewmodel.home.HomeViewModel,
-    onStockClick: (String) -> Unit = {}
+    onStockClick: (String, String) -> Unit = { _, _ ->}
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onStockClick(homeStock.stockCode) },
+            .clickable { onStockClick(homeStock.stockCode, homeStock.stockName) },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

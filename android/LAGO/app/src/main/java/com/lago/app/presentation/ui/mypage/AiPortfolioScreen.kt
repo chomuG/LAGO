@@ -54,7 +54,7 @@ data class AiPieChartData(
 @Composable
 fun AiPortfolioScreen(
     onBackClick: () -> Unit = {},
-    onStockClick: (String) -> Unit = {},
+    onStockClick: (String, String) -> Unit = { _, _ ->},
     onOrderHistoryClick: (Int, Int) -> Unit = { _, _ -> },
     userId: Int = 1,
     botViewModel: BotPortfolioViewModel = hiltViewModel()
@@ -371,7 +371,7 @@ fun AiPortfolioSection(
     pieChartData: List<AiPieChartData>, 
     stockList: List<AiStockInfo>,
     portfolioSummary: com.lago.app.data.remote.dto.MyPagePortfolioSummary? = null,
-    onStockClick: (String) -> Unit = {}
+    onStockClick: (String, String) -> Unit = { _, _ ->}
 ) {
     Card(
         modifier = Modifier
@@ -502,14 +502,14 @@ fun AiDonutChart(
 }
 
 @Composable
-fun AiStockListItemInCard(stock: AiStockInfo, onStockClick: (String) -> Unit = {}) {
+fun AiStockListItemInCard(stock: AiStockInfo, onStockClick: (String, String) -> Unit = { _, _ ->}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(4.dp)
             .clickable { 
                 if (stock.stockCode.isNotEmpty()) {
-                    onStockClick(stock.stockCode) 
+                    onStockClick(stock.stockCode, stock.name) 
                 }
             },
         horizontalArrangement = Arrangement.SpaceBetween,

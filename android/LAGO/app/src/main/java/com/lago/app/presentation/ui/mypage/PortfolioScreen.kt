@@ -24,7 +24,7 @@ import com.lago.app.presentation.ui.components.CommonTopAppBar
 @Composable
 fun PortfolioScreen(
     onRankingClick: () -> Unit = {},
-    onStockClick: (String) -> Unit = {},
+    onStockClick: (String, String) -> Unit = { _, _ ->},
     onBackClick: () -> Unit = {},
     userName: String = "박두칠"
 ) {
