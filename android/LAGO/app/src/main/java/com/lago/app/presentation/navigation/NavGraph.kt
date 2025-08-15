@@ -62,8 +62,9 @@ fun NavGraph(
                 onTradingBotClick = { userId ->
                     navController.navigate("ai_portfolio/$userId")
                 },
-                onStockClick = { stockCode ->
-                    navController.navigate("chart_simple/$stockCode")
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 }
             )
         }
@@ -86,8 +87,9 @@ fun NavGraph(
                 onTradingBotClick = { userId ->
                     navController.navigate("ai_portfolio/$userId")
                 },
-                onStockClick = { stockCode ->
-                    navController.navigate("chart_simple/$stockCode")
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 }
             )
         }
@@ -96,7 +98,7 @@ fun NavGraph(
             StockListScreen(
                 onStockClick = { stockCode, stockName, currentPrice, priceChange, priceChangePercent ->
                     val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
-                    navController.navigate("chart/$stockCode/$encodedName/$currentPrice/$priceChange/$priceChangePercent")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 },
                 onHistoryChallengeStockClick = { stockCode ->
                     navController.navigate("history_challenge_chart/$stockCode")
@@ -131,13 +133,10 @@ fun NavGraph(
 
         // Chart Screen with stock parameters
         composable(
-            route = "chart/{stockCode}/{stockName}/{currentPrice}/{priceChange}/{priceChangePercent}",
+            route = "chart/{stockCode}/{stockName}",
             arguments = listOf(
                 navArgument("stockCode") { type = NavType.StringType },
-                navArgument("stockName") { type = NavType.StringType },
-                navArgument("currentPrice") { type = NavType.IntType },
-                navArgument("priceChange") { type = NavType.IntType },
-                navArgument("priceChangePercent") { type = NavType.FloatType }
+                navArgument("stockName") { type = NavType.StringType }
             )
         ) { backStackEntry ->
             val stockCode = backStackEntry.arguments?.getString("stockCode") ?: "005930"
@@ -145,18 +144,16 @@ fun NavGraph(
                 backStackEntry.arguments?.getString("stockName") ?: "삼성전자", 
                 "UTF-8"
             )
-            val currentPrice = backStackEntry.arguments?.getInt("currentPrice") ?: 74200
-            val priceChange = backStackEntry.arguments?.getInt("priceChange") ?: 0
-            val priceChangePercent = backStackEntry.arguments?.getFloat("priceChangePercent") ?: 0f
+            android.util.Log.d("CHART_NAV", "차트 네비게이션 - stockCode: $stockCode, stockName: $stockName")
 
             ChartScreen(
                 stockCode = stockCode,
                 initialStockInfo = ChartStockInfo(
                     code = stockCode,
                     name = stockName,
-                    currentPrice = currentPrice.toFloat(),
-                    priceChange = priceChange.toFloat(),
-                    priceChangePercent = priceChangePercent,
+                    currentPrice = 0f, // 기본값
+                    priceChange = 0f, // 기본값
+                    priceChangePercent = 0f, // 기본값
                     previousDay = null
                 ),
                 onNavigateToStockPurchase = { stockCode, action ->
@@ -209,9 +206,10 @@ fun NavGraph(
                 onRankingClick = {
                     navController.navigate("ranking")
                 },
-                onStockClick = { stockCode ->
-                    // MyPage에서는 기본 방식으로 네비게이션 (backward compatibility)
-                    navController.navigate("chart_simple/$stockCode")
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    android.util.Log.d("MYPAGE_NAV", "MyPage 주식 클릭 - stockCode: $stockCode, stockName: $stockName, encodedName: $encodedName")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 }
             )
         }
@@ -266,8 +264,10 @@ fun NavGraph(
 
         composable("portfolio") {
             PortfolioScreen(
-                onStockClick = { stockCode ->
-                    navController.navigate("chart_simple/$stockCode")
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    android.util.Log.d("PORTFOLIO_NAV", "Portfolio 주식 클릭 - stockCode: $stockCode, stockName: $stockName, encodedName: $encodedName")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 },
                 onBackClick = {
                     navController.popBackStack()
@@ -287,8 +287,10 @@ fun NavGraph(
                 onBackClick = {
                     navController.popBackStack()
                 },
-                onStockClick = { stockCode ->
-                    navController.navigate("chart_simple/$stockCode")
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    android.util.Log.d("AI_PORTFOLIO_NAV", "AI Portfolio 주식 클릭 - stockCode: $stockCode, stockName: $stockName, encodedName: $encodedName")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 },
                 onOrderHistoryClick = { botUserId, type ->
                     android.util.Log.d("NAV_GRAPH", "AiPortfolio - onOrderHistoryClick: botUserId=$botUserId, type=$type")
@@ -304,8 +306,10 @@ fun NavGraph(
                 onBackClick = {
                     navController.popBackStack()
                 },
-                onStockClick = { stockCode ->
-                    navController.navigate("chart_simple/$stockCode")
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    android.util.Log.d("AI_PORTFOLIO_NAV", "AI Portfolio 주식 클릭 - stockCode: $stockCode, stockName: $stockName, encodedName: $encodedName")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 },
                 onOrderHistoryClick = { botUserId, type ->
                     android.util.Log.d("NAV_GRAPH", "AiPortfolio - onOrderHistoryClick: botUserId=$botUserId, type=$type")
