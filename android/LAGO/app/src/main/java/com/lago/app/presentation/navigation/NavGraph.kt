@@ -287,8 +287,9 @@ fun NavGraph(
                 onStockClick = { stockCode ->
                     navController.navigate("chart_simple/$stockCode")
                 },
-                onOrderHistoryClick = { botUserId ->
-                    navController.navigate("order_history/$botUserId")
+                onOrderHistoryClick = { botUserId, type ->
+                    android.util.Log.d("NAV_GRAPH", "AiPortfolio - onOrderHistoryClick: botUserId=$botUserId, type=$type")
+                    navController.navigate("order_history_bot/$botUserId/$type")
                 },
                 userId = userId
             )
@@ -303,8 +304,9 @@ fun NavGraph(
                 onStockClick = { stockCode ->
                     navController.navigate("chart_simple/$stockCode")
                 },
-                onOrderHistoryClick = { botUserId ->
-                    navController.navigate("order_history/$botUserId")
+                onOrderHistoryClick = { botUserId, type ->
+                    android.util.Log.d("NAV_GRAPH", "AiPortfolio - onOrderHistoryClick: botUserId=$botUserId, type=$type")
+                    navController.navigate("order_history_bot/$botUserId/$type")
                 },
                 userId = 1 // 기본값
             )
@@ -456,18 +458,21 @@ fun NavGraph(
         
         // 매매봇용 거래내역 (userId 파라미터 포함)
         composable(
-            route = "order_history/{userId}",
+            route = "order_history_bot/{userId}/{type}",
             arguments = listOf(
-                navArgument("userId") { type = NavType.IntType }
+                navArgument("userId") { type = NavType.IntType },
+                navArgument("type") { type = NavType.IntType }
             )
         ) { backStackEntry ->
-            val userId = backStackEntry.arguments?.getInt("userId") ?: 5
+            val userId = backStackEntry.arguments?.getInt("userId") ?: 1
+            val type = backStackEntry.arguments?.getInt("type") ?: 2
+            android.util.Log.d("NAV_GRAPH", "OrderHistory composable - 파라미터: userId=$userId, type=$type")
             OrderHistoryScreen(
+                userId = userId, // AiPortfolioScreen에서 받은 userId 전달
+                type = 2, // AI 매매봇 타입
                 onBackClick = {
                     navController.popBackStack()
-                },
-                // TODO: userId 파라미터를 OrderHistoryScreen에 전달하도록 향후 수정 필요
-                userId = userId
+                }
             )
         }
     }

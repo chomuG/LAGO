@@ -102,6 +102,36 @@ class RemoteDataSource @Inject constructor(
         }
     }
 
+    suspend fun getAiTransactions(aiId: Long): ApiResponse<List<TransactionDto>> {
+        return try {
+            android.util.Log.d("API_CALL", "===== AI TRANSACTION API CALL =====")
+            android.util.Log.d("API_CALL", "Getting AI transactions for aiId: $aiId")
+            android.util.Log.d("API_CALL", "Request URL: ${Constants.BASE_URL}api/ai/$aiId/transactions")
+            android.util.Log.d("API_CALL", "Full URL: ${Constants.BASE_URL}api/ai/$aiId/transactions")
+
+            val response = apiService.getAiTransactions(aiId)
+            android.util.Log.d("API_CALL", "AI Transaction API Success - Response size: ${response.size}")
+            android.util.Log.d("API_CALL", "AI Transaction API Response: $response")
+
+            ApiResponse.Success(response)
+        } catch (e: Exception) {
+            android.util.Log.e("API_CALL", "AI Transaction API Error", e)
+            android.util.Log.e("API_CALL", "Error type: ${e::class.java.simpleName}")
+            android.util.Log.e("API_CALL", "Error message: ${e.message}")
+            if (e is retrofit2.HttpException) {
+                android.util.Log.e("API_CALL", "HTTP Status: ${e.code()}")
+                android.util.Log.e("API_CALL", "HTTP Message: ${e.message()}")
+                try {
+                    val errorBody = e.response()?.errorBody()?.string()
+                    android.util.Log.e("API_CALL", "HTTP Error Body: $errorBody")
+                } catch (ex: Exception) {
+                    android.util.Log.e("API_CALL", "Error reading error body", ex)
+                }
+            }
+            ApiResponse.Error(e.message ?: "Unknown error occurred")
+        }
+    }
+
     suspend fun getHistoryChallenge(): HistoryChallengeDto {
         return apiService.getHistoryChallenge()
     }

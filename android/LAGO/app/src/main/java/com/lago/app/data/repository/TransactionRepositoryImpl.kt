@@ -63,6 +63,31 @@ class TransactionRepositoryImpl @Inject constructor(
         }
     }
     
+    override suspend fun getAiTransactions(aiId: Long): Result<List<Transaction>> {
+        return try {
+            android.util.Log.d("REPOSITORY", "TransactionRepository - Getting AI transactions for aiId: $aiId")
+            
+            when (val response = remoteDataSource.getAiTransactions(aiId)) {
+                is ApiResponse.Success -> {
+                    android.util.Log.d("REPOSITORY", "TransactionRepository - AI API Success, mapping ${response.data.size} items")
+                    val transactions = response.data.map { dto ->
+                        android.util.Log.v("REPOSITORY", "Mapping AI DTO: $dto")
+                        dto.toDomain()
+                    }
+                    android.util.Log.d("REPOSITORY", "TransactionRepository - Successfully mapped ${transactions.size} AI transactions")
+                    Result.success(transactions)
+                }
+                is ApiResponse.Error -> {
+                    android.util.Log.e("REPOSITORY", "TransactionRepository - AI API Error: ${response.message}")
+                    Result.failure(Exception("AI API Error: ${response.message}"))
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("REPOSITORY", "TransactionRepository - AI Exception occurred", e)
+            Result.failure(Exception("AI Network Error: ${e.message}"))
+        }
+    }
+    
     private fun createMockTransactions(userId: Long): List<Transaction> {
         val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
         return listOf(

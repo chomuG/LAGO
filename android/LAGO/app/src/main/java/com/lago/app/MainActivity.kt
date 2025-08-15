@@ -153,6 +153,8 @@ fun LagoApp(userPreferences: UserPreferences) {
         "pattern_study",
         "login", "personality_test",
         "order_history", "ranking",
+        "order_history/{type}", // 타입이 포함된 거래내역 화면
+        "order_history/{aiId}", // 매매봇용 거래내역 화면  
         "portfolio",
         "chart",  // 차트 탭 화면 (목 데이터)
         "chart/{stockCode}",  // 차트 화면
