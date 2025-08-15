@@ -204,6 +204,10 @@ class HomeViewModel @Inject constructor(
                                 challengeData.stockCode to challengeData.currentPrice.toDouble()
                             )
                             
+                            // 역사챌린지 WebSocket 구독 시작
+                            android.util.Log.d("HomeViewModel", "🏛️ 역사챌린지 WebSocket 구독 시작")
+                            smartWebSocketService.subscribeToHistoryChallenge(challengeData.stockCode)
+                            
                             // 역사챌린지 가격으로 포트폴리오 계산
                             updatePortfolioWithHistoryPrice(userStatus)
                         }
@@ -698,7 +702,9 @@ class HomeViewModel @Inject constructor(
                 // 역사챌린지 모드로 변경
                 loadHistoryChallengePrice(stockCodes, userStatus)
             } else {
-                // 일반 모드로 변경
+                // 일반 모드로 변경 (역사챌린지 구독 해제)
+                android.util.Log.d("HomeViewModel", "일반 모드로 변경 - 역사챌린지 구독 해제")
+                smartWebSocketService.unsubscribeFromHistoryChallenge()
                 initializeHybridPrices(stockCodes, userStatus)
             }
         } ?: run {
