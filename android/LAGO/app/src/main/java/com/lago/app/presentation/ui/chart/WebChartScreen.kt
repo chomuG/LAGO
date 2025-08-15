@@ -120,23 +120,25 @@ fun WebChartScreen(
         }
     }
     
-    // WebView ready 콜백 호출
+    // WebView ready 콜백 호출 및 HTML 로드 (한 번만)
     LaunchedEffect(webView) {
         onWebViewReady?.invoke(webView)
+        // HTML 로드는 딱 한 번만 실행
+        webView.loadDataWithBaseURL(
+            "https://unpkg.com/",
+            htmlContent,
+            "text/html",
+            "UTF-8",
+            null
+        )
     }
     
-    // 4. AndroidView update에서 WebView 재생성 방지
+    // 4. AndroidView update에서 WebView 재생성 방지 - loadURL 절대 안함
     AndroidView(
         factory = { webView },
         update = { view ->
-            // HTML 내용이 변경될 때만 업데이트
-            view.loadDataWithBaseURL(
-                "https://unpkg.com/",
-                htmlContent,
-                "text/html",
-                "UTF-8",
-                null
-            )
+            // 절대 loadDataWithBaseURL() 호출하지 않음!
+            // 모든 업데이트는 JavaScript 호출로만 처리
         },
         modifier = modifier.fillMaxSize()
     )

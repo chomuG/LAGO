@@ -61,7 +61,7 @@ data class HistoryChallengeNewsResponse(
 )
 
 /**
- * 역사챌린지 웹소켓 데이터 (API 응답과 동일한 구조)
+ * 역사챌린지 웹소켓 데이터 (실제 WebSocket JSON 형식에 맞춤)
  */
 data class HistoryChallengeWebSocketData(
     @SerializedName("rowId") val rowId: Int?,
@@ -72,8 +72,8 @@ data class HistoryChallengeWebSocketData(
     @SerializedName("lowPrice") val lowPrice: Int,
     @SerializedName("closePrice") val closePrice: Int,
     @SerializedName("volume") val volume: Int,
-    @SerializedName("fluctuation_price") val fluctuationPrice: Int,
-    @SerializedName("fluctuation_rate") val fluctuationRate: Float
+    @SerializedName("fluctuationPrice") val fluctuationPrice: Int, // WebSocket에서는 camelCase
+    @SerializedName("fluctuationRate") val fluctuationRate: Float  // WebSocket에서는 camelCase
 )
 
 /**

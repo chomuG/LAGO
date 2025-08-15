@@ -3,6 +3,7 @@ package com.lago.app.data.service
 import android.util.Log
 import com.lago.app.data.remote.api.ChartApiService
 import com.lago.app.data.remote.dto.StockDayDto
+import com.lago.app.data.remote.dto.StockPriceDataDto
 import com.lago.app.util.MarketTimeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -87,11 +88,29 @@ class CloseDataService @Inject constructor(
     private suspend fun fetchStockDayData(stockCode: String, date: String): StockDayDto? {
         return try {
             Log.d(TAG, "API 호출: $stockCode, $date")
-            val response = chartApiService.getDayCandles(stockCode, date, date)
+            
+            // 새로운 API 사용 (하루치 데이터)
+            val startDateTime = "${date}T09:00:00"
+            val endDateTime = "${date}T15:30:00"
+            val encodedStart = java.net.URLEncoder.encode(startDateTime, "UTF-8")
+            val encodedEnd = java.net.URLEncoder.encode(endDateTime, "UTF-8")
+            
+            val response = chartApiService.getStockPriceData(stockCode, "DAY", encodedStart, encodedEnd)
             
             if (response.isNotEmpty()) {
-                Log.d(TAG, "API 응답 성공: $stockCode, 종가=${response[0].closePrice}")
-                response[0]
+                val priceData = response[0]
+                Log.d(TAG, "API 응답 성공: $stockCode, 종가=${priceData.closePrice}")
+                
+                // StockPriceDataDto를 StockDayDto로 변환
+                StockDayDto(
+                    date = priceData.bucket.split("T")[0], // "2024-08-13T09:00:00" -> "2024-08-13"
+                    openPrice = priceData.openPrice.toInt(),
+                    highPrice = priceData.highPrice.toInt(),
+                    lowPrice = priceData.lowPrice.toInt(),
+                    closePrice = priceData.closePrice.toInt(),
+                    volume = priceData.volume.toInt(),
+                    fluctuationRate = 0.0f // 기본값으로 0 설정
+                )
             } else {
                 Log.w(TAG, "API 응답 빈 배열: $stockCode, $date")
                 null
