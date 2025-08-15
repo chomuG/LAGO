@@ -30,4 +30,7 @@ public class RankingResponse {
 
     @Schema(description = "총 수익", example = "2500000")
     private Integer totalProfit;
+
+    @Schema(description = "투자 성향", example = "aggressive")
+    private String personality;
 }

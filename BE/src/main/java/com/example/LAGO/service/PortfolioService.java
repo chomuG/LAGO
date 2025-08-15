@@ -4,6 +4,7 @@ import com.example.LAGO.domain.Account;
 import com.example.LAGO.domain.Stock;
 import com.example.LAGO.domain.StockHolding;
 import com.example.LAGO.domain.StockInfo;
+import com.example.LAGO.domain.User;
 import com.example.LAGO.dto.response.AccountCurrentStatusResponse;
 import com.example.LAGO.dto.response.StockHoldingResponse;
 import com.example.LAGO.repository.AccountRepository;
@@ -11,6 +12,7 @@ import com.example.LAGO.repository.MockTradeRepository;
 import com.example.LAGO.repository.StockRepository;
 import com.example.LAGO.repository.StockHoldingRepository;
 import com.example.LAGO.repository.StockInfoRepository;
+import com.example.LAGO.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ public class PortfolioService {
     private final StockRepository stockRepository;
     private final MockTradeRepository mockTradeRepository;
     private final StockInfoRepository stockInfoRepository;
+    private final UserRepository userRepository;
 
     /**
      * 사용자 포트폴리오 조회 (모든 계좌)
@@ -184,21 +187,33 @@ public class PortfolioService {
     }
 
     /**
-     * 사용자 기본 계좌 현재 상황 조회 (StockHolding 기반)
-     * userId로 타입 0인 기본 계좌를 찾아서 조회
+     * 사용자 계좌 현재 상황 조회 (StockHolding 기반)
+     * userId로 지정된 타입의 계좌를 찾아서 조회
      * 
      * @param userId 사용자 ID
-     * @return 기본 계좌 현재 상황
+     * @param type 계좌 타입 (기본값: 0)
+     * @return 계좌 현재 상황
      */
     @Transactional(readOnly = true)
-    public AccountCurrentStatusResponse getUserCurrentStatus(Long userId) {
-        log.info("사용자 기본 계좌 현재 상황 조회: userId={}", userId);
+    public AccountCurrentStatusResponse getUserCurrentStatus(Long userId, Integer type) {
+        log.info("사용자 계좌 현재 상황 조회: userId={}, type={}", userId, type);
         
-        // 타입 0인 기본 계좌 조회
-        Account account = accountRepository.findByUserIdAndType(userId, Account.TYPE_MOCK_TRADING)
-                .orElseThrow(() -> new RuntimeException("기본 계좌를 찾을 수 없습니다: userId=" + userId));
+        // 사용자 정보 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다: userId=" + userId));
         
-        // 기존 메서드 재사용
-        return getAccountCurrentStatus(account.getAccountId(), userId);
+        // 지정된 타입의 계좌 조회
+        Account account = accountRepository.findByUserIdAndType(userId, type)
+                .orElseThrow(() -> new RuntimeException("계좌를 찾을 수 없습니다: userId=" + userId + ", type=" + type));
+        
+        // 기존 메서드 재사용하여 계좌 정보 조회
+        AccountCurrentStatusResponse response = getAccountCurrentStatus(account.getAccountId(), userId);
+        
+        // 사용자 정보 추가
+        response.setUserId(user.getUserId());
+        response.setNickname(user.getNickname());
+        response.setPersonality(user.getPersonality());
+        
+        return response;
     }
 }

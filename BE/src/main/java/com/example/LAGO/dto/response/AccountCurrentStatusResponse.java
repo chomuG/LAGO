@@ -27,6 +27,15 @@ public class AccountCurrentStatusResponse {
     @Schema(description = "보유 종목 목록")
     private List<CurrentHoldingInfo> holdings;
 
+    @Schema(description = "사용자 ID", example = "1")
+    private Long userId;
+
+    @Schema(description = "사용자 닉네임", example = "투자고수")
+    private String nickname;
+
+    @Schema(description = "투자 성향", example = "aggressive")
+    private String personality;
+
     @Data
     @Builder
     @Schema(description = "현재 보유 종목 정보")
