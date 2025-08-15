@@ -13,7 +13,13 @@ data class RankingDto(
     @SerializedName("username")
     val username: String,
     @SerializedName("totalAsset")
-    val totalAsset: Long
+    val totalAsset: Long,
+    @SerializedName("profitRate")
+    val profitRate: Double,
+    @SerializedName("totalProfit")
+    val totalProfit: Long,
+    @SerializedName("personality")
+    val personality: String
     // profitRate, totalProfit는 제거 - 클라이언트에서 계산
 )
 
@@ -28,5 +34,6 @@ data class CalculatedRankingUser(
     val calculatedProfitRate: Double,    // (totalAsset - 1,000,000) / 1,000,000 * 100
     val calculatedProfit: Long,          // totalAsset - 1,000,000
     val isCurrentUser: Boolean = false,
-    val isAi: Boolean = false
+    val isAi: Boolean = false,
+    val personality: String = "위험중립형"
 )

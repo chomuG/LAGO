@@ -6,6 +6,7 @@ import com.lago.app.data.remote.ApiResponse
 import com.lago.app.data.remote.RemoteDataSource
 import com.lago.app.data.remote.UpdateUserRequest
 import com.lago.app.data.remote.dto.UserCurrentStatusDto
+import com.lago.app.data.remote.dto.HistoryChallengeDto
 import com.lago.app.domain.repository.AuthToken
 import com.lago.app.domain.repository.UserProfile
 import com.lago.app.domain.repository.UserRepository
@@ -110,14 +111,25 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
     
-    override suspend fun getUserCurrentStatus(userId: Int): Flow<Resource<UserCurrentStatusDto>> = flow {
+    override suspend fun getUserCurrentStatus(userId: Int, type: Int): Flow<Resource<UserCurrentStatusDto>> = flow {
         emit(Resource.Loading())
         
         try {
-            val response = remoteDataSource.getUserCurrentStatus(userId)
+            val response = remoteDataSource.getUserCurrentStatus(userId, type)
             emit(Resource.Success(response))
         } catch (e: Exception) {
             emit(Resource.Error(e.localizedMessage ?: "사용자 현재 상황 조회 실패"))
+        }
+    }
+    
+    override suspend fun getHistoryChallenge(): Flow<Resource<HistoryChallengeDto>> = flow {
+        emit(Resource.Loading())
+        
+        try {
+            val response = remoteDataSource.getHistoryChallenge()
+            emit(Resource.Success(response))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.localizedMessage ?: "역사챌린지 조회 실패"))
         }
     }
 }

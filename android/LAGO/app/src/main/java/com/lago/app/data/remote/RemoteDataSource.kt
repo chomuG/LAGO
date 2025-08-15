@@ -3,6 +3,7 @@ package com.lago.app.data.remote
 import com.lago.app.data.remote.dto.TransactionDto
 import com.lago.app.util.Constants
 import com.lago.app.data.remote.dto.UserCurrentStatusDto
+import com.lago.app.data.remote.dto.HistoryChallengeDto
 import retrofit2.Retrofit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -41,8 +42,8 @@ class RemoteDataSource @Inject constructor(
         }
     }
 
-    suspend fun getUserCurrentStatus(userId: Int): UserCurrentStatusDto {
-        return apiService.getUserCurrentStatus(userId)
+    suspend fun getUserCurrentStatus(userId: Int, type: Int = 0): UserCurrentStatusDto {
+        return apiService.getUserCurrentStatus(userId, type)
     }
 
     suspend fun getTransactions(userId: Long): ApiResponse<List<TransactionDto>> {
@@ -99,6 +100,10 @@ class RemoteDataSource @Inject constructor(
             }
             ApiResponse.Error(e.message ?: "Unknown error occurred")
         }
+    }
+
+    suspend fun getHistoryChallenge(): HistoryChallengeDto {
+        return apiService.getHistoryChallenge()
     }
 }
 

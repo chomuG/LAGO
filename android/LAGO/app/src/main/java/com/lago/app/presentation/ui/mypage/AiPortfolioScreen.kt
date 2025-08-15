@@ -141,16 +141,24 @@ fun AiPortfolioScreen(
 
 @Composable
 fun AiProfileSection(botName: String) {
+    // 봇 이름에 따른 캐릭터 이미지 매핑 (_circle 버전)
+    val characterImage = when(botName) {
+        "화끈이" -> R.drawable.character_red_circle
+        "적극이" -> R.drawable.character_yellow_circle
+        "균형이" -> R.drawable.character_blue_circle
+        "조심이" -> R.drawable.character_green_circle
+        else -> R.drawable.character_blue_circle
+    }
+    
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 프로필 사진
-        Box(
-            modifier = Modifier
-                .size(74.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFDEEFFE))
+        // 캐릭터 이미지 (배경 없이 _circle 버전 사용)
+        androidx.compose.foundation.Image(
+            painter = painterResource(id = characterImage),
+            contentDescription = "$botName 캐릭터",
+            modifier = Modifier.size(74.dp)
         )
         
         Spacer(modifier = Modifier.height(8.dp))
@@ -181,7 +189,7 @@ fun AiAssetTitleSection(onOrderHistoryClick: (Int) -> Unit = {}, userId: Int) {
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clickable { onOrderHistoryClick(userId) }
+            modifier = Modifier.clickable { onOrderHistoryClick(userId) } // userId는 봇ID(1~4), 내부에서 type=2 처리
         ) {
             Text(
                 text = "거래내역 >",

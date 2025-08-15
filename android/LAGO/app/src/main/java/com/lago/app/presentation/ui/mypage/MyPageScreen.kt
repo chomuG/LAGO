@@ -65,7 +65,7 @@ fun MyPageScreen(
         item { Spacer(modifier = Modifier.height(16.dp)) }
 
         // 헤더 섹션
-        item { HeaderSection(isLoggedIn = isLoggedIn, username = username, onLoginClick = onLoginClick) }
+        item { HeaderSection(isLoggedIn = isLoggedIn, username = username, portfolioSummary = portfolioSummary, onLoginClick = onLoginClick) }
 
         // 자산 현황 타이틀 섹션
         item { AssetTitleSectionWithRanking(onRankingClick = onRankingClick) }
@@ -134,6 +134,7 @@ fun MyPageScreen(
 fun HeaderSection(
     isLoggedIn: Boolean = true,
     username: String = "",
+    portfolioSummary: com.lago.app.data.remote.dto.MyPagePortfolioSummary? = null,
     onLoginClick: () -> Unit = {}
 ) {
     Box(
@@ -170,31 +171,41 @@ fun HeaderSection(
                 // 왼쪽 컨텐츠
                 if (isLoggedIn) {
                     Column {
-                        // 위험중립형 태그
+                        // API에서 받은 성향 태그
+                        val personalityText = portfolioSummary?.personality ?: "위험중립형"
+                        val (tagBgColor, tagTextColor) = when (personalityText) {
+                            "공격투자형" -> Pair(Color(0xFFFFE5E5), Color(0xFFD32F2F))
+                            "적극투자형" -> Pair(Color(0xFFFFF4E0), Color(0xFFFF8F00))
+                            "위험중립형" -> Pair(BlueLight, BlueNormal)
+                            "안정추구형" -> Pair(Color(0xFFE8F5E8), Color(0xFF2E7D32))
+                            else -> Pair(BlueLight, BlueNormal)
+                        }
+                        
                         Box(
                             modifier = Modifier
                                 .background(
-                                    BlueLight,
+                                    tagBgColor,
                                     RoundedCornerShape(16.dp)
                                 )
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = "위험중립형",
+                                text = personalityText,
                                 style = BodyR12,
-                                color = BlueNormal
+                                color = tagTextColor
                             )
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // 사용자 이름
+                        // API에서 받은 닉네임
+                        val displayName = portfolioSummary?.nickname ?: username
                         Box(
                             modifier = Modifier
                                 .padding(horizontal = 4.dp)
                         ) {
                             Text(
-                                text = username,
+                                text = displayName,
                                 style = TitleB24,
                                 color = Black
                             )
@@ -215,12 +226,22 @@ fun HeaderSection(
                 }
 
                 if (isLoggedIn) {
-                    // 프로필 사진
-                    Box(
+                    // 성향에 따른 캐릭터 이미지 (_circle 버전)
+                    val characterImage = portfolioSummary?.personality?.let { personality ->
+                        when (personality) {
+                            "공격투자형" -> R.drawable.character_red_circle
+                            "적극투자형" -> R.drawable.character_yellow_circle
+                            "위험중립형" -> R.drawable.character_blue_circle
+                            "안정추구형" -> R.drawable.character_green_circle
+                            else -> R.drawable.character_blue_circle
+                        }
+                    } ?: R.drawable.character_blue_circle
+                    
+                    androidx.compose.foundation.Image(
+                        painter = painterResource(id = characterImage),
+                        contentDescription = "프로필 캐릭터",
                         modifier = Modifier
                             .size(74.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFDEEFFE))
                             .align(Alignment.CenterEnd)
                     )
 

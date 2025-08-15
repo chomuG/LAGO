@@ -178,12 +178,19 @@ fun ApiRankingCard(
                     modifier = Modifier.padding(end = 8.dp)
                 )
 
-                // 프로필 점 (AI면 파랑)
-                Box(
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clip(CircleShape)
-                        .background(if (user.isAi) MainBlue else Color(0xFFDEEFFE))
+                // personality에 따른 캐릭터 이미지
+                val characterImage = when (user.personality) {
+                    "공격투자형" -> R.drawable.character_red_circle
+                    "적극투자형" -> R.drawable.character_yellow_circle
+                    "위험중립형" -> R.drawable.character_blue_circle
+                    "안정추구형" -> R.drawable.character_green_circle
+                    else -> R.drawable.character_blue_circle
+                }
+                
+                Image(
+                    painter = painterResource(id = characterImage),
+                    contentDescription = "${user.personality} 캐릭터",
+                    modifier = Modifier.size(50.dp)
                 )
 
                 // 사용자명 + AI 아이콘
@@ -283,7 +290,7 @@ fun ApiPodiumSection(
                     circleSize = 90.dp,
                     nameStyle = TitleB18,
                     amountStyle = HeadEb18,
-                    amountColor = MainBlue,
+                    amountColor = MainPink,
                     bottomPadding = 190.dp,
                     medalResource = R.drawable.gold,
                     onUserClick = onUserClick
@@ -325,12 +332,21 @@ fun ApiPodiumUser(
             .clickable { onUserClick() }
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Box(
-                modifier = Modifier
-                    .size(circleSize)
-                    .clip(CircleShape)
-                    .background(Gray400)
+            // personality에 따른 캐릭터 이미지
+            val characterImage = when (user.personality) {
+                "공격투자형" -> R.drawable.character_red_circle
+                "적극투자형" -> R.drawable.character_yellow_circle
+                "위험중립형" -> R.drawable.character_blue_circle
+                "안정추구형" -> R.drawable.character_green_circle
+                else -> R.drawable.character_blue_circle
+            }
+            
+            Image(
+                painter = painterResource(id = characterImage),
+                contentDescription = "${user.personality} 캐릭터",
+                modifier = Modifier.size(circleSize)
             )
+            
             Icon(
                 painter = painterResource(id = medalResource),
                 contentDescription = "${user.rank}등 메달",

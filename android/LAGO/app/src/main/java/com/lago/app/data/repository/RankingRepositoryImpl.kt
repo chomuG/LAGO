@@ -55,7 +55,8 @@ class RankingRepositoryImpl @Inject constructor(
             calculatedProfitRate = profitRate,
             calculatedProfit = profit,
             isCurrentUser = dto.userId == 5, // 임시 테스트용 사용자 ID
-            isAi = dto.username.contains("AI") || dto.username.contains("봇") // AI 봇 판별
+            isAi = dto.username.contains("AI") || dto.username.contains("봇"), // AI 봇 판별
+            personality = dto.personality
         )
     }
 }

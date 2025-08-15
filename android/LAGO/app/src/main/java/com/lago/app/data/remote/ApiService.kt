@@ -3,6 +3,7 @@ package com.lago.app.data.remote
 import com.lago.app.data.remote.dto.TransactionDto
 import com.lago.app.data.remote.dto.UserCurrentStatusDto
 import com.lago.app.data.remote.dto.RankingDto
+import com.lago.app.data.remote.dto.HistoryChallengeDto
 import retrofit2.http.*
 
 interface ApiService {
@@ -29,8 +30,14 @@ interface ApiService {
     suspend fun getHistoryTransactions(@Path("userId") userId: Long): List<TransactionDto>
 
     @GET("api/users/{userId}/current-status")
-    suspend fun getUserCurrentStatus(@Path("userId") userId: Int): UserCurrentStatusDto
+    suspend fun getUserCurrentStatus(
+        @Path("userId") userId: Int,
+        @Query("type") type: Int = 0
+    ): UserCurrentStatusDto
 
     @GET("api/ranking")
     suspend fun getRanking(): List<RankingDto>
+
+    @GET("api/history-challenge")
+    suspend fun getHistoryChallenge(): HistoryChallengeDto
 }

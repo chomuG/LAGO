@@ -55,7 +55,7 @@ class BotPortfolioViewModel @Inject constructor(
             try {
                 android.util.Log.d("BotPortfolioViewModel", "🤖 매매봇 API 요청 시작: userId=$userId")
 
-                userRepository.getUserCurrentStatus(userId).collect { resource ->
+                userRepository.getUserCurrentStatus(userId, 2).collect { resource ->
                     when (resource) {
                         is Resource.Loading -> {
                             android.util.Log.d("BotPortfolioViewModel", "⏳ 매매봇 API 로딩 중...")

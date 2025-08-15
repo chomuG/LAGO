@@ -79,12 +79,17 @@ fun HomeScreen(
     val isLoggedIn = userPreferences.getAuthToken() != null
     val username = userPreferences.getUsername() ?: "게스트"
     val uiState by viewModel.uiState.collectAsState()
-    val tradingBots = listOf(
-        TradingBot(1, "화끈이", R.drawable.character_red, "12,450,000원", "+137,000원", "2.56%", "공격투자형"),
-        TradingBot(2, "적극이", R.drawable.character_yellow, "8,750,000원", "+25,000원", "1.2%", "적극투자형"),
-        TradingBot(3, "균형이", R.drawable.character_blue, "15,200,000원", "-45,000원", "0.8%", "위험중립형"),
-        TradingBot(4, "조심이", R.drawable.character_green, "6,800,000원", "+12,000원", "0.4%", "안정추구형")
-    )
+    // ViewModel에서 API로 가져온 매매봇 데이터 사용, 없으면 기본 데이터
+    val tradingBots = if (uiState.tradingBots.isNotEmpty()) {
+        uiState.tradingBots
+    } else {
+        listOf(
+            TradingBot(1, "화끈이", R.drawable.character_red, "로딩중...", "+0원", "0%", "공격투자형"),
+            TradingBot(2, "적극이", R.drawable.character_yellow, "로딩중...", "+0원", "0%", "적극투자형"),
+            TradingBot(3, "균형이", R.drawable.character_blue, "로딩중...", "+0원", "0%", "위험중립형"),
+            TradingBot(4, "조심이", R.drawable.character_green, "로딩중...", "+0원", "0%", "안정추구형")
+        )
+    }
 
     val stocks = listOf(
         Stock("삼성전자", "005930", 10, "82,000원", "-2.7%", "-2.7%", MainBlue),
@@ -133,13 +138,35 @@ fun HomeScreen(
                                 modifier = Modifier.weight(1f, fill = false)
                             ) {
                                 if (isLoggedIn) {
+                                    // API에서 받은 닉네임 사용
+                                    val displayName = uiState.portfolioSummary?.let { 
+                                        "${it.nickname}님!" 
+                                    } ?: "${username}님!"
+                                    
+                                    Row {
+                                        Text(
+                                            text = "안녕하세요 ",
+                                            style = HeadEb28.copy(color = Black)
+                                        )
+                                        Text(
+                                            text = displayName,
+                                            style = HeadEb28.copy(color = MainBlue)
+                                        )
+                                    }
+                                    
+                                    // API에서 받은 성향에 따른 추천 메시지
+                                    val personalityMessage = uiState.portfolioSummary?.personality?.let { personality ->
+                                        when (personality) {
+                                            "공격투자형" -> "공격투자형에게는 고위험/고수익의\n성장주를 권해요."
+                                            "적극투자형" -> "적극투자형에게는 중고위험/중고수익의\n우량주를 권해요."
+                                            "위험중립형" -> "위험중립형에게는 중위험/중수익의\n대형주를 권해요."
+                                            "안정추구형" -> "안정추구형에게는 저위험/안정수익의\n배당주를 권해요."
+                                            else -> "위험중립형에게는 중위험/중수익의\n대형주를 권해요."
+                                        }
+                                    } ?: "위험중립형에게는 중위험/중수익의\n대형주를 권해요."
+                                    
                                     Text(
-                                        text = "안녕하세요 ${username}님!",
-                                        style = HeadEb28
-                                    )
-                                    Text(
-                                        text = "위험중립형에게는 중위험/중수익의" +
-                                                "\n대형주를 권해요.",
+                                        text = personalityMessage,
                                         style = TitleB18,
                                         modifier = Modifier.padding(top = 13.dp)
                                     )
@@ -188,8 +215,23 @@ fun HomeScreen(
                             .fillMaxSize(),
                         contentAlignment = Alignment.BottomEnd
                     ) {
+                        // API에서 받은 성향에 따른 캐릭터 이미지
+                        val characterImage = if (isLoggedIn) {
+                            uiState.portfolioSummary?.personality?.let { personality ->
+                                when (personality) {
+                                    "공격투자형" -> R.drawable.character_red_main
+                                    "적극투자형" -> R.drawable.character_yellow_main
+                                    "위험중립형" -> R.drawable.character_blue_home
+                                    "안정추구형" -> R.drawable.character_green_main
+                                    else -> R.drawable.character_blue_home
+                                }
+                            } ?: R.drawable.character_blue_home
+                        } else {
+                            R.drawable.character_blue_home
+                        }
+                        
                         Image(
-                            painter = painterResource(id = R.drawable.character_blue_home),
+                            painter = painterResource(id = characterImage),
                             contentDescription = "캐릭터",
                             modifier = Modifier
                                 .size(160.dp)
@@ -325,6 +367,8 @@ private fun InvestmentSection(
                                         val mode = if (newMode) 1 else 0
                                         userPreferences.setInvestmentMode(mode)
                                         android.util.Log.d("HomeScreen", "Investment mode changed to: $mode")
+                                        // 스위치 변경 시 새 데이터 로드
+                                        viewModel?.loadUserPortfolio()
                                     },
                                     modifier = Modifier
                                         .padding(start = 8.dp)

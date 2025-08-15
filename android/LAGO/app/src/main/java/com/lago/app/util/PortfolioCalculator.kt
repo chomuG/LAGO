@@ -59,7 +59,9 @@ object PortfolioCalculator {
             totalCurrentValue = totalCurrentValue,
             profitLoss = profitLoss, // 계산된 평가손익
             profitRate = userStatus.profitRate, // API의 수익률 (그래프 중앙용)
-            holdings = portfolioReturns
+            holdings = portfolioReturns,
+            nickname = userStatus.nickname,
+            personality = userStatus.personality
         )
     }
     

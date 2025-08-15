@@ -17,7 +17,16 @@ data class UserCurrentStatusDto(
     val profitRate: Double,
     
     @SerializedName("holdings") 
-    val holdings: List<HoldingResponseDto>
+    val holdings: List<HoldingResponseDto>,
+    
+    @SerializedName("userId") 
+    val userId: Long,
+    
+    @SerializedName("nickname") 
+    val nickname: String,
+    
+    @SerializedName("personality") 
+    val personality: String
 )
 
 data class HoldingResponseDto(
@@ -44,7 +53,9 @@ data class MyPagePortfolioSummary(
     val totalCurrentValue: Long,
     val profitLoss: Long,
     val profitRate: Double,
-    val holdings: List<MyPageHolding>
+    val holdings: List<MyPageHolding>,
+    val nickname: String? = null,
+    val personality: String? = null
 )
 
 data class MyPageHolding(
@@ -67,4 +78,40 @@ data class PieChartItem(
     val percentage: Double,
     val color: androidx.compose.ui.graphics.Color,
     val isOthers: Boolean = false
+)
+
+/**
+ * 역사챌린지 조회 응답 DTO
+ * GET /api/history-challenge
+ */
+data class HistoryChallengeDto(
+    @SerializedName("challengeId")
+    val challengeId: Int,
+    
+    @SerializedName("theme")
+    val theme: String,
+    
+    @SerializedName("stockName")
+    val stockName: String,
+    
+    @SerializedName("stockCode")
+    val stockCode: String,
+    
+    @SerializedName("startDate")
+    val startDate: String,
+    
+    @SerializedName("endDate")
+    val endDate: String,
+    
+    @SerializedName("originDate")
+    val originDate: String,
+    
+    @SerializedName("currentPrice")
+    val currentPrice: Long,
+    
+    @SerializedName("fluctuationPrice")
+    val fluctuationPrice: Long,
+    
+    @SerializedName("fluctuationRate")
+    val fluctuationRate: Double
 )
