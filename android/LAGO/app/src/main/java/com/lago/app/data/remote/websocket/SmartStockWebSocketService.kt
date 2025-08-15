@@ -44,6 +44,8 @@ class SmartStockWebSocketService @Inject constructor(
     private var historyChallengeSubscription: Disposable? = null
     private var isHistoryChallengeSubscribed = false
     private var historyChallengeStockCode: String? = null
+    private var historyChallengeRetryCount = 0
+    private val maxHistoryChallengeRetries = 3
     
     // 연결 상태
     private val _connectionState = MutableStateFlow(WebSocketConnectionState.DISCONNECTED)
@@ -86,6 +88,15 @@ class SmartStockWebSocketService @Inject constructor(
                                         delay(1000) // 연결 안정화
                                         Log.w(TAG, "📡 1초 후 구독 시작...")
                                         initializeSubscriptions()
+                                        
+                                        // 역사챌린지 재구독 (이전에 구독하던 종목이 있다면)
+                                        historyChallengeStockCode?.let { stockCode ->
+                                            if (!isHistoryChallengeSubscribed) {
+                                                Log.d(TAG, "🔄 WebSocket 연결 복구로 역사챌린지 재구독: $stockCode")
+                                                historyChallengeRetryCount = 0 // 연결 복구 시 재시도 카운트 리셋
+                                                subscribeToHistoryChallenge(stockCode)
+                                            }
+                                        }
                                     }
                                 }
                                 ua.naiksoftware.stomp.dto.LifecycleEvent.Type.CLOSED -> {
@@ -269,6 +280,8 @@ class SmartStockWebSocketService @Inject constructor(
     fun subscribeToHistoryChallenge(stockCode: String = "068270") {
         if (!isConnected) {
             Log.w(TAG, "WebSocket이 연결되지 않아 역사챌린지 구독 불가")
+            // 연결되지 않은 경우 재시도 스케줄링
+            scheduleHistoryChallengeRetry(stockCode)
             return
         }
         
@@ -300,15 +313,19 @@ class SmartStockWebSocketService @Inject constructor(
                             highPrice = webSocketData.highPrice.toLong(),
                             lowPrice = webSocketData.lowPrice.toLong(),
                             volume = webSocketData.volume.toLong(),
-                            changePrice = webSocketData.fluctuationPrice.toLong(),
+                            changePrice = webSocketData.fluctuationPrice.toLong(), // changePrice 필드에 저장
+                            change = webSocketData.fluctuationPrice.toLong(), // change 필드에도 저장 (priceChange calculated property용)
                             fluctuationRate = webSocketData.fluctuationRate.toDouble(),
                             timestamp = System.currentTimeMillis()
                         )
                         
-                        // 캐시에 저장
+                        // 캐시에 저장 (역사챌린지 전용 키 사용)
                         val targetStockCode = historyChallengeStockCode ?: "068270"
-                        realTimeCache.updateStock(targetStockCode, realTimeData)
-                        Log.d(TAG, "🔥 역사챌린지 캐시 저장: $targetStockCode = ${webSocketData.closePrice}원")
+                        val historyChallengeKey = "HISTORY_CHALLENGE_$targetStockCode"
+                        realTimeCache.updateStock(historyChallengeKey, realTimeData)
+                        Log.d(TAG, "🔥 역사챌린지 캐시 저장: $targetStockCode (키: $historyChallengeKey) = ${webSocketData.closePrice}원")
+                        Log.d(TAG, "🔥 역사챌린지 변동 정보: fluctuationPrice=${webSocketData.fluctuationPrice}, fluctuationRate=${webSocketData.fluctuationRate}")
+                        Log.d(TAG, "🔥 역사챌린지 캐시 저장된 데이터: changePrice=${realTimeData.priceChange}, fluctuationRate=${realTimeData.fluctuationRate}")
                         
                     } catch (e: Exception) {
                         Log.e(TAG, "역사챌린지 WebSocket 데이터 파싱 실패", e)
@@ -316,18 +333,44 @@ class SmartStockWebSocketService @Inject constructor(
                 }, { error ->
                     Log.e(TAG, "역사챌린지 WebSocket 구독 오류", error)
                     isHistoryChallengeSubscribed = false
+                    // 구독 오류 시 재시도
+                    scheduleHistoryChallengeRetry(stockCode)
                 })
             
             subscription?.let {
                 historyChallengeSubscription = it
                 compositeDisposable.add(it)
                 isHistoryChallengeSubscribed = true
+                historyChallengeRetryCount = 0 // 성공 시 재시도 카운트 리셋
                 Log.d(TAG, "🔥 역사챌린지 WebSocket 구독 완료")
             }
             
         } catch (e: Exception) {
             Log.e(TAG, "역사챌린지 WebSocket 구독 실패", e)
             isHistoryChallengeSubscribed = false
+            // 예외 발생 시 재시도
+            scheduleHistoryChallengeRetry(stockCode)
+        }
+    }
+    
+    /**
+     * 역사챌린지 WebSocket 구독 재시도 스케줄링
+     */
+    private fun scheduleHistoryChallengeRetry(stockCode: String) {
+        if (historyChallengeRetryCount >= maxHistoryChallengeRetries) {
+            Log.w(TAG, "🚨 역사챌린지 WebSocket 구독 재시도 한계 초과 ($maxHistoryChallengeRetries attempts)")
+            return
+        }
+        
+        historyChallengeRetryCount++
+        val delayMs = 2000L * historyChallengeRetryCount // 2초, 4초, 6초로 점진적 증가
+        
+        Log.d(TAG, "🔄 역사챌린지 WebSocket 구독 재시도 스케줄링: ${delayMs}ms 후 ($historyChallengeRetryCount/$maxHistoryChallengeRetries)")
+        
+        scope.launch {
+            delay(delayMs)
+            Log.d(TAG, "🔄 역사챌린지 WebSocket 구독 재시도 실행: $stockCode")
+            subscribeToHistoryChallenge(stockCode)
         }
     }
     
