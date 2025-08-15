@@ -249,6 +249,11 @@ public final class TradingConstants {
      */
     public static final Integer ACCOUNT_TYPE_HISTORICAL_CHALLENGE = 1;
     
+    /**
+     * AI 봇 계좌 타입 (정수값)
+     */
+    public static final Integer ACCOUNT_TYPE_AI_BOT = 2;
+    
     // ===== 계좌 타입 상수 (레거시 String - 호환성 유지) =====
     /**
      * 현시점 계좌 타입 (레거시)
