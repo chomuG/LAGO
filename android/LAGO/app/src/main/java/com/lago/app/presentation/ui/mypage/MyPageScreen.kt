@@ -123,7 +123,7 @@ fun MyPageScreen(
 
         // 로그아웃 버튼
         if (isLoggedIn) {
-            item { LogoutButton(userPreferences = userPreferences, onLogoutComplete = onLogoutComplete) }
+            item { LogoutButton(viewModel = viewModel, onLogoutComplete = onLogoutComplete) }
         }
 
         item { Spacer(modifier = Modifier.height(8.dp)) }
@@ -285,7 +285,7 @@ fun AssetTitleSectionWithRanking(
 
 @Composable
 fun LogoutButton(
-    userPreferences: com.lago.app.data.local.prefs.UserPreferences,
+    viewModel: MyPageViewModel,
     onLogoutComplete: () -> Unit = {}
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -329,8 +329,8 @@ fun LogoutButton(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // 모든 사용자 데이터 삭제
-                        userPreferences.clearAllData()
+                        // ViewModel을 통한 로그아웃 처리
+                        viewModel.logout()
                         showLogoutDialog = false
                         // 홈 화면으로 이동
                         onLogoutComplete()
