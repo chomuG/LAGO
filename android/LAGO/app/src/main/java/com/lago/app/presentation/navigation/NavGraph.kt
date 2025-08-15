@@ -29,7 +29,6 @@ import com.lago.app.presentation.ui.mypage.RankingScreen
 import com.lago.app.presentation.ui.mypage.AiPortfolioScreen
 import com.lago.app.presentation.ui.stocklist.StockListScreen
 import com.lago.app.data.local.prefs.UserPreferences
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.lago.app.domain.entity.ChartStockInfo
 import com.lago.app.presentation.ui.personalitytest.PersonalityTestNavigation
 import com.lago.app.presentation.ui.login.LoginScreen
@@ -129,7 +128,8 @@ fun NavGraph(
                     name = stockName,
                     currentPrice = currentPrice.toFloat(),
                     priceChange = priceChange.toFloat(),
-                    priceChangePercent = priceChangePercent
+                    priceChangePercent = priceChangePercent,
+                    previousDay = null
                 ),
                 onNavigateToStockPurchase = { stockCode, action ->
                     navController.navigate("stock_purchase/$stockCode/$action")

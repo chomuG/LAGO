@@ -282,4 +282,59 @@ interface ChartApiService {
     suspend fun resetAccount(
         @Header("Authorization") token: String
     ): AccountResetResponse
+
+    // ===== 역사챌린지 관련 API =====
+
+    /**
+     * 역사챌린지 조회 (단일 챌린지)
+     */
+    @GET("api/history-challenge")
+    suspend fun getHistoryChallenge(): HistoryChallengeResponse
+
+    /**
+     * 역사챌린지 차트 데이터 조회
+     */
+    @GET("api/history-challenge/{challengeId}")
+    suspend fun getHistoryChallengeChart(
+        @Header("Authorization") authorization: String,
+        @Path("challengeId") challengeId: Int,
+        @Query("interval") interval: String,
+        @Query("fromDateTime") fromDateTime: String,
+        @Query("toDateTime") toDateTime: String
+    ): List<HistoryChallengeDataResponse>
+
+    /**
+     * 역사챌린지 뉴스 목록 조회
+     */
+    @GET("api/history-challenge/{challengeId}/news")
+    suspend fun getHistoryChallengeNews(
+        @Header("Authorization") authorization: String,
+        @Path("challengeId") challengeId: Int,
+        @Query("pastDateTime") pastDateTime: String
+    ): List<HistoryChallengeNewsResponse>
+
+    /**
+     * 역사챌린지 뉴스 상세 조회
+     */
+    @GET("api/history-challenge/{challengeId}/news/{challengeNewsId}")
+    suspend fun getHistoryChallengeNewsDetail(
+        @Path("challengeId") challengeId: Int,
+        @Path("challengeNewsId") challengeNewsId: Int
+    ): HistoryChallengeNewsResponse
+
+    /**
+     * 차트 패턴 목록 조회
+     */
+    @GET("api/study/chart")
+    suspend fun getChartPatterns(): List<ChartPatternResponse>
+
+    /**
+     * 일봉 데이터 조회 (초기 주가 데이터)
+     */
+    @GET("api/stocks/day/{code}")
+    suspend fun getDayCandles(
+        @Path("code") stockCode: String,
+        @Query("start") startDate: String,
+        @Query("end") endDate: String
+    ): List<StockDayCandleDto>
 }

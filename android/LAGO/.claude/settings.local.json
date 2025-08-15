@@ -17,8 +17,12 @@
       "Bash(rm:*)",
       "Bash(gradlew.bat :app:compileDebugKotlin:*)",
       "Bash(.gradlew:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(cmd /c:*)",
+      "Bash(dir)",
+      "Bash(powershell:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

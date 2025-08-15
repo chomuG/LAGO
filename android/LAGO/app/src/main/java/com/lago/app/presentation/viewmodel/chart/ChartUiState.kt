@@ -8,7 +8,8 @@ data class ChartUiState(
         name = "삼성전자",
         currentPrice = 74200f,
         priceChange = 800f,
-        priceChangePercent = 1.09f
+        priceChangePercent = 1.09f,
+        previousDay = null
     ),
     val config: ChartConfig = ChartConfig(
         stockCode = "005930",

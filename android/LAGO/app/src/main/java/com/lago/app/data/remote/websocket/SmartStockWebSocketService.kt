@@ -39,6 +39,11 @@ class SmartStockWebSocketService @Inject constructor(
     private val watchListStocks = mutableSetOf<String>()
     private var currentChartStock: String? = null
     
+    // 역사챌린지 구독 상태
+    private var historyChallengeSubscription: Disposable? = null
+    private var isHistoryChallengeSubscribed = false
+    private var historyChallengeStockCode: String? = null
+    
     // 연결 상태
     private val _connectionState = MutableStateFlow(WebSocketConnectionState.DISCONNECTED)
     val connectionState: StateFlow<WebSocketConnectionState> = _connectionState.asStateFlow()
@@ -237,6 +242,88 @@ class SmartStockWebSocketService @Inject constructor(
         realTimeCache.setMultipleStockPriorities(priorities)
         
         Log.d(TAG, "관심종목 업데이트: ${watchListStocks.size}개 종목 (전체 구독 모드)")
+    }
+    
+    /**
+     * 역사챌린지 WebSocket 구독
+     * /topic/history-challenge 채널 구독
+     */
+    fun subscribeToHistoryChallenge(stockCode: String = "068270") {
+        if (!isConnected) {
+            Log.w(TAG, "WebSocket이 연결되지 않아 역사챌린지 구독 불가")
+            return
+        }
+        
+        if (isHistoryChallengeSubscribed) {
+            Log.d(TAG, "이미 역사챌린지 구독 중")
+            return
+        }
+        
+        try {
+            Log.d(TAG, "🔥 역사챌린지 WebSocket 구독 시작: /topic/history-challenge (종목: $stockCode)")
+            historyChallengeStockCode = stockCode
+            
+            val subscription = stompClient?.topic("/topic/history-challenge")
+                ?.subscribe({ stompMessage ->
+                    try {
+                        Log.d(TAG, "🔥 역사챌린지 WebSocket 데이터 수신: ${stompMessage.payload}")
+                        
+                        // JSON 파싱하여 HistoryChallengeWebSocketData로 변환
+                        val webSocketData = gson.fromJson(
+                            stompMessage.payload, 
+                            com.lago.app.data.remote.dto.HistoryChallengeWebSocketData::class.java
+                        )
+                        
+                        // StockRealTimeData로 변환하여 캐시에 저장
+                        val realTimeData = StockRealTimeData(
+                            stockCode = historyChallengeStockCode ?: "068270", // API에서 받은 실제 종목 코드
+                            closePrice = webSocketData.closePrice.toLong(),
+                            openPrice = webSocketData.openPrice.toLong(),
+                            highPrice = webSocketData.highPrice.toLong(),
+                            lowPrice = webSocketData.lowPrice.toLong(),
+                            volume = webSocketData.volume.toLong(),
+                            changePrice = webSocketData.fluctuationPrice.toLong(),
+                            fluctuationRate = webSocketData.fluctuationRate.toDouble(),
+                            timestamp = System.currentTimeMillis()
+                        )
+                        
+                        // 캐시에 저장
+                        val targetStockCode = historyChallengeStockCode ?: "068270"
+                        realTimeCache.updateStock(targetStockCode, realTimeData)
+                        Log.d(TAG, "🔥 역사챌린지 캐시 저장: $targetStockCode = ${webSocketData.closePrice}원")
+                        
+                    } catch (e: Exception) {
+                        Log.e(TAG, "역사챌린지 WebSocket 데이터 파싱 실패", e)
+                    }
+                }, { error ->
+                    Log.e(TAG, "역사챌린지 WebSocket 구독 오류", error)
+                    isHistoryChallengeSubscribed = false
+                })
+            
+            subscription?.let {
+                historyChallengeSubscription = it
+                compositeDisposable.add(it)
+                isHistoryChallengeSubscribed = true
+                Log.d(TAG, "🔥 역사챌린지 WebSocket 구독 완료")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "역사챌린지 WebSocket 구독 실패", e)
+            isHistoryChallengeSubscribed = false
+        }
+    }
+    
+    /**
+     * 역사챌린지 WebSocket 구독 해제
+     */
+    fun unsubscribeFromHistoryChallenge() {
+        historyChallengeSubscription?.let {
+            it.dispose()
+            compositeDisposable.remove(it)
+        }
+        historyChallengeSubscription = null
+        isHistoryChallengeSubscribed = false
+        Log.d(TAG, "역사챌린지 WebSocket 구독 해제")
     }
     
     // === 스마트 구독 (구독만 하고 해제 안함) ===
