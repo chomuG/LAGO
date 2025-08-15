@@ -33,69 +33,78 @@ class StockListRepositoryImpl @Inject constructor(
     ): Flow<Resource<StockListPage>> = flow {
         try {
             emit(Resource.Loading())
-            android.util.Log.d("StockListRepo", "API 요청: category=$category, page=$page, size=$size")
+            android.util.Log.d("StockListRepo", "🔥 API 요청 시작: category=$category, page=$page, size=$size, search=$search")
             
-            // 새로운 실시간 가격 포함 API 사용
-            val response = if (search.isNullOrEmpty()) {
-                apiService.getStockListWithRealtime(
-                    market = category?.uppercase(),
-                    category = if (category == "trending") "trending" else null,
-                    sort = sort,
+            // 기존 API 사용 (백엔드에 /api/stocks/list 엔드포인트가 없음)
+            val stockList = if (search.isNullOrEmpty()) {
+                android.util.Log.d("StockListRepo", "🔥 getStockList 호출: category=$category")
+                apiService.getStockList(
+                    category = category,
                     page = page,
-                    size = size
+                    size = size,
+                    sort = sort,
+                    search = null
                 )
             } else {
-                apiService.searchStocksWithRealtime(
+                android.util.Log.d("StockListRepo", "🔥 searchStocks 호출: query=$search")
+                apiService.searchStocks(
                     query = search,
-                    market = category?.uppercase(),
                     page = page,
                     size = size
                 )
             }
             
-            if (response.success) {
-                android.util.Log.d("StockListRepo", "API 응답 받음: ${response.data.content.size}개 종목")
-                response.data.content.forEach { stock ->
-                    android.util.Log.d("StockListRepo", "📋 받은 종목: ${stock.code} (${stock.name}) - ${stock.currentPrice}원")
+            android.util.Log.d("StockListRepo", "🔥 API 응답 수신: ${stockList.size}개 종목")
+            
+            if (stockList.isNotEmpty()) {
+                android.util.Log.d("StockListRepo", "🔥 API 성공 응답: ${stockList.size}개 종목 수신")
+                stockList.forEachIndexed { index, stock ->
+                    android.util.Log.d("StockListRepo", "📋 [$index] ${stock.code} (${stock.name}) - ${stock.market}")
                 }
                 
-                // 새로운 DTO를 기존 도메인 엔티티로 변환
-                val stockItems = response.data.content.map { dto ->
+                // SimpleStockDto를 StockItem으로 변환 (백엔드 DTO 구조에 맞춰 수정)
+                val stockItems = stockList.map { dto ->
                     StockItem(
                         code = dto.code,
                         name = dto.name,
-                        currentPrice = dto.currentPrice,
-                        priceChange = dto.priceChange,
-                        priceChangePercent = dto.priceChangeRate,
-                        volume = dto.volume,
-                        market = dto.market,
-                        marketCap = null, // StockInfoDto에 marketCap 필드 없음
-                        sector = null,    // StockInfoDto에 sector 필드 없음
-                        updatedAt = dto.updatedAt,
-                        isFavorite = false // 관심종목 여부는 별도 API로 조회
+                        market = dto.market, // 백엔드에서 제공되는 market 정보 사용
+                        currentPrice = 0, // 기본값, WebSocket으로 실시간 업데이트
+                        priceChange = 0, // 기본값, WebSocket으로 실시간 업데이트
+                        priceChangePercent = 0.0, // 기본값, WebSocket으로 실시간 업데이트
+                        volume = 0L, // 기본값, WebSocket으로 실시간 업데이트
+                        marketCap = null, // 백엔드 StockInfoDto에서 제공하지 않음
+                        sector = null, // 백엔드 StockInfoDto에서 제공하지 않음
+                        isFavorite = false, // 관심종목 여부는 별도 API로 조회
+                        updatedAt = java.time.LocalDateTime.now().toString()
                     )
                 }
                 
+                android.util.Log.d("StockListRepo", "🔥 ${stockItems.size}개 종목 변환 완료 (WebSocket에서 실시간 데이터 업데이트 예정)")
+                
+                // 페이징 정보 (기존 API는 페이징 미지원, 전체 목록 반환)
                 val stockListPage = StockListPage(
                     content = stockItems,
-                    page = response.data.page,
-                    size = response.data.size,
-                    totalElements = response.data.totalElements,
-                    totalPages = response.data.totalPages
+                    page = page,
+                    size = stockItems.size,
+                    totalElements = stockItems.size.toLong(),
+                    totalPages = 1
                 )
                 
                 emit(Resource.Success(stockListPage))
             } else {
-                emit(Resource.Error(response.message ?: "주식 목록 조회 실패"))
+                android.util.Log.w("StockListRepo", "🚨 빈 주식 목록 수신")
+                emit(Resource.Error("주식 목록이 비어있습니다"))
             }
         } catch (e: HttpException) {
-            android.util.Log.e("StockListRepo", "HTTP 에러: ${e.code()} - ${e.message()}")
-            emit(Resource.Error("Network error: ${e.code()} ${e.message()}"))
+            val errorBody = e.response()?.errorBody()?.string()
+            android.util.Log.e("StockListRepo", "🚨 HTTP 에러: ${e.code()} - ${e.message()}")
+            android.util.Log.e("StockListRepo", "🚨 에러 상세: $errorBody")
+            emit(Resource.Error("HTTP ${e.code()}: ${e.message()}"))
         } catch (e: IOException) {
-            android.util.Log.e("StockListRepo", "네트워크 연결 실패", e)
+            android.util.Log.e("StockListRepo", "🚨 네트워크 연결 실패", e)
             emit(Resource.Error("Network connection failed: ${e.localizedMessage}"))
         } catch (e: Exception) {
-            android.util.Log.e("StockListRepo", "예상치 못한 에러", e)
+            android.util.Log.e("StockListRepo", "🚨 예상치 못한 에러", e)
             emit(Resource.Error("Unexpected error: ${e.localizedMessage}"))
         }
     }

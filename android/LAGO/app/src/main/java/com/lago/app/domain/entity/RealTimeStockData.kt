@@ -7,75 +7,90 @@ import com.google.gson.annotations.SerializedName
 @Serializable
 data class StockRealTimeData(
     @SerialName("code")
-    @SerializedName("code") 
+    @SerializedName("code")
     val stockCode: String,
-    
+
     @SerialName("closePrice")
-    @SerializedName("closePrice") 
+    @SerializedName("closePrice")
     val closePrice: Long? = null,
-    
+
     @SerialName("openPrice")
-    @SerializedName("openPrice") 
+    @SerializedName("openPrice")
     val openPrice: Long? = null,
-    
+
     @SerialName("highPrice")
-    @SerializedName("highPrice") 
+    @SerializedName("highPrice")
     val highPrice: Long? = null,
-    
+
     @SerialName("lowPrice")
-    @SerializedName("lowPrice") 
+    @SerializedName("lowPrice")
     val lowPrice: Long? = null,
-    
+
     @SerialName("volume")
-    @SerializedName("volume") 
+    @SerializedName("volume")
     val volume: Long? = null,
-    
+
     @SerialName("minuteKey")
-    @SerializedName("minuteKey") 
+    @SerializedName("minuteKey")
     val minuteKey: String? = null,
-    
+
     @SerialName("parsedDateTime")
-    @SerializedName("parsedDateTime") 
+    @SerializedName("parsedDateTime")
     val parsedDateTime: String? = null,
-    
+
     // 호환용 (다른 소스에서 올 수도 있음)
     @SerialName("tradePrice")
-    @SerializedName("tradePrice") 
+    @SerializedName("tradePrice")
     val tradePrice: Long? = null,
-    
+
     @SerialName("currentPrice")
-    @SerializedName("currentPrice") 
+    @SerializedName("currentPrice")
     val currentPrice: Long? = null,
-    
+
     // 가격 변동 정보
     @SerialName("changePrice")
     @SerializedName("changePrice")
     val changePrice: Long? = null,
-    
+
     @SerialName("changeRate")
     @SerializedName("changeRate")
     val changeRate: Double? = null,
-    
+
     @SerialName("change")
     @SerializedName("change")
     val change: Long? = null,
-    
+
     @SerialName("rate")
     @SerializedName("rate")
     val rate: Double? = null,
-    
+
+    // 웹소켓에서 오는 등락률 (fluctuationRate)
+    @SerialName("fluctuationRate")
+    @SerializedName("fluctuationRate")
+    val fluctuationRate: Double? = null,
+
+    // 웹소켓에서 오는 시간 (date: "102821" = 10시 28분 21초)
+    @SerialName("date")
+    @SerializedName("date")
+    val date: String? = null,
+
+    // 전일 대비 가격 차이 (previousDay: +160 또는 -160, ± 포함)
+    @SerialName("previousDay")
+    @SerializedName("previousDay")
+    val previousDay: Int? = null,
+
     val timestamp: Long = System.currentTimeMillis()
 ) {
     // 실제 가격 계산 (우선순위: tradePrice > currentPrice > closePrice)
     val price: Double
         get() = (tradePrice ?: currentPrice ?: closePrice ?: 0L).toDouble()
-    
+
     // 호환성을 위한 기존 필드들
     val priceChange: Double
         get() = (changePrice ?: change ?: 0L).toDouble()
-    
+
     val priceChangePercent: Double
-        get() = changeRate ?: rate ?: 0.0
+        get() = fluctuationRate ?: changeRate ?: rate ?: 0.0
 }
 
 data class PortfolioReturn(

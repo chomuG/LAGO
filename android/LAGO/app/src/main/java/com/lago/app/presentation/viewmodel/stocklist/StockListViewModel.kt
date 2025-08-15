@@ -52,6 +52,7 @@ data class StockListUiState(
 class StockListViewModel @Inject constructor(
     private val stockListRepository: StockListRepository,
     private val historyChallengeRepository: HistoryChallengeRepository,
+    private val chartRepository: com.lago.app.domain.repository.ChartRepository,
     private val smartWebSocketService: SmartStockWebSocketService,
     private val smartUpdateScheduler: SmartUpdateScheduler,
     private val realTimeCache: com.lago.app.data.cache.RealTimeStockCache
@@ -71,8 +72,8 @@ class StockListViewModel @Inject constructor(
         loadStocks()
         loadHistoryChallengeStocks()
         
-        // 4. 테스트용 - 장시간 외 테스트 데이터 (필요시 주석 해제)
-        testRealTimeData() // 테스트 활성화!
+        // 4. 역사챌린지 실시간 데이터 업데이트 관제 (예정)
+        // observeHistoryChallengeRealTimeData()
     }
     
     private fun observeRealTimeData() {
@@ -129,32 +130,11 @@ class StockListViewModel @Inject constructor(
                 }
             }
             
-            // 역사적 챌린지 종목도 업데이트
-            var historyUpdateCount = 0
-            val updatedHistoryStocks = currentState.historyChallengeStocks.map { historyStock ->
-                val realTimeData = quotesMap[historyStock.stockCode]
-                if (realTimeData != null && 
-                    historyStock.currentPrice != realTimeData.price.toFloat()) {
-                    
-                    val newPrice = realTimeData.price.toFloat()
-                    val basePrice = historyStock.openPrice
-                    val newFluctuationRate = if (basePrice > 0) {
-                        ((newPrice - basePrice) / basePrice) * 100
-                    } else 0f
-                    
-                    android.util.Log.d("StockListViewModel", "📈 역사 챌린지 ${historyStock.stockCode}: ${historyStock.currentPrice.toInt()}→${newPrice.toInt()}원 (변동률: ${String.format("%.2f", newFluctuationRate)}%)")
-                    historyUpdateCount++
-                    
-                    historyStock.copy(
-                        currentPrice = newPrice,
-                        fluctuationRate = newFluctuationRate
-                    )
-                } else {
-                    historyStock
-                }
-            }
+            // 역사챌린지는 전용 WebSocket 채널 (/topic/history-challenge) 사용
+            // 캐시에서 역사챌린지 종목 실시간 데이터 가져와서 업데이트
+            val updatedHistoryStocks = updateHistoryChallengeStocksWithCache(currentState.historyChallengeStocks, quotesMap)
             
-            android.util.Log.d("StockListViewModel", "✅ UI 업데이트 완료: 일반 ${updateCount}개, 역사챌린지 ${historyUpdateCount}개 종목 변경됨")
+            android.util.Log.d("StockListViewModel", "✅ UI 업데이트 완료: 일반 ${updateCount}개 종목 변경됨 (역사챌린지는 별도 채널)")
             
             currentState.copy(
                 stocks = updatedStocks,
@@ -532,125 +512,144 @@ class StockListViewModel @Inject constructor(
 
     private fun loadHistoryChallengeStocks() {
         viewModelScope.launch {
-            historyChallengeRepository.getHistoryChallengeStocks().collect { resource ->
-                when (resource) {
-                    is Resource.Loading -> {
-                        // 로딩 처리는 필요시 추가
-                    }
-                    is Resource.Success -> {
-                        _uiState.update {
-                            it.copy(historyChallengeStocks = resource.data ?: emptyList())
+            try {
+                android.util.Log.d("StockListViewModel", "🔥 역사챌린지 API 호출 시작")
+                
+                // 실제 /api/history-challenge 엔드포인트 사용 (ChartRepository 통해)
+                chartRepository.getHistoryChallenge().collect { resource ->
+                    when (resource) {
+                        is Resource.Loading -> {
+                            android.util.Log.d("StockListViewModel", "🔥 역사챌린지 데이터 로딩 중...")
+                        }
+                        is Resource.Success -> {
+                            val challenge = resource.data ?: return@collect
+                            android.util.Log.d("StockListViewModel", "🔥 역사챌린지 성공: ${challenge.stockName} (${challenge.stockCode})")
+                            
+                            // HistoryChallengeResponse를 HistoryChallengeStock으로 변환
+                            val historyChallengeStock = HistoryChallengeStock(
+                                challengeId = challenge.challengeId,
+                                stockCode = challenge.stockCode,
+                                stockName = challenge.stockName,
+                                currentPrice = challenge.currentPrice.toFloat(),
+                                openPrice = 0f, // WebSocket에서 업데이트
+                                highPrice = 0f, // WebSocket에서 업데이트
+                                lowPrice = 0f, // WebSocket에서 업데이트
+                                closePrice = challenge.currentPrice.toFloat(),
+                                fluctuationRate = challenge.fluctuationRate,
+                                tradingVolume = 0L, // WebSocket에서 업데이트
+                                marketCap = null,
+                                profitRate = null // 역사챌린지에서는 수익률 별도 계산
+                            )
+                            
+                            _uiState.update {
+                                it.copy(historyChallengeStocks = listOf(historyChallengeStock))
+                            }
+                            
+                            android.util.Log.d("StockListViewModel", "🔥 UI 상태 업데이트 완료: ${historyChallengeStock.stockName}")
+                            android.util.Log.d("StockListViewModel", "🔥 현재 historyChallengeStocks 크기: ${_uiState.value.historyChallengeStocks.size}")
+                            
+                            // 역사챌린지 WebSocket 구독 시작 (실제 stockCode 전달)
+                            subscribeToHistoryChallengeWebSocket(challenge.stockCode)
+                        }
+                        is Resource.Error -> {
+                            android.util.Log.e("StockListViewModel", "🚨 역사챌린지 API 오류: ${resource.message}")
+                            _uiState.update {
+                                it.copy(errorMessage = resource.message)
+                            }
                         }
                     }
-                    is Resource.Error -> {
-                        // 에러 시 Mock 데이터 사용
-                        loadMockHistoryChallengeStocks()
-                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("StockListViewModel", "🚨 역사챌린지 로드 예외", e)
+                _uiState.update {
+                    it.copy(errorMessage = "역사챌린지 데이터 로드 실패: ${e.message}")
                 }
             }
         }
     }
 
-    private fun loadMockHistoryChallengeStocks() {
-        // 역사 챌린지는 1개 종목만 표시
-        val mockStocks = listOf(
-            HistoryChallengeStock(
-                challengeId = 1,
-                stockCode = "005930",
-                stockName = "삼성전자",
-                currentPrice = 74200f,
-                openPrice = 73400f,
-                highPrice = 75000f,
-                lowPrice = 73000f,
-                closePrice = 74200f,
-                fluctuationRate = 2.14f,
-                tradingVolume = 15000000L,
-                marketCap = 445000000000000L,
-                profitRate = 12.5f
-            )
-        )
-        
-        _uiState.update {
-            it.copy(historyChallengeStocks = mockStocks)
+    /**
+     * 역사챌린지 WebSocket 구독
+     * /topic/history-challenge 채널로 실시간 데이터 수신
+     */
+    private fun subscribeToHistoryChallengeWebSocket(stockCode: String) {
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("StockListViewModel", "🔥 역사챌린지 WebSocket 구독 시작: $stockCode")
+                
+                // 역사챌린지 WebSocket 구독 시작 (실제 stockCode 전달)
+                android.util.Log.d("StockListViewModel", "🔥 역사챌린지 WebSocket 구독 시작: /topic/history-challenge (종목: $stockCode)")
+                smartWebSocketService.subscribeToHistoryChallenge(stockCode)
+                
+            } catch (e: Exception) {
+                android.util.Log.e("StockListViewModel", "🚨 역사챌린지 WebSocket 구독 실패", e)
+            }
         }
     }
     
     // 주기적 캐시 체크는 더 이상 필요 없음 (StateFlow가 자동 처리)
     
     /**
-     * 테스트용 - 장시간 외에 실시간 데이터 테스트
-     * 실제 운영시에는 주석 처리
+     * 역사챌린지 실시간 데이터 업데이트
+     * WebSocket에서 수신한 데이터로 historyChallengeStocks 업데이트
      */
-    private fun testRealTimeData() {
-        android.util.Log.w("StockListViewModel", "🚀 테스트 실시간 데이터 생성 시작!")
-        viewModelScope.launch {
-            delay(2000) // 2초 후 테스트 데이터 주입
-            android.util.Log.w("StockListViewModel", "⏰ 2초 대기 완료, 테스트 데이터 주입 시작")
-            
-            // 여러 종목 테스트 데이터
-            val testStocks = listOf(
-                Triple("005930", "삼성전자", 75000L),
-                Triple("000660", "SK하이닉스", 135000L),
-                Triple("035420", "NAVER", 220000L),
-                Triple("035720", "카카오", 45000L),
-                Triple("207940", "삼성바이오로직스", 1020000L),
-                Triple("373220", "LG에너지솔루션", 450000L),
-                Triple("051910", "LG화학", 480000L),
-                Triple("006400", "삼성SDI", 430000L)
-            )
-            
-            // 초기 데이터 주입
-            testStocks.forEach { (code, name, basePrice) ->
-                val testData = com.lago.app.domain.entity.StockRealTimeData(
-                    stockCode = code,
-                    closePrice = basePrice + (Math.random() * 1000).toLong(),
-                    openPrice = basePrice,
-                    highPrice = basePrice + 2000L,
-                    lowPrice = basePrice - 2000L,
-                    volume = (Math.random() * 10000000).toLong(),
-                    changePrice = (Math.random() * 2000 - 1000).toLong(),
-                    changeRate = Math.random() * 4 - 2, // -2% ~ +2%
-                    timestamp = System.currentTimeMillis()
-                )
-                realTimeCache.updateStock(testData.stockCode, testData)
-                android.util.Log.w("StockListViewModel", "🧪 테스트 데이터 주입: $name($code) = ${testData.price}원")
-            }
-            
-            // 1초마다 랜덤하게 종목 가격 변동
-            while (true) {
-                delay(1000)
-                
-                // 랜덤하게 2-3개 종목 선택하여 업데이트
-                val updateCount = (2..3).random()
-                val selectedStocks = testStocks.shuffled().take(updateCount)
-                android.util.Log.d("StockListViewModel", "🎯 ${updateCount}개 종목 업데이트: ${selectedStocks.map { it.second }.joinToString(", ")}")
-                
-                selectedStocks.forEach { (code, name, basePrice) ->
-                    val currentData = realTimeCache.getStockData(code)
-                    val newPrice = if (currentData != null) {
-                        // 현재 가격에서 -1% ~ +1% 변동
-                        val change = (currentData.closePrice ?: basePrice) * (Math.random() * 0.02 - 0.01)
-                        (currentData.closePrice ?: basePrice) + change.toLong()
-                    } else {
-                        basePrice + (Math.random() * 2000 - 1000).toLong()
-                    }
-                    
-                    val updatedData = com.lago.app.domain.entity.StockRealTimeData(
-                        stockCode = code,
-                        closePrice = newPrice,
-                        openPrice = basePrice,
-                        highPrice = maxOf(newPrice, basePrice + 2000L),
-                        lowPrice = minOf(newPrice, basePrice - 2000L),
-                        volume = (Math.random() * 10000000).toLong(),
-                        changePrice = newPrice - basePrice,
-                        changeRate = ((newPrice - basePrice).toDouble() / basePrice) * 100,
-                        timestamp = System.currentTimeMillis()
+    private fun updateHistoryChallengeWithRealTimeData(realTimeData: com.lago.app.domain.entity.StockRealTimeData) {
+        _uiState.update { currentState ->
+            val updatedHistoryStocks = currentState.historyChallengeStocks.map { historyStock ->
+                if (historyStock.stockCode == realTimeData.stockCode) {
+                    historyStock.copy(
+                        currentPrice = realTimeData.closePrice?.toFloat() ?: historyStock.currentPrice,
+                        openPrice = realTimeData.openPrice?.toFloat() ?: historyStock.openPrice,
+                        highPrice = realTimeData.highPrice?.toFloat() ?: historyStock.highPrice,
+                        lowPrice = realTimeData.lowPrice?.toFloat() ?: historyStock.lowPrice,
+                        closePrice = realTimeData.closePrice?.toFloat() ?: historyStock.closePrice,
+                        fluctuationRate = realTimeData.fluctuationRate?.toFloat() ?: historyStock.fluctuationRate,
+                        tradingVolume = realTimeData.volume ?: historyStock.tradingVolume
                     )
-                    
-                    realTimeCache.updateStock(code, updatedData)
-                    android.util.Log.d("StockListViewModel", "💹 $name: ${updatedData.price.toInt()}원 (${String.format("%+.2f%%", updatedData.changeRate)})")
+                } else {
+                    historyStock
                 }
             }
+            
+            currentState.copy(historyChallengeStocks = updatedHistoryStocks)
         }
+        
+        android.util.Log.d("StockListViewModel", "🔥 역사챌린지 실시간 데이터 업데이트: ${realTimeData.stockCode} = ${realTimeData.closePrice}원")
+    }
+    
+    /**
+     * 역사챌린지 종목을 캐시 데이터로 업데이트
+     */
+    private fun updateHistoryChallengeStocksWithCache(
+        historyChallengeStocks: List<HistoryChallengeStock>,
+        quotesMap: Map<String, com.lago.app.domain.entity.StockRealTimeData>
+    ): List<HistoryChallengeStock> {
+        var updateCount = 0
+        
+        val updatedStocks = historyChallengeStocks.map { stock ->
+            val realTimeData = quotesMap[stock.stockCode]
+            if (realTimeData != null) {
+                android.util.Log.d("StockListViewModel", "🔥 역사챌린지 ${stock.stockCode} 실시간 업데이트: ${realTimeData.closePrice}원")
+                updateCount++
+                
+                stock.copy(
+                    currentPrice = realTimeData.closePrice?.toFloat() ?: stock.currentPrice,
+                    openPrice = realTimeData.openPrice?.toFloat() ?: stock.openPrice,
+                    highPrice = realTimeData.highPrice?.toFloat() ?: stock.highPrice,
+                    lowPrice = realTimeData.lowPrice?.toFloat() ?: stock.lowPrice,
+                    closePrice = realTimeData.closePrice?.toFloat() ?: stock.closePrice,
+                    fluctuationRate = realTimeData.fluctuationRate?.toFloat() ?: stock.fluctuationRate,
+                    tradingVolume = realTimeData.volume ?: stock.tradingVolume
+                )
+            } else {
+                stock
+            }
+        }
+        
+        if (updateCount > 0) {
+            android.util.Log.d("StockListViewModel", "🔥 역사챌린지 ${updateCount}개 종목 실시간 업데이트 완료")
+        }
+        
+        return updatedStocks
     }
 }

@@ -9,6 +9,9 @@ data class ChartPatternDto(
     val chart_img: String
 )
 
+// API에서 사용하는 Response 별칭
+typealias ChartPatternResponse = ChartPatternDto
+
 fun ChartPatternDto.toEntity(): ChartPattern {
     return ChartPattern(
         patternId = pattern_id,

@@ -44,6 +44,25 @@ class HistoryChallengeRepositoryImpl @Inject constructor(
             emit(Resource.Error("네트워크 오류: ${e.message}"))
         }
     }
+    
+    override suspend fun getHistoryChallenge(): Flow<Resource<com.lago.app.data.remote.dto.HistoryChallengeResponse>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = apiService.getHistoryChallenge()
+            if (response.isSuccessful) {
+                val historyChallenge = response.body()
+                if (historyChallenge != null) {
+                    emit(Resource.Success(historyChallenge))
+                } else {
+                    emit(Resource.Error("빈 응답"))
+                }
+            } else {
+                emit(Resource.Error("서버 오류: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error("네트워크 오류: ${e.message}"))
+        }
+    }
 }
 
 private fun HistoryChallengeStockDto.toEntity(): HistoryChallengeStock {

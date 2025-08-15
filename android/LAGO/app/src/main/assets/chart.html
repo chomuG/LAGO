@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lightweight Charts v5 Multi-Pane</title>
+    <title>Lightweight Charts v5 with Legend</title>
     <style>
         body {
             margin: 0;
@@ -64,6 +64,10 @@
         let panes = {};
         let series = {};
         let activeIndicators = new Set();
+        let legend;
+        let legendRows = [];
+        let currentSymbol = 'STOCK';
+        let seriesMap = new Map();
         
         // 차트 초기화
         function initChart() {
@@ -74,11 +78,6 @@
                     textColor: '#333',
                     background: { type: 'solid', color: '#ffffff' },
                     fontSize: 12,
-                    panes: {
-                        separatorColor: '#e1e1e1',
-                        separatorHoverColor: '#007AFF',
-                        enableResize: true,
-                    },
                 },
                 grid: {
                     vertLines: { color: '#f0f0f0' },
@@ -89,6 +88,10 @@
                 },
                 rightPriceScale: {
                     borderColor: '#e1e1e1',
+                    scaleMargins: {
+                        top: 0.1, // 레전드를 위한 여백
+                        bottom: 0.25,
+                    },
                 },
                 timeScale: {
                     borderColor: '#e1e1e1',
@@ -100,18 +103,22 @@
                 },
             });
             
-            // 메인 캔들스틱 시리즈 (페인 0)
+            // 메인 캔들스틱 시리즈
             mainSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
-                upColor: '#26a69a',
-                downColor: '#ef5350',
+                upColor: '#FF99C5',    // MainPink
+                downColor: '#42A6FF',  // MainBlue
                 borderVisible: false,
-                wickUpColor: '#26a69a',
-                wickDownColor: '#ef5350',
+                wickUpColor: '#FF99C5',   // MainPink
+                wickDownColor: '#42A6FF', // MainBlue
             });
             
-            // 메인 페인 설정
-            const mainPane = chart.panes()[0];
-            mainPane.setStretchFactor(3);
+            seriesMap.set('main', mainSeries);
+            
+            // TradingView 공식 레전드 생성
+            createLegend(container);
+            
+            // 크로스헤어 이벤트 구독
+            chart.subscribeCrosshairMove(updateLegend);
             
             // 브라우저 크기 변경 대응
             const resizeObserver = new ResizeObserver(entries => {
@@ -122,6 +129,73 @@
             // 안드로이드 인터페이스 알림
             if (window.AndroidInterface) {
                 window.AndroidInterface.onChartReady();
+            }
+        }
+        
+        // TradingView 공식 레전드 생성
+        function createLegend(container) {
+            legend = document.createElement('div');
+            legend.style = `position: absolute; left: 12px; top: 12px; z-index: 1; font-size: 14px; font-family: sans-serif; line-height: 18px; font-weight: 300;`;
+            container.appendChild(legend);
+            
+            // 메인 시리즈 행 (종목명 + OHLC)
+            const mainRow = document.createElement('div');
+            mainRow.style.color = '#333';
+            mainRow.innerHTML = currentSymbol;
+            legend.appendChild(mainRow);
+            legendRows.push({ element: mainRow, seriesKey: 'main', type: 'main' });
+            
+            // 보조지표 행들은 동적으로 추가
+        }
+        
+        // 레전드 업데이트 (크로스헤어 이동 시)
+        function updateLegend(param) {
+            legendRows.forEach(row => {
+                if (row.type === 'main') {
+                    // 메인 시리즈 (OHLC 표시)
+                    let displayText = currentSymbol;
+                    if (param.time) {
+                        const data = param.seriesData.get(mainSeries);
+                        if (data) {
+                            const o = data.open !== undefined ? data.open.toFixed(0) : '';
+                            const h = data.high !== undefined ? data.high.toFixed(0) : '';
+                            const l = data.low !== undefined ? data.low.toFixed(0) : '';
+                            const c = data.close !== undefined ? data.close.toFixed(0) : '';
+                            displayText = `${currentSymbol} <strong>O:${o} H:${h} L:${l} C:${c}</strong>`;
+                        }
+                    }
+                    row.element.innerHTML = displayText;
+                } else {
+                    // 보조지표 시리즈
+                    const seriesData = param.seriesData.get(seriesMap.get(row.seriesKey));
+                    let displayText = row.label;
+                    if (param.time && seriesData) {
+                        const value = seriesData.value !== undefined ? seriesData.value : seriesData.close;
+                        if (value !== undefined) {
+                            displayText = `${row.label} <strong>${value.toFixed(2)}</strong>`;
+                        }
+                    }
+                    row.element.innerHTML = displayText;
+                }
+            });
+        }
+        
+        // 레전드에 보조지표 행 추가
+        function addLegendRow(seriesKey, label, color = '#333') {
+            const row = document.createElement('div');
+            row.style.color = color;
+            row.innerHTML = label;
+            legend.appendChild(row);
+            legendRows.push({ element: row, seriesKey: seriesKey, type: 'indicator', label: label });
+        }
+        
+        // 레전드에서 보조지표 행 제거
+        function removeLegendRow(seriesKey) {
+            const index = legendRows.findIndex(row => row.seriesKey === seriesKey);
+            if (index !== -1) {
+                const row = legendRows[index];
+                legend.removeChild(row.element);
+                legendRows.splice(index, 1);
             }
         }
         
@@ -154,9 +228,16 @@
         // 지표 제거
         function removeIndicator(type) {
             if (panes[type]) {
+                // 레전드에서 제거
+                removeLegendRow(type);
+                
+                // 차트에서 제거
                 chart.removePane(panes[type].index);
                 delete panes[type];
-                delete series[type];
+                if (series[type]) {
+                    delete series[type];
+                }
+                seriesMap.delete(type);
                 activeIndicators.delete(type);
                 updatePaneIndices();
             }
@@ -165,7 +246,7 @@
         // 거래량 지표 추가
         function addVolumeIndicator() {
             const volumeSeries = chart.addSeries(LightweightCharts.HistogramSeries, {
-                color: '#26a69a',
+                color: '#FF99C5', // 기본 색상 (상승 색상 - MainPink)
                 priceFormat: {
                     type: 'volume',
                 },
@@ -177,6 +258,10 @@
             
             panes.volume = { pane: volumePane, index: 1 };
             series.volume = volumeSeries;
+            seriesMap.set('volume', volumeSeries);
+            
+            // 레전드에 추가 (기존 커스텀 거래량 색상)
+            addLegendRow('volume', '거래량', '#FF9800');
         }
         
         // RSI 지표 추가
@@ -198,6 +283,10 @@
             
             panes.rsi = { pane: rsiPane, index: paneIndex };
             series.rsi = rsiSeries;
+            seriesMap.set('rsi', rsiSeries);
+            
+            // 레전드에 추가 (기존 커스텀 RSI 색상)
+            addLegendRow('rsi', 'RSI', '#9C27B0');
         }
         
         // MACD 지표 추가
@@ -248,6 +337,10 @@
                 macd: macdLine,
                 signal: signalLine
             };
+            seriesMap.set('macd', macdHistogram); // 메인 시리즈로 히스토그램 사용
+            
+            // 레전드에 추가 (기존 커스텀 MACD 색상)
+            addLegendRow('macd', 'MACD(12,26,9)', '#2196F3');
         }
         
         // 다음 페인 인덱스 계산
@@ -275,6 +368,16 @@
             });
         }
         
+        // 종목명 업데이트 함수 추가
+        window.updateSymbolName = function(symbolName) {
+            currentSymbol = symbolName || 'STOCK';
+            // 메인 레전드 행 업데이트
+            const mainRow = legendRows.find(row => row.type === 'main');
+            if (mainRow) {
+                mainRow.element.innerHTML = currentSymbol;
+            }
+        };
+
         // 안드로이드 인터페이스 함수들
         window.updateCandleData = function(jsonData) {
             try {
@@ -286,13 +389,99 @@
             }
         };
         
+        // 실시간 캔들 업데이트 (단일 캔들 업데이트) - chart.html용
+        window.updateBarSimple = function(jsonData) {
+            try {
+                const candleData = JSON.parse(jsonData);
+                // TradingView Lightweight Charts의 series.update() 사용
+                mainSeries.update(candleData);
+                
+                // 실시간 모드로 스크롤 (선택적)
+                chart.timeScale().scrollToRealTime();
+                
+                console.log('Real-time candle updated:', candleData);
+            } catch (e) {
+                console.error('Error updating real-time bar:', e);
+            }
+        };
+
+        // JsBridge에서 호출하는 updateBar 함수 (series 매개변수 포함)
+        window.updateBar = function(seriesType, jsonData) {
+            try {
+                const candleData = JSON.parse(jsonData);
+                if (seriesType === 'main') {
+                    mainSeries.update(candleData);
+                    chart.timeScale().scrollToRealTime();
+                    console.log('Real-time candle updated via JsBridge:', candleData);
+                }
+            } catch (e) {
+                console.error('Error updating bar via JsBridge:', e);
+            }
+        };
+        
         window.updateVolumeData = function(jsonData) {
             if (series.volume) {
                 try {
                     const data = JSON.parse(jsonData);
-                    series.volume.setData(data);
+                    
+                    // 캔들 데이터와 매칭하여 볼륨 색상 적용
+                    const mainData = mainSeries.data();
+                    const coloredVolumeData = data.map(volumeBar => {
+                        const matchingCandle = mainData.find(candle => candle.time === volumeBar.time);
+                        if (matchingCandle) {
+                            const isRising = matchingCandle.close >= matchingCandle.open;
+                            return {
+                                ...volumeBar,
+                                color: isRising ? '#FF99C5' : '#42A6FF' // MainPink : MainBlue
+                            };
+                        }
+                        return {
+                            ...volumeBar,
+                            color: '#FF99C5' // 기본 상승 색상 MainPink
+                        };
+                    });
+                    
+                    series.volume.setData(coloredVolumeData);
                 } catch (e) {
                     console.error('Error updating volume data:', e);
+                }
+            }
+        };
+        
+        // 실시간 거래량 업데이트 (단일 거래량 바 업데이트)
+        window.updateVolume = function(jsonData) {
+            if (series.volume) {
+                try {
+                    const volumeData = JSON.parse(jsonData);
+                    
+                    // 캔들 색상에 따라 볼륨 색상 결정
+                    const mainData = mainSeries.data();
+                    const lastCandle = mainData[mainData.length - 1];
+                    
+                    if (lastCandle && volumeData.time === lastCandle.time) {
+                        // 같은 시간대의 캔들 색상 확인 (상승: MainPink, 하락: MainBlue)
+                        const isRising = lastCandle.close >= lastCandle.open;
+                        const volumeColor = isRising ? '#FF99C5' : '#42A6FF'; // MainPink : MainBlue
+                        
+                        // 볼륨 색상 적용
+                        const coloredVolumeData = {
+                            ...volumeData,
+                            color: volumeColor
+                        };
+                        
+                        series.volume.update(coloredVolumeData);
+                    } else {
+                        // 시간이 다르면 기본 상승 색상 사용
+                        const coloredVolumeData = {
+                            ...volumeData,
+                            color: '#FF99C5' // MainPink
+                        };
+                        series.volume.update(coloredVolumeData);
+                    }
+                    
+                    console.log('Real-time volume updated with dynamic color:', volumeData);
+                } catch (e) {
+                    console.error('Error updating real-time volume:', e);
                 }
             }
         };
@@ -308,6 +497,19 @@
             }
         };
         
+        // 실시간 RSI 업데이트 (단일 데이터 포인트)
+        window.updateRSI = function(jsonData) {
+            if (series.rsi) {
+                try {
+                    const rsiData = JSON.parse(jsonData);
+                    series.rsi.update(rsiData);
+                    console.log('Real-time RSI updated:', rsiData);
+                } catch (e) {
+                    console.error('Error updating real-time RSI:', e);
+                }
+            }
+        };
+        
         window.updateMACDData = function(jsonData) {
             if (series.macd) {
                 try {
@@ -317,6 +519,21 @@
                     if (data.signal) series.macd.signal.setData(data.signal);
                 } catch (e) {
                     console.error('Error updating MACD data:', e);
+                }
+            }
+        };
+        
+        // 실시간 MACD 업데이트 (단일 데이터 포인트)
+        window.updateMACD = function(jsonData) {
+            if (series.macd) {
+                try {
+                    const macdData = JSON.parse(jsonData);
+                    if (macdData.histogram) series.macd.histogram.update(macdData.histogram);
+                    if (macdData.macd) series.macd.macd.update(macdData.macd);
+                    if (macdData.signal) series.macd.signal.update(macdData.signal);
+                    console.log('Real-time MACD updated:', macdData);
+                } catch (e) {
+                    console.error('Error updating real-time MACD:', e);
                 }
             }
         };
@@ -336,6 +553,30 @@
             if (chart) {
                 chart.resize(width, height);
             }
+        };
+        
+        // 테스트용 샘플 데이터 추가 (개발용)
+        window.addSampleData = function() {
+            const sampleData = [
+                { time: 1642425600, open: 100000, high: 105000, low: 98000, close: 103000 },
+                { time: 1642512000, open: 103000, high: 107000, low: 101000, close: 106000 },
+                { time: 1642598400, open: 106000, high: 109000, low: 104000, close: 108000 }
+            ];
+            mainSeries.setData(sampleData);
+            
+            const volumeData = [
+                { time: 1642425600, value: 1000000, color: '#FF99C5' }, // 상승 (103000 >= 100000) - MainPink
+                { time: 1642512000, value: 1200000, color: '#FF99C5' }, // 상승 (106000 >= 103000) - MainPink
+                { time: 1642598400, value: 800000, color: '#FF99C5' }   // 상승 (108000 >= 106000) - MainPink
+            ];
+            
+            // 거래량 지표가 있으면 데이터 추가
+            if (series.volume) {
+                series.volume.setData(volumeData);
+            }
+            
+            chart.timeScale().fitContent();
+            console.log('Sample data added to chart with volume colors');
         };
         
         // 차트 초기화 실행
