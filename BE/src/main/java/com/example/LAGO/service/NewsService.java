@@ -292,16 +292,24 @@ public class NewsService {
      * 관심종목 뉴스 조회
      */
     public Page<NewsResponse> getWatchlistNews(Long userId, Pageable pageable) {
+        log.info("=== 관심종목 뉴스 조회 시작 - userId: {} ===", userId);
+        
         // 사용자의 관심종목 조회 (stockInfo도 함께 로드)
         List<Interest> userInterests = interestRepository.findWithStockInfoByUserId(userId);
+        log.info("조회된 관심종목 개수: {}", userInterests.size());
 
         if (userInterests.isEmpty()) {
+            log.info("사용자 {}의 관심종목이 없음", userId);
             return Page.empty(pageable);
         }
 
         // 관심종목의 종목명들로 뉴스 키워드 검색
         List<String> stockNames = userInterests.stream()
-                .map(interest -> interest.getStockInfo().getName())
+                .map(interest -> {
+                    String stockName = interest.getStockInfo().getName();
+                    log.debug("관심종목: {} (코드: {})", stockName, interest.getStockInfo().getCode());
+                    return stockName;
+                })
                 .distinct()
                 .collect(Collectors.toList());
         
@@ -309,7 +317,14 @@ public class NewsService {
 
         // 키워드로 뉴스 검색 (여러 종목명 OR 조건)
         String searchKeyword = String.join("|", stockNames);
+        log.info("검색 키워드: '{}'", searchKeyword);
+        
         Page<News> newsPage = newsRepository.findByKeywordSearch(searchKeyword, pageable);
+        log.info("검색된 뉴스 개수: {}", newsPage.getTotalElements());
+        
+        if (newsPage.isEmpty()) {
+            log.info("검색 결과가 없음 - 키워드: '{}'", searchKeyword);
+        }
         
         return newsPage.map(NewsResponse::from);
     }
