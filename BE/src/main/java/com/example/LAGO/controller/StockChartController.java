@@ -18,7 +18,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/stocks")
-@Tag(name = "주식데이터 조회", description = "주식 차트 데이터 조회 API (1m, 3m, 5m, 10m, 15m, 30m, 60m)")
+@Tag(name = "주식데이터 조회", description = "주식 차트 데이터 조회 API (1m, 3m, 5m, 10m, 15m, 30m, 60m, 1d)")
 public class StockChartController {
 
     private final StockChartService stockChartService;

@@ -25,6 +25,7 @@ public class StockChartService {
     private final Ticks15mRepository ticks15mRepository;
     private final Ticks30mRepository ticks30mRepository;
     private final Ticks60mRepository ticks60mRepository;
+    private final Ticks1dRepository ticks1dRepository;
     
     /**
      * 특정 종목의 기간별 차트 데이터 조회 (KST 입력 -> UTC 조회 -> KST 응답)
@@ -70,6 +71,8 @@ public class StockChartService {
                         .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
                 case "60m" -> ticks60mRepository.findByCodeAndBucketRange(code, startTimeUtc, endTimeUtc)
                         .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
+                case "1d" -> ticks1dRepository.findByCodeAndBucketRange(code, startTimeUtc, endTimeUtc)
+                        .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
                 default -> throw new IllegalArgumentException("지원하지 않는 시간 간격: " + interval);
             };
             
@@ -114,6 +117,8 @@ public class StockChartService {
                         .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
                 case "60m" -> ticks60mRepository.findLatestByCode(code, pageable)
                         .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
+                case "1d" -> ticks1dRepository.findLatestByCode(code, pageable)
+                        .stream().map(tick -> convertToDto(tick, interval)).collect(Collectors.toList());
                 default -> throw new IllegalArgumentException("지원하지 않는 시간 간격: " + interval);
             };
             
@@ -134,7 +139,7 @@ public class StockChartService {
      * @return 지원하는 시간 간격 리스트
      */
     public List<String> getSupportedIntervals() {
-        return List.of("1m", "3m", "5m", "10m", "15m", "30m", "60m");
+        return List.of("1m", "3m", "5m", "10m", "15m", "30m", "60m", "1d");
     }
     
     /**
