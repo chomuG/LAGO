@@ -4,7 +4,7 @@ import com.lago.app.data.remote.dto.*
 import retrofit2.http.*
 
 interface ChartApiService {
-    
+
     /**
      * 일별 주식 정보 조회
      */
@@ -122,7 +122,7 @@ interface ChartApiService {
     ): List<SimpleStockDto>
 
     /**
-     * 주식 검색 - 원래대로 복원  
+     * 주식 검색 - 원래대로 복원
      */
     @GET("api/stocks/search")
     suspend fun searchStocks(

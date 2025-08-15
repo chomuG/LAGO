@@ -23,11 +23,12 @@ import java.time.LocalDateTime;
 public class Account {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "account_id")
-    private Integer accountId;
+    private Long accountId;
 
     @Column(name = "user_id", nullable = false)
-    private Integer userId;
+    private Long userId;
 
     @Column(name = "balance", nullable = false)
     private Integer balance;
@@ -39,7 +40,7 @@ public class Account {
     private Integer profit;
 
     @Column(name = "profit_rate", nullable = false)
-    private Float profitRate;
+    private Double profitRate;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

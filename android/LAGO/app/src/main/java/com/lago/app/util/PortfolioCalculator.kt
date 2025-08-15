@@ -3,19 +3,161 @@ package com.lago.app.util
 import com.lago.app.domain.entity.PortfolioReturn
 import com.lago.app.domain.entity.StockRealTimeData
 import com.lago.app.domain.entity.TotalPortfolioSummary
-import com.lago.app.presentation.viewmodel.chart.HoldingItem
+import com.lago.app.domain.entity.HoldingItem
+import com.lago.app.data.remote.dto.UserCurrentStatusDto
+import com.lago.app.data.remote.dto.HoldingResponseDto
+import com.lago.app.data.remote.dto.MyPagePortfolioSummary
+import com.lago.app.data.remote.dto.MyPageHolding
+import com.lago.app.data.remote.dto.PieChartItem
+import androidx.compose.ui.graphics.Color
 
 object PortfolioCalculator {
     
     /**
-     * 단일 종목의 실시간 수익률 계산
+     * API 응답에서 마이페이지 포트폴리오 계산 (실시간 가격 적용)
+     */
+    fun calculateMyPagePortfolio(
+        userStatus: UserCurrentStatusDto,
+        realTimePrices: Map<String, StockRealTimeData>
+    ): MyPagePortfolioSummary {
+        android.util.Log.d("PortfolioCalculator", "📈 포트폴리오 계산 시작")
+        android.util.Log.d("PortfolioCalculator", "  - 실시간 가격 데이터: ${realTimePrices.size}개")
+        realTimePrices.forEach { (code, data) ->
+            android.util.Log.d("PortfolioCalculator", "    * $code: ${data.price}원")
+        }
+        
+        val portfolioReturns = userStatus.holdings.map { holding ->
+            val realTimeData = realTimePrices[holding.stockCode]
+            android.util.Log.d("PortfolioCalculator", "  - ${holding.stockName} 계산:")
+            android.util.Log.d("PortfolioCalculator", "    * 수량: ${holding.quantity}주")
+            android.util.Log.d("PortfolioCalculator", "    * 매수금액: ${holding.totalPurchaseAmount}원")
+            android.util.Log.d("PortfolioCalculator", "    * 실시간 가격: ${realTimeData?.price ?: "없음"}")
+            
+            val result = calculateHoldingReturn(holding, realTimeData)
+            android.util.Log.d("PortfolioCalculator", "    * 현재가치: ${result.currentValue}원")
+            android.util.Log.d("PortfolioCalculator", "    * 손익: ${result.profitLoss}원")
+            result
+        }
+        
+        val totalPurchaseAmount = userStatus.holdings.sumOf { it.totalPurchaseAmount }
+        val totalCurrentValue = portfolioReturns.sumOf { it.currentValue }
+        val profitLoss = totalCurrentValue - totalPurchaseAmount
+        val profitRate = if (totalPurchaseAmount > 0) (profitLoss.toDouble() / totalPurchaseAmount) * 100 else 0.0
+        
+        android.util.Log.d("PortfolioCalculator", "💰 최종 계산 결과:")
+        android.util.Log.d("PortfolioCalculator", "  - 보유현금: ${userStatus.balance}원")
+        android.util.Log.d("PortfolioCalculator", "  - 총매수: ${totalPurchaseAmount}원")
+        android.util.Log.d("PortfolioCalculator", "  - 총평가: ${totalCurrentValue}원")
+        android.util.Log.d("PortfolioCalculator", "  - 총자산: ${userStatus.balance + totalCurrentValue}원")
+        android.util.Log.d("PortfolioCalculator", "  - 평가손익: ${profitLoss}원 (${String.format("%.2f", profitRate)}%)")
+        android.util.Log.d("PortfolioCalculator", "  - API profitRate: ${userStatus.profitRate}% vs 계산된 profitRate: ${profitRate}%")
+        
+        return MyPagePortfolioSummary(
+            accountId = userStatus.accountId,
+            balance = userStatus.balance,
+            totalPurchaseAmount = totalPurchaseAmount,
+            totalCurrentValue = totalCurrentValue,
+            profitLoss = profitLoss, // 계산된 평가손익
+            profitRate = userStatus.profitRate, // API의 수익률 (그래프 중앙용)
+            holdings = portfolioReturns,
+            nickname = userStatus.nickname,
+            personality = userStatus.personality
+        )
+    }
+    
+    /**
+     * 개별 보유 종목 수익률 계산
+     */
+    private fun calculateHoldingReturn(
+        holding: HoldingResponseDto,
+        realTimeData: StockRealTimeData?
+    ): MyPageHolding {
+        val currentPrice = realTimeData?.price ?: (holding.totalPurchaseAmount.toDouble() / holding.quantity)
+        val currentValue = currentPrice * holding.quantity
+        val purchaseAmount = holding.totalPurchaseAmount.toDouble()
+        val profitLoss = currentValue - purchaseAmount
+        val profitRate = if (purchaseAmount > 0) (profitLoss / purchaseAmount) * 100 else 0.0
+        
+        return MyPageHolding(
+            stockCode = holding.stockCode,
+            stockName = holding.stockName,
+            quantity = holding.quantity,
+            purchaseAmount = holding.totalPurchaseAmount,
+            currentValue = currentValue.toLong(),
+            profitLoss = profitLoss.toLong(),
+            profitRate = profitRate,
+            weight = 0.0 // 나중에 전체 기준으로 계산
+        )
+    }
+    
+    /**
+     * 보유 비율 계산 (총 매수 기준)
+     */
+    fun calculateHoldingWeights(holdings: List<MyPageHolding>): List<MyPageHolding> {
+        val totalPurchaseAmount = holdings.sumOf { it.purchaseAmount }
+        android.util.Log.d("PortfolioCalculator", "📊 비율 계산:")
+        android.util.Log.d("PortfolioCalculator", "  - 총 매수금액: ${totalPurchaseAmount}원")
+        
+        return holdings.map { holding ->
+            val weight = if (totalPurchaseAmount > 0) {
+                (holding.purchaseAmount.toDouble() / totalPurchaseAmount) * 100
+            } else 0.0
+            
+            android.util.Log.d("PortfolioCalculator", "  - ${holding.stockName}: ${holding.purchaseAmount}원 → ${String.format("%.1f", weight)}%")
+            
+            holding.copy(weight = weight)
+        }
+    }
+    
+    /**
+     * 파이차트용 데이터 생성 (상위 5개 + 기타)
+     */
+    fun createPieChartData(holdings: List<MyPageHolding>): List<PieChartItem> {
+        val sortedHoldings = holdings.sortedByDescending { it.purchaseAmount }
+        val top5 = sortedHoldings.take(5)
+        val others = sortedHoldings.drop(5)
+        
+        val pieChartData = mutableListOf<PieChartItem>()
+        
+        // 상위 5개 추가
+        top5.forEach { holding ->
+            pieChartData.add(
+                PieChartItem(
+                    name = holding.stockName,
+                    value = holding.purchaseAmount,
+                    percentage = holding.weight,
+                    color = getStockColor(pieChartData.size)
+                )
+            )
+        }
+        
+        // 기타 묶어서 추가
+        if (others.isNotEmpty()) {
+            val othersValue = others.sumOf { it.purchaseAmount }
+            val othersPercentage = others.sumOf { it.weight }
+            pieChartData.add(
+                PieChartItem(
+                    name = "기타",
+                    value = othersValue,
+                    percentage = othersPercentage,
+                    color = Color.Gray,
+                    isOthers = true
+                )
+            )
+        }
+        
+        return pieChartData
+    }
+    
+    /**
+     * 단일 종목의 실시간 수익률 계산 (기존 로직 유지)
      */
     fun calculateStockReturn(
         holding: HoldingItem,
         realTimePrice: Double
     ): PortfolioReturn {
-        val quantity = parseQuantity(holding.quantity)
-        val buyPrice = holding.value.toDouble() / quantity
+        val quantity = holding.quantity
+        val buyPrice = holding.averagePrice.toDouble()
         
         val profit = (realTimePrice - buyPrice) * quantity
         val returnRate = if (buyPrice > 0) ((realTimePrice - buyPrice) / buyPrice) * 100 else 0.0
@@ -23,7 +165,7 @@ object PortfolioCalculator {
         
         return PortfolioReturn(
             stockCode = holding.stockCode,
-            stockName = holding.name,
+            stockName = holding.stockName,
             quantity = quantity,
             buyPrice = buyPrice,
             currentPrice = realTimePrice,
@@ -74,17 +216,17 @@ object PortfolioCalculator {
                 calculateStockReturn(holding, realTimeData.price)
             } else {
                 // 실시간 데이터가 없으면 기존 가격으로 계산
-                val quantity = parseQuantity(holding.quantity)
-                val buyPrice = holding.value.toDouble() / quantity
+                val quantity = holding.quantity
+                val buyPrice = holding.averagePrice.toDouble()
                 PortfolioReturn(
                     stockCode = holding.stockCode,
-                    stockName = holding.name,
+                    stockName = holding.stockName,
                     quantity = quantity,
                     buyPrice = buyPrice,
                     currentPrice = buyPrice,
                     profit = 0.0,
                     returnRate = 0.0,
-                    totalValue = holding.value.toDouble()
+                    totalValue = holding.totalValue.toDouble()
                 )
             }
             holding.stockCode to portfolioReturn
@@ -181,5 +323,19 @@ object PortfolioCalculator {
         val mean = returns.average()
         val variance = returns.map { (it - mean) * (it - mean) }.average()
         return kotlin.math.sqrt(variance)
+    }
+    
+    /**
+     * 파이차트용 색상 할당 (MyPageScreen과 동일한 순서)
+     */
+    private fun getStockColor(index: Int): Color {
+        val colors = listOf(
+            Color(0xFF42A6FF), // MainBlue
+            Color(0xFFFF99C5), // MainPink
+            Color(0xFFFFE28A), // AppColors.Yellow
+            Color(0xFFC8FACC), // AppColors.Green
+            Color(0xFFC5B5F9), // AppColors.Purple
+        )
+        return colors.getOrElse(index % colors.size) { Color(0xFFC4C4C4) } // AppColors.Gray
     }
 }

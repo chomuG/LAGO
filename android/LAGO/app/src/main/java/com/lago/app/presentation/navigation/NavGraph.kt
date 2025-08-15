@@ -52,14 +52,42 @@ fun NavGraph(
         composable(NavigationItem.Home.route) {
             HomeScreen(
                 userPreferences = userPreferences,
-                onOrderHistoryClick = {
-                    navController.navigate(NavigationItem.OrderHistory.route)
+                initialType = 0, // 기본값
+                onOrderHistoryClick = { type ->
+                    navController.navigate("${NavigationItem.OrderHistory.route}/$type")
                 },
                 onLoginClick = {
                     navController.navigate("login");
                 },
-                onTradingBotClick = {
-                    navController.navigate("ai_portfolio")
+                onTradingBotClick = { userId ->
+                    navController.navigate("ai_portfolio/$userId")
+                },
+                onStockClick = { stockCode ->
+                    navController.navigate("chart_simple/$stockCode")
+                }
+            )
+        }
+        
+        // Type이 포함된 Home route
+        composable(
+            route = "${NavigationItem.Home.route}/{type}",
+            arguments = listOf(navArgument("type") { type = NavType.IntType })
+        ) {
+            val type = it.arguments?.getInt("type") ?: 0
+            HomeScreen(
+                userPreferences = userPreferences,
+                initialType = type,
+                onOrderHistoryClick = { currentType ->
+                    navController.navigate("${NavigationItem.OrderHistory.route}/$currentType")
+                },
+                onLoginClick = {
+                    navController.navigate("login");
+                },
+                onTradingBotClick = { userId ->
+                    navController.navigate("ai_portfolio/$userId")
+                },
+                onStockClick = { stockCode ->
+                    navController.navigate("chart_simple/$stockCode")
                 }
             )
         }
@@ -248,6 +276,29 @@ fun NavGraph(
             )
         }
 
+        composable(
+            route = "ai_portfolio/{userId}",
+            arguments = listOf(
+                navArgument("userId") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getInt("userId") ?: 1
+            AiPortfolioScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onStockClick = { stockCode ->
+                    navController.navigate("chart_simple/$stockCode")
+                },
+                onOrderHistoryClick = { botUserId, type ->
+                    android.util.Log.d("NAV_GRAPH", "AiPortfolio - onOrderHistoryClick: botUserId=$botUserId, type=$type")
+                    navController.navigate("order_history_bot/$botUserId/$type")
+                },
+                userId = userId
+            )
+        }
+
+        // Backward compatibility for AI Portfolio without userId
         composable("ai_portfolio") {
             AiPortfolioScreen(
                 onBackClick = {
@@ -256,10 +307,11 @@ fun NavGraph(
                 onStockClick = { stockCode ->
                     navController.navigate("chart_simple/$stockCode")
                 },
-                onOrderHistoryClick = {
-                    navController.navigate(NavigationItem.OrderHistory.route)
+                onOrderHistoryClick = { botUserId, type ->
+                    android.util.Log.d("NAV_GRAPH", "AiPortfolio - onOrderHistoryClick: botUserId=$botUserId, type=$type")
+                    navController.navigate("order_history_bot/$botUserId/$type")
                 },
-                userName = "AI 포트폴리오"
+                userId = 1 // 기본값
             )
         }
 
@@ -392,8 +444,35 @@ fun NavGraph(
             )
         }
 
-        composable(NavigationItem.OrderHistory.route) {
+        composable(
+            route = "${NavigationItem.OrderHistory.route}/{type}",
+            arguments = listOf(navArgument("type") { type = NavType.IntType })
+        ) {
+            val type = it.arguments?.getInt("type") ?: 0
             OrderHistoryScreen(
+                type = type,
+                onBackClick = {
+                    navController.navigate("${NavigationItem.Home.route}/$type") {
+                        popUpTo(NavigationItem.Home.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
+        // 매매봇용 거래내역 (userId 파라미터 포함)
+        composable(
+            route = "order_history_bot/{userId}/{type}",
+            arguments = listOf(
+                navArgument("userId") { type = NavType.IntType },
+                navArgument("type") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getInt("userId") ?: 1
+            val type = backStackEntry.arguments?.getInt("type") ?: 2
+            android.util.Log.d("NAV_GRAPH", "OrderHistory composable - 파라미터: userId=$userId, type=$type")
+            OrderHistoryScreen(
+                userId = userId, // AiPortfolioScreen에서 받은 userId 전달
+                type = 2, // AI 매매봇 타입
                 onBackClick = {
                     navController.popBackStack()
                 }

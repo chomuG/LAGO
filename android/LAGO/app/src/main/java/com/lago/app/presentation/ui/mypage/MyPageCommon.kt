@@ -181,7 +181,8 @@ fun PortfolioSection(
     pieChartData: List<PieChartData>, 
     stockList: List<StockInfo>,
     onStockClick: (String) -> Unit = {},
-    isLoggedIn: Boolean = true
+    isLoggedIn: Boolean = true,
+    portfolioSummary: com.lago.app.data.remote.dto.MyPagePortfolioSummary? = null
 ) {
     Card(
         modifier = Modifier
@@ -234,9 +235,15 @@ fun PortfolioSection(
                             color = Black
                         )
                         Text(
-                            text = if (isLoggedIn) "+23.4%" else "?",
+                            text = if (isLoggedIn) {
+                                portfolioSummary?.let { 
+                                    android.util.Log.d("MyPageScreen", "📊 UI에서 수익률 표시: ${it.profitRate}%")
+                                    val sign = if (it.profitRate > 0) "+" else ""
+                                    "${sign}${String.format("%.1f", it.profitRate)}%"
+                                } ?: "+23.4%"
+                            } else "?",
                             style = TitleB24,
-                            color = MainPink
+                            color = if (portfolioSummary?.profitRate?.let { it > 0 } == true) MainPink else if (portfolioSummary?.profitRate?.let { it < 0 } == true) Color.Blue else MainPink
                         )
                     }
                 }

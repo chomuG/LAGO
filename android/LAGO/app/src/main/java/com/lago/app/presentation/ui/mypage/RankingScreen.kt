@@ -6,45 +6,33 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.runtime.collectAsState
 import com.lago.app.presentation.theme.*
 import com.lago.app.presentation.ui.components.CommonTopAppBar
+import com.lago.app.presentation.viewmodel.RankingViewModel
+import com.lago.app.data.remote.dto.CalculatedRankingUser
 import com.lago.app.R
 
-
-// 랭킹 데이터 클래스
-data class RankingUser(
-    val rank: Int,
-    val name: String,
-    val amount: String,
-    val profit: String,
-    val profitPercent: String,
-    val isCurrentUser: Boolean = false,
-    val isAi: Boolean = false
-)
-
-// 포디움 데이터 클래스 (1, 2, 3등)
-data class PodiumUser(
-    val rank: Int,
-    val name: String,
-    val amount: String,
-    val medalResource: Int
-)
-
+// ================================
+// Ranking Screen
+// ================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RankingScreen(
@@ -52,36 +40,17 @@ fun RankingScreen(
     onBackClick: () -> Unit = {},
     onUserClick: () -> Unit = {},
     onAiPortfolioClick: () -> Unit = {},
-    onLoginClick: () -> Unit = {}
+    onLoginClick: () -> Unit = {},
+    viewModel: RankingViewModel = hiltViewModel(),
 ) {
+    val uiState by viewModel.uiState.collectAsState()
     val isLoggedIn = userPreferences.getAuthToken() != null
-    val currentUser = RankingUser(
-        rank = 17,
-        name = "박두철철철",
-        amount = "12,482,000원",
-        profit = "+612,000원",
-        profitPercent = "(33.03%)",
-        isCurrentUser = true
-    )
-
-    val podiumUsers = listOf(
-        PodiumUser(1, "박두일", "12,482,000원", R.drawable.gold),
-        PodiumUser(2, "박두이", "12,482,000원", R.drawable.silver),
-        PodiumUser(3, "박두삼", "12,482,000원", R.drawable.bronze)
-    )
-
-    val otherUsers = listOf(
-        RankingUser(4, "워렌버핏", "12,482,000원", "+612,000원", "(33.03%)"),
-        RankingUser(5, "박두팔", "12,482,000원", "+612,000원", "(33.03%)"),
-        RankingUser(6, "AI 포트폴리오", "12,482,000원", "+612,000원", "(33.03%)", isAi = true)
-    )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(AppBackground)
     ) {
-        // 상단 앱바
         CommonTopAppBar(
             title = "랭킹",
             onBackClick = onBackClick
@@ -94,46 +63,82 @@ fun RankingScreen(
                 .padding(horizontal = Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
-            // 상단 여백
             Spacer(modifier = Modifier.height(Spacing.sm))
 
             // 현재 사용자 랭킹 카드
-            if (isLoggedIn) {
-                RankingCard(
-                    user = currentUser,
-                    isCurrentUser = true,
+            when {
+                isLoggedIn && uiState.currentUser != null -> {
+                    ApiRankingCard(
+                        user = uiState.currentUser!!,
+                        viewModel = viewModel,
+                        onUserClick = onUserClick
+                    )
+                }
+                isLoggedIn -> {
+                    Text(
+                        text = "아직 랭킹에 등록되지 않았습니다.",
+                        style = TitleB16,
+                        color = Gray600,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+                else -> {
+                    LoginPromptCard(onLoginClick = onLoginClick)
+                }
+            }
+
+            // 포디움 섹션 (Top3)
+            if (uiState.top3Users.isNotEmpty()) {
+                ApiPodiumSection(
+                    top3Users = uiState.top3Users,
+                    viewModel = viewModel,
                     onUserClick = onUserClick
-                )
-            } else {
-                LoginPromptCard(
-                    onLoginClick = onLoginClick
                 )
             }
 
-            // 포디움 섹션
-            PodiumSection(
-                podiumUsers = podiumUsers,
-                onUserClick = onUserClick
-            )
-
-            // 다른 사용자들
-            otherUsers.forEach { user ->
-                RankingCard(
+            // 4등 이하 리스트
+            uiState.otherUsers.forEach { user ->
+                ApiRankingCard(
                     user = user,
+                    viewModel = viewModel,
                     onUserClick = if (user.isAi) onAiPortfolioClick else onUserClick
                 )
             }
 
-            // 하단 여백
+            // 로딩 상태
+            if (uiState.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MainBlue)
+                }
+            }
+
+            // 에러 메시지
+            uiState.errorMessage?.let { error ->
+                Text(
+                    text = error,
+                    color = Color.Red,
+                    style = BodyR14,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(Spacing.xl))
         }
     }
 }
 
+// ================================
+// Cards & Rows
+// ================================
 @Composable
-fun RankingCard(
-    user: RankingUser,
-    isCurrentUser: Boolean = false,
+fun ApiRankingCard(
+    user: CalculatedRankingUser,
+    viewModel: RankingViewModel,
     onUserClick: () -> Unit = {}
 ) {
     Card(
@@ -148,9 +153,7 @@ fun RankingCard(
                 spotColor = ShadowColor
             ),
         shape = RoundedCornerShape(Radius.lg),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        )
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Box(
             modifier = Modifier
@@ -167,7 +170,7 @@ fun RankingCard(
                     .padding(horizontal = Spacing.md),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 왼쪽 랭킹 번호
+                // 랭킹 번호
                 Text(
                     text = user.rank.toString(),
                     style = SubtitleSb20,
@@ -175,24 +178,27 @@ fun RankingCard(
                     modifier = Modifier.padding(end = 8.dp)
                 )
 
-                // 프로필 동그라미 (AI인 경우 다른 색상)
-                Box(
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clip(CircleShape)
-                        .background(if (user.isAi) MainBlue else Color(0xFFDEEFFE))
+                // personality에 따른 캐릭터 이미지
+                val characterImage = when (user.personality) {
+                    "공격투자형" -> R.drawable.character_red_circle
+                    "적극투자형" -> R.drawable.character_yellow_circle
+                    "위험중립형" -> R.drawable.character_blue_circle
+                    "안정추구형" -> R.drawable.character_green_circle
+                    else -> R.drawable.character_blue_circle
+                }
+                
+                Image(
+                    painter = painterResource(id = characterImage),
+                    contentDescription = "${user.personality} 캐릭터",
+                    modifier = Modifier.size(50.dp)
                 )
 
-                // 사용자 이름 (AI인 경우 아이콘 추가)
+                // 사용자명 + AI 아이콘
                 Row(
                     modifier = Modifier.padding(start = 11.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = user.name,
-                        style = SubtitleSb16,
-                        color = Black
-                    )
+                    Text(text = user.username, style = SubtitleSb16, color = Black)
                     if (user.isAi) {
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
@@ -206,20 +212,22 @@ fun RankingCard(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // 오른쪽 금액 정보
                 Column(
                     horizontalAlignment = Alignment.End,
                     modifier = Modifier.padding(vertical = Spacing.md)
                 ) {
                     Text(
-                        text = user.amount,
+                        text = viewModel.formatAmount(user.totalAsset),
                         style = TitleB16,
                         color = Black
                     )
                     Text(
-                        text = "${user.profit}${user.profitPercent}",
+                        text = viewModel.formatProfitWithRate(
+                            user.calculatedProfit,
+                            user.calculatedProfitRate
+                        ),
                         style = BodyR12,
-                        color = MainPink
+                        color = viewModel.getProfitColor(user.calculatedProfitRate)
                     )
                 }
             }
@@ -227,72 +235,146 @@ fun RankingCard(
     }
 }
 
+// ================================
+// Podium (Top 3)
+// ================================
 @Composable
-fun PodiumSection(
-    podiumUsers: List<PodiumUser>,
+fun ApiPodiumSection(
+    top3Users: List<CalculatedRankingUser>,
+    viewModel: RankingViewModel,
     onUserClick: () -> Unit = {}
 ) {
+    if (top3Users.size < 3) return
 
-        Box(
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(340.dp),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        // 포디움 배경
+        Image(
+            painter = painterResource(id = R.drawable.top3),
+            contentDescription = "Top 3 Podium",
             modifier = Modifier
-                .fillMaxWidth()
-                .height(340.dp),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            // 포디움 배경 이미지
-            Image(
-                painter = painterResource(id = R.drawable.top3),
-                contentDescription = "Top 3 Podium",
-                modifier = Modifier
-                    .size(width = 316.dp, height = 186.dp)
-                    .align(Alignment.BottomCenter)
-            )
+                .size(width = 316.dp, height = 186.dp)
+                .align(Alignment.BottomCenter)
+        )
 
-            // 사용자 원과 메달들
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                // 2등 (왼쪽)
-                PodiumUser(
-                    user = podiumUsers[1],
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            val first = top3Users.find { it.rank == 1 }
+            val second = top3Users.find { it.rank == 2 }
+            val third = top3Users.find { it.rank == 3 }
+
+            second?.let {
+                ApiPodiumUser(
+                    user = it,
+                    viewModel = viewModel,
                     circleSize = 70.dp,
                     nameStyle = TitleB16,
                     amountStyle = SubtitleSb14,
                     bottomPadding = 154.dp,
+                    medalResource = R.drawable.silver,
                     onUserClick = onUserClick
                 )
+            }
 
-                // 1등 (가운데)
-                PodiumUser(
-                    user = podiumUsers[0],
+            first?.let {
+                ApiPodiumUser(
+                    user = it,
+                    viewModel = viewModel,
                     circleSize = 90.dp,
                     nameStyle = TitleB18,
                     amountStyle = HeadEb18,
-                    amountColor = MainBlue,
+                    amountColor = MainPink,
                     bottomPadding = 190.dp,
+                    medalResource = R.drawable.gold,
                     onUserClick = onUserClick
                 )
+            }
 
-                // 3등 (오른쪽)
-                PodiumUser(
-                    user = podiumUsers[2],
+            third?.let {
+                ApiPodiumUser(
+                    user = it,
+                    viewModel = viewModel,
                     circleSize = 70.dp,
                     nameStyle = TitleB16,
                     amountStyle = SubtitleSb14,
                     bottomPadding = 128.dp,
+                    medalResource = R.drawable.bronze,
                     onUserClick = onUserClick
                 )
             }
         }
+    }
 }
 
 @Composable
-fun LoginPromptCard(
-    onLoginClick: () -> Unit = {}
+fun ApiPodiumUser(
+    user: CalculatedRankingUser,
+    viewModel: RankingViewModel,
+    circleSize: Dp,
+    nameStyle: androidx.compose.ui.text.TextStyle,
+    amountStyle: androidx.compose.ui.text.TextStyle,
+    amountColor: Color = Black,
+    bottomPadding: Dp,
+    medalResource: Int,
+    onUserClick: () -> Unit = {}
 ) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .padding(bottom = bottomPadding)
+            .clickable { onUserClick() }
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            // personality에 따른 캐릭터 이미지
+            val characterImage = when (user.personality) {
+                "공격투자형" -> R.drawable.character_red_circle
+                "적극투자형" -> R.drawable.character_yellow_circle
+                "위험중립형" -> R.drawable.character_blue_circle
+                "안정추구형" -> R.drawable.character_green_circle
+                else -> R.drawable.character_blue_circle
+            }
+            
+            Image(
+                painter = painterResource(id = characterImage),
+                contentDescription = "${user.personality} 캐릭터",
+                modifier = Modifier.size(circleSize)
+            )
+            
+            Icon(
+                painter = painterResource(id = medalResource),
+                contentDescription = "${user.rank}등 메달",
+                modifier = Modifier
+                    .size(37.dp)
+                    .align(Alignment.BottomEnd)
+                    .offset(y = 8.dp, x = 5.dp)
+                    .zIndex(1f),
+                tint = Color.Unspecified
+            )
+        }
+
+        Spacer(modifier = Modifier.height(Spacing.sm))
+
+        Text(text = user.username, style = nameStyle, color = Black)
+        Text(
+            text = viewModel.formatAmount(user.totalAsset),
+            style = amountStyle,
+            color = amountColor
+        )
+    }
+}
+
+// ================================
+// Misc
+// ================================
+@Composable
+fun LoginPromptCard(onLoginClick: () -> Unit = {}) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -305,9 +387,7 @@ fun LoginPromptCard(
                 spotColor = ShadowColor
             ),
         shape = RoundedCornerShape(Radius.lg),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        )
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Box(
             modifier = Modifier
@@ -319,81 +399,19 @@ fun LoginPromptCard(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "로그인 해주세요.",
-                style = TitleB18,
-                color = Gray600
-            )
+            Text(text = "로그인 해주세요.", style = TitleB18, color = Gray600)
         }
     }
 }
 
-@Composable
-fun PodiumUser(
-    user: PodiumUser,
-    circleSize: androidx.compose.ui.unit.Dp,
-    nameStyle: androidx.compose.ui.text.TextStyle,
-    amountStyle: androidx.compose.ui.text.TextStyle,
-    amountColor: Color = Black,
-    bottomPadding: androidx.compose.ui.unit.Dp,
-    onUserClick: () -> Unit = {}
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .padding(bottom = bottomPadding)
-            .clickable { onUserClick() }
-    ) {
-        // 사용자 원과 메달
-        Box(
-            contentAlignment = Alignment.Center
-        ) {
-            // 회색 원
-            Box(
-                modifier = Modifier
-                    .size(circleSize)
-                    .clip(CircleShape)
-                    .background(Gray400)
-            )
-
-            // 메달
-            Icon(
-                painter = painterResource(id = user.medalResource),
-                contentDescription = "${user.rank}등 메달",
-                modifier = Modifier
-                    .size(37.dp)
-                    .align(Alignment.BottomEnd)
-                    .offset(y = 8.dp, x = 5.dp)
-                    .zIndex(1f),
-                tint = Color.Unspecified
-            )
-
-        }
-
-        Spacer(modifier = Modifier.height(Spacing.sm))
-
-        // 사용자 이름
-        Text(
-            text = user.name,
-            style = nameStyle,
-            color = Black
-        )
-
-        // 금액
-        Text(
-            text = user.amount,
-            style = amountStyle,
-            color = amountColor
-        )
-    }
-}
-
-
+// ================================
+// Preview
+// ================================
 @Preview(showBackground = true)
 @Composable
 fun RankingScreenPreview() {
     val mockSharedPrefs = object : android.content.SharedPreferences {
-        override fun getAll(): MutableMap<String, *> = mutableMapOf<String, Any>()
+        override fun getAll(): MutableMap<String, *> = mutableMapOf<String, Any?>()
         override fun getString(key: String?, defValue: String?): String? = defValue
         override fun getStringSet(key: String?, defValues: MutableSet<String>?): MutableSet<String>? = defValues
         override fun getInt(key: String?, defValue: Int): Int = defValue
@@ -416,6 +434,7 @@ fun RankingScreenPreview() {
         override fun registerOnSharedPreferenceChangeListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener?) {}
         override fun unregisterOnSharedPreferenceChangeListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener?) {}
     }
+
     MaterialTheme {
         RankingScreen(userPreferences = com.lago.app.data.local.prefs.UserPreferences(mockSharedPrefs))
     }

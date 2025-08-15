@@ -6,6 +6,8 @@ import com.lago.app.data.remote.StudyApiService
 import com.lago.app.util.Constants
 import com.lago.app.data.remote.api.ChartApiService
 import com.lago.app.data.remote.api.HistoryChallengeApiService
+import com.lago.app.data.service.InitialPriceService
+import com.lago.app.util.HybridPriceCalculator
 import com.google.gson.Gson
 import dagger.Module
 import dagger.Provides
@@ -92,6 +94,22 @@ object NetworkModule {
     @Singleton
     fun provideGson(): Gson {
         return Gson()
+    }
+
+    @Provides
+    @Singleton
+    fun provideInitialPriceService(
+        chartApiService: ChartApiService
+    ): InitialPriceService {
+        return InitialPriceService(chartApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideHybridPriceCalculator(
+        initialPriceService: InitialPriceService
+    ): HybridPriceCalculator {
+        return HybridPriceCalculator(initialPriceService)
     }
     
 }

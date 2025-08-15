@@ -15,6 +15,7 @@ class UserPreferences @Inject constructor(
         private const val KEY_LAST_SELECTED_STOCK = "last_selected_stock"
         private const val KEY_CHART_TIME_FRAME = "chart_time_frame"
         private const val KEY_CHART_INDICATORS = "chart_indicators"
+        private const val KEY_INVESTMENT_MODE = "investment_mode" // 0: 모의투자, 1: 역사모드
     }
 
     fun getAuthToken(): String? {
@@ -81,6 +82,18 @@ class UserPreferences @Inject constructor(
         sharedPreferences.edit()
             .putStringSet(KEY_CHART_INDICATORS, indicators)
             .apply()
+    }
+
+    // 투자 모드 관련 메서드들
+    fun getInvestmentMode(): Int {
+        return sharedPreferences.getInt(KEY_INVESTMENT_MODE, 0) // 기본값 0 (모의투자)
+    }
+
+    fun setInvestmentMode(mode: Int) {
+        sharedPreferences.edit()
+            .putInt(KEY_INVESTMENT_MODE, mode)
+            .apply()
+        android.util.Log.d("UserPreferences", "Investment mode saved: $mode")
     }
 
     fun clearAllData() {

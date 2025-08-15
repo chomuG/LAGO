@@ -153,12 +153,15 @@ fun LagoApp(userPreferences: UserPreferences) {
         "pattern_study",
         "login", "personality_test",
         "order_history", "ranking",
+        "order_history/{type}", // 타입이 포함된 거래내역 화면
+        "order_history_bot/{userId}/{type}", // 매매봇용 거래내역 화면  
         "portfolio",
         "chart",  // 차트 탭 화면 (목 데이터)
         "chart/{stockCode}",  // 차트 화면
         "history_challenge_chart/{stockCode}",  // 역사 챌린지 차트 화면
         "stock_purchase/{stockCode}/{transactionType}", // 구매/판매 화면,
-        "ai_portfolio"
+        "ai_portfolio",
+        "ai_portfolio/{userId}" // userId가 포함된 AI 포트폴리오 화면
     )
 
     // Check if current route matches any of the hidden routes (including parameterized routes)

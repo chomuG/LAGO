@@ -24,6 +24,10 @@ import androidx.compose.ui.unit.dp
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
 import com.lago.app.presentation.ui.components.CommonTopAppBar
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.lago.app.presentation.viewmodel.mypage.MyPageViewModel
+import com.lago.app.presentation.viewmodel.mypage.BotPortfolioViewModel
 
 // theme에 없는 색상들만 정의
 object AiAppColors {
@@ -34,6 +38,7 @@ object AiAppColors {
 
 // 데이터 클래스
 data class AiStockInfo(
+    val stockCode: String,
     val name: String,
     val averagePrice: String,
     val percentage: String,
@@ -50,20 +55,59 @@ data class AiPieChartData(
 fun AiPortfolioScreen(
     onBackClick: () -> Unit = {},
     onStockClick: (String) -> Unit = {},
-    onOrderHistoryClick: () -> Unit = {},
-    userName: String = "AI 포트폴리오"
+    onOrderHistoryClick: (Int, Int) -> Unit = { _, _ -> },
+    userId: Int = 1,
+    botViewModel: BotPortfolioViewModel = hiltViewModel()
 ) {
-    val aiStockList = listOf(
-        AiStockInfo("삼성전자", "1주 평균 42,232원", "40.7%", MainBlue),
-        AiStockInfo("한화생명", "1주 평균 52,232원", "25.4%", MainPink),
-        AiStockInfo("LG전자", "1주 평균 2,232원", "12.1%", AiAppColors.Yellow),
-        AiStockInfo("셀트리온", "1주 평균 4,232원", "8.2%", AiAppColors.Green),
-        AiStockInfo("네이버", "1주 평균 10,232원", "5.6%", AiAppColors.Purple),
-        AiStockInfo("기타", "1주 평균 1,232원", "40.7%", Gray400)
-    )
+    val uiState by botViewModel.uiState.collectAsState()
+    
+    // 매매봇 이름 매핑
+    val botName = when(userId) {
+        1 -> "화끈이"
+        2 -> "적극이"
+        3 -> "균형이"
+        4 -> "조심이"
+        else -> "AI 매매봇"
+    }
+    
+    // 해당 userId로 데이터 로드
+    LaunchedEffect(userId) {
+        android.util.Log.d("AiPortfolioScreen", "🤖 매매봇 화면 로드: userId=$userId, botName=$botName")
+        runCatching {
+            botViewModel.loadBotPortfolio(userId)
+        }.onFailure { e ->
+            android.util.Log.e("AiPortfolioScreen", "포트폴리오 로드 실패", e)
+        }
+    }
+    // API 데이터를 기반으로 주식 리스트 생성
+    val aiStockList = if (uiState.portfolioSummary != null) {
+        val colors = listOf(MainBlue, MainPink, AiAppColors.Yellow, AiAppColors.Green, AiAppColors.Purple, Gray400)
+        uiState.portfolioSummary!!.holdings.mapIndexed { index, holding ->
+            val avgPrice = if (holding.quantity > 0) {
+                holding.purchaseAmount / holding.quantity
+            } else 0L
+            AiStockInfo(
+                stockCode = holding.stockCode,
+                name = holding.stockName,
+                averagePrice = "1주 평균 ${String.format("%,d", avgPrice)}원",
+                percentage = "${String.format("%.1f", holding.weight)}%",
+                color = colors[index % colors.size]
+            )
+        }
+    } else {
+        // 로딩 중일 때 기본 데이터
+        listOf(
+            AiStockInfo("", "데이터 로딩중...", "0원", "0%", Gray400)
+        )
+    }
 
     val aiPieChartData = aiStockList.map { stock ->
-        AiPieChartData(stock.name, stock.percentage.removeSuffix("%").toFloat(), stock.color)
+        AiPieChartData(stock.name, stock.percentage.removeSuffix("%").toFloatOrNull() ?: 0f, stock.color)
+    }
+
+    val safeOnOrderHistoryClick: (Int, Int) -> Unit = { uid, type ->
+        runCatching { onOrderHistoryClick(uid, type) }
+            .onFailure { e -> android.util.Log.e("AiPortfolioScreen", "거래내역 클릭 오류", e) }
     }
 
     Column(
@@ -73,7 +117,7 @@ fun AiPortfolioScreen(
     ) {
         // CommonTopAppBar 추가
         CommonTopAppBar(
-            title = userName,
+            title = botName,
             onBackClick = onBackClick
         )
         
@@ -87,16 +131,21 @@ fun AiPortfolioScreen(
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
             // ProfileSection 추가
-            item { AiProfileSection() }
+            item { AiProfileSection(botName) }
 
             // 자산 현황 타이틀 섹션
-            item { AiAssetTitleSection(onOrderHistoryClick) }
+            item {
+                AiAssetTitleSection(
+                    onOrderHistoryClick = onOrderHistoryClick,
+                    userId = userId
+                )
+            }
 
             // 자산 현황 섹션
-            item { AiAssetStatusSection() }
+            item { AiAssetStatusSection(uiState.portfolioSummary, botViewModel) }
 
             // 포트폴리오 차트 및 주식 리스트 통합 섹션
-            item { AiPortfolioSection(aiPieChartData, aiStockList) }
+            item { AiPortfolioSection(aiPieChartData, aiStockList, uiState.portfolioSummary, onStockClick) }
 
 
             item { Spacer(modifier = Modifier.height(8.dp)) }
@@ -105,24 +154,32 @@ fun AiPortfolioScreen(
 }
 
 @Composable
-fun AiProfileSection() {
+fun AiProfileSection(botName: String) {
+    // 봇 이름에 따른 캐릭터 이미지 매핑 (_circle 버전)
+    val characterImage = when(botName) {
+        "화끈이" -> R.drawable.character_red_circle
+        "적극이" -> R.drawable.character_yellow_circle
+        "균형이" -> R.drawable.character_blue_circle
+        "조심이" -> R.drawable.character_green_circle
+        else -> R.drawable.character_blue_circle
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 프로필 사진
-        Box(
-            modifier = Modifier
-                .size(74.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFDEEFFE))
+        // 캐릭터 이미지 (배경 없이 _circle 버전 사용)
+        androidx.compose.foundation.Image(
+            painter = painterResource(id = characterImage),
+            contentDescription = "$botName 캐릭터",
+            modifier = Modifier.size(74.dp)
         )
         
         Spacer(modifier = Modifier.height(8.dp))
         
-        // 사용자 이름
+        // 매매봇 이름
         Text(
-            text = "AI 포트폴리오",
+            text = botName,
             style = TitleB24,
             color = Black
         )
@@ -130,7 +187,8 @@ fun AiProfileSection() {
 }
 
 @Composable
-fun AiAssetTitleSection(onOrderHistoryClick: () -> Unit = {}) {
+fun AiAssetTitleSection(onOrderHistoryClick: (Int, Int) -> Unit = { _, _ -> },
+                        userId: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -146,7 +204,10 @@ fun AiAssetTitleSection(onOrderHistoryClick: () -> Unit = {}) {
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clickable { onOrderHistoryClick() }
+            modifier = Modifier.clickable {
+                android.util.Log.d("AI_PORTFOLIO", "AiAssetTitleSection - 거래내역 클릭: userId=$userId, type=2")
+                onOrderHistoryClick(userId, 2)
+            },
         ) {
             Text(
                 text = "거래내역 >",
@@ -158,7 +219,10 @@ fun AiAssetTitleSection(onOrderHistoryClick: () -> Unit = {}) {
 }
 
 @Composable
-fun AiAssetStatusSection() {
+fun AiAssetStatusSection(
+    portfolioSummary: com.lago.app.data.remote.dto.MyPagePortfolioSummary? = null,
+    botViewModel: BotPortfolioViewModel? = null
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -196,7 +260,10 @@ fun AiAssetStatusSection() {
                     color = Black
                 )
                 Text(
-                    text = "808,000,000",
+                    text = if (portfolioSummary != null && botViewModel != null) {
+                        val totalAssets = portfolioSummary.balance + portfolioSummary.totalCurrentValue
+                        botViewModel.formatAmount(totalAssets)
+                    } else "0원",
                     style = TitleB18,
                     color = Black
                 )
@@ -216,9 +283,21 @@ fun AiAssetStatusSection() {
             Spacer(modifier = Modifier.height(8.dp))
             
             // 나머지 자산 정보
-            AiAssetInfoRow("보유현금", "25,000,000")
-            AiAssetInfoRow("총매수", "1,000,000")
-            AiAssetInfoRow("총평가", "1,000,000")
+            AiAssetInfoRow("보유현금", 
+                if (portfolioSummary != null && botViewModel != null) {
+                    botViewModel.formatAmount(portfolioSummary.balance)
+                } else "0원"
+            )
+            AiAssetInfoRow("총매수", 
+                if (portfolioSummary != null && botViewModel != null) {
+                    botViewModel.formatAmount(portfolioSummary.totalPurchaseAmount)
+                } else "0원"
+            )
+            AiAssetInfoRow("총평가", 
+                if (portfolioSummary != null && botViewModel != null) {
+                    botViewModel.formatAmount(portfolioSummary.totalCurrentValue)
+                } else "0원"
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth()
@@ -235,15 +314,31 @@ fun AiAssetStatusSection() {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "+24.35%",
+                        text = if (portfolioSummary != null) {
+                            val profitLoss = portfolioSummary.totalCurrentValue - portfolioSummary.totalPurchaseAmount
+                            val profitRate = if (portfolioSummary.totalPurchaseAmount > 0) {
+                                (profitLoss.toDouble() / portfolioSummary.totalPurchaseAmount) * 100
+                            } else 0.0
+                            val sign = if (profitLoss > 0) "+" else ""
+                            "${sign}${String.format("%.2f", profitRate)}%"
+                        } else "0%",
                         style = TitleB14,
-                        color = MainPink
+                        color = if (portfolioSummary != null) {
+                            val profitLoss = portfolioSummary.totalCurrentValue - portfolioSummary.totalPurchaseAmount
+                            if (profitLoss > 0) MainPink else if (profitLoss < 0) MainBlue else Gray600
+                        } else Gray600
                     )
                 }
                 Text(
-                    text = "1,000,000",
+                    text = if (portfolioSummary != null && botViewModel != null) {
+                        val profitLoss = portfolioSummary.totalCurrentValue - portfolioSummary.totalPurchaseAmount
+                        botViewModel.formatAmount(profitLoss)
+                    } else "0원",
                     style = TitleB14,
-                    color = MainPink
+                    color = if (portfolioSummary != null) {
+                        val profitLoss = portfolioSummary.totalCurrentValue - portfolioSummary.totalPurchaseAmount
+                        if (profitLoss > 0) MainPink else if (profitLoss < 0) MainBlue else Gray600
+                    } else Gray600
                 )
             }
         }
@@ -272,7 +367,12 @@ fun AiAssetInfoRow(label: String, value: String) {
 }
 
 @Composable
-fun AiPortfolioSection(pieChartData: List<AiPieChartData>, stockList: List<AiStockInfo>) {
+fun AiPortfolioSection(
+    pieChartData: List<AiPieChartData>, 
+    stockList: List<AiStockInfo>,
+    portfolioSummary: com.lago.app.data.remote.dto.MyPagePortfolioSummary? = null,
+    onStockClick: (String) -> Unit = {}
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -324,9 +424,19 @@ fun AiPortfolioSection(pieChartData: List<AiPieChartData>, stockList: List<AiSto
                             color = Black
                         )
                         Text(
-                            text = "+23.4%",
+                            text = if (portfolioSummary != null) {
+                                val profitLoss = portfolioSummary.totalCurrentValue - portfolioSummary.totalPurchaseAmount
+                                val profitRate = if (portfolioSummary.totalPurchaseAmount > 0) {
+                                    (profitLoss.toDouble() / portfolioSummary.totalPurchaseAmount) * 100
+                                } else 0.0
+                                val sign = if (profitLoss > 0) "+" else ""
+                                "${sign}${String.format("%.1f", profitRate)}%"
+                            } else "0%",
                             style = TitleB24,
-                            color = MainPink
+                            color = if (portfolioSummary != null) {
+                                val profitLoss = portfolioSummary.totalCurrentValue - portfolioSummary.totalPurchaseAmount
+                                if (profitLoss > 0) MainPink else if (profitLoss < 0) MainBlue else Gray600
+                            } else Gray600
                         )
                     }
                 }
@@ -336,7 +446,7 @@ fun AiPortfolioSection(pieChartData: List<AiPieChartData>, stockList: List<AiSto
 
             // 주식 리스트
             stockList.forEach { stock ->
-                AiStockListItemInCard(stock)
+                AiStockListItemInCard(stock, onStockClick)
                 if (stock != stockList.last()) {
                     Spacer(modifier = Modifier.height(12.dp))
                 }
@@ -392,10 +502,16 @@ fun AiDonutChart(
 }
 
 @Composable
-fun AiStockListItemInCard(stock: AiStockInfo) {
+fun AiStockListItemInCard(stock: AiStockInfo, onStockClick: (String) -> Unit = {}) {
     Row(
-        modifier = Modifier.fillMaxWidth()
-            .padding(4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(4.dp)
+            .clickable { 
+                if (stock.stockCode.isNotEmpty()) {
+                    onStockClick(stock.stockCode) 
+                }
+            },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
