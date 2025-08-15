@@ -30,6 +30,7 @@ import java.util.*
 fun OrderHistoryScreen(
     onBackClick: () -> Unit = {},
     userId: Int? = null, // null이면 ViewModel에서 UserPreferences에서 가져옴
+    type: Int = 0, // 0: 모의투자, 1: 역사모드
     viewModel: OrderHistoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -54,8 +55,8 @@ fun OrderHistoryScreen(
         emptyList()
     }
     
-    LaunchedEffect(userId) {
-        viewModel.loadTransactions(userId)
+    LaunchedEffect(userId, type) {
+        viewModel.loadTransactions(userId, type)
     }
     
     Column(

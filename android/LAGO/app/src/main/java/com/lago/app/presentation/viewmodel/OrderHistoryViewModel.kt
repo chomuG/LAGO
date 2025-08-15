@@ -22,28 +22,26 @@ class OrderHistoryViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(OrderHistoryUiState())
     val uiState: StateFlow<OrderHistoryUiState> = _uiState.asStateFlow()
     
-    fun loadTransactions(userId: Int?) {
+    fun loadTransactions(userId: Int?, type: Int = 0) {
         viewModelScope.launch {
-            android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Loading transactions for userId: $userId")
+            android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Loading transactions for userId: $userId, type: $type")
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
-            // userId가 null이면 UserPreferences에서 가져오기 시도
-            val actualUserId = userId ?: run {
-                val storedUserId = userPreferences.getUserId()
-                android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Using stored userId: $storedUserId")
-                storedUserId?.toIntOrNull()
+            // 개발용: 항상 userId 5 고정 사용
+            val actualUserId = 5
+            android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Using fixed userId: $actualUserId, type: $type")
+            
+            val userIdLong = actualUserId.toLong()
+            
+            val result = if (type == 1) {
+                // 역사모드: history API 호출
+                transactionRepository.getHistoryTransactions(userIdLong)
+            } else {
+                // 모의투자: 기본 transactions API 호출
+                transactionRepository.getTransactions(userIdLong)
             }
             
-            val userIdLong = actualUserId?.toLong() ?: run {
-                android.util.Log.e("VIEWMODEL", "OrderHistoryViewModel - No valid userId found")
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = "사용자 ID가 없습니다. 다시 로그인해주세요."
-                )
-                return@launch
-            }
-            
-            transactionRepository.getTransactions(userIdLong).fold(
+            result.fold(
                 onSuccess = { transactions ->
                     android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Success: Loaded ${transactions.size} transactions")
                     transactions.forEachIndexed { index, transaction ->
@@ -89,6 +87,13 @@ class OrderHistoryViewModel @Inject constructor(
     fun loadTransactionsForDeveloper(developerId: Int) {
         android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Developer mode: Loading transactions for developerId: $developerId")
         loadTransactions(developerId)
+    }
+    
+    // 개발용: 로그인 시뮬레이션 (userId를 5로 설정)
+    fun simulateLogin() {
+        userPreferences.setUserId("5")
+        android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Simulated login with userId: 5")
+        loadTransactions(null) // null로 호출하면 UserPreferences에서 5를 가져옴
     }
     
     private fun formatMonth(date: Date): String {

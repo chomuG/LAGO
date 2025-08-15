@@ -38,6 +38,31 @@ class TransactionRepositoryImpl @Inject constructor(
         }
     }
     
+    override suspend fun getHistoryTransactions(userId: Long): Result<List<Transaction>> {
+        return try {
+            android.util.Log.d("REPOSITORY", "TransactionRepository - Getting history transactions for userId: $userId")
+            
+            when (val response = remoteDataSource.getHistoryTransactions(userId)) {
+                is ApiResponse.Success -> {
+                    android.util.Log.d("REPOSITORY", "TransactionRepository - History API Success, mapping ${response.data.size} items")
+                    val transactions = response.data.map { dto ->
+                        android.util.Log.v("REPOSITORY", "Mapping History DTO: $dto")
+                        dto.toDomain()
+                    }
+                    android.util.Log.d("REPOSITORY", "TransactionRepository - Successfully mapped ${transactions.size} history transactions")
+                    Result.success(transactions)
+                }
+                is ApiResponse.Error -> {
+                    android.util.Log.e("REPOSITORY", "TransactionRepository - History API Error: ${response.message}")
+                    Result.failure(Exception("History API Error: ${response.message}"))
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("REPOSITORY", "TransactionRepository - History Exception occurred", e)
+            Result.failure(Exception("History Network Error: ${e.message}"))
+        }
+    }
+    
     private fun createMockTransactions(userId: Long): List<Transaction> {
         val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
         return listOf(
