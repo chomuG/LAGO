@@ -16,6 +16,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -24,6 +26,10 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.lago.app.R
 import com.lago.app.domain.entity.ChartPattern
 import com.lago.app.presentation.theme.*
@@ -42,14 +48,14 @@ fun PatternStudyScreen(
     var selectedTab by remember { mutableStateOf(0) } // 선택된 상태
     val patternsState by viewModel.patternsState.collectAsStateWithLifecycle()
     
-    // 더미 데이터
+    // 더미 데이터 (테스트용 이미지 URL 포함)
     val dummyPatterns = listOf(
-        ChartPattern(1, "헤드 & 숄더", "## 더블 탑은 가격이 비슷한 두 꼭대기를 만들고 내려가는 **하락 반전 신호**에요. ## **목선(바닥선)**을 아래로 뚫으면 더 하락할 수 있으니 **매도 시점**으로 봐요. ## 목표 가격은 꼭대기와 목선 사이 거리만큼 더 떨어질 수 있어요.", "head_and_shoulder.jpg"),
-        ChartPattern(2, "더블탑", "## 더블 탑은 가격이 비슷한 두 꼭대기를 만들고 내려가는 **하락 반전 신호**에요. ## **목선(바닥선)**을 아래로 뚫으면 더 하락할 수 있으니 **매도 시점**으로 봐요. ## 목표 가격은 꼭대기와 목선 사이 거리만큼 더 떨어질 수 있어요.", "double_top.jpg"),
-        ChartPattern(3, "더블 바텀", "## 더블 바텀은 가격이 비슷한 두 바닥을 만들고 올라가는 **상승 반전 신호**에요. ## **목선(고점선)**을 위로 뚫으면 더 상승할 수 있으니 **매수 시점**으로 봐요. ## 목표 가격은 바닥과 목선 사이 거리만큼 더 올라갈 수 있어요.", "double_bottom.jpg"),
-        ChartPattern(4, "삼각 수렴", "## 삼각 수렴은 가격이 점점 좁아지는 범위에서 움직이는 패턴이에요. ## 상승 삼각형, 하락 삼각형, 대칭 삼각형으로 나뉘며 **돌파 방향**을 예측할 수 있어요. ## 거래량이 줄어들다가 돌파 시점에 급증하는 특징이 있어요.", "triangle.jpg"),
-        ChartPattern(5, "웨지 패턴", "## 웨지 패턴은 가격이 기울어진 두 선 사이에서 수렴하는 패턴이에요. ## **상승 웨지**는 하락 신호, **하락 웨지**는 상승 신호로 해석해요. ## 삼각 수렴과 비슷하지만 두 선이 모두 같은 방향으로 기울어진 점이 달라요.", "wedge.jpg"),
-        ChartPattern(6, "채널 패턴", "## 채널 패턴은 가격이 **평행선** 사이에서 규칙적으로 움직이는 패턴이에요. ## 상단선 근처에서 **매도**, 하단선 근처에서 **매수**하는 전략을 사용해요. ## 채널을 벗어나면 새로운 추세가 시작될 신호로 봐요.", "channel.jpg")
+        ChartPattern(patternId = 1, name = "헤드 & 숄더", description = "## 더블 탑은 가격이 비슷한 두 꼭대기를 만들고 내려가는 **하락 반전 신호**에요. ## **목선(바닥선)**을 아래로 뚫으면 더 하락할 수 있으니 @@매도 시점@@으로 봐요. ## 목표 가격은 꼭대기와 목선 사이 거리만큼 더 떨어질 수 있어요.", chartImg = "https://picsum.photos/400/300?random=1"),
+        ChartPattern(patternId = 2, name = "더블탑", description = "## 더블 탑은 가격이 비슷한 두 꼭대기를 만들고 내려가는 **하락 반전 신호**에요. ## **목선(바닥선)**을 아래로 뚫으면 더 하락할 수 있으니 @@매도 시점@@으로 봐요. ## 목표 가격은 꼭대기와 목선 사이 거리만큼 더 떨어질 수 있어요.", chartImg = "https://picsum.photos/400/300?random=2"),
+        ChartPattern(patternId = 3, name = "더블 바텀", description = "## 더블 바텀은 가격이 비슷한 두 바닥을 만들고 올라가는 **상승 반전 신호**에요. ## **목선(고점선)**을 위로 뚫으면 더 상승할 수 있으니 @@매수 시점@@으로 봐요. ## 목표 가격은 바닥과 목선 사이 거리만큼 더 올라갈 수 있어요.", chartImg = "https://picsum.photos/400/300?random=3"),
+        ChartPattern(patternId = 4, name = "삼각 수렴", description = "## 삼각 수렴은 가격이 점점 좁아지는 범위에서 움직이는 패턴이에요. ## 상승 삼각형, 하락 삼각형, 대칭 삼각형으로 나뉘며 **돌파 방향**을 예측할 수 있어요. ## 거래량이 줄어들다가 돌파 시점에 급증하는 특징이 있어요.", chartImg = "https://picsum.photos/400/300?random=4"),
+        ChartPattern(patternId = 5, name = "웨지 패턴", description = "## 웨지 패턴은 가격이 기울어진 두 선 사이에서 수렴하는 패턴이에요. ## **상승 웨지**는 하락 신호, **하락 웨지**는 상승 신호로 해석해요. ## 삼각 수렴과 비슷하지만 두 선이 모두 같은 방향으로 기울어진 점이 달라요.", chartImg = "https://picsum.photos/400/300?random=5"),
+        ChartPattern(patternId = 6, name = "채널 패턴", description = "## 채널 패턴은 가격이 **평행선** 사이에서 규칙적으로 움직이는 패턴이에요. ## 상단선 근처에서 @@매도@@, 하단선 근처에서 @@매수@@하는 전략을 사용해요. ## 채널을 벗어나면 새로운 추세가 시작될 신호로 봐요.", chartImg = "https://picsum.photos/400/300?random=6")
     )
     
     LaunchedEffect(Unit) {
@@ -183,7 +189,7 @@ fun PatternContent(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            // Chart Image
+            // Chart Image (API 데이터 기반 동적 로드)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -193,9 +199,10 @@ fun PatternContent(
                     containerColor = AppBackground
                 )
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.double_top_chart),
-                    contentDescription = "Double Top Chart Pattern",
+                // 차트 이미지
+                ChartPatternImage(
+                    imageUrl = currentPattern.chartImg,
+                    patternName = currentPattern.name,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -279,19 +286,36 @@ fun FormattedDescriptionText(
 @Composable
 private fun buildFormattedText(text: String) = buildAnnotatedString {
     var currentIndex = 0
-    val boldPattern = Regex("\\*\\*(.*?)\\*\\*")
     
-    boldPattern.findAll(text).forEach { matchResult ->
-        // 볼드 전 텍스트 추가
+    // **text** 패턴을 MainBlue로 처리
+    val boldPattern = Regex("\\*\\*(.*?)\\*\\*")
+    // @@text@@ 패턴을 MainPink로 처리
+    val pinkPattern = Regex("@@(.*?)@@")
+    
+    // 모든 패턴을 찾아서 정렬
+    val allMatches = mutableListOf<MatchResult>()
+    allMatches.addAll(boldPattern.findAll(text))
+    allMatches.addAll(pinkPattern.findAll(text))
+    allMatches.sortBy { it.range.first }
+    
+    allMatches.forEach { matchResult ->
+        // 패턴 전 텍스트 추가
         if (matchResult.range.first > currentIndex) {
             append(text.substring(currentIndex, matchResult.range.first))
         }
         
-        // 볼드 텍스트 추가 (MainBlue 색상)
+        // 패턴에 따라 스타일 적용
+        val isBoldPattern = matchResult.value.startsWith("**")
+        val isPinkPattern = matchResult.value.startsWith("@@")
+        
         withStyle(
             style = SpanStyle(
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                color = MainBlue
+                color = when {
+                    isBoldPattern -> MainBlue
+                    isPinkPattern -> MainPink
+                    else -> Color.Black
+                }
             )
         ) {
             append(matchResult.groupValues[1])
@@ -330,6 +354,34 @@ fun TabButton(
             text = text,
             style = if (isSelected) TitleB16 else BodyR16
         )
+    }
+}
+
+@Composable
+fun ChartPatternImage(
+    imageUrl: String,
+    patternName: String,
+    modifier: Modifier = Modifier
+) {
+    if (imageUrl.isNotEmpty()) {
+        AsyncImage(
+            model = imageUrl,
+            contentDescription = "${patternName} 차트 패턴",
+            modifier = modifier,
+            contentScale = ContentScale.Fit
+        )
+    } else {
+        Box(
+            modifier = modifier,
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "이미지 없음",
+                style = BodyR14,
+                color = Gray400,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
