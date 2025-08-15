@@ -22,4 +22,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "LAGO"
 include(":app")
-include(":lightweightlibrary")

@@ -539,6 +539,8 @@ fun ChartScreen(
                     },
                     onWebViewReady = { webViewInstance ->
                         chartWebView = webViewInstance
+                        // 초기 timeFrame 설정 적용
+                        webViewInstance.evaluateJavascript("window.updateTimeFrame('${uiState.config.timeFrame}');", null)
                     },
                     onChartLoading = { isLoading ->
                         // 웹뷰 로딩 상태 콜백

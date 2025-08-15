@@ -1739,7 +1739,7 @@ private fun StableChartComponent(
     // 완전 정적 차트 - 빈 데이터로 한 번만 생성
     MultiPanelChart(
         data = com.lago.app.presentation.ui.chart.v5.MultiPanelData(priceData = emptyList()),
-        timeFrame = "D", // 완전 고정
+        timeFrame = "1", // 1분봉으로 설정 (역사챌린지는 분단위 데이터)
         tradingSignals = emptyList(), // 완전 고정
         modifier = Modifier
             .fillMaxSize()
@@ -1748,6 +1748,8 @@ private fun StableChartComponent(
             viewModel.onChartReady()
         },
         onWebViewReady = { webViewInstance ->
+            // 초기 timeFrame 설정 적용 (1분봉)
+            webViewInstance.evaluateJavascript("window.updateTimeFrame('1');", null)
             val bridge = com.lago.app.presentation.ui.chart.v5.JsBridge(
                 webView = webViewInstance,
                 historicalDataListener = viewModel

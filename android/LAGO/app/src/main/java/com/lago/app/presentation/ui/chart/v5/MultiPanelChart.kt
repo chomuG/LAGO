@@ -33,13 +33,13 @@ data class JSMarker(
 
 @Serializable
 data class ChartData(
-    val time: String,
+    val time: Long, // epoch seconds로 통일
     val value: Double
 )
 
 @Serializable
 data class CandlestickData(
-    val time: String,
+    val time: Long, // epoch seconds로 통일
     val open: Double,
     val high: Double,
     val low: Double,
@@ -963,6 +963,71 @@ private fun generateMultiPanelHtml(
             
             window.addEventListener('resize', resizeChart);
             resizeChart();
+            
+            // === 시간축 관리 함수들 ===
+            
+            // 프레임 확인 함수
+            function isIntraday(tf) { 
+                return ['1','3','5','10','15','30','60'].includes(tf); 
+            }
+
+            // LightweightCharts Time → epochSec 변환
+            function toEpochSecFromLWTime(t) {
+                if (typeof t === 'number') return t;
+                if (t && typeof t === 'object' && 'year' in t) {
+                    const d = new Date(Date.UTC(t.year, (t.month||1)-1, (t.day||1), 0,0,0));
+                    return Math.floor(d.getTime()/1000);
+                }
+                return null;
+            }
+
+            // 시간축 라벨 포맷 함수 (KST 기준)
+            function formatTickLabel(tf, epochSec) {
+                if (epochSec == null) return '';
+                // KST로 변환 (+9시간)
+                const d = new Date((epochSec + (9 * 60 * 60)) * 1000);
+                const pad = n => ('0'+n).slice(-2);
+                const Y = d.getUTCFullYear(), M = pad(d.getUTCMonth()+1), D = pad(d.getUTCDate());
+                const h = pad(d.getUTCHours()), m = pad(d.getUTCMinutes());
+                return isIntraday(tf) ? (M + '/' + D + ' ' + h + ':' + m) : (Y + '-' + M + '-' + D);
+            }
+
+            // 프레임별 시간축 동적 설정
+            function applyTimeScaleForFrame(tf) {
+                chart.applyOptions({
+                    timeScale: {
+                        timeVisible: isIntraday(tf),   // 일봉 이상은 false
+                        secondsVisible: false,
+                        borderVisible: true,
+                        tickMarkFormatter: (t) => {
+                            const epoch = toEpochSecFromLWTime(t);
+                            return formatTickLabel(tf, epoch);
+                        },
+                    }
+                });
+                console.log('LAGO: TimeScale applied for frame', tf, 'intraday:', isIntraday(tf));
+            }
+            
+            // 에포크 초 검증 함수
+            function ensureEpochSeconds(arr) {
+                if (!Array.isArray(arr) || !arr.length) return arr;
+                const t = arr[0].time;
+                if (typeof t === 'number' && t > 1000000000) return arr; // 에포크 초 확인
+                console.warn('LAGO: time is not UTCTimestamp(seconds). Intraday scale might not work:', t);
+                return arr;
+            }
+            
+            // 프레임 업데이트 시 시간축 동기화
+            window.updateTimeFrame = function(tf) { 
+                currentTimeFrame = tf; 
+                applyTimeScaleForFrame(tf);
+                console.log('LAGO: TimeFrame updated to:', tf);
+            }
+            
+            // 초기 프레임 설정 적용
+            if (currentTimeFrame) {
+                applyTimeScaleForFrame(currentTimeFrame);
+            }
         }
         
         // 완전히 새로운 접근: TradingView 레전드 시스템 사용
@@ -1326,113 +1391,10 @@ private fun generateMultiPanelHtml(
             }
         }
         
-        // 시간프레임별 실시간 업데이트 로직
-        function updateBarWithTimeFrame(barData) {
-            const bar = JSON.parse(barData);
-            
-            // 시간프레임에 따른 업데이트 처리
-            switch (currentTimeFrame) {
-                case '1':
-                case '3': 
-                case '5':
-                case '10':
-                case '15':
-                case '30':
-                    // 분봉: 마지막 캔들 업데이트 또는 새 캔들 생성
-                    updateMinuteBar(bar);
-                    break;
-                case '60':
-                    // 시간봉: 현재 시간의 캔들만 업데이트
-                    updateHourlyBar(bar);
-                    break;
-                case 'D':
-                case 'W':
-                case 'M':
-                case 'Y':
-                    // 일봉/주봉/월봉/년봉: 현재 기간의 마지막 캔들만 업데이트
-                    updatePeriodBar(bar, currentTimeFrame);
-                    break;
-                default:
-                    // 기본: 단순 업데이트
-                    window.seriesMap.main.update(bar);
-                    break;
-            }
-        }
+        // ===== 시간 재계산 로직 전부 제거됨 =====
+        // Kotlin이 정확한 버킷 시작 시각을 계산해서 내려주므로 JS는 그대로 사용
         
-        // 분봉용 업데이트 (새 캔들 생성 또는 마지막 캔들 업데이트)
-        function updateMinuteBar(bar) {
-            if (window.seriesMap.main) {
-                const mainData = window.seriesMap.main.data();
-                const lastCandle = mainData[mainData.length - 1];
-                
-                if (lastCandle && Math.abs(bar.time - lastCandle.time) < 60) {
-                    // 같은 분: 마지막 캔들 업데이트
-                    window.seriesMap.main.update(bar);
-                } else {
-                    // 다른 분: 새 캔들 생성
-                    window.seriesMap.main.update(bar);
-                }
-                chart.timeScale().scrollToRealTime();
-            }
-        }
         
-        // 시간봉용 업데이트 (현재 시간의 캔들만)
-        function updateHourlyBar(bar) {
-            if (window.seriesMap.main) {
-                // 현재 시간으로 시간 설정 (분/초 제거)
-                const now = new Date();
-                const hourStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours());
-                const hourStartEpoch = Math.floor(hourStart.getTime() / 1000);
-                
-                const hourlyBar = {
-                    ...bar,
-                    time: hourStartEpoch
-                };
-                
-                window.seriesMap.main.update(hourlyBar);
-                chart.timeScale().scrollToRealTime();
-            }
-        }
-        
-        // 기간봉용 업데이트 (일/주/월/년봉)
-        function updatePeriodBar(bar, timeFrame) {
-            if (window.seriesMap.main) {
-                const now = new Date();
-                let periodStart;
-                
-                switch (timeFrame) {
-                    case 'D':
-                        // 일봉: 오늘 00:00
-                        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                        break;
-                    case 'W':
-                        // 주봉: 이번 주 월요일 00:00
-                        const monday = new Date(now);
-                        monday.setDate(now.getDate() - now.getDay() + 1);
-                        periodStart = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate());
-                        break;
-                    case 'M':
-                        // 월봉: 이번 달 1일 00:00
-                        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-                        break;
-                    case 'Y':
-                        // 년봉: 올해 1월 1일 00:00
-                        periodStart = new Date(now.getFullYear(), 0, 1);
-                        break;
-                    default:
-                        periodStart = now;
-                }
-                
-                const periodStartEpoch = Math.floor(periodStart.getTime() / 1000);
-                const periodBar = {
-                    ...bar,
-                    time: periodStartEpoch
-                };
-                
-                window.seriesMap.main.update(periodBar);
-                console.log(`$\{timeFrame}봉 업데이트: 시간=$\{periodStartEpoch}, 가격=$\{bar.close}`);
-            }
-        }
 
         // ========== 실시간 업데이트용 전역 함수들 (최소 변경) ==========
         
@@ -1461,24 +1423,26 @@ private fun generateMultiPanelHtml(
             } catch (e) { console.error('LAGO setInitialData error', e); }
         };
         
-        // 3) 실시간 캔들 업데이트 (같은 time→교체, 큰 time→새 바 추가)
+        // 3) 실시간 캔들 업데이트 - 단순화 (Kotlin이 정답 time을 내려줌)
         window.updateBar = function(seriesId, jsonBar) {
             try {
-                if (seriesId === 'main' && window.seriesMap.main) {
-                    // 메인 시리즈는 시간프레임별 로직 사용
-                    updateBarWithTimeFrame(jsonBar);
-                } else {
-                    // 다른 시리즈는 기존 방식
-                    const bar = JSON.parse(jsonBar);
-                    const s = window.seriesMap[seriesId];
-                    if (s) {
-                        s.update(bar);
-                        chart.timeScale().scrollToRealTime();
-                    } else {
-                        console.warn('LAGO: unknown seriesId in updateBar', seriesId);
-                    }
+                const s = window.seriesMap[seriesId];
+                if (!s) { 
+                    console.warn('unknown seriesId', seriesId); 
+                    return; 
                 }
-            } catch (e) { console.error('LAGO updateBar error', e); }
+                const bar = JSON.parse(jsonBar); // { time: epochSec(초), ohlc... } ← 반드시 버킷 시작 시각
+                s.update(bar);
+
+                // 실시간 따라가기: 실시간에 붙어 있을 때만 스크롤
+                const sp = chart.timeScale().scrollPosition();
+                if (sp <= 0.1) chart.timeScale().scrollToRealTime();
+
+                // 디버그: 15분봉이면 분이 0/15/30/45인지 확인
+                // console.log('[DBG] new bar', new Date(bar.time*1000).toISOString());
+            } catch(e) { 
+                console.error('updateBar error', e); 
+            }
         };
         
         // 4) 실시간 거래량 업데이트 (HistogramSeries) - 캔들 색상과 동기화
