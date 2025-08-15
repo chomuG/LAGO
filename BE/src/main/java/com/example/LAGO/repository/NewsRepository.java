@@ -52,6 +52,17 @@ public interface NewsRepository extends JpaRepository<News, Long> {
            "ORDER BY n.publishedAt DESC")
     Page<News> findByKeywordSearch(@Param("keyword") String keyword, Pageable pageable);
     
+    // 삼성전자 뉴스 필터링 (AutoTradingBotService용)
+    @Query("SELECT n FROM News n WHERE n.publishedAt > :since AND " +
+           "(LOWER(n.title) LIKE LOWER(CONCAT('%', :titleKeyword, '%')) OR " +
+           " LOWER(n.content) LIKE LOWER(CONCAT('%', :contentKeyword, '%'))) " +
+           "ORDER BY n.publishedAt DESC")
+    List<News> findByPublishedAtAfterAndTitleContainingOrContentContaining(
+        @Param("since") LocalDateTime since,
+        @Param("titleKeyword") String titleKeyword,
+        @Param("contentKeyword") String contentKeyword
+    );
+    
     // PostgreSQL 전용: 감정 분석 통계 (전체)
     @Query(value = "SELECT sentiment, COUNT(*) as count FROM news " +
                    "WHERE sentiment IS NOT NULL " +

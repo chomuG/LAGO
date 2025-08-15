@@ -1,7 +1,7 @@
 package com.example.LAGO.controller;
 
 import com.example.LAGO.realtime.dto.TickData;
-import com.example.LAGO.service.RealtimeTradingService;
+// import com.example.LAGO.service.RealtimeTradingService;  // 서비스 제거됨
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
@@ -14,16 +14,14 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
- * 실시간 매매 테스트 컨트롤러
- * 장시간이 아닐 때 가짜 실시간 데이터로 매매 시스템을 테스트
+ * 실시간 매매 테스트 컨트롤러 (사용 안함 - 자동매매봇으로 대체)
+ * AutoTradingBotService로 교체되어 더 이상 사용하지 않음
  */
-@RestController
+//@RestController  // 완전 비활성화 - AutoTradingBotService로 교체됨
 @RequestMapping("/api/test/realtime-trading")
 @RequiredArgsConstructor
 @Slf4j
 public class RealtimeTradingTestController {
-    
-    private final RealtimeTradingService realtimeTradingService;
     
     /**
      * 가짜 실시간 가격 데이터를 주입해서 매매 테스트
@@ -58,8 +56,8 @@ public class RealtimeTradingTestController {
                     .date("153000")
                     .build();
             
-            // 실시간 매매 처리 실행
-            realtimeTradingService.processRealtimeOrders(fakeTickData);
+            // 실시간 매매 처리 실행 (비활성화 - AutoTradingBotService로 교체됨)
+            // realtimeTradingService.processRealtimeOrders(fakeTickData);
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -97,7 +95,8 @@ public class RealtimeTradingTestController {
             @PathVariable String stockCode
     ) {
         try {
-            int pendingCount = realtimeTradingService.getPendingOrdersCount(stockCode);
+            // int pendingCount = realtimeTradingService.getPendingOrdersCount(stockCode);
+            int pendingCount = 0; // 비활성화됨
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -126,7 +125,8 @@ public class RealtimeTradingTestController {
     )
     public ResponseEntity<?> clearAllPendingOrders() {
         try {
-            int clearedCount = realtimeTradingService.clearAllPendingOrders();
+            // int clearedCount = realtimeTradingService.clearAllPendingOrders();
+            int clearedCount = 0; // 비활성화됨
             
             return ResponseEntity.ok(Map.of(
                 "success", true,

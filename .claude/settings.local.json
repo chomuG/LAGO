@@ -12,7 +12,10 @@
       "Bash(PGPASSWORD=ssafypw!! psql -h i13d203.p.ssafy.io -U ssafyuser -d stock_db -c \"SELECT user_id, nickname, email FROM users LIMIT 5;\")",
       "Bash(docker run:*)",
       "Bash(rm:*)",
-      "Bash(PGPASSWORD=ssafypw!! psql:*)"
+      "Bash(PGPASSWORD=ssafypw!! psql:*)",
+      "Bash(docker-compose:*)",
+      "Bash(timeout:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

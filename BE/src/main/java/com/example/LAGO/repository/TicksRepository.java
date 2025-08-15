@@ -47,4 +47,19 @@ public interface TicksRepository extends JpaRepository<Ticks, Integer> {
             "LIMIT 1", nativeQuery = true)
     Integer findLatestClosePriceByStockCode(@Param("stockCode") String stockCode);
 
+    /**
+     * 특정 종목의 최신 N개 ticks 데이터 조회 (기술적 분석용)
+     * 
+     * @param stockCode 종목 코드 (예: "005930")
+     * @param limit 조회할 데이터 개수
+     * @return 최신 ticks 데이터 리스트 (시간 역순)
+     */
+    @Query(value = "SELECT t.ts, t.open_price, t.high_price, t.low_price, t.close_price, t.volume " +
+            "FROM ticks t " +
+            "JOIN stock_info si ON t.stock_info_id = si.stock_info_id " +
+            "WHERE si.code = :stockCode " +
+            "ORDER BY t.ts DESC " +
+            "LIMIT :limit", nativeQuery = true)
+    List<Object[]> findLatestTicksByStockCode(@Param("stockCode") String stockCode, @Param("limit") int limit);
+
 }
