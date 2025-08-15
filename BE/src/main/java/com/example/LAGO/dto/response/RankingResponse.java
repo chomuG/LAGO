@@ -33,4 +33,7 @@ public class RankingResponse {
 
     @Schema(description = "투자 성향", example = "aggressive")
     private String personality;
+
+    @Schema(description = "AI 봇 계정 여부", example = "false")
+    private Boolean isAi;
 }

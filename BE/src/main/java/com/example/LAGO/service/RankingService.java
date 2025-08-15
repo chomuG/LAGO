@@ -49,6 +49,7 @@ public class RankingService {
                     a.user_id,
                     u.nickname,
                     u.personality,
+                    u.is_ai,
                     a.total_asset,
                     a.profit_rate,
                     a.profit,
@@ -63,6 +64,7 @@ public class RankingService {
                 user_id,
                 nickname,
                 personality,
+                is_ai,
                 total_asset,
                 profit_rate,
                 profit
@@ -83,6 +85,7 @@ public class RankingService {
                             .userId(rs.getLong("user_id"))
                             .username(rs.getString("nickname"))
                             .personality(rs.getString("personality"))
+                            .isAi(rs.getBoolean("is_ai"))
                             .totalAsset(rs.getInt("total_asset"))
                             .profitRate(rs.getDouble("profit_rate"))
                             .totalProfit(rs.getInt("profit"))
@@ -117,6 +120,7 @@ public class RankingService {
                     a.user_id,
                     u.nickname,
                     u.personality,
+                    u.is_ai,
                     a.total_asset,
                     a.profit_rate,
                     a.profit,
@@ -131,6 +135,7 @@ public class RankingService {
                 user_id,
                 nickname,
                 personality,
+                is_ai,
                 total_asset,
                 profit_rate,
                 profit
@@ -150,6 +155,7 @@ public class RankingService {
                             .userId(rs.getLong("user_id"))
                             .username(rs.getString("nickname"))
                             .personality(rs.getString("personality"))
+                            .isAi(rs.getBoolean("is_ai"))
                             .totalAsset(rs.getInt("total_asset"))
                             .profitRate(rs.getDouble("profit_rate"))
                             .totalProfit(rs.getInt("profit"))
