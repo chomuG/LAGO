@@ -68,4 +68,8 @@ public interface NewsRepository extends JpaRepository<News, Long> {
                    "WHERE sentiment IS NOT NULL " +
                    "GROUP BY sentiment", nativeQuery = true)
     List<Object[]> getSentimentStatistics();
+    
+    // ID 리스트로 뉴스 조회 (관심종목 뉴스용)
+    @Query("SELECT n FROM News n WHERE n.id IN :ids ORDER BY n.publishedAt DESC")
+    Page<News> findByIdInOrderByPublishedAtDesc(@Param("ids") List<Long> ids, Pageable pageable);
 }
