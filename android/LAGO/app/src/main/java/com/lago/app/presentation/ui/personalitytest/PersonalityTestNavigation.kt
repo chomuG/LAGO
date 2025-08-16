@@ -111,12 +111,7 @@ fun PersonalityTestNavigation(
                 onCompleteClick = {
                     android.util.Log.d("PersonalityTestNavigation", "시작하기 버튼 클릭됨")
                     val personalityType = PersonalityTestData.calculatePersonality((currentStep as PersonalityTestStep.TestResult).score)
-                    val personalityString = when (personalityType) {
-                        PersonalityType.CAUTIOUS -> "CAUTIOUS"
-                        PersonalityType.BALANCED -> "BALANCED"
-                        PersonalityType.ACTIVE -> "ACTIVE"
-                        PersonalityType.AGGRESSIVE -> "AGGRESSIVE"
-                    }
+                    val personalityString = personalityType.characterName
                     
                     android.util.Log.d("PersonalityTestNavigation", "회원가입 API 호출 - nickname: ${(currentStep as PersonalityTestStep.TestResult).nickname}, personality: $personalityString")
                     
