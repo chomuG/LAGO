@@ -97,7 +97,7 @@ class HomeViewModel @Inject constructor(
      * 로그인 상태 확인
      */
     private fun checkLoginStatus() {
-        val isLoggedIn = userPreferences.getAuthToken() != null
+        val isLoggedIn = userPreferences.getAccessToken() != null
         _uiState.update { it.copy(isLoggedIn = isLoggedIn) }
         
         if (isLoggedIn) {
@@ -113,7 +113,7 @@ class HomeViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             
             try {
-                val userId = 5 // 임시 테스트용
+                val userId = userPreferences.getUserIdLong().toInt()
                 val type = userPreferences.getInvestmentMode() // 저장된 투자 모드 사용
                 android.util.Log.d("HomeViewModel", "📡 API 요청 시작: userId=$userId, type=$type")
                 android.util.Log.d("HomeViewModel", "🔍 현재 투자모드 상세: ${if (type == 1) "역사챌린지" else "모의투자"}")

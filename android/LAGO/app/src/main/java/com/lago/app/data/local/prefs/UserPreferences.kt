@@ -132,6 +132,12 @@ class UserPreferences @Inject constructor(
         return sharedPreferences.getString(KEY_TEMP_TOKEN, null)
     }
 
+    fun clearTempToken() {
+        sharedPreferences.edit()
+            .remove(KEY_TEMP_TOKEN)
+            .apply()
+    }
+
     fun saveUserId(userId: Long) {
         sharedPreferences.edit()
             .putLong(KEY_USER_ID, userId)

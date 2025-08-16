@@ -464,16 +464,12 @@ fun NavGraph(
         // Personality Test Flow
         composable("personality_test") {
             PersonalityTestNavigation(
+                userPreferences = userPreferences,
                 onBackToHome = {
                     navController.popBackStack()
                 },
                 onTestComplete = { result ->
-                    // 투자성향 테스트 완료 시 임시 로그인 처리
-                    userPreferences.setAuthToken("temp_token_12345")
-                    userPreferences.setUserId("temp_user_001")
-                    userPreferences.setUsername(result.nickname)
-
-                    // 결과를 저장하고 홈으로 돌아가기
+                    // 회원가입 완료 후 홈으로 돌아가기
                     navController.navigate(NavigationItem.Home.route) {
                         popUpTo(NavigationItem.Home.route) {
                             inclusive = false

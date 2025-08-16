@@ -72,7 +72,7 @@ class MyPageViewModel @Inject constructor(
      * 로그인 상태 확인
      */
     private fun checkLoginStatus() {
-        val isLoggedIn = userPreferences.getAuthToken() != null
+        val isLoggedIn = userPreferences.getAccessToken() != null
         _uiState.update { it.copy(isLoggedIn = isLoggedIn) }
         
         if (isLoggedIn) {
@@ -150,7 +150,7 @@ class MyPageViewModel @Inject constructor(
             
             try {
 //                val userId = userPreferences.getUserId() ?: throw Exception("사용자 ID를 찾을 수 없습니다.")
-                val userId = 5
+                val userId = userPreferences.getUserIdLong().toInt()
                 android.util.Log.d("MyPageViewModel", "📡 API 요청 시작: userId=$userId")
 
                 // 실제 API 호출

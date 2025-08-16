@@ -29,7 +29,8 @@ sealed class QuizSolveUiState {
 @HiltViewModel
 class RandomQuizViewModel @Inject constructor(
     private val getRandomQuizUseCase: GetRandomQuizUseCase,
-    private val solveRandomQuizUseCase: SolveRandomQuizUseCase
+    private val solveRandomQuizUseCase: SolveRandomQuizUseCase,
+    private val userPreferences: com.lago.app.data.local.prefs.UserPreferences
 ) : ViewModel() {
     
     private val _quizState = MutableStateFlow<RandomQuizUiState>(RandomQuizUiState.Loading)
@@ -58,7 +59,7 @@ class RandomQuizViewModel @Inject constructor(
         }
     }
     
-    fun solveQuiz(userId: Int, userAnswer: Boolean) {
+    fun solveQuiz(userId: Int = userPreferences.getUserIdLong().toInt(), userAnswer: Boolean) {
         val quizId = currentQuizId
         if (quizId == 0) return
         
