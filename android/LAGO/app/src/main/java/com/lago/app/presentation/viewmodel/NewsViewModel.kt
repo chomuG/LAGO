@@ -2,6 +2,7 @@ package com.lago.app.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lago.app.data.local.prefs.UserPreferences
 import com.lago.app.domain.entity.News
 import com.lago.app.domain.usecase.GetInterestNewsUseCase
 import com.lago.app.domain.usecase.GetNewsUseCase
@@ -15,7 +16,8 @@ import javax.inject.Inject
 @HiltViewModel
 class NewsViewModel @Inject constructor(
     private val getNewsUseCase: GetNewsUseCase,
-    private val getInterestNewsUseCase: GetInterestNewsUseCase
+    private val getInterestNewsUseCase: GetInterestNewsUseCase,
+    private val userPreferences: UserPreferences
 ) : ViewModel() {
 
     private val _newsState = MutableStateFlow<NewsUiState>(NewsUiState.Loading)
@@ -41,11 +43,18 @@ class NewsViewModel @Inject constructor(
     fun loadInterestNews() {
         viewModelScope.launch {
             _interestNewsState.value = NewsUiState.Loading
-            getInterestNewsUseCase().fold(
+            val savedUserId = userPreferences.getUserId()
+            val userId: Int = savedUserId?.toIntOrNull() ?: 5 // 임시로 userId 5로 고정
+            
+            android.util.Log.d("NewsViewModel", "📰 관심뉴스 로드 시작 - savedUserId: $savedUserId, 사용할 userId: $userId")
+            
+            getInterestNewsUseCase(userId).fold(
                 onSuccess = { newsList ->
+                    android.util.Log.d("NewsViewModel", "📰 관심뉴스 로드 성공 - 뉴스 개수: ${newsList.size}")
                     _interestNewsState.value = NewsUiState.Success(newsList)
                 },
                 onFailure = { exception ->
+                    android.util.Log.e("NewsViewModel", "📰 관심뉴스 로드 실패: ${exception.message}", exception)
                     _interestNewsState.value = NewsUiState.Error(exception.message ?: "Unknown error")
                 }
             )
