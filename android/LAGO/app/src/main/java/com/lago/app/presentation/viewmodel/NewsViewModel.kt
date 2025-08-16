@@ -43,8 +43,8 @@ class NewsViewModel @Inject constructor(
     fun loadInterestNews() {
         viewModelScope.launch {
             _interestNewsState.value = NewsUiState.Loading
-            val savedUserId = userPreferences.getUserId()
-            val userId: Int = savedUserId?.toIntOrNull() ?: 5 // 임시로 userId 5로 고정
+            val savedUserId = userPreferences.getUserIdLong()
+            val userId: Int = if (savedUserId > 0) savedUserId.toInt() else 5 // 임시로 userId 5로 고정
             
             android.util.Log.d("NewsViewModel", "📰 관심뉴스 로드 시작 - savedUserId: $savedUserId, 사용할 userId: $userId")
             

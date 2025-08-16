@@ -91,7 +91,7 @@ class LagoFirebaseMessagingService : FirebaseMessagingService() {
         )
         
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.main_icon) // TODO: 추후 적절한 알림 아이콘으로 변경 필요
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))

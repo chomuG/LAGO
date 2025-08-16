@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import java.text.NumberFormat
+import java.util.Locale
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
 
@@ -63,7 +65,13 @@ fun AssetTitleSection() {
 }
 
 @Composable
-fun AssetStatusSection(isLoggedIn: Boolean = true) {
+fun AssetStatusSection(
+    isLoggedIn: Boolean = true,
+    accountBalance: com.lago.app.domain.entity.AccountBalance? = null,
+    totalProfitLoss: Long = 0L,
+    totalProfitLossRate: Double = 0.0,
+    isLoading: Boolean = false
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -85,71 +93,106 @@ fun AssetStatusSection(isLoggedIn: Boolean = true) {
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            // 총자산 (특별 스타일)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "총자산",
-                    style = SubtitleSb18,
-                    color = Black
-                )
-                Text(
-                    text = if (isLoggedIn) "808,000,000" else "?",
-                    style = TitleB18,
-                    color = Black
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // 구분선
+        if (isLoading) {
             Box(
                 modifier = Modifier
-                    .width(360.dp)
-                    .height(1.dp)
-                    .background(Gray300)
-                    .align(Alignment.CenterHorizontally)
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // 나머지 자산 정보
-            AssetInfoRow("보유현금", if (isLoggedIn) "25,000,000" else "?")
-            AssetInfoRow("총매수", if (isLoggedIn) "1,000,000" else "?")
-            AssetInfoRow("총평가", if (isLoggedIn) "1,000,000" else "?")
-
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .fillMaxWidth()
+                    .height(200.dp),
+                contentAlignment = Alignment.Center
             ) {
+                CircularProgressIndicator(color = MainBlue)
+            }
+        } else {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                // 총자산 (특별 스타일)
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "평가손익",
-                        style = SubtitleSb14,
-                        color = Gray600
+                        text = "총자산",
+                        style = SubtitleSb18,
+                        color = Black
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isLoggedIn) "+24.35%" else "?",
-                        style = TitleB14,
-                        color = MainPink
+                        text = if (isLoggedIn && accountBalance != null) {
+                            NumberFormat.getNumberInstance(Locale.KOREA).format(accountBalance.totalAsset)
+                        } else "?",
+                        style = TitleB18,
+                        color = Black
                     )
                 }
-                Text(
-                    text = if (isLoggedIn) "1,000,000" else "?",
-                    style = TitleB14,
-                    color = MainPink
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // 구분선
+                Box(
+                    modifier = Modifier
+                        .width(360.dp)
+                        .height(1.dp)
+                        .background(Gray300)
+                        .align(Alignment.CenterHorizontally)
                 )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // 나머지 자산 정보
+                AssetInfoRow(
+                    "보유현금", 
+                    if (isLoggedIn && accountBalance != null) {
+                        NumberFormat.getNumberInstance(Locale.KOREA).format(accountBalance.balance)
+                    } else "?"
+                )
+                AssetInfoRow(
+                    "총매수", 
+                    if (isLoggedIn && accountBalance != null) {
+                        val totalInvestment = accountBalance.totalAsset - accountBalance.balance - accountBalance.profit
+                        NumberFormat.getNumberInstance(Locale.KOREA).format(totalInvestment)
+                    } else "?"
+                )
+                AssetInfoRow(
+                    "총평가", 
+                    if (isLoggedIn && accountBalance != null) {
+                        NumberFormat.getNumberInstance(Locale.KOREA).format(accountBalance.totalStockValue)
+                    } else "?"
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "평가손익",
+                            style = SubtitleSb14,
+                            color = Gray600
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isLoggedIn) {
+                                val sign = if (totalProfitLossRate > 0) "+" else ""
+                                "${sign}${String.format("%.2f", totalProfitLossRate)}%"
+                            } else "?",
+                            style = TitleB14,
+                            color = if (totalProfitLossRate > 0) MainPink else if (totalProfitLossRate < 0) Color.Blue else Gray600
+                        )
+                    }
+                    Text(
+                        text = if (isLoggedIn) {
+                            val sign = if (totalProfitLoss > 0) "+" else ""
+                            "${sign}${NumberFormat.getNumberInstance(Locale.KOREA).format(totalProfitLoss)}"
+                        } else "?",
+                        style = TitleB14,
+                        color = if (totalProfitLoss > 0) MainPink else if (totalProfitLoss < 0) Color.Blue else Gray600
+                    )
+                }
             }
         }
     }
@@ -184,6 +227,7 @@ fun PortfolioSection(
     isLoggedIn: Boolean = true,
     portfolioSummary: com.lago.app.data.remote.dto.MyPagePortfolioSummary? = null
 ) {
+    val hasStocks = stockList.isNotEmpty() && stockList.any { it.name != "기타" || (it.name == "기타" && it.percentage.removeSuffix("%").toFloatOrNull() != 0f) }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -208,58 +252,82 @@ fun PortfolioSection(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // 차트 섹션
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(40.dp),
-                    contentAlignment = Alignment.Center
+            // 차트 섹션 (보유종목이 있을 때만 표시)
+            if (hasStocks) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // 도넛 차트
-                    DonutChart(
-                        data = pieChartData,
-                        modifier = Modifier.size(200.dp)
-                    )
-
-                    // 중앙 텍스트
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(40.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "수익률",
-                            style = SubtitleSb16,
-                            color = Black
+                        // 도넛 차트
+                        DonutChart(
+                            data = pieChartData,
+                            modifier = Modifier.size(200.dp)
                         )
-                        Text(
-                            text = if (isLoggedIn) {
-                                portfolioSummary?.let { 
-                                    android.util.Log.d("MyPageScreen", "📊 UI에서 수익률 표시: ${it.profitRate}%")
-                                    val sign = if (it.profitRate > 0) "+" else ""
-                                    "${sign}${String.format("%.1f", it.profitRate)}%"
-                                } ?: "+23.4%"
-                            } else "?",
-                            style = TitleB24,
-                            color = if (portfolioSummary?.profitRate?.let { it > 0 } == true) MainPink else if (portfolioSummary?.profitRate?.let { it < 0 } == true) Color.Blue else MainPink
-                        )
+
+                        // 중앙 텍스트
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "수익률",
+                                style = SubtitleSb16,
+                                color = Black
+                            )
+                            Text(
+                                text = if (isLoggedIn) {
+                                    portfolioSummary?.let { 
+                                        android.util.Log.d("MyPageScreen", "📊 UI에서 수익률 표시: ${it.profitRate}%")
+                                        val sign = if (it.profitRate > 0) "+" else ""
+                                        "${sign}${String.format("%.1f", it.profitRate)}%"
+                                    } ?: "+23.4%"
+                                } else "?",
+                                style = TitleB24,
+                                color = if (portfolioSummary?.profitRate?.let { it > 0 } == true) MainPink else if (portfolioSummary?.profitRate?.let { it < 0 } == true) Color.Blue else MainPink
+                            )
+                        }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // 주식 리스트
-            stockList.forEach { stock ->
-                StockListItemInCard(
-                    stock = stock,
-                    onStockClick = onStockClick,
-                    isLoggedIn = isLoggedIn
-                )
-                if (stock != stockList.last()) {
-                    Spacer(modifier = Modifier.height(12.dp))
+            // 주식 리스트 또는 빈 상태 메시지
+            if (hasStocks) {
+                stockList.forEach { stock ->
+                    StockListItemInCard(
+                        stock = stock,
+                        onStockClick = onStockClick,
+                        isLoggedIn = isLoggedIn
+                    )
+                    if (stock != stockList.last()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                }
+            } else {
+                // 보유종목이 없을 때 표시할 메시지
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 40.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "보유한 종목이 없습니다",
+                        style = SubtitleSb16,
+                        color = Gray600
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "모의투자를 시작해보세요!",
+                        style = BodyR14,
+                        color = Gray500
+                    )
                 }
             }
             

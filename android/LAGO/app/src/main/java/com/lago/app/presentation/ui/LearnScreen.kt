@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lago.app.R
 import com.lago.app.presentation.theme.MainBlue
 import com.lago.app.presentation.theme.AppBackground
@@ -31,6 +33,8 @@ import com.lago.app.presentation.theme.HeadEb20
 import com.lago.app.presentation.theme.HeadEb24
 import com.lago.app.presentation.theme.LagoTheme
 import com.lago.app.presentation.theme.SubtitleSb14
+import com.lago.app.presentation.viewmodel.LearnViewModel
+import com.lago.app.presentation.viewmodel.LearnUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,8 +42,14 @@ fun LearnScreen(
     onRandomQuizClick: () -> Unit = {},
     onDailyQuizClick: () -> Unit = {},
     onPatternStudyClick: () -> Unit = {},
-    onWordBookClick: () -> Unit = {}
+    onWordBookClick: () -> Unit = {},
+    viewModel: LearnViewModel = hiltViewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    
+    LaunchedEffect(Unit) {
+        viewModel.loadStreak()
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -184,51 +194,7 @@ fun LearnScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Study streak card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(131.dp)
-                .shadow(
-                    elevation = 4.dp,
-                    shape = RoundedCornerShape(16.dp),
-                    spotColor = ShadowColor,
-                    ambientColor = ShadowColor
-                ),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color.White
-            )
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 10.dp, end = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                AnimatedCalendarIcon()
-                Column (
-                    horizontalAlignment = Alignment.End
-                ){
-                    Text(
-                        text = "34일째",
-                        style = HeadEb24,
-                        color = MainBlue
-                    )
-                    Text(
-                        text = "연속학습중!",
-                        style = HeadEb24,
-                        color = Color.Black
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "내일도 빠짐없이 함께해요",
-                        style = SubtitleSb14,
-                        color = Color.Gray
-                    )
-                }
-            }
-        }
+        StreakCard(uiState = uiState)
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -268,6 +234,99 @@ fun LearnScreen(
             )
         }
 
+    }
+}
+
+@Composable
+fun StreakCard(uiState: LearnUiState) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(131.dp)
+            .shadow(
+                elevation = 4.dp,
+                shape = RoundedCornerShape(16.dp),
+                spotColor = ShadowColor,
+                ambientColor = ShadowColor
+            ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        )
+    ) {
+        when (uiState) {
+            is LearnUiState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MainBlue)
+                }
+            }
+            is LearnUiState.Success -> {
+                val streak = uiState.streak
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 10.dp, end = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    AnimatedCalendarIcon()
+                    Column(
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        if (streak.streak > 0) {
+                            Text(
+                                text = "${streak.streak}일째",
+                                style = HeadEb24,
+                                color = MainBlue
+                            )
+                            Text(
+                                text = "연속학습중!",
+                                style = HeadEb24,
+                                color = Color.Black
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "내일도 빠짐없이 함께해요",
+                                style = SubtitleSb14,
+                                color = Color.Gray
+                            )
+                        } else {
+                            Text(
+                                text = "학습 기록이",
+                                style = HeadEb24,
+                                color = Color.Black
+                            )
+                            Text(
+                                text = "없어요!",
+                                style = HeadEb24,
+                                color = Color.Black
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "내일도 빠짐없이 함께해요",
+                                style = SubtitleSb14,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                }
+            }
+            is LearnUiState.Error -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "스트릭 정보를 불러올 수 없습니다",
+                        style = SubtitleSb14,
+                        color = Color.Gray
+                    )
+                }
+            }
+        }
     }
 }
 

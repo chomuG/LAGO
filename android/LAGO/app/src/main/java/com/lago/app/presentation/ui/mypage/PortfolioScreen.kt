@@ -17,9 +17,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
 import com.lago.app.presentation.ui.components.CommonTopAppBar
+import com.lago.app.presentation.viewmodel.portfolio.PortfolioViewModel
+import com.lago.app.util.PortfolioCalculator
+import java.text.NumberFormat
+import java.util.Locale
 
 @Composable
 fun PortfolioScreen(
@@ -27,20 +33,37 @@ fun PortfolioScreen(
     onStockClick: (String, String) -> Unit = { _, _ ->},
     onBackClick: () -> Unit = {},
     userName: String = "박두칠",
-    userId: Int = 5
+    userId: Int = 5,
+    viewModel: PortfolioViewModel = hiltViewModel()
 ) {
     android.util.Log.d("PORTFOLIO_SCREEN", "포트폴리오 화면 - userId: $userId, userName: $userName")
-    val stockList = listOf(
-        StockInfo("삼성전자", "1주 평균 42,232원", "40.7%", MainBlue, "005930"),
-        StockInfo("한화생명", "1주 평균 52,232원", "25.4%", MainPink, "088350"),
-        StockInfo("LG전자", "1주 평균 2,232원", "12.1%", AppColors.Yellow, "066570"),
-        StockInfo("셀트리온", "1주 평균 4,232원", "8.2%", AppColors.Green, "068270"),
-        StockInfo("네이버", "1주 평균 10,232원", "5.6%", AppColors.Purple, "035420"),
-        StockInfo("기타", "1주 평균 1,232원", "40.7%", AppColors.Gray, "000000")
-    )
+    
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    
+    LaunchedEffect(userId) {
+        // userId가 변경되면 해당 유저의 포트폴리오 로드
+        viewModel.loadPortfolio(userId)
+    }
+    
+    // 실시간 보유종목 데이터를 StockInfo 리스트로 변환
+    val stockList = remember(uiState.stockHoldings) {
+        uiState.stockHoldings.mapIndexed { index, holding ->
+            val colors = listOf(MainBlue, MainPink, AppColors.Yellow, AppColors.Green, AppColors.Purple, AppColors.Gray)
+            val percentage = viewModel.calculatePortfolioWeight(holding)
+            StockInfo(
+                name = holding.stockName,
+                averagePrice = "${holding.quantity}주 평균 ${NumberFormat.getNumberInstance(Locale.KOREA).format(holding.avgBuyPrice)}원",
+                percentage = "${String.format("%.1f", percentage)}%",
+                color = colors.getOrElse(index) { AppColors.Gray },
+                stockCode = holding.stockCode
+            )
+        }
+    }
 
-    val pieChartData = stockList.map { stock ->
-        PieChartData(stock.name, stock.percentage.removeSuffix("%").toFloat(), stock.color)
+    val pieChartData = remember(stockList) {
+        stockList.map { stock ->
+            PieChartData(stock.name, stock.percentage.removeSuffix("%").toFloat(), stock.color)
+        }
     }
 
     Column(
@@ -69,7 +92,15 @@ fun PortfolioScreen(
             item { AssetTitleSection() }
 
             // 자산 현황 섹션
-            item { AssetStatusSection() }
+            item { 
+                AssetStatusSection(
+                    isLoggedIn = true,
+                    accountBalance = uiState.accountBalance,
+                    totalProfitLoss = uiState.totalProfitLoss,
+                    totalProfitLossRate = uiState.totalProfitLossRate,
+                    isLoading = uiState.isLoading
+                ) 
+            }
 
             // 포트폴리오 차트 및 주식 리스트 통합 섹션
             item { PortfolioSection(pieChartData, stockList, onStockClick) }

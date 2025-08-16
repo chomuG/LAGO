@@ -52,13 +52,19 @@ class PortfolioViewModel @Inject constructor(
     /**
      * 포트폴리오 전체 데이터 로드
      */
-    fun loadPortfolio() {
+    fun loadPortfolio(userId: Int? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             
             try {
-                // 1. 계좌 잔고 조회
-                mockTradeRepository.getAccountBalance().collect { balanceResource ->
+                // 1. 계좌 잔고 조회 (userId가 있으면 해당 유저, 없으면 현재 유저)
+                val balanceFlow = if (userId != null) {
+                    mockTradeRepository.getAccountBalanceByUserId(userId)
+                } else {
+                    mockTradeRepository.getAccountBalance()
+                }
+                
+                balanceFlow.collect { balanceResource ->
                     when (balanceResource) {
                         is Resource.Loading -> {
                             _uiState.update { it.copy(isLoading = true) }
@@ -73,7 +79,7 @@ class PortfolioViewModel @Inject constructor(
                             }
                             
                             // 2. 보유 주식 조회
-                            loadStockHoldings()
+                            loadStockHoldings(userId)
                         }
                         is Resource.Error -> {
                             _uiState.update { 
@@ -99,8 +105,14 @@ class PortfolioViewModel @Inject constructor(
     /**
      * 보유 주식 목록 조회
      */
-    private suspend fun loadStockHoldings() {
-        mockTradeRepository.getStockHoldings().collect { holdingsResource ->
+    private suspend fun loadStockHoldings(userId: Int? = null) {
+        val holdingsFlow = if (userId != null) {
+            mockTradeRepository.getStockHoldingsByUserId(userId)
+        } else {
+            mockTradeRepository.getStockHoldings()
+        }
+        
+        holdingsFlow.collect { holdingsResource ->
             when (holdingsResource) {
                 is Resource.Loading -> {
                     // 이미 로딩 중

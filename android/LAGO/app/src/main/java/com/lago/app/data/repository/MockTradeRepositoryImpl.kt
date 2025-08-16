@@ -2,6 +2,7 @@ package com.lago.app.data.repository
 
 import com.lago.app.data.local.prefs.UserPreferences
 import com.lago.app.data.remote.api.ChartApiService
+import com.lago.app.data.remote.ApiService
 import com.lago.app.data.remote.dto.*
 import com.lago.app.domain.entity.AccountBalance
 import com.lago.app.domain.entity.MockTradeResult
@@ -22,6 +23,7 @@ import javax.inject.Singleton
 @Singleton
 class MockTradeRepositoryImpl @Inject constructor(
     private val apiService: ChartApiService,
+    private val userApiService: ApiService,
     private val userPreferences: UserPreferences
 ) : MockTradeRepository {
 
@@ -133,8 +135,8 @@ class MockTradeRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val userId = userPreferences.getUserId()
-            if (userId == null) {
+            val userId = userPreferences.getUserIdLong()
+            if (userId == 0L) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
             }
@@ -167,8 +169,8 @@ class MockTradeRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val userId = userPreferences.getUserId()
-            if (userId == null) {
+            val userId = userPreferences.getUserIdLong()
+            if (userId == 0L) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
             }
@@ -196,6 +198,67 @@ class MockTradeRepositoryImpl @Inject constructor(
             emit(Resource.Error("네트워크 연결을 확인해주세요"))
         } catch (e: Exception) {
             emit(Resource.Error("보유 주식 조회 중 오류가 발생했습니다: ${e.localizedMessage}"))
+        }
+    }
+
+    override suspend fun getStockHoldingsByUserId(userId: Int): Flow<Resource<List<StockHolding>>> = flow {
+        try {
+            emit(Resource.Loading())
+
+            // getUserCurrentStatus API 사용 (내 포트폴리오와 동일)
+            val response = userApiService.getUserCurrentStatus(userId, 0)
+            
+            val holdings = response.holdings.map { dto ->
+                StockHolding(
+                    stockCode = dto.stockCode,
+                    stockName = dto.stockName,
+                    market = "KOSPI", // 기본값 설정
+                    quantity = dto.quantity,
+                    avgBuyPrice = if (dto.quantity > 0) (dto.totalPurchaseAmount / dto.quantity).toInt() else 0,
+                    currentPrice = 0, // 실시간 데이터에서 업데이트
+                    totalBuyAmount = dto.totalPurchaseAmount,
+                    currentValue = 0, // 실시간 데이터에서 계산
+                    profitLoss = 0, // 실시간 데이터에서 계산
+                    profitLossRate = 0.0 // 실시간 데이터에서 계산
+                )
+            }
+            emit(Resource.Success(holdings))
+        } catch (e: HttpException) {
+            emit(Resource.Error(handleHttpError(e)))
+        } catch (e: IOException) {
+            emit(Resource.Error("네트워크 연결을 확인해주세요"))
+        } catch (e: Exception) {
+            emit(Resource.Error("보유 주식 조회 중 오류가 발생했습니다: ${e.localizedMessage}"))
+        }
+    }
+
+    override suspend fun getAccountBalanceByUserId(userId: Int): Flow<Resource<AccountBalance>> = flow {
+        try {
+            emit(Resource.Loading())
+
+            // getUserCurrentStatus API 사용 (내 포트폴리오와 동일)
+            val response = userApiService.getUserCurrentStatus(userId, 0)
+            
+            // 보유 주식들의 총 구매금액 계산
+            val totalPurchaseAmount = response.holdings.sumOf { it.totalPurchaseAmount }
+            
+            val accountBalance = AccountBalance(
+                accountId = response.accountId,
+                balance = response.balance,
+                totalAsset = response.balance + totalPurchaseAmount, // 현금 + 주식구매금액으로 추정
+                profit = 0L, // 계산 불가, 실시간 데이터 필요
+                profitRate = response.profitRate,
+                totalStockValue = totalPurchaseAmount, // 현재는 구매금액으로 설정, 실시간 업데이트 필요
+                createdAt = "",
+                type = "MOCK"
+            )
+            emit(Resource.Success(accountBalance))
+        } catch (e: HttpException) {
+            emit(Resource.Error(handleHttpError(e)))
+        } catch (e: IOException) {
+            emit(Resource.Error("네트워크 연결을 확인해주세요"))
+        } catch (e: Exception) {
+            emit(Resource.Error("계좌 정보 조회 중 오류가 발생했습니다: ${e.localizedMessage}"))
         }
     }
 

@@ -80,6 +80,11 @@ fun HomeScreen(
     val username = userPreferences.getUsername() ?: "게스트"
     android.util.Log.d("HomeScreen", "저장된 userId: ${userPreferences.getUserIdLong()}")
     val uiState by viewModel.uiState.collectAsState()
+    
+    // 홈 화면에 돌아올 때마다 데이터 새로고침
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
     // ViewModel에서 API로 가져온 매매봇 데이터 사용, 없으면 기본 데이터
     val tradingBots = if (uiState.tradingBots.isNotEmpty()) {
         uiState.tradingBots

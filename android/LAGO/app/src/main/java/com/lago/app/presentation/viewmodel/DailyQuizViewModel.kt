@@ -41,13 +41,11 @@ class DailyQuizViewModel @Inject constructor(
     val solveState: StateFlow<DailyQuizSolveUiState> = _solveState.asStateFlow()
     
     private var currentQuizId: Int = 0
-    private var startTime: Long = 0
     
     fun loadDailyQuiz(userId: Int = userPreferences.getUserIdLong().toInt()) {
         viewModelScope.launch {
             _uiState.value = DailyQuizUiState.Loading
             android.util.Log.d("DailyQuizViewModel", "로드 - 사용할 userId: $userId")
-            startTime = System.currentTimeMillis()
             
             getDailyQuizUseCase(userId)
                 .onSuccess { status ->
@@ -64,12 +62,15 @@ class DailyQuizViewModel @Inject constructor(
         if (currentQuizId == 0) return
         
         android.util.Log.d("DailyQuizViewModel", "퀴즈 풀이 - 사용할 userId: $userId")
-        val solvedTimeSeconds = ((System.currentTimeMillis() - startTime) / 1000).toInt()
+        // 문제를 푼 시점의 타임스탬프를 밀리초 단위로 전송 (등수 판단용)
+        val solvedTimeMillis = System.currentTimeMillis()
+        
+        android.util.Log.d("DailyQuizViewModel", "현재 타임스탬프 (밀리초): $solvedTimeMillis")
         
         viewModelScope.launch {
             _solveState.value = DailyQuizSolveUiState.Loading
             
-            solveDailyQuizUseCase(userId, currentQuizId, userAnswer, solvedTimeSeconds)
+            solveDailyQuizUseCase(userId, currentQuizId, userAnswer, solvedTimeMillis.toInt())
                 .onSuccess { result ->
                     _solveState.value = DailyQuizSolveUiState.Success(result)
                 }

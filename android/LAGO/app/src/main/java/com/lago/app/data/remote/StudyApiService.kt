@@ -4,6 +4,7 @@ import com.lago.app.data.remote.dto.ChartPatternDto
 import com.lago.app.data.remote.dto.DailyQuizResponse
 import com.lago.app.data.remote.dto.DailyQuizSolveRequest
 import com.lago.app.data.remote.dto.DailyQuizSolveResponse
+import com.lago.app.data.remote.dto.DailyQuizStreakResponse
 import com.lago.app.data.remote.dto.QuizDto
 import com.lago.app.data.remote.dto.RandomQuizSolveRequest
 import com.lago.app.data.remote.dto.RandomQuizSolveResponse
@@ -35,4 +36,7 @@ interface StudyApiService {
     
     @POST("api/study/daily-quiz/solve")
     suspend fun solveDailyQuiz(@Body request: DailyQuizSolveRequest): DailyQuizSolveResponse
+    
+    @GET("api/study/daily-quiz/streak")
+    suspend fun getDailyQuizStreak(@Query("userId") userId: Int): DailyQuizStreakResponse
 }

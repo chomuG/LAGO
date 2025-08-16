@@ -78,7 +78,7 @@ class UserRepositoryImpl @Inject constructor(
                     localDataSource.saveUserData(authToken.accessToken)
                     
                     // 개발용: userId를 5로 고정
-                    userPreferences.setUserId("5")
+                    userPreferences.saveUserId(5L)
                     android.util.Log.d("UserRepository", "Login successful - userId set to 5")
                     
                     Result.success(authToken)

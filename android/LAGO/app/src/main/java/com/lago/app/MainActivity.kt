@@ -1,6 +1,7 @@
 package com.lago.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -13,7 +14,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.google.firebase.messaging.FirebaseMessaging
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -25,6 +29,9 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,6 +68,11 @@ class MainActivity : ComponentActivity() {
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Splash Screen API 설치
+        installSplashScreen()
+        
+        // 스플래시 테마에서 일반 테마로 전환
+        setTheme(R.style.Theme_LAGO)
         super.onCreate(savedInstanceState)
 
         // Edge-to-edge 설정
@@ -80,7 +92,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             LagoTheme {
-                LagoApp(userPreferences = userPreferences)
+                LagoApp(
+                    userPreferences = userPreferences,
+                    intent = intent
+                )
             }
         }
     }
@@ -139,10 +154,55 @@ class MainActivity : ComponentActivity() {
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun LagoApp(userPreferences: UserPreferences) {
+fun LagoApp(
+    userPreferences: UserPreferences,
+    intent: Intent? = null
+) {
+    // 커스텀 스플래시 상태 관리
+    var showCustomSplash by remember { mutableStateOf(true) }
+    
+    // 커스텀 스플래시 화면
+    if (showCustomSplash) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.splash_image),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop // 이미지를 화면에 꽉 채우기
+            )
+        }
+        
+        // 즉시 메인 앱으로 전환
+        LaunchedEffect(Unit) {
+            showCustomSplash = false
+        }
+        return
+    }
+    
+    // 메인 앱 화면
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    
+    // FCM 알림에서 전달된 네비게이션 처리
+    LaunchedEffect(intent) {
+        intent?.let {
+            val navigateTo = it.getStringExtra("navigate_to")
+            if (navigateTo == "daily_quiz") {
+                navController.navigate("daily_quiz") {
+                    // 스택을 클리어하고 새로운 화면으로 이동
+                    popUpTo(navController.graph.startDestinationId) {
+                        saveState = false
+                    }
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
 
     // Routes where bottom navigation should be hidden
     val hideBottomBarRoutes = listOf(

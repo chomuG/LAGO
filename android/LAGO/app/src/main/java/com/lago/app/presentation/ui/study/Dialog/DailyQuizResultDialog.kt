@@ -90,11 +90,11 @@ fun DailyQuizResultDialog(
 
                 // 메달 아이콘
                 if (isCorrect) {
-                    val medalIcon = when {
-                        rank == 1 -> R.drawable.first_place_medal
-                        rank in 2..3 -> R.drawable.second_place_medal
-                        rank <= 10 -> R.drawable.third_place_medal
-                        else -> R.drawable.troph
+                    val medalIcon = when (rank) {
+                        1 -> R.drawable.first_place_medal
+                        2 -> R.drawable.second_place_medal
+                        3 -> R.drawable.third_place_medal
+                        else -> R.drawable.troph // 4등부터는 모두 트로피
                     }
                     
                     Image(

@@ -24,6 +24,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
+import androidx.compose.material3.Surface
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
@@ -46,14 +50,26 @@ fun BottomNavigationBar(
     val currentRoute = navBackStackEntry?.destination?.route
 
     CompositionLocalProvider(LocalRippleTheme provides NoRippleTheme) {
-        NavigationBar(
-            modifier = Modifier
-                .height(114.dp)
-                .shadow(
-                    elevation = 8.dp
-                ),
-            containerColor = Color(0xFFFFFFFF)
+        // 강제로 라이트 테마 적용하여 흰색 배경 보장
+        MaterialTheme(
+            colorScheme = lightColorScheme(
+                surface = Color.White,
+                surfaceContainer = Color.White,
+                surfaceContainerLow = Color.White,
+                surfaceContainerLowest = Color.White
+            )
         ) {
+            Surface(
+                color = Color.White,
+                shadowElevation = 8.dp,
+                modifier = Modifier.background(Color.White)
+            ) {
+                NavigationBar(
+                    modifier = Modifier
+                        .height(114.dp)
+                        .background(Color.White),
+                    containerColor = Color.White
+                ) {
         bottomNavigationItems.forEach { item ->
             val isSelected = currentRoute == item.route
             val scale by animateFloatAsState(
@@ -81,8 +97,8 @@ fun BottomNavigationBar(
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = MainBlue,
                     selectedTextColor = MainBlue,
-                    unselectedIconColor = Color(0xFF9E9E9E),
-                    unselectedTextColor = Color(0xFF9E9E9E),
+                    unselectedIconColor = Color.Black,
+                    unselectedTextColor = Color.Black,
                     indicatorColor = Color.Transparent
                 ),
                 interactionSource = remember { MutableInteractionSource() },
@@ -104,6 +120,8 @@ fun BottomNavigationBar(
                 }
             )
         }
+                }
+            }
         }
     }
 }
