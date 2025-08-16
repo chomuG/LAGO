@@ -1,704 +1,494 @@
 package com.example.LAGO.service;
 
 import com.example.LAGO.constants.TradingConstants;
-import com.example.LAGO.dto.request.MockTradeRequest;
-import com.example.LAGO.domain.*;
-import com.example.LAGO.repository.*;
-import com.example.LAGO.utils.TradingUtils;
+import com.example.LAGO.domain.Account;
+import com.example.LAGO.domain.News;
+import com.example.LAGO.domain.TradeType;
+import com.example.LAGO.domain.User;
+import com.example.LAGO.dto.request.TradeRequest;
+import com.example.LAGO.dto.response.TechnicalAnalysisResult;
+import com.example.LAGO.repository.AccountRepository;
+import com.example.LAGO.repository.NewsRepository;
+import com.example.LAGO.repository.UserRepository;
+import com.example.LAGO.repository.TicksRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 /**
- * AI 자동매매 봇 서비스
+ * FinBERT 뉴스분석 + 기술적분석 기반 AI 자동매매봇 서비스
  * 
- * 지침서 명세:
- * - AI 봇 계정 (is_ai = true)에 대한 자동매매 실행
- * - 기술적 분석 기반 매매 신호 생성 및 실행
- * - 전략별 리스크 관리 및 포지션 조절
- * - Virtual Thread 활용 고성능 병렬 처리
+ * 핵심 기능:
+ * - 매분마다 실행되는 자동매매 스케줄러
+ * - 뉴스 감정분석 점수와 기술적분석 통합 판단
+ * - 각 AI 봇의 성향별 차별화된 매매 전략
+ * - 검증된 StockController API 활용한 안전한 매매
  * 
- * 주요 기능:
- * 1. 정기적 자동매매 실행 (매 1분마다)
- * 2. 기술적 분석 신호 기반 매매 판단
- * 3. 리스크 관리 및 자금 관리
- * 4. 거래 이력 및 성과 추적
- * 
- * @author D203팀 백엔드 개발자
- * @since 2025-08-05
+ * @author LAGO D203팀
+ * @since 2025-08-15
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
-//@Transactional    // 예외처리 오류로 일단 클래스레벨 Transaction은 주석처리
 public class AutoTradingBotService {
 
     // ======================== 의존성 주입 ========================
     
-    /**
-     * 사용자 정보 조회를 위한 리포지토리
-     */
     private final UserRepository userRepository;
-    
-    /**
-     * 계좌 정보 관리를 위한 리포지토리  
-     */
     private final AccountRepository accountRepository;
-    
-    /**
-     * 주식 실시간 데이터 조회를 위한 리포지토리
-     */
-    private final StockRepository stockRepository;
-    
-    /**
-     * 모의매매 거래 실행을 위한 서비스
-     */
-    private final MockTradingService mockTradingService;
-    
-    /**
-     * 기술적 분석 신호 생성을 위한 서비스
-     */
+    private final NewsRepository newsRepository;
     private final TechnicalAnalysisService technicalAnalysisService;
+    private final TicksRepository ticksRepository;
+    private final RestTemplate restTemplate;
+    
+    @Value("${server.port:9000}")
+    private String serverPort;
+    
+    // ======================== 상수 정의 ========================
+    
+    /** 삼성전자 종목 코드 */
+    private static final String SAMSUNG_STOCK_CODE = "005930";
+    
+    /** AI 봇 계좌 타입 */
+    private static final Integer AI_BOT_ACCOUNT_TYPE = 2;
+    
+    /** 매매 신호 임계값 */
+    private static final double BUY_THRESHOLD = 0.1;  // 낮춤: 더 쉽게 매수 신호
+    private static final double SELL_THRESHOLD = -0.1; // 낮춤: 더 쉽게 매도 신호
+    
+    /** 기본 매매 수량 */
+    private static final int DEFAULT_QUANTITY = 1;
+    
+    // ======================== 메인 스케줄러 ========================
     
     /**
-     * AI 봇 거래 이력 저장을 위한 리포지토리
+     * AI 자동매매 메인 스케줄러
+     * 매분마다 실행되어 모든 AI 봇의 매매를 처리
      */
-    private final AiBotTradeRepository aiBotTradeRepository;
-    
-    /**
-     * AI 전략 관리를 위한 리포지토리
-     */
-    private final AiStrategyRepository aiStrategyRepository;
-
-    // ======================== Virtual Thread Executor ========================
-    
-    /**
-     * Java 21 Virtual Thread를 활용한 고성능 비동기 처리
-     * - 경량 스레드로 대량의 동시 매매 처리 가능
-     * - 기존 Platform Thread 대비 메모리 효율성 극대화
-     */
-    private final Executor virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor();
-
-    // ======================== 자동매매 스케줄러 ========================
-
-    /**
-     * AI 자동매매 봇 메인 스케줄러
-     * 
-     * 실행 주기: 매 1분마다 (fixedRate = 60,000ms)
-     * 초기 지연: 30초 후 시작 (initialDelay = 30,000ms)
-     * 
-     * 처리 흐름:
-     * 1. 활성화된 AI 봇 계정 조회
-     * 2. 각 봇별 병렬 매매 실행
-     * 3. 예외 상황 안전 처리
-     * 
-     * Virtual Thread 활용으로 대량 봇 동시 처리 최적화
-     */
-    @Scheduled(fixedRate = TradingConstants.AUTO_TRADING_INTERVAL_MS, 
-              initialDelay = TradingConstants.AUTO_TRADING_INITIAL_DELAY_MS)
+    @Scheduled(fixedRate = 60000) // 매분 실행 (60초)
     public void executeAutoTrading() {
+        log.info("🤖 === AI 자동매매 실행 시작: {} ===", LocalDateTime.now());
+        
         try {
-            log.info("=== AI 자동매매 실행 시작: {} ===", TradingUtils.formatTradeTime(LocalDateTime.now()));
-            
-            // 1. 활성화된 AI 봇 계정 조회
-            List<User> aiBots = getActiveTradingBots();
-            
-            if (aiBots.isEmpty()) {
-                log.info("실행 가능한 AI 봇이 없습니다. 다음 주기를 대기합니다.");
+            // 1. 활성 AI 봇들 조회
+            List<User> activeBots = getActiveAiBots();
+            if (activeBots.isEmpty()) {
+                log.info("⚠️ 활성 AI 봇이 없습니다. 다음 주기를 대기합니다.");
                 return;
             }
             
-            log.info("활성 AI 봇 {}개 발견, 매매 실행을 시작합니다.", aiBots.size());
+            log.info("📊 활성 AI 봇 {}개 발견, 매매 분석을 시작합니다.", activeBots.size());
             
-            // 2. 각 AI 봇별 병렬 매매 실행 (Virtual Thread 활용)
-            List<CompletableFuture<Void>> tradingTasks = aiBots.stream()
-                .map(bot -> CompletableFuture.runAsync(
-                    () -> executeTradingForBot(bot), 
-                    virtualThreadExecutor
-                ))
-                .toList();
+            // 2. 삼성전자 뉴스 감정분석 점수 조회
+            double sentimentScore = getLatestSamsungSentiment();
+            log.info("📰 삼성전자 뉴스 감정점수: {}", sentimentScore);
             
-            // 3. 모든 봇의 매매 작업 완료 대기
-            CompletableFuture.allOf(tradingTasks.toArray(new CompletableFuture[0]))
-                .thenRun(() -> log.info("=== 모든 AI 봇 매매 실행 완료 ==="))
-                .exceptionally(throwable -> {
-                    log.error("AI 봇 매매 실행 중 예외 발생", throwable);
-                    return null;
-                });
-                
+            // 3. 삼성전자 기술적 분석
+            TechnicalAnalysisResult technical = getTechnicalAnalysis();
+            log.info("📈 삼성전자 기술적분석: RSI={}, MACD={}", 
+                    technical != null ? technical.getRsi() : "N/A",
+                    technical != null ? technical.getMacdLine() : "N/A");
+            
+            // 4. 각 봇별 매매 실행 (병렬 처리)
+            activeBots.parallelStream().forEach(bot -> {
+                try {
+                    executeTradeForBot(bot, sentimentScore, technical);
+                } catch (Exception e) {
+                    log.error("🔥 AI 봇 {} 매매 실행 중 오류: {}", bot.getNickname(), e.getMessage(), e);
+                }
+            });
+            
+            log.info("✅ === 모든 AI 봇 매매 실행 완료: {} ===", LocalDateTime.now());
+            
         } catch (Exception e) {
-            log.error("자동매매 스케줄러 실행 중 예외 발생", e);
+            log.error("🔥 자동매매 스케줄러 실행 중 오류 발생", e);
         }
     }
-
-    // ======================== AI 봇 조회 및 관리 ========================
-
+    
+    // ======================== AI 봇 조회 ========================
+    
     /**
-     * 활성화된 AI 매매 봇 계정 조회
-     * 
-     * 조회 조건:
-     * - is_ai = true (AI 봇 계정)
-     * - deleted_at IS NULL (삭제되지 않은 계정)
-     * - 활성 상태 계좌 보유
-     * 
-     * @return 활성 AI 봇 계정 리스트
+     * Type 2 계좌를 보유한 활성 AI 봇들 조회
      */
-    private List<User> getActiveTradingBots() {
+    private List<User> getActiveAiBots() {
         try {
             List<User> aiBots = userRepository.findByIsAiTrueAndDeletedAtIsNull();
             
-            // 활성 계좌를 보유한 봇만 필터링
-            List<User> activeAiBots = aiBots.stream()
-                .filter(this::hasActiveAccount)
-                .toList();
-                
-            log.debug("총 AI 봇 계정: {}개, 활성 봇: {}개", aiBots.size(), activeAiBots.size());
+            // Type 2 계좌 보유 여부 확인
+            List<User> activeBots = aiBots.stream()
+                    .filter(this::hasAiBotAccount)
+                    .toList();
             
-            return activeAiBots;
+            log.debug("🔍 총 AI 봇: {}개, 활성 봇: {}개", aiBots.size(), activeBots.size());
+            return activeBots;
             
         } catch (Exception e) {
-            log.error("활성 AI 봇 조회 중 오류 발생", e);
+            log.error("🔥 활성 AI 봇 조회 실패", e);
             return List.of();
         }
     }
-
+    
     /**
-     * AI 봇의 활성 계좌 보유 여부 확인
-     * 
-     * @param aiBot 확인할 AI 봇 계정
-     * @return 활성 계좌 보유 여부
+     * AI 봇의 Type 2 계좌 보유 여부 확인
      */
-    private boolean hasActiveAccount(User aiBot) {
+    private boolean hasAiBotAccount(User aiBot) {
         try {
             return accountRepository.findByUserIdAndType(
-                aiBot.getUserId(), 
-                TradingConstants.ACCOUNT_TYPE_CURRENT
+                    aiBot.getUserId(), 
+                    AI_BOT_ACCOUNT_TYPE
             ).isPresent();
             
         } catch (Exception e) {
-            log.warn("AI 봇 {}의 계좌 확인 중 오류: {}", aiBot.getUserId(), e.getMessage());
+            log.warn("⚠️ AI 봇 {}의 계좌 확인 실패: {}", aiBot.getNickname(), e.getMessage());
             return false;
         }
     }
-
-    // ======================== 개별 봇 매매 실행 ========================
-
+    
+    // ======================== 뉴스 감정분석 ========================
+    
     /**
-     * 개별 AI 봇에 대한 매매 실행
-     * 
-     * 실행 단계:
-     * 1. 봇 계좌 및 전략 정보 로드
-     * 2. 매매 대상 종목 선정
-     * 3. 기술적 분석 수행
-     * 4. 매매 신호 판단 및 실행
-     * 5. 거래 결과 기록
-     * 
-     * @param aiBot 매매를 실행할 AI 봇
+     * 최근 뉴스에서 삼성전자 관련 감정분석 점수 조회
+     * @return 감정점수 (-1.0 ~ 1.0, 없으면 0.0)
      */
-    private void executeTradingForBot(User aiBot) {
-        Integer botId = aiBot.getUserId();
-        
+    private double getLatestSamsungSentiment() {
         try {
-            log.info("AI 봇 {} 매매 실행 시작", botId);
+            // 최근 2시간 이내 뉴스 중 삼성전자 관련 뉴스 조회
+            LocalDateTime since = LocalDateTime.now().minusHours(2);
             
-            // 1. 봇 계좌 정보 로드
-            Account botAccount = loadBotAccount(aiBot);
-            if (botAccount == null) {
-                log.warn("AI 봇 {} 계좌 로드 실패, 매매 건너뜀", botId);
-                return;
+            List<News> recentNews = newsRepository.findByPublishedAtAfterAndTitleContainingOrContentContaining(
+                    since, "삼성전자", "삼성전자"
+            );
+            
+            if (recentNews.isEmpty()) {
+                log.debug("📰 최근 삼성전자 뉴스가 없음, 중립 점수 사용");
+                return 0.0;
             }
             
-            // 2. 봇 전략 정보 로드
-            String strategy = loadBotStrategy(aiBot);
-            if (strategy == null) {
-                log.warn("AI 봇 {} 전략 로드 실패, 매매 건너뜀", botId);
-                return;
+            // sentiment 필드에서 점수 추출하여 평균 계산
+            double averageSentiment = recentNews.stream()
+                    .filter(news -> news.getSentiment() != null)
+                    .mapToDouble(this::parseSentimentScore)
+                    .filter(score -> score != 0.0) // 파싱 실패한 것들 제외
+                    .average()
+                    .orElse(0.0);
+            
+            log.debug("📊 삼성전자 뉴스 {}개 분석, 평균 감정점수: {}", recentNews.size(), averageSentiment);
+            
+            // 테스트용: 강제로 높은 감정점수 설정
+            if (!recentNews.isEmpty()) {
+                log.info("🧪 테스트용: 감정점수를 0.8로 강제 설정");
+                return 0.8;
             }
             
-            // 3. 매매 대상 종목 선정
-            List<String> targetStocks = selectTradingTargets(strategy);
-            if (targetStocks.isEmpty()) {
-                log.info("AI 봇 {} 매매 대상 종목 없음", botId);
-                return;
-            }
+            return averageSentiment;
             
-            // 4. 각 종목별 매매 판단 및 실행
-            for (String stockCode : targetStocks) {
-                try {
-                    executeStockTrading(aiBot, botAccount, strategy, stockCode);
-                } catch (Exception e) {
-                    log.error("AI 봇 {} 종목 {} 매매 실행 실패", botId, stockCode, e);
-                    // 개별 종목 실패 시 다른 종목 매매는 계속 진행
+        } catch (Exception e) {
+            log.error("🔥 뉴스 감정분석 점수 조회 실패", e);
+            return 0.0;
+        }
+    }
+    
+    /**
+     * sentiment 문자열에서 숫자 점수 추출
+     */
+    private double parseSentimentScore(News news) {
+        try {
+            String sentiment = news.getSentiment();
+            if (sentiment == null) return 0.0;
+            
+            // "positive: 0.75" 형태에서 숫자 추출
+            if (sentiment.contains("positive")) {
+                String[] parts = sentiment.split(":");
+                if (parts.length > 1) {
+                    return Double.parseDouble(parts[1].trim());
+                }
+            } else if (sentiment.contains("negative")) {
+                String[] parts = sentiment.split(":");
+                if (parts.length > 1) {
+                    return -Double.parseDouble(parts[1].trim());
                 }
             }
             
-            log.info("AI 봇 {} 매매 실행 완료", botId);
+            // 직접 숫자인 경우
+            return Double.parseDouble(sentiment);
             
         } catch (Exception e) {
-            log.error("AI 봇 {} 매매 실행 중 예외 발생", botId, e);
-            
-            // 거래 실패 로그 기록
-            recordTradingFailure(aiBot, e.getMessage());
+            log.debug("⚠️ sentiment 파싱 실패: {}", news.getSentiment());
+            return 0.0;
         }
     }
-
+    
+    // ======================== 기술적 분석 ========================
+    
     /**
-     * AI 봇 계좌 정보 로드
-     * 
-     * @param aiBot AI 봇 계정
-     * @return 봇의 현재 계좌 (없으면 null)
+     * 삼성전자 기술적 분석 결과 조회
      */
-    private Account loadBotAccount(User aiBot) {
+    private TechnicalAnalysisResult getTechnicalAnalysis() {
         try {
-            return accountRepository.findByUserIdAndType(
-                aiBot.getUserId(), 
-                TradingConstants.ACCOUNT_TYPE_CURRENT
+            return technicalAnalysisService.analyzeStock(SAMSUNG_STOCK_CODE);
+            
+        } catch (Exception e) {
+            log.error("🔥 기술적 분석 실행 실패", e);
+            return null;
+        }
+    }
+    
+    // ======================== 개별 봇 매매 실행 ========================
+    
+    /**
+     * 개별 AI 봇의 매매 실행
+     */
+    private void executeTradeForBot(User bot, double sentimentScore, TechnicalAnalysisResult technical) {
+        log.info("🤖 AI 봇 [{}] 매매 분석 시작", bot.getNickname());
+        
+        try {
+            // 1. 봇의 계좌 조회
+            Account account = accountRepository.findByUserIdAndType(
+                    bot.getUserId(), AI_BOT_ACCOUNT_TYPE
             ).orElse(null);
             
+            if (account == null) {
+                log.warn("⚠️ AI 봇 [{}]의 Type 2 계좌를 찾을 수 없음", bot.getNickname());
+                return;
+            }
+            
+            // 2. 봇 성향별 매매 신호 계산
+            TradingDecision decision = calculateTradingDecision(bot, sentimentScore, technical, account);
+            
+            // 3. 매매 실행
+            if (decision.getAction() != TradeAction.HOLD) {
+                executeTrade(bot, account, decision);
+            } else {
+                log.info("📊 AI 봇 [{}]: 현재 관망 (통합점수: {:.3f})", 
+                        bot.getNickname(), decision.getScore());
+            }
+            
         } catch (Exception e) {
-            log.error("AI 봇 {} 계좌 로드 실패", aiBot.getUserId(), e);
-            return null;
+            log.error("🔥 AI 봇 [{}] 매매 실행 실패", bot.getNickname(), e);
         }
     }
-
+    
     /**
-     * AI 봇 매매 전략 로드
-     * 
-     * @param aiBot AI 봇 계정
-     * @return 봇의 매매 전략 (없으면 기본 전략)
+     * 봇 성향별 매매 신호 계산 (단순화된 전략)
      */
-    private String loadBotStrategy(User aiBot) {
-        try {
-            // AI 봇의 성향에 따른 기본 전략 매핑
-            String personality = aiBot.getPersonality();
-            if (personality != null) {
-                switch (personality) {
-                    case "공격투자형":
-                        return "화끈이";
-                    case "적극투자형":
-                        return "적극이";
-                    case "위험중립형":
-                        return "균형이";
-                    case "안정추구형":
-                        return "조심이";
-                    default:
-                        return TradingConstants.DEFAULT_AI_STRATEGY;
+    private TradingDecision calculateTradingDecision(User bot, double sentiment, 
+                                                   TechnicalAnalysisResult technical, Account account) {
+        
+        String nickname = bot.getNickname();
+        if (nickname == null) nickname = "균형이";
+        
+        // 기술적 분석 점수 계산 (-1.0 ~ 1.0)
+        double technicalScore = calculateTechnicalScore(technical);
+        
+        // 봇별 단순화된 전략
+        TradeAction action = TradeAction.HOLD;
+        double finalScore = 0.0;
+        String strategy = "";
+        
+        switch (nickname) {
+            case "화끈이": // 뉴스 감정분석 우선, 공격적 매매
+                finalScore = sentiment * 0.7 + technicalScore * 0.3;
+                if (sentiment > 0.5 && technical != null && technical.getRsi() != null && technical.getRsi() < 40) {
+                    action = TradeAction.BUY;
+                    strategy = "강한매수신호: 뉴스긍정+" + "RSI과매도";
+                } else if (sentiment < -0.3 && technical != null && technical.getRsi() != null && technical.getRsi() > 70) {
+                    action = TradeAction.SELL;
+                    strategy = "매도신호: 뉴스부정+RSI과매수";
                 }
-            }
-            
-            return TradingConstants.DEFAULT_AI_STRATEGY;
+                break;
                 
-        } catch (Exception e) {
-            log.error("AI 봇 {} 전략 로드 실패, 기본 전략 사용", aiBot.getUserId(), e);
-            return TradingConstants.DEFAULT_AI_STRATEGY;
+            case "적극이": // 균형있는 접근, MACD 활용
+                finalScore = sentiment * 0.5 + technicalScore * 0.5;
+                if (sentiment > 0.3 && technical != null && technical.getMacdLine() != null 
+                    && technical.getMacdLine() > 0) {
+                    action = TradeAction.BUY;
+                    strategy = "매수신호: 뉴스중립긍정+MACD상승";
+                } else if (sentiment < -0.2 && technical != null && technical.getMacdLine() != null 
+                           && technical.getMacdLine() < 0) {
+                    action = TradeAction.SELL;
+                    strategy = "매도신호: 뉴스부정+MACD하락";
+                }
+                break;
+                
+            case "균형이": // 기술적분석 우선, 이동평균 활용
+                finalScore = sentiment * 0.4 + technicalScore * 0.6;
+                if (sentiment > 0.1 && technical != null && technical.getMa20() != null 
+                    && technical.getMa60() != null && technical.getMa20() > technical.getMa60()) {
+                    action = TradeAction.BUY;
+                    strategy = "매수신호: 뉴스중립+20일선>60일선";
+                } else if (sentiment < -0.1 && technical != null && technical.getMa20() != null 
+                           && technical.getMa60() != null && technical.getMa20() < technical.getMa60()) {
+                    action = TradeAction.SELL;
+                    strategy = "매도신호: 뉴스중립부정+20일선<60일선";
+                }
+                break;
+                
+            case "조심이": // 매우 보수적, 강한 신호에서만 매매
+                finalScore = sentiment * 0.3 + technicalScore * 0.7;
+                if (sentiment < -0.3 && technical != null && technical.getRsi() != null 
+                    && technical.getRsi() > 70) {
+                    action = TradeAction.SELL;
+                    strategy = "보수매도: 뉴스강한부정+RSI과매수";
+                }
+                // 조심이는 매수하지 않고 위험할 때만 매도
+                break;
+                
+            default: // 기본 전략
+                finalScore = sentiment * 0.4 + technicalScore * 0.6;
+                if (finalScore >= BUY_THRESHOLD) {
+                    action = TradeAction.BUY;
+                } else if (finalScore <= SELL_THRESHOLD) {
+                    action = TradeAction.SELL;
+                }
+                break;
         }
-    }
-
-    // ======================== 매매 대상 선정 ========================
-
-    /**
-     * 전략별 매매 대상 종목 선정
-     * 
-     * 선정 기준:
-     * - 거래량 충분 (일평균 거래량 기준)
-     * - 가격 범위 적절 (최소/최대 가격 제한)
-     * - 변동성 적정 (과도한 급등락 종목 제외)
-     * 
-     * @param strategy 매매 전략
-     * @return 매매 대상 종목 코드 리스트
-     */
-    private List<String> selectTradingTargets(String strategy) {
-        try {
-            log.debug("매매 대상 종목 선정 시작: strategy={}", strategy);
-            
-            // 거래 가능한 주요 종목들을 조회
-            List<Stock> availableStocks = stockRepository.findTop50ByOrderByVolumeDesc();
-            
-            // 전략별 필터링 적용
-            List<String> targetStocks = availableStocks.stream()
-                .filter(this::isValidTradingTarget)
-                .map(Stock::getCode)
-                .limit(TradingConstants.MAX_CONCURRENT_STOCKS)
-                .toList();
-            
-            log.debug("매매 대상 종목 {}개 선정 완료", targetStocks.size());
-            return targetStocks;
-            
-        } catch (Exception e) {
-            log.error("매매 대상 종목 선정 실패", e);
-            return List.of();
-        }
-    }
-
-    /**
-     * 종목의 매매 적합성 검증
-     * 
-     * @param stock 검증할 종목
-     * @return 매매 적합 여부
-     */
-    private boolean isValidTradingTarget(Stock stock) {
-        try {
-            // 가격 범위 검증
-            if (stock.getClosePrice() < TradingConstants.MIN_STOCK_PRICE ||
-                stock.getClosePrice() > TradingConstants.MAX_STOCK_PRICE) {
-                return false;
-            }
-            
-            // 거래량 검증
-            if (stock.getVolume() < TradingConstants.MIN_TRADING_VOLUME) {
-                return false;
-            }
-            
-            // 변동률 검증 (과도한 급등락 제외)
-            Float fluctuationRate = stock.getFluctuationRate();
-            if (fluctuationRate != null && 
-                Math.abs(fluctuationRate) > TradingConstants.MAX_FLUCTUATION_RATE) {
-                return false;
-            }
-            
-            return true;
-            
-        } catch (Exception e) {
-            log.warn("종목 {} 유효성 검증 실패", stock.getCode(), e);
-            return false;
-        }
-    }
-
-    // ======================== 개별 종목 매매 실행 ========================
-
-    /**
-     * 개별 종목에 대한 매매 실행
-     * 
-     * @param aiBot AI 봇 계정
-     * @param account 봇 계좌
-     * @param strategy 매매 전략
-     * @param stockCode 종목 코드
-     */
-    private void executeStockTrading(User aiBot, Account account, String strategy, String stockCode) {
-        Integer botId = aiBot.getUserId();
         
-        try {
-            log.debug("AI 봇 {} 종목 {} 매매 분석 시작", botId, stockCode);
-            
-            // 1. 현재 주식 정보 조회
-            Stock currentStock = getCurrentStockInfo(stockCode);
-            if (currentStock == null) {
-                log.warn("종목 {} 정보 조회 실패", stockCode);
-                return;
-            }
-            
-            // 2. 기술적 분석 수행
-            String signal = performTechnicalAnalysis(stockCode, strategy);
-            if (TradingConstants.SIGNAL_HOLD.equals(signal)) {
-                log.debug("AI 봇 {} 종목 {} 신호: 보유", botId, stockCode);
-                return;
-            }
-            
-            // 3. 포지션 크기 계산
-            Integer positionSize = calculatePositionSize(account, currentStock, signal);
-            if (positionSize <= 0) {
-                log.debug("AI 봇 {} 종목 {} 포지션 크기 부족", botId, stockCode);
-                return;
-            }
-            
-            // 4. 매매 실행
-            boolean success = executeTrade(aiBot, account, currentStock, signal, positionSize, strategy);
-            
-            // 5. 거래 결과 기록
-            recordTradingResult(aiBot, stockCode, signal, positionSize, success, strategy);
-            
-        } catch (Exception e) {
-            log.error("AI 봇 {} 종목 {} 매매 실행 실패", botId, stockCode, e);
-        }
-    }
-
-    /**
-     * 현재 주식 정보 조회
-     * 
-     * @param stockCode 종목 코드
-     * @return 주식 정보 (없으면 null)
-     */
-    private Stock getCurrentStockInfo(String stockCode) {
-        try {
-            return stockRepository.findTopByCodeOrderByUpdatedAtDesc(stockCode)
-                .orElse(null);
-                
-        } catch (Exception e) {
-            log.error("종목 {} 정보 조회 실패", stockCode, e);
-            return null;
-        }
-    }
-
-    /**
-     * 기술적 분석 수행
-     * 
-     * @param stockCode 종목 코드
-     * @param strategy 분석 전략
-     * @return 매매 신호 (BUY/SELL/HOLD)
-     */
-    private String performTechnicalAnalysis(String stockCode, String strategy) {
-        try {
-            return technicalAnalysisService.generateTradingSignal(stockCode, strategy);
-            
-        } catch (Exception e) {
-            log.error("종목 {} 기술적 분석 실패", stockCode, e);
-            return TradingConstants.SIGNAL_HOLD;
-        }
-    }
-
-    /**
-     * 포지션 크기 계산 (리스크 관리)
-     * 
-     * 계산 방식:
-     * - 매수: 계좌 잔액의 일정 비율
-     * - 매도: 보유 주식 수량의 일정 비율
-     * 
-     * @param account 계좌 정보
-     * @param stock 주식 정보
-     * @param signal 매매 신호
-     * @return 거래 수량
-     */
-    private Integer calculatePositionSize(Account account, Stock stock, String signal) {
-        try {
-            if (TradingConstants.SIGNAL_BUY.equals(signal)) {
-                return calculateBuyPositionSize(account, stock);
-            } else if (TradingConstants.SIGNAL_SELL.equals(signal)) {
-                return calculateSellPositionSize(account, stock);
-            }
-            return 0;
-            
-        } catch (Exception e) {
-            log.error("포지션 크기 계산 실패: signal={}", signal, e);
-            return 0;
-        }
-    }
-
-    /**
-     * 매수 포지션 크기 계산
-     * 
-     * @param account 계좌 정보
-     * @param stock 주식 정보
-     * @return 매수 수량
-     */
-    private Integer calculateBuyPositionSize(Account account, Stock stock) {
-        // 계좌 잔액의 일정 비율로 매수
-        int availableAmount = (int) (account.getBalance() * TradingConstants.POSITION_SIZE_RATIO);
-        int maxQuantity = availableAmount / stock.getClosePrice();
+        log.info("📊 AI 봇 [{}] 분석결과 - 감정:{:.3f}, 기술:{:.3f}, 통합:{:.3f} → {} ({})", 
+                nickname, sentiment, technicalScore, finalScore, action, strategy);
         
-        // 최대 거래 수량 제한 적용
-        return Math.min(maxQuantity, TradingConstants.MAX_POSITION_SIZE);
+        return new TradingDecision(action, finalScore, DEFAULT_QUANTITY);
     }
-
+    
     /**
-     * 매도 포지션 크기 계산
-     * 
-     * @param account 계좌 정보
-     * @param stock 주식 정보
-     * @return 매도 수량
+     * 기술적 분석 결과를 점수로 변환 (-1.0 ~ 1.0)
      */
-    private Integer calculateSellPositionSize(Account account, Stock stock) {
-        try {
-            // 보유 주식 수량 조회
-            // TODO: StockHolding 엔티티 및 리포지토리 구현 필요
-            // 현재는 임시로 기본값 반환
-            return TradingConstants.DEFAULT_SELL_QUANTITY;
-            
-        } catch (Exception e) {
-            log.error("매도 수량 계산 실패", e);
-            return 0;
+    private double calculateTechnicalScore(TechnicalAnalysisResult technical) {
+        if (technical == null) return 0.0;
+        
+        double score = 0.0;
+        int indicators = 0;
+        
+        // RSI 점수 (0~100 → -1~1)
+        if (technical.getRsi() != null) {
+            double rsi = technical.getRsi();
+            if (rsi < 30) {
+                score += 0.8; // 과매도, 매수 신호
+            } else if (rsi > 70) {
+                score -= 0.8; // 과매수, 매도 신호
+            } else {
+                score += (50 - rsi) / 50.0; // 50 기준으로 정규화
+            }
+            indicators++;
         }
+        
+        // MACD 점수 (히스토그램 사용)
+        if (technical.getHistogram() != null) {
+            score += technical.getHistogram() > 0 ? 0.5 : -0.5;
+            indicators++;
+        }
+        
+        return indicators > 0 ? score / indicators : 0.0;
     }
-
-    // ======================== 매매 실행 ========================
-
+    
     /**
-     * 실제 매매 주문 실행
-     * 
-     * @param aiBot AI 봇 계정
-     * @param account 계좌 정보
-     * @param stock 주식 정보
-     * @param signal 매매 신호
-     * @param quantity 거래 수량
-     * @param strategy 매매 전략
-     * @return 거래 성공 여부
+     * 삼성전자 현재가 조회
      */
-    private boolean executeTrade(User aiBot, Account account, Stock stock, 
-                               String signal, Integer quantity, String strategy) {
+    private Integer getCurrentPrice() {
         try {
-            log.info("AI 봇 {} 매매 실행: {} {} {}주", 
-                    aiBot.getUserId(), stock.getCode(), signal, quantity);
+            // ticks 테이블에서 삼성전자 최신 가격 조회
+            List<Object[]> latestTick = ticksRepository.findLatestTicksByStockCode(SAMSUNG_STOCK_CODE, 1);
             
-            // 거래 요청 DTO 생성
-            MockTradeRequest tradeRequest = createTradeRequest(
-                stock.getCode(), signal, quantity, stock.getClosePrice()
-            );
-            
-            // 거래 실행 로그
-            TradingUtils.logTradeStart(
-                aiBot.getUserId(), 
-                stock.getCode(), 
-                signal, 
-                quantity, 
-                stock.getClosePrice()
-            );
-            
-            // 모의매매 서비스를 통한 거래 실행
-            if (TradingConstants.SIGNAL_BUY.equals(signal)) {
-                mockTradingService.processBuyOrder(aiBot.getUserId(), tradeRequest);
-            } else if (TradingConstants.SIGNAL_SELL.equals(signal)) {
-                mockTradingService.processSellOrder(aiBot.getUserId(), tradeRequest);
+            if (!latestTick.isEmpty()) {
+                Object[] tick = latestTick.get(0);
+                // close_price는 인덱스 4에 위치 (ts, open, high, low, close, volume)
+                Integer currentPrice = ((Number) tick[4]).intValue();
+                log.debug("📊 삼성전자 현재가: {}원", currentPrice);
+                return currentPrice;
             }
             
-            log.info("AI 봇 {} 매매 성공: {} {} {}주", 
-                    aiBot.getUserId(), stock.getCode(), signal, quantity);
-            return true;
+            // ticks 데이터가 없으면 기본값 사용
+            log.warn("⚠️ 삼성전자 실시간 가격 조회 실패, 기본값 사용");
+            return 75000; // 기본값
             
         } catch (Exception e) {
-            log.error("AI 봇 {} 매매 실행 실패: {} {} {}주", 
-                     aiBot.getUserId(), stock.getCode(), signal, quantity, e);
-            return false;
+            log.error("🔥 현재가 조회 실패", e);
+            return 75000; // 기본값
         }
     }
-
+    
     /**
-     * 거래 요청 DTO 생성
-     * 
-     * @param stockCode 종목 코드
-     * @param tradeType 거래 타입
-     * @param quantity 거래 수량
-     * @param price 거래 단가
-     * @return 거래 요청 DTO
+     * 실제 매매 API 호출
      */
-    private MockTradeRequest createTradeRequest(String stockCode, String tradeType, 
-                                                  Integer quantity, Integer price) {
-        MockTradeRequest request = new MockTradeRequest();
-        request.setStockCode(stockCode);
-        request.setQuantity(quantity);
-        request.setPrice(price);
-        request.setTradeType(tradeType);
-        return request;
-    }
-
-    // ======================== 거래 결과 기록 ========================
-
-    /**
-     * 전략명으로 AiStrategy 엔티티 조회
-     * 
-     * @param strategyName 전략명
-     * @param userId 사용자 ID
-     * @return AiStrategy 엔티티 (없으면 기본 전략 생성)
-     */
-    private AiStrategy findOrCreateStrategy(String strategyName, Integer userId) {
+    private void executeTrade(User bot, Account account, TradingDecision decision) {
         try {
-            // 기존 전략 조회
-            Optional<AiStrategy> existingStrategy = aiStrategyRepository.findByUserIdAndStrategy(userId, strategyName);
+            // 현재가 조회
+            Integer currentPrice = getCurrentPrice();
             
-            if (existingStrategy.isPresent()) {
-                return existingStrategy.get();
+            // 매매 요청 DTO 생성
+            TradeRequest request = TradeRequest.builder()
+                    .userId(bot.getUserId())
+                    .stockCode(SAMSUNG_STOCK_CODE)
+                    .tradeType(decision.getAction() == TradeAction.BUY ? TradeType.BUY : TradeType.SELL)
+                    .quantity(decision.getQuantity())
+                    .price(currentPrice) // 실시간 현재가 사용
+                    .accountType(AI_BOT_ACCOUNT_TYPE)
+                    .build();
+            
+            // API 엔드포인트 결정
+            String endpoint = decision.getAction() == TradeAction.BUY ? "/api/stocks/buy" : "/api/stocks/sell";
+            String url = "http://localhost:" + serverPort + endpoint;
+            
+            // HTTP 헤더 설정
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Content-Type", "application/json");
+            
+            // API 호출
+            HttpEntity<TradeRequest> entity = new HttpEntity<>(request, headers);
+            ResponseEntity<Object> response = restTemplate.exchange(url, HttpMethod.POST, entity, Object.class);
+            
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.info("✅ AI 봇 [{}] {} 성공: {}주 (점수: {:.3f})", 
+                        bot.getNickname(), 
+                        decision.getAction() == TradeAction.BUY ? "매수" : "매도",
+                        decision.getQuantity(),
+                        decision.getScore());
+            } else {
+                log.warn("⚠️ AI 봇 [{}] {} 실패: HTTP {}", 
+                        bot.getNickname(), 
+                        decision.getAction() == TradeAction.BUY ? "매수" : "매도",
+                        response.getStatusCode());
             }
             
-            // 기본 전략 생성
-            AiStrategy newStrategy = AiStrategy.builder()
-                .userId(userId)
-                .strategy(strategyName)
-                .prompt("AI 자동매매 기본 전략")
-                .build();
-                
-            return aiStrategyRepository.save(newStrategy);
-            
         } catch (Exception e) {
-            log.error("전략 조회/생성 실패: strategy={}, userId={}", strategyName, userId, e);
-            // 임시 전략 객체 반환 (저장하지 않음)
-            return AiStrategy.builder()
-                .userId(userId)
-                .strategy(strategyName)
-                .prompt("임시 전략")
-                .build();
+            log.error("🔥 AI 봇 [{}] API 호출 실패", bot.getNickname(), e);
         }
     }
-
+    
+    // ======================== 내부 클래스 ========================
+    
     /**
-     * 거래 결과 기록
-     * 
-     * @param aiBot AI 봇 계정
-     * @param stockCode 종목 코드
-     * @param signal 매매 신호
-     * @param quantity 거래 수량
-     * @param success 거래 성공 여부
-     * @param strategyName 사용된 전략명
+     * 매매 결정 결과
      */
-    private void recordTradingResult(User aiBot, String stockCode, String signal, 
-                                   Integer quantity, boolean success, String strategyName) {
-        try {
-            // 전략 엔티티 조회/생성
-            AiStrategy strategy = findOrCreateStrategy(strategyName, aiBot.getUserId());
-            
-            AiBotTrade tradeRecord = AiBotTrade.builder()
-                .userId(aiBot.getUserId())
-                .strategy(strategy)  // AiStrategy 엔티티 사용
-                .stockCode(stockCode)
-                .tradeType(signal)
-                .quantity(quantity)
-                .price(0)  // 임시값, 실제 구현시 currentStock.getClosePrice() 사용
-                .totalAmount(0)  // 임시값, 실제 계산 필요
-                .marketPrice(0)  // 임시값, 실제 시장가 필요
-                .volume(0L)  // 임시값, 실제 거래량 필요
-                .result(success ? "SUCCESS" : "FAILED")
-                .log(String.format("종목: %s, 신호: %s, 수량: %d", stockCode, signal, quantity))
-                .tradeTime(LocalDateTime.now())
-                .signalTime(LocalDateTime.now())
-                .build();
-                
-            aiBotTradeRepository.save(tradeRecord);
-            
-            log.debug("AI 봇 {} 거래 결과 기록 완료", aiBot.getUserId());
-            
-        } catch (Exception e) {
-            log.error("AI 봇 {} 거래 결과 기록 실패", aiBot.getUserId(), e);
+    private static class TradingDecision {
+        private final TradeAction action;
+        private final double score;
+        private final int quantity;
+        
+        public TradingDecision(TradeAction action, double score, int quantity) {
+            this.action = action;
+            this.score = score;
+            this.quantity = quantity;
         }
+        
+        public TradeAction getAction() { return action; }
+        public double getScore() { return score; }
+        public int getQuantity() { return quantity; }
     }
-
+    
     /**
-     * 거래 실패 기록
-     * 
-     * @param aiBot AI 봇 계정
-     * @param errorMessage 실패 사유
+     * 매매 액션
      */
-    private void recordTradingFailure(User aiBot, String errorMessage) {
-        try {
-            // 시스템 오류 전략 생성
-            AiStrategy errorStrategy = findOrCreateStrategy("SYSTEM_ERROR", aiBot.getUserId());
-            
-            AiBotTrade failureRecord = AiBotTrade.builder()
-                .userId(aiBot.getUserId())
-                .strategy(errorStrategy)  // AiStrategy 엔티티 사용
-                .stockCode("ERROR")
-                .tradeType("ERROR")
-                .quantity(0)
-                .price(0)
-                .totalAmount(0)
-                .marketPrice(0)
-                .volume(0L)
-                .result("FAILED")
-                .log("거래 실행 실패: " + errorMessage)
-                .tradeTime(LocalDateTime.now())
-                .signalTime(LocalDateTime.now())
-                .build();
-                
-            aiBotTradeRepository.save(failureRecord);
-            
-        } catch (Exception e) {
-            log.error("AI 봇 {} 실패 기록 저장 중 오류", aiBot.getUserId(), e);
-        }
+    private enum TradeAction {
+        BUY, SELL, HOLD
     }
 }

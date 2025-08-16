@@ -6,8 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 /**
  * 계좌 조회 응답 DTO
  * DB/Entity(Account) 필드와 1:1 매핑 - 명세서 기준
@@ -20,10 +18,10 @@ import java.time.LocalDateTime;
 public class AccountDto {
 
 	@Schema(description = "계좌 PK")
-	private Integer accountId;
+	private Long accountId;
 
 	@Schema(description = "사용자 PK")
-	private Integer userId;
+	private Long userId;
 
 	@Schema(description = "보유 현금")
 	private Integer balance;
@@ -35,11 +33,8 @@ public class AccountDto {
 	private Integer profit;
 
 	@Schema(description = "수익률")
-	private Float profitRate;
+	private Double profitRate;
 
-	@Schema(description = "생성일")
-	private LocalDateTime createdAt;
-
-	@Schema(description = "계좌구분(현시점/역사챌린지/ai_bot)")
-	private String type;
+	@Schema(description = "계좌구분(0:모의투자, 1:역사챌린지)")
+	private Integer type;
 }

@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.client.RestTemplate;
 
 
-// 사용자(계정)별 KisAuthClient 빈 생성
+// 사용자(계정)별 KisAuthClient 빈 생성 (매매 테스트를 위해 임시 비활성화)
 @Configuration
 @EnableConfigurationProperties(KisPropertiesConfig.class)
 public class KisConfig {

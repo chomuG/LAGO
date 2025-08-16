@@ -193,8 +193,10 @@ public final class TradingConstants {
     public static final String CHARACTER_JOSIM = "조심이";      // 안정추구형
     
     /**
-     * 투자 성향 → 캐릭터 이름 매핑
+     * 투자 성향 → 캐릭터 이름 매핑 (레거시 호환)
+     * @deprecated PersonalityType enum 사용 권장
      */
+    @Deprecated
     public static String getCharacterName(String personality) {
         return switch (personality) {
             case PERSONALITY_AGGRESSIVE -> CHARACTER_HWAKKEUN;
@@ -206,8 +208,10 @@ public final class TradingConstants {
     }
     
     /**
-     * 캐릭터 이름 → 투자 성향 매핑
+     * 캐릭터 이름 → 투자 성향 매핑 (레거시 호환)
+     * @deprecated PersonalityType enum 사용 권장
      */
+    @Deprecated
     public static String getPersonalityFromCharacter(String characterName) {
         return switch (characterName) {
             case CHARACTER_HWAKKEUN -> PERSONALITY_AGGRESSIVE;
@@ -236,17 +240,33 @@ public final class TradingConstants {
     
     // ===== 계좌 타입 상수 =====
     /**
-     * 현시점 계좌 타입
+     * 모의투자 계좌 타입 (정수값) - AI 봇도 이 타입 사용
+     */
+    public static final Integer ACCOUNT_TYPE_MOCK_TRADING = 0;
+    
+    /**
+     * 역사 챌린지 계좌 타입 (정수값)
+     */
+    public static final Integer ACCOUNT_TYPE_HISTORICAL_CHALLENGE = 1;
+    
+    /**
+     * AI 봇 계좌 타입 (정수값)
+     */
+    public static final Integer ACCOUNT_TYPE_AI_BOT = 2;
+    
+    // ===== 계좌 타입 상수 (레거시 String - 호환성 유지) =====
+    /**
+     * 현시점 계좌 타입 (레거시)
      */
     public static final String ACCOUNT_TYPE_CURRENT = "현시점";
     
     /**
-     * AI 봇 계좌 타입
+     * AI 봇 계좌 타입 (레거시)
      */
-    public static final String ACCOUNT_TYPE_AI_BOT = "ai_bot";
+    public static final String ACCOUNT_TYPE_AI_BOT_LEGACY = "ai_bot";
     
     /**
-     * 역사 챌린지 계좌 타입
+     * 역사 챌린지 계좌 타입 (레거시)
      */
     public static final String ACCOUNT_TYPE_HISTORY = "역사챌린지";
     

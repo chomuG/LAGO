@@ -32,9 +32,10 @@ public class ChallengeScheduler {
         LocalTime endTime = LocalTime.of(21, 0);   // 오후 9시
 
         // 오후 3시와 9시 사이일 때만 데이터 전송
-        if (now.isAfter(startTime) && now.isBefore(endTime)) {
+        // 테스트 및 시연을 위해 24시간으로 변경
+//        if (now.isAfter(startTime) && now.isBefore(endTime)) {
             HistoryChallengeDataResponse latestData = historyChallengeService.getLatestData();
             messagingTemplate.convertAndSend("/topic/history-challenge", latestData);
-        }
+//        }
     }
 }

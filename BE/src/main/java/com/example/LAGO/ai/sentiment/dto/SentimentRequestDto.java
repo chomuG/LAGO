@@ -54,7 +54,7 @@ public class SentimentRequestDto {
         description = "요청 사용자 ID (로깅용)", 
         example = "12345"
     )
-    private Integer userId;
+    private Long userId;
 
     /**
      * 관련 주식 코드 (선택사항)

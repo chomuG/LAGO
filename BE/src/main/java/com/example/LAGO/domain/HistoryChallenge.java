@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 
 @EntityListeners(AuditingEntityListener.class)
 @Entity
-@Table(name = "\"HISTORY_CHALLENGE\"")
+@Table(name = "history_challenge")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 public class HistoryChallenge {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "challenge_id")
     private Integer challengeId;
 

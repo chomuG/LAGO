@@ -9,7 +9,7 @@ import lombok.Getter;
 @Builder
 public class InterestResponse {
     private Integer interestId;
-    private Integer userId;
+    private Long userId;
     private String stockCode;
     private String stockName;
     public static InterestResponse from(Interest i) {

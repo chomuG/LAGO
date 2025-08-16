@@ -1,7 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(docker exec:*)",
+      "Bash(curl:*)",
+      "Bash(docker stop:*)",
+      "Bash(./gradlew:*)",
+      "Bash(psql:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(PGPASSWORD=ssafypw!! psql -h i13d203.p.ssafy.io -U ssafyuser -d stock_db -c \"SELECT user_id, nickname, email FROM users LIMIT 5;\")",
+      "Bash(docker run:*)",
+      "Bash(rm:*)",
+      "Bash(PGPASSWORD=ssafypw!! psql:*)",
+      "Bash(docker-compose:*)",
+      "Bash(timeout:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

@@ -1,11 +1,13 @@
 package com.example.LAGO.realtime;
 
 import com.example.LAGO.realtime.dto.TickData;
+// import com.example.LAGO.service.RealtimeTradingService;  // 서비스 제거됨
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -22,6 +24,7 @@ public class KisRealTimeDataProcessor {
     private final RealtimeDataService realtimeDataService;
     private final ObjectMapper objectMapper;
     private final RealTimeDataBroadcaster broadcaster;
+    // private final RealtimeTradingService realtimeTradingService;  // 서비스 제거됨
     
     // KIS API 데이터 스펙 상수
     private static final int EXPECTED_MIN_FIELDS = 13; // 최소 필요 필드 수
@@ -49,16 +52,20 @@ public class KisRealTimeDataProcessor {
     }
 
 
-    public KisRealTimeDataProcessor(RealtimeDataService realtimeDataService, ObjectMapper objectMapper, RealTimeDataBroadcaster broadcaster) {
+    public KisRealTimeDataProcessor(RealtimeDataService realtimeDataService, ObjectMapper objectMapper, 
+                                    RealTimeDataBroadcaster broadcaster) {
         this.realtimeDataService = realtimeDataService;
         this.objectMapper = objectMapper;
         this.broadcaster = broadcaster;
+        // this.realtimeTradingService = realtimeTradingService;  // 서비스 제거됨
     }
     
     // KIS 실시간 데이터 컬럼 인덱스 (필수 데이터만)
     private static final int MKSC_SHRN_ISCD = 0;  // 종목코드
     private static final int STCK_CNTG_HOUR = 1;  // 체결시간
     private static final int STCK_PRPR = 2;       // 현재가
+    private static final int PRDY_VRSS = 4;     // 전일 대비
+    private static final int PRDY_CTRT = 5;     // 등락률
     private static final int STCK_OPRC = 7;       // 시가
     private static final int STCK_HGPR = 8;       // 고가
     private static final int STCK_LWPR = 9;       // 저가
@@ -106,7 +113,10 @@ public class KisRealTimeDataProcessor {
         // 2. 실시간 프론트엔드 전송
         broadcaster.sendRealTimeData(tickData);
         
-        // TODO: 3. 1분봉 집계 서비스로 전달
+        // 3. 실시간 매매 처리 (AutoTradingBotService로 교체됨)
+        // realtimeTradingService.processRealtimeOrders(tickData);
+        
+        // TODO: 4. 1분봉 집계 서비스로 전달
         // minuteCandleService.addTick(tickData);
         
         log.debug("Processed and saved to Redis: {} - {}", tickData.getCode(), tickData.getClosePrice());
@@ -296,6 +306,8 @@ public class KisRealTimeDataProcessor {
                     .highPrice(parseInteger(recordFields[STCK_HGPR]))
                     .lowPrice(parseInteger(recordFields[STCK_LWPR]))
                     .volume(parseInteger(recordFields[CNTG_VOL]))
+                    .fluctuationRate((parseDecimal(recordFields[PRDY_CTRT])))
+                    .previousDay((parseInteger(recordFields[PRDY_VRSS])))   // 전일 대비
                     .build();
                     
         } catch (Exception e) {
@@ -328,8 +340,25 @@ public class KisRealTimeDataProcessor {
             return null;
         }
     }
-    
-    
+
+    /**
+     * BigDecimal 파싱(등락률)
+     * @param value 원시 값
+     * @return 파싱된 BigDecimal
+     */
+    private BigDecimal parseDecimal(String value) {
+        if (value == null) return null;
+        String s = value.trim();
+        if (s.isEmpty()) return null;
+        try {
+            // 문자열 기반 생성 (new BigDecimal(double) 금지)
+            return new BigDecimal(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+
     /**
      * 원시 메시지를 담는 내부 클래스
      */

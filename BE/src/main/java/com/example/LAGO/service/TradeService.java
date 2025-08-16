@@ -33,6 +33,40 @@ public class TradeService {
     private final StockInfoRepository stockInfoRepository;
     private final UserRepository userRepository;
     
+    // 수수료율 (0.25%)
+    private static final double COMMISSION_RATE = 0.0025;
+    
+    /**
+     * 수수료 계산
+     * @param price 주가
+     * @param quantity 수량
+     * @return 수수료
+     */
+    private Integer calculateCommission(Integer price, Integer quantity) {
+        long tradeAmount = (long) price * quantity;
+        return (int) Math.round(tradeAmount * COMMISSION_RATE);
+    }
+    
+    /**
+     * 매수 시 총 지불 금액 계산
+     * 총 지불 금액 = (주가 × 수량) + 수수료
+     */
+    private Integer calculateBuyTotalAmount(Integer price, Integer quantity) {
+        int baseAmount = price * quantity;
+        int commission = calculateCommission(price, quantity);
+        return baseAmount + commission;
+    }
+    
+    /**
+     * 매도 시 총 수령 금액 계산 
+     * 총 수령 금액 = (주가 × 수량) - 수수료
+     */
+    private Integer calculateSellTotalAmount(Integer price, Integer quantity) {
+        int baseAmount = price * quantity;
+        int commission = calculateCommission(price, quantity);
+        return baseAmount - commission;
+    }
+    
     /**
      * 모의 거래 처리 (간소화 버전)
      */
@@ -46,15 +80,17 @@ public class TradeService {
                 return MockTradeResponse.failure("ERROR", "필수 파라미터가 누락되었습니다.");
             }
             
+            // 종목 정보 조회
+            StockInfo stockInfo = stockInfoRepository.findByCode(request.getStockCode())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid stock code: " + request.getStockCode()));
+            
             // 거래 기록 생성 (간소화)
             MockTrade mockTrade = MockTrade.builder()
-                    .stockCode(request.getStockCode())
+                    .stockId(stockInfo.getStockInfoId())
                     .tradeType(request.getTradeType())
                     .quantity(request.getQuantity())
                     .price(1000) // 임시 가격
-                    .totalAmount(1000 * request.getQuantity())
-                    .tradeTime(LocalDateTime.now())
-                    .status("COMPLETED")
+                    .tradeAt(LocalDateTime.now())
                     .build();
             
             // 거래 기록 저장
@@ -64,14 +100,14 @@ public class TradeService {
             
             return MockTradeResponse.success(
                     mockTrade.getTradeId(), // Long 타입 그대로 사용
-                    mockTrade.getStockCode(),
-                    mockTrade.getStockCode(), // stockName 대신 임시로 stockCode 사용
+                    stockInfo.getCode(), // stockCode
+                    stockInfo.getName(), // stockName
                     mockTrade.getQuantity(),
                     mockTrade.getPrice(),
                     mockTrade.getTotalAmount(),
                     0, // commission
                     0, // remainingBalance (임시)
-                    mockTrade.getTradeType()
+                    mockTrade.getTradeType().name()
             );
             
         } catch (Exception e) {
@@ -102,7 +138,7 @@ public class TradeService {
      * 사용자 거래 실행 (StockController에서 호출)
      * 지침서 명세: API 명세서 기준, 파라미터/반환 구조 임의 변경 금지
      */
-    public TradeResponse executeUserTrade(Integer userId, TradeRequest request) {
+    public TradeResponse executeUserTrade(Long userId, TradeRequest request) {
         try {
             log.info("사용자 거래 실행: userId={}, stockCode={}, tradeType={}", 
                     userId, request.getStockCode(), request.getTradeType());
@@ -118,15 +154,32 @@ public class TradeService {
                         "INVALID_TRADE_REQUEST", "유효하지 않은 거래 요청입니다.");
             }
             
-            // MockTrade 엔티티 생성 (간소화 버전)
+            // 가격 및 수수료 계산
+            Integer price = request.getPrice() != null ? request.getPrice() : 75000;
+            Integer quantity = request.getQuantity();
+            Integer commission = calculateCommission(price, quantity);
+            Integer totalAmount;
+            
+            // 매수/매도에 따른 총 금액 계산
+            if (TradeType.BUY.equals(request.getTradeType())) {
+                totalAmount = calculateBuyTotalAmount(price, quantity);
+            } else {
+                totalAmount = calculateSellTotalAmount(price, quantity);
+            }
+            
+            // 종목 정보 조회
+            StockInfo stockInfo = stockInfoRepository.findByCode(request.getStockCode())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid stock code: " + request.getStockCode()));
+            
+            // MockTrade 엔티티 생성
             MockTrade mockTrade = MockTrade.builder()
-                    .stockCode(request.getStockCode())
+                    .accountId(request.getAccountType().longValue()) // 계좌 타입 필수
+                    .stockId(stockInfo.getStockInfoId()) // stock_info_id 설정
                     .tradeType(request.getTradeType())
-                    .quantity(request.getQuantity())
-                    .price(request.getPrice() != null ? request.getPrice() : 75000) // 임시 기본값
-                    .totalAmount((request.getPrice() != null ? request.getPrice() : 75000) * request.getQuantity())
-                    .tradeTime(LocalDateTime.now())
-                    .status("COMPLETED")
+                    .quantity(quantity)
+                    .price(price)
+                    .commission(commission)
+                    .tradeAt(LocalDateTime.now())
                     .build();
             
             // 거래 기록 저장
@@ -138,14 +191,14 @@ public class TradeService {
             return TradeResponse.success(
                     savedTrade.getTradeId(),
                     userId,
-                    savedTrade.getStockCode(),
-                    "종목명", // TODO: StockInfo에서 실제 종목명 조회 필요
+                    stockInfo.getCode(), // stockCode
+                    stockInfo.getName(), // stockName
                     savedTrade.getTradeType(),
                     savedTrade.getQuantity(),
                     savedTrade.getPrice(),
                     savedTrade.getTotalAmount(),
-                    0, // commission - TODO: 실제 수수료 계산 필요
-                    0, // tax - TODO: 실제 세금 계산 필요
+                    savedTrade.getCommission(), // 계산된 수수료
+                    0, // tax - 제거됨
                     1000000, // remainingBalance - TODO: 실제 잔고 조회 필요
                     "거래가 성공적으로 처리되었습니다."
             );
@@ -168,8 +221,7 @@ public class TradeService {
             if (request == null) return false;
             if (request.getStockCode() == null || request.getStockCode().isBlank()) return false;
             if (request.getTradeType() == null) return false;
-            String t = request.getTradeType().trim().toUpperCase();
-            if (!("BUY".equals(t) || "SELL".equals(t))) return false;
+            // TradeType enum이므로 이미 BUY 또는 SELL만 가능
             if (request.getQuantity() == null || request.getQuantity() <= 0) return false;
             if (request.getPrice() == null || request.getPrice() <= 0) return false;
             return true;

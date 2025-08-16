@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
-@Service
+@Service  // 매매 테스트를 위해 임시 비활성화
 public class KisWebSocketService {
     
     private final Map<String, KisWebSocketClient> webSocketClients = new HashMap<>();

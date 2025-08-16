@@ -13,7 +13,7 @@ import lombok.Builder;
  * EC2 데이터베이스 테이블명 CHART_PATTERN (대문자) 사용
  */
 @Entity
-@Table(name = "\"CHART_PATTERN\"")
+@Table(name = "chart_pattern")
 @Getter 
 @Setter
 @NoArgsConstructor
