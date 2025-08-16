@@ -144,7 +144,7 @@ class StockListRepositoryImpl @Inject constructor(
     override suspend fun toggleFavorite(stockCode: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("Authentication required"))
                 return@flow
@@ -193,7 +193,7 @@ class StockListRepositoryImpl @Inject constructor(
     override suspend fun isFavorite(stockCode: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("Authentication required"))
                 return@flow

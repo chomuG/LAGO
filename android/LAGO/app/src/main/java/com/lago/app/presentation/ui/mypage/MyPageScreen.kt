@@ -33,7 +33,7 @@ fun MyPageScreen(
     viewModel: MyPageViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val isLoggedIn = userPreferences.getAuthToken() != null
+    val isLoggedIn = userPreferences.getAccessToken() != null
     val username = userPreferences.getUsername() ?: "게스트"
     
     // 실시간 데이터 또는 기본 데이터 사용

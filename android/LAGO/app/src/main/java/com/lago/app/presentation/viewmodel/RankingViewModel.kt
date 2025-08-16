@@ -42,7 +42,7 @@ class RankingViewModel @Inject constructor(
      * 로그인 상태 확인
      */
     private fun checkLoginStatus() {
-        val isLoggedIn = userPreferences.getAuthToken() != null
+        val isLoggedIn = userPreferences.getAccessToken() != null
         _uiState.update { it.copy(isLoggedIn = isLoggedIn) }
     }
 

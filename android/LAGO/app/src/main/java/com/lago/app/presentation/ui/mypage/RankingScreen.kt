@@ -44,7 +44,7 @@ fun RankingScreen(
     viewModel: RankingViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val isLoggedIn = userPreferences.getAuthToken() != null
+    val isLoggedIn = userPreferences.getAccessToken() != null
 
     Column(
         modifier = Modifier

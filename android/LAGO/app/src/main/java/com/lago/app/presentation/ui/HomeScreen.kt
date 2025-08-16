@@ -76,8 +76,9 @@ fun HomeScreen(
     onStockClick: (String, String) -> Unit = { _, _ ->},
     viewModel: com.lago.app.presentation.viewmodel.home.HomeViewModel = hiltViewModel()
 ) {
-    val isLoggedIn = userPreferences.getAuthToken() != null
+    val isLoggedIn = userPreferences.getAccessToken() != null
     val username = userPreferences.getUsername() ?: "게스트"
+    android.util.Log.d("HomeScreen", "저장된 userId: ${userPreferences.getUserIdLong()}")
     val uiState by viewModel.uiState.collectAsState()
     // ViewModel에서 API로 가져온 매매봇 데이터 사용, 없으면 기본 데이터
     val tradingBots = if (uiState.tradingBots.isNotEmpty()) {

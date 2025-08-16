@@ -18,6 +18,8 @@ import com.lago.app.data.repository.UserRepositoryImpl
 import com.lago.app.domain.repository.UserRepository
 import com.lago.app.data.repository.RankingRepositoryImpl
 import com.lago.app.domain.repository.RankingRepository
+import com.lago.app.data.repository.AuthRepositoryImpl
+import com.lago.app.domain.repository.AuthRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -80,4 +82,10 @@ abstract class RepositoryModule {
     abstract fun bindTransactionRepository(
         transactionRepositoryImpl: TransactionRepositoryImpl
     ): TransactionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(
+        authRepositoryImpl: AuthRepositoryImpl
+    ): AuthRepository
 }
