@@ -105,18 +105,16 @@ def detect_single_pattern(pattern_config, ohlc_df):
         ohlc_copy = ohlc_df.copy()
         
         # 패턴 감지 함수 실행
-        ohlc_copy = pattern_config["function"](ohlc_copy, **pattern_config["params"])
+        ohlc_copy, details = pattern_config["function"](ohlc_copy, **pattern_config["params"])
         
         # 감지 결과 확인
         is_detected = pattern_config["result_check"](ohlc_copy)
 
         if is_detected:
-            # TODO: 감지된 패턴의 상세 정보(날짜, 신뢰도 등)를 추출하여
-            #       generate_judgement_reason 함수를 호출하도록 개선할 수 있습니다.
-            #       현재는 정적 이유를 사용합니다.
+            reason = generate_judgement_reason(pattern_config['name'], details)
             result = {
                 "name": pattern_config["name"],
-                "reason": pattern_config["reason"]
+                "reason": reason
             }
             return (result, ohlc_copy, pattern_config["display_options"])
         return None
@@ -137,7 +135,7 @@ def run_pattern_detection(ohlc_df):
                 result_tuple = future.result()
                 if result_tuple:
                     result, ohlc_result_df, display_options = result_tuple
-                    logger.debug(f"'{result['pattern_name']}' 패턴이 감지되었습니다!")
+                    logger.debug(f"'{result['name']}' 패턴이 감지되었습니다!")
                     detected_patterns.append(result)
 
                     # 차트 이미지 생성
@@ -178,18 +176,17 @@ def detect_patterns_endpoint():
     logger.info(f"패턴 감지 완료! 총 {len(detected_patterns)}개 패턴 감지.")
     return jsonify(detected_patterns)
 
+def generate_judgement_reason(pattern_name, details):
+    if not details:
+        return "패턴이 감지되었으나, 상세 정보를 생성할 수 없습니다."
 
-def generate_judgement_reason(pattern_type, slmin, slmax, rmin, rmax, dates, direction=None, neckline_break=False):
-    """
-    (참고) 이 함수는 동적 분석 결과를 생성하기 위해 정의되었으나,
-    현재 패턴 감지 함수들이 상세 정보(slmin, rmax 등)를 반환하지 않아 직접 사용되지 않고 있습니다.
-    향후 각 감지 모듈(doubles.py, flag.py 등)이 상세 분석 결과를 반환하도록 개선하면
-    이 함수를 활용하여 더욱 풍부한 분석 결과를 제공할 수 있습니다.
-    """
-    if pattern_type == "double_top":
+    pattern_type = details.get('pattern_type')
+    dates = details.get('dates', [])
+    
+    if pattern_name == "더블 탑 패턴":
         if len(dates) >= 2:
             reason = f"{dates[0]}와 {dates[1]}에 고점이 반복 형성되었으며, "
-            if neckline_break:
+            if details.get('neckline_break'):
                 reason += "넥라인을 돌파해 하락 반전 가능성이 높습니다."
             else:
                 reason += "아직 넥라인 돌파는 발생하지 않았습니다."
@@ -197,10 +194,10 @@ def generate_judgement_reason(pattern_type, slmin, slmax, rmin, rmax, dates, dir
         else:
             return "두 개의 고점이 형성되어야 하지만 충분하지 않습니다."
 
-    elif pattern_type == "double_bottom":
+    elif pattern_name == "더블 바텀 패턴":
         if len(dates) >= 2:
             reason = f"{dates[0]}와 {dates[1]}에 저점이 반복 형성되었으며, "
-            if neckline_break:
+            if details.get('neckline_break'):
                 reason += "넥라인을 돌파해 상승 반전 가능성이 높습니다."
             else:
                 reason += "아직 넥라인 돌파는 발생하지 않았습니다."
@@ -208,36 +205,39 @@ def generate_judgement_reason(pattern_type, slmin, slmax, rmin, rmax, dates, dir
         else:
             return "두 개의 저점이 형성되어야 하지만 충분하지 않습니다."
     
-    elif pattern_type == "flag":
+    elif pattern_name == "플래그 패턴":
+        direction = details.get('direction')
         trend = "상승 추세 후" if direction == "bullish" else "하락 추세 후"
-        confidence = "높은 신뢰도로" if rmax and rmax > 0.9 else "다소 불확실한 흐름 속에서"
+        confidence = "높은 신뢰도로" if details.get('rmax', 0) > 0.9 else "다소 불확실한 흐름 속에서"
         return f"{trend} 깃발 형태의 조정 구간이 {confidence} 나타났습니다. 추세 지속 가능성이 있습니다."
 
-    elif pattern_type == "head_and_shoulders":
+    elif pattern_name == "헤드 앤 숄더 패턴":
         return f"좌우 어깨와 머리 형태로 고점이 점차 낮아지는 패턴입니다. 하락 반전 가능성이 있습니다. 주요 고점: {', '.join(dates)}"
 
-    elif pattern_type == "inverse_head_and_shoulders":
+    elif pattern_name == "역 헤드 앤 숄더 패턴":
         return f"역 헤드 앤 숄더 패턴으로 바닥 다지기 후 상승세로 전환될 가능성이 있습니다. 주요 저점: {', '.join(dates)}"
     
-    elif pattern_type == "pennant":
+    elif pattern_name == "페넌트 패턴":
+        direction = details.get('direction')
         trend = "상승세" if direction == "bullish" else "하락세"
         return f"급격한 {trend} 이후 삼각 수렴형 조정이 발생했습니다. 패턴은 {', '.join(dates)}에 형성되었습니다."
 
-    elif pattern_type == "ascending_triangle":
-        if rmax > 0.9 and abs(slmax) < 0.001:
+    elif pattern_name == "상승 삼각형":
+        if details.get('rmax', 0) > 0.9 and abs(details.get('slmax', 0)) < 0.001:
             return f"저항선을 여러 차례 돌파 시도했으며, {', '.join(dates)}에 고점이 형성되었습니다. 상승 가능성이 높습니다."
         else:
             return "고점이 일정한 수평선을 이루며 매수세가 점차 강해지는 모습입니다."
 
-    elif pattern_type == "descending_triangle":
-        if rmin > 0.9 and abs(slmin) < 0.001:
+    elif pattern_name == "하락 삼각형":
+        if details.get('rmin', 0) > 0.9 and abs(details.get('slmin', 0)) < 0.001:
             return f"지지선을 여러 번 시험하는 하락형 패턴입니다. {', '.join(dates)}에 저점이 반복적으로 발생했습니다."
         else:
             return "저점이 수평선을 이루며 매도 압력이 강해지는 모습입니다."
 
-    elif pattern_type == "symmetrical_triangle":
+    elif pattern_name == "대칭 삼각형":
         return f"수렴형 삼각형 패턴으로, 고점과 저점이 점점 좁아지고 있습니다. 변동성 확대가 예상됩니다. ({', '.join(dates)} 기준)"
-
+    
+    return "알 수 없는 패턴입니다."
 
 if __name__ == "__main__":
     logger.info("Flask 서버 시작 중...")

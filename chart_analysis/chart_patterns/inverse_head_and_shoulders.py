@@ -102,19 +102,7 @@ def find_inverse_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivo
                 ohlc.at[candle_idx, "ihs_point"] = [ t[1] for t in list_idx_values]
  
                 # === 판단 근거 출력 ===
-                logging.debug("\n=== Inverse head and shoulder Detected ===")
-                logging.debug(f"candle_idx: {candle_idx}")
-                logging.debug(f"flag_highs: {maxim}")
-                logging.debug(f"flag_lows: {minim}")
-                logging.debug(f"pivot_high_count: {len(xxmax)}")
-                logging.debug(f"pivot_low_count: {len(xxmin)}")
-                logging.debug(f"lookback: {lookback}")
-                logging.debug("==============================\n")
-
-                # 추가로 판단 근거를 df에 컬럼으로 저장
-                ohlc.loc[candle_idx, "flag_pivot_high_count"] = len(xxmax)
-                ohlc.loc[candle_idx, "flag_pivot_low_count"] = len(xxmin)
-
+                logging.debug("\n=== Inverse head and shoulder Detected ===\nDetails: %s", details)
                 break
 
     return ohlc

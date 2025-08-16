@@ -13,6 +13,32 @@ from pivot_points import find_all_pivot_points
 from scipy.stats import linregress
 from tqdm import tqdm
 
+def get_flag_details(ohlc: pd.DataFrame):
+    """
+    감지된 플래그 패턴의 상세 정보를 추출합니다.
+    """
+    pattern_info = ohlc[ohlc['chart_type'] == 'flag']
+    if pattern_info.empty:
+        return {}
+
+    last_pattern = pattern_info.iloc[-1]
+    
+    # 플래그 방향 결정 (Bullish or Bearish)
+    direction = "bullish" if last_pattern['flag_slmax'] > 0 else "bearish"
+    
+    high_idx = last_pattern['flag_highs_idx']
+    low_idx = last_pattern['flag_lows_idx']
+    
+    start_date = ohlc.loc[min(high_idx[0], low_idx[0]), 'date'].strftime('%Y-%m-%d')
+    end_date = ohlc.loc[max(high_idx[-1], low_idx[-1]), 'date'].strftime('%Y-%m-%d')
+
+    return {
+        "dates": [start_date, end_date],
+        "direction": direction,
+        "rmax": last_pattern['flag_r2_high'],
+        "rmin": last_pattern['flag_r2_low']
+    }
+
 def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 3,
                       r_max: float = 0.9, r_min: float = 0.9, slope_max: float = 0, slope_min: float = 0, 
                       lower_ratio_slope: float = 0.9, upper_ratio_slope: float = 1.05,
@@ -135,4 +161,4 @@ def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 
 
                 break
                             
-    return ohlc 
+    return ohlc, {}

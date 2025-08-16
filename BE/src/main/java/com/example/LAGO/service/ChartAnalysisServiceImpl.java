@@ -111,7 +111,7 @@ public class ChartAnalysisServiceImpl implements ChartAnalysisService {
 
         try {
             log.info("Python 분석 서버로 차트 패턴 분석을 요청합니다...");
-            WebClient webClient = webClientBuilder.baseUrl("http://localhost:5000/detect-patterns").build();
+            WebClient webClient = webClientBuilder.baseUrl("http://192.168.0.2:5000/detect-patterns").build();
 
             return webClient.post()
                     .bodyValue(ohlcData)

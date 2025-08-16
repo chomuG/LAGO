@@ -103,21 +103,11 @@ def find_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivot_interv
                 ohlc.at[candle_idx, "hs_idx"]   = [ t[0] for t in list_idx_values]
                 ohlc.at[candle_idx, "hs_point"] = [ t[1] for t in list_idx_values]
        
-                # === 판단 근거 출력 ===
-                logging.debug("\n=== Head and shoulder Detected ===")
-                logging.debug(f"candle_idx: {candle_idx}")
-                logging.debug(f"hs_highs: {maxim}")
-                logging.debug(f"hs_lows: {minim}")
-                logging.debug(f"pivot_high_count: {len(xxmax)}")
-                logging.debug(f"pivot_low_count: {len(xxmin)}")
-                logging.debug(f"slope_low: {slmin:.6f}")
-                logging.debug(f"lookback: {lookback}")
-                logging.debug("==============================\n")
-
-                # 추가로 판단 근거를 df에 컬럼으로 저장
-                ohlc.loc[candle_idx, "hs_pivot_high_count"] = len(xxmax)
-                ohlc.loc[candle_idx, "hs_pivot_low_count"] = len(xxmin)
-
+                # === Head and shoulder Detected ===
+                # Details: %s
+                logging.debug("\n=== Head and shoulder Detected ===\nDetails: %s", details)
                 break
+
+    return ohlc, details
 
     return ohlc
