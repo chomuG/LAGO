@@ -53,4 +53,13 @@ class MinuteAggregator(
         }
         cur?.let { push(it, VolumeBar(it.time, volSum)) }
     }
+    
+    /**
+     * Reset aggregator state when timeframe changes
+     */
+    fun reset() {
+        currentKey = null
+        cur = null
+        volSum = 0
+    }
 }

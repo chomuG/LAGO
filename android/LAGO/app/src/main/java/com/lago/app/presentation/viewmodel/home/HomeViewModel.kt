@@ -56,7 +56,8 @@ class HomeViewModel @Inject constructor(
     private val smartWebSocketService: SmartStockWebSocketService,
     private val smartUpdateScheduler: SmartUpdateScheduler,
     private val closeDataService: CloseDataService,
-    private val hybridPriceCalculator: HybridPriceCalculator
+    private val hybridPriceCalculator: HybridPriceCalculator,
+    private val initialPriceService: com.lago.app.data.service.InitialPriceService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -65,8 +66,8 @@ class HomeViewModel @Inject constructor(
     // 캐시된 API 데이터
     private var cachedUserStatus: UserCurrentStatusDto? = null
     
-    // 하이브리드 가격 데이터
-    private var hybridPrices: Map<String, HybridPriceCalculator.HybridPriceData> = emptyMap()
+    // 초기 종가 캐시 (종목코드 -> 종가)
+    private var cachedClosePrices: Map<String, Double> = emptyMap()
     
     // 역사챌린지 가격 데이터
     private var historyChallengePrice: Map<String, Double> = emptyMap()
@@ -77,10 +78,17 @@ class HomeViewModel @Inject constructor(
         loadUserPortfolio()
         loadTradingBots()
         
+        // WebSocket 연결 시작
+        viewModelScope.launch {
+            android.util.Log.d("HomeViewModel", "🔌 HomeViewModel WebSocket 연결 시작")
+            smartWebSocketService.connect()
+        }
+        
         // WebSocket 연결 상태 모니터링 추가
         viewModelScope.launch {
             smartWebSocketService.connectionState.collect { state ->
                 android.util.Log.d("HomeViewModel", "🔗 WebSocket 연결 상태: $state")
+                android.util.Log.d("HomeViewModel", "📊 구독 통계: ${smartWebSocketService.getSubscriptionStats()}")
             }
         }
     }
@@ -108,6 +116,8 @@ class HomeViewModel @Inject constructor(
                 val userId = 5 // 임시 테스트용
                 val type = userPreferences.getInvestmentMode() // 저장된 투자 모드 사용
                 android.util.Log.d("HomeViewModel", "📡 API 요청 시작: userId=$userId, type=$type")
+                android.util.Log.d("HomeViewModel", "🔍 현재 투자모드 상세: ${if (type == 1) "역사챌린지" else "모의투자"}")
+                android.util.Log.d("HomeViewModel", "🎯 UserPreferences 저장값: ${userPreferences.getInvestmentMode()}")
 
                 userRepository.getUserCurrentStatus(userId, type).collect { resource ->
                     when (resource) {
@@ -130,8 +140,10 @@ class HomeViewModel @Inject constructor(
                                 // 역사챌린지 모드: 역사챌린지 가격 사용
                                 loadHistoryChallengePrice(stockCodes, userStatus)
                             } else {
-                                // 일반 모드: 하이브리드 가격 계산
-                                initializeHybridPrices(stockCodes, userStatus)
+                                // 모의투자 모드: REST API로 초기 가격 설정 후 실시간 업데이트
+                                android.util.Log.d("HomeViewModel", "💼 모의투자 모드: REST API로 초기 데이터 로드")
+                                android.util.Log.d("HomeViewModel", "📋 모의투자 보유종목: ${stockCodes.joinToString()}")
+                                loadInitialPricesFromApi(stockCodes, userStatus)
                             }
                         }
                         is Resource.Error -> {
@@ -158,33 +170,93 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * 하이브리드 가격 초기화
+     * REST API로 초기 가격 로드 (모의투자용)
      */
-    private fun initializeHybridPrices(stockCodes: List<String>, userStatus: UserCurrentStatusDto) {
+    private fun loadInitialPricesFromApi(stockCodes: List<String>, userStatus: UserCurrentStatusDto) {
         viewModelScope.launch {
             try {
-                android.util.Log.d("HomeViewModel", "🔄 하이브리드 가격 초기화 시작: ${stockCodes.size}개 종목")
+                android.util.Log.d("HomeViewModel", "📡 REST API로 최신 종가 조회 시작: ${stockCodes.size}개 종목")
+                android.util.Log.d("HomeViewModel", "📋 대상 종목들: ${stockCodes.joinToString()}")
+                stockCodes.forEachIndexed { index, code ->
+                    android.util.Log.d("HomeViewModel", "🔍 종목[$index]: '$code' (타입: ${code.javaClass.simpleName}, 길이: ${code.length})")
+                }
                 
-                val initialResult = hybridPriceCalculator.calculateInitialPrices(stockCodes)
-                hybridPrices = initialResult.prices
+                @Suppress("NewApi")
+                val initialPrices = initialPriceService.getLatestClosePrices(stockCodes)
                 
-                android.util.Log.d("HomeViewModel", "✅ 초기 가격 계산 완료: ${initialResult.successCount}/${stockCodes.size}개 성공")
+                android.util.Log.d("HomeViewModel", "📊 REST API 응답 확인: ${initialPrices.size}개 종목 가격 수신")
+                
+                android.util.Log.d("HomeViewModel", "✅ 초기 가격 조회 완료: ${initialPrices.size}/${stockCodes.size}개 성공")
+                
+                // 종가를 캐시에 저장 (Double 형태로)
+                cachedClosePrices = initialPrices.mapValues { (stockCode, closePrice) ->
+                    android.util.Log.d("HomeViewModel", "💰 $stockCode 초기 종가 캐시: ${closePrice}원")
+                    closePrice.toDouble()
+                }
+                
+                // 가격 정보를 StockRealTimeData 형태로 변환
+                val initialRealTimePrices = initialPrices.mapValues { (stockCode, closePrice) ->
+                    com.lago.app.domain.entity.StockRealTimeData(
+                        stockCode = stockCode,
+                        closePrice = closePrice.toLong(),
+                        tradePrice = closePrice.toLong(),
+                        currentPrice = closePrice.toLong(),
+                        changePrice = 0L,
+                        changeRate = 0.0
+                    )
+                }
                 
                 // 초기 포트폴리오 계산
-                updatePortfolioWithHybridPrices(userStatus)
+                updatePortfolioWithInitialPrices(userStatus, initialRealTimePrices)
                 
             } catch (e: Exception) {
-                android.util.Log.e("HomeViewModel", "❌ 하이브리드 가격 초기화 실패", e)
-                // 실패 시 기존 방식으로 폴백
-                if (MarketTimeUtils.isMarketOpen()) {
-                    updatePortfolioWithRealTimeData(userStatus)
-                } else {
-                    updatePortfolioWithCloseData(userStatus)
-                }
+                android.util.Log.e("HomeViewModel", "❌ REST API 초기 가격 로드 실패", e)
+                // 실패 시 기존 하이브리드 방식으로 폴백
+                updatePortfolioWithCloseData(userStatus)
             }
         }
     }
     
+    /**
+     * 초기 가격으로 포트폴리오 계산
+     */
+    private fun updatePortfolioWithInitialPrices(userStatus: UserCurrentStatusDto, initialPrices: Map<String, com.lago.app.domain.entity.StockRealTimeData>) {
+        try {
+            // 포트폴리오 계산
+            val portfolioSummary = com.lago.app.util.PortfolioCalculator.calculateMyPagePortfolio(
+                userStatus = userStatus,
+                realTimePrices = initialPrices
+            )
+            
+            // 홈 화면용 주식 데이터 생성
+            val stockList = userStatus.holdings.map { holding ->
+                val initialPrice = initialPrices[holding.stockCode]
+                createHomeStock(holding, initialPrice?.price?.toDouble())
+            }
+            
+            // UI 상태 업데이트
+            _uiState.update { 
+                it.copy(
+                    portfolioSummary = portfolioSummary,
+                    stockList = stockList,
+                    isLoading = false,
+                    errorMessage = null
+                )
+            }
+            
+            android.util.Log.d("HomeViewModel", "✅ 초기 가격 기반 포트폴리오 계산 완료")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "💥 초기 가격 포트폴리오 계산 오류: ${e.localizedMessage}", e)
+            _uiState.update { 
+                it.copy(
+                    isLoading = false,
+                    errorMessage = "초기 데이터 로드 중 오류가 발생했습니다: ${e.localizedMessage}"
+                )
+            }
+        }
+    }
+
     /**
      * 역사챌린지 가격 로드
      */
@@ -204,13 +276,17 @@ class HomeViewModel @Inject constructor(
                                 challengeData.stockCode to challengeData.currentPrice.toDouble()
                             )
                             
+                            // 역사챌린지 WebSocket 구독 시작
+                            android.util.Log.d("HomeViewModel", "🏛️ 역사챌린지 WebSocket 구독 시작")
+                            smartWebSocketService.subscribeToHistoryChallenge(challengeData.stockCode)
+                            
                             // 역사챌린지 가격으로 포트폴리오 계산
                             updatePortfolioWithHistoryPrice(userStatus)
                         }
                         is Resource.Error -> {
                             android.util.Log.e("HomeViewModel", "❌ 역사챌린지 가격 로드 실패: ${resource.message}")
                             // 실패 시 기본 가격 계산으로 폴백
-                            initializeHybridPrices(stockCodes, userStatus)
+                            updatePortfolioWithCloseData(userStatus)
                         }
                         is Resource.Loading -> {
                             android.util.Log.d("HomeViewModel", "⏳ 역사챌린지 가격 로딩 중...")
@@ -221,7 +297,7 @@ class HomeViewModel @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "💥 역사챌린지 가격 로드 예외: ${e.localizedMessage}", e)
                 // 실패 시 기본 가격 계산으로 폴백
-                initializeHybridPrices(stockCodes, userStatus)
+                updatePortfolioWithCloseData(userStatus)
             }
         }
     }
@@ -284,45 +360,55 @@ class HomeViewModel @Inject constructor(
     private fun observeRealTimeUpdates() {
         viewModelScope.launch {
             android.util.Log.d("HomeViewModel", "🔌 observeRealTimeUpdates 시작 - 소켓 감시 중...")
-            
-            // 1초마다 한 번만 업데이트 (쓰로틀링)
+
             realTimeStockCache.quotes
                 .sample(1000.milliseconds)
                 .collect { quotesMap ->
                     android.util.Log.d("HomeViewModel", "🔥 소켓 데이터 수신! 종목 수: ${quotesMap.size}")
-                    
-                    if (quotesMap.isEmpty()) {
-                        android.util.Log.w("HomeViewModel", "⚠️ 빈 소켓 데이터 수신")
+
+                    val userStatus = cachedUserStatus
+                    if (userStatus == null) {
+                        android.util.Log.w("HomeViewModel", "⚠️ cachedUserStatus가 null - 소켓 데이터 무시")
                         return@collect
                     }
-                    
-                    cachedUserStatus?.let { userStatus ->
-                        val investmentMode = userPreferences.getInvestmentMode()
-                        android.util.Log.d("HomeViewModel", "🎯 투자모드: $investmentMode, 역사가격맵크기: ${historyChallengePrice.size}, 하이브리드맵크기: ${hybridPrices.size}")
-                        
-                        when {
-                            investmentMode == 1 && historyChallengePrice.isNotEmpty() -> {
-                                android.util.Log.d("HomeViewModel", "🏛️ 역사챌린지 모드로 진입")
-                                // 역사챌린지 모드: 소켓 데이터로 역사가격 업데이트
-                                updateHistoryPriceWithRealTime(quotesMap, userStatus)
+
+                    val investmentMode = userPreferences.getInvestmentMode()
+
+                    if (quotesMap.isEmpty()) {
+                        android.util.Log.w("HomeViewModel", "⚠️ 빈 소켓 데이터 수신 - 캐시 기반 처리")
+                        when (investmentMode) {
+                            1 -> { // 역사
+                                if (historyChallengePrice.isNotEmpty()) {
+                                    updatePortfolioWithHistoryPrice(userStatus)
+                                }
                             }
-                            hybridPrices.isNotEmpty() -> {
-                                android.util.Log.d("HomeViewModel", "🔄 하이브리드 모드로 진입")
-                                // 하이브리드 모드: 실시간 데이터로 업데이트
-                                updateHybridPricesWithRealTime(quotesMap, userStatus)
-                            }
-                            else -> {
-                                android.util.Log.d("HomeViewModel", "🔙 폴백 모드로 진입")
-                                // 폴백 모드: 기존 방식
-                                updatePortfolioWithRealTimeData(userStatus)
+                            else -> { // 모의
+                                if (cachedClosePrices.isNotEmpty()) {
+                                    updatePortfolioWithCachedPrices(userStatus)
+                                }
                             }
                         }
-                    } ?: run {
-                        android.util.Log.w("HomeViewModel", "⚠️ cachedUserStatus가 null - 소켓 데이터 무시")
+                        return@collect
+                    }
+
+                    when (investmentMode) {
+                        1 -> {
+                            // 역사: 역사 소켓 키 규칙 그대로 사용
+                            if (historyChallengePrice.isNotEmpty()) {
+                                updateHistoryPriceWithRealTime(quotesMap, userStatus)
+                            } else {
+                                android.util.Log.w("HomeViewModel", "🏛️ 역사챌린지 모드: 역사가격 데이터 없음 - 스킵")
+                            }
+                        }
+                        else -> {
+                            // 모의: 종가 캐시 + 일반 소켓 합성
+                            updatePortfolioWithRealTimeData(userStatus)
+                        }
                     }
                 }
         }
     }
+
 
     /**
      * 역사챌린지 가격을 실시간 데이터로 업데이트
@@ -335,7 +421,7 @@ class HomeViewModel @Inject constructor(
             
             // 소켓에서 받은 모든 종목 로그
             realTimeQuotes.forEach { (code, data) ->
-                android.util.Log.d("HomeViewModel", "📡 소켓 데이터: $code = ${data.price}원")
+                android.util.Log.d("HomeViewModel", "📡 소켓 데이터: $code = ${data.closePrice}원")
             }
             
             // 현재 역사챌린지 가격 맵 로그
@@ -343,17 +429,29 @@ class HomeViewModel @Inject constructor(
                 android.util.Log.d("HomeViewModel", "🏛️ 역사가격: $code = ${price}원")
             }
             
+            // 사용자 보유종목 로그
+            android.util.Log.d("HomeViewModel", "💼 보유종목: ${userStatus.holdings.map { "${it.stockCode}(${it.stockName})" }.joinToString()}")
+            
             // 기존 역사챌린지 가격을 실시간 데이터로 업데이트
             val updatedHistoryPrice = historyChallengePrice.toMutableMap()
-            realTimeQuotes.forEach { (stockCode, realTimeData) ->
-                if (updatedHistoryPrice.containsKey(stockCode)) {
+            
+            // 역사챌린지 전용 키로 데이터 조회
+            historyChallengePrice.keys.forEach { stockCode ->
+                val historyChallengeKey = "HISTORY_CHALLENGE_$stockCode"
+                val realTimeData = realTimeQuotes[historyChallengeKey]
+                
+                if (realTimeData != null) {
                     val oldPrice = updatedHistoryPrice[stockCode]
-                    updatedHistoryPrice[stockCode] = realTimeData.price.toDouble()
-                    android.util.Log.d("HomeViewModel", "📈 $stockCode 가격 업데이트: ${oldPrice}원 → ${realTimeData.price}원")
+                    val newPrice = realTimeData.closePrice?.toDouble()
+                    if (newPrice != null) {
+                        updatedHistoryPrice[stockCode] = newPrice
+                        android.util.Log.d("HomeViewModel", "📈 $stockCode 가격 업데이트: ${oldPrice}원 → ${newPrice}원 (키: $historyChallengeKey)")
+                    }
                 } else {
-                    android.util.Log.d("HomeViewModel", "❌ $stockCode 역사챌린지 맵에 없음 (업데이트 스킵)")
+                    android.util.Log.d("HomeViewModel", "❌ $stockCode 역사챌린지 소켓 데이터 없음 (키: $historyChallengeKey)")
                 }
             }
+            
             historyChallengePrice = updatedHistoryPrice
             
             // 업데이트된 역사챌린지 가격으로 포트폴리오 재계산
@@ -363,25 +461,133 @@ class HomeViewModel @Inject constructor(
             android.util.Log.e("HomeViewModel", "💥 역사챌린지 실시간 업데이트 오류: ${e.localizedMessage}", e)
         }
     }
-    
+
     /**
-     * 하이브리드 가격으로 포트폴리오 계산
+     * 실시간 데이터와 결합하여 포트폴리오 계산 (폴백용)
      */
-    private fun updatePortfolioWithHybridPrices(userStatus: UserCurrentStatusDto) {
+    private fun updatePortfolioWithRealTimeData(userStatus: UserCurrentStatusDto) {
+        viewModelScope.launch {
+            try {
+                val quotes = realTimeStockCache.quotes.value
+                val useCachedBase = cachedClosePrices.isNotEmpty()
+
+                // 1) 모드 확인
+                val mode = userPreferences.getInvestmentMode()
+                if (mode == 1) {
+                    // 안전가드: 역사 모드에서는 이 함수가 호출되지 않는 게 정상
+                    android.util.Log.w("HomeViewModel", "⚠️ 역사 모드에서 updatePortfolioWithRealTimeData 호출됨 - 무시")
+                    updatePortfolioWithHistoryPrice(userStatus)
+                    return@launch
+                }
+
+                // 2) 합성 가격 맵 생성 (모의)
+                //    - 종가 캐시가 있으면: 소켓 현재가가 있으면 그걸 사용, 없으면 종가
+                //    - 종가 캐시가 비어있으면: 소켓 현재가만 사용(있을 때), 없으면 빈 맵
+                val merged: Map<String, com.lago.app.domain.entity.StockRealTimeData> = buildMap {
+                    val codes = userStatus.holdings.map { it.stockCode }.toSet()
+
+                    if (useCachedBase) {
+                        // 종가 기반으로 초기화
+                        codes.forEach { code ->
+                            val baseClose = cachedClosePrices[code]
+                            if (baseClose != null) {
+                                put(
+                                    code,
+                                    com.lago.app.domain.entity.StockRealTimeData(
+                                        stockCode = code,
+                                        closePrice = baseClose.toLong(),
+                                        tradePrice = baseClose.toLong(),
+                                        currentPrice = baseClose.toLong(),
+                                        changePrice = 0L,
+                                        changeRate = 0.0
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    // 소켓 실시간 반영: 있으면 덮어씀
+                    codes.forEach { code ->
+                        val rt = quotes[code]
+                        if (rt != null) {
+                            put(code, rt)
+                        }
+                    }
+                }
+
+                // 3) 포트폴리오 계산 및 UI 반영
+                val portfolioSummary = PortfolioCalculator.calculateMyPagePortfolio(
+                    userStatus = userStatus,
+                    realTimePrices = merged
+                )
+
+                val stockList = userStatus.holdings.map { holding ->
+                    // 표시용 현재가: 소켓이 있으면 소켓 가격, 없으면 종가
+                    val price =
+                        quotes[holding.stockCode]?.price
+                            ?: cachedClosePrices[holding.stockCode]
+                    createHomeStock(holding, price)
+                }
+
+                _uiState.update {
+                    it.copy(
+                        portfolioSummary = portfolioSummary,
+                        stockList = stockList,
+                        isLoading = false,
+                        errorMessage = null
+                    )
+                }
+
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "💥 실시간 데이터 처리 오류: ${e.localizedMessage}", e)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "실시간 데이터 처리 중 오류가 발생했습니다: ${e.localizedMessage}"
+                    )
+                }
+            }
+        }
+    }
+
+
+    /**
+     * 캐시된 종가를 사용해서 포트폴리오 계산
+     */
+    private fun updatePortfolioWithCachedPrices(userStatus: UserCurrentStatusDto) {
         try {
-            // 하이브리드 가격을 StockRealTimeData 형태로 변환
-            val hybridRealTimePrices = hybridPriceCalculator.toStockRealTimeDataMap(hybridPrices)
+            android.util.Log.d("HomeViewModel", "💾 캐시된 종가로 포트폴리오 계산 시작")
+            android.util.Log.d("HomeViewModel", "📋 캐시된 종가: ${cachedClosePrices.size}개 종목")
             
-            // 포트폴리오 계산
+            if (cachedClosePrices.isEmpty()) {
+                android.util.Log.w("HomeViewModel", "⚠️ 캐시된 종가 없음 - API로 종가 조회")
+                updatePortfolioWithCloseData(userStatus)
+                return
+            }
+            
+            // 캐시된 종가를 실시간 가격 형태로 변환
+            val cachedRealTimePrices = cachedClosePrices.mapValues { (stockCode, closePrice) ->
+                android.util.Log.v("HomeViewModel", "💾 $stockCode 캐시 종가 사용: ${closePrice}원")
+                com.lago.app.domain.entity.StockRealTimeData(
+                    stockCode = stockCode,
+                    closePrice = closePrice.toLong(),
+                    tradePrice = closePrice.toLong(),
+                    currentPrice = closePrice.toLong(),
+                    changePrice = 0L,
+                    changeRate = 0.0
+                )
+            }
+            
+            // 포트폴리오 계산 (캐시된 종가 기준)
             val portfolioSummary = PortfolioCalculator.calculateMyPagePortfolio(
                 userStatus = userStatus,
-                realTimePrices = hybridRealTimePrices
+                realTimePrices = cachedRealTimePrices
             )
             
-            // 홈 화면용 주식 데이터 생성
+            // 홈 화면용 주식 데이터 생성 (캐시된 종가 기준)
             val stockList = userStatus.holdings.map { holding ->
-                val hybridPrice = hybridPrices[holding.stockCode]
-                createHomeStock(holding, hybridPrice?.currentPrice?.toDouble())
+                val cachedPrice = cachedClosePrices[holding.stockCode]
+                createHomeStock(holding, cachedPrice)
             }
             
             // UI 상태 업데이트
@@ -394,95 +600,45 @@ class HomeViewModel @Inject constructor(
                 )
             }
             
-            android.util.Log.d("HomeViewModel", "📊 하이브리드 포트폴리오 계산 완료")
+            android.util.Log.d("HomeViewModel", "✅ 캐시된 종가 기준 포트폴리오 계산 완료")
             
         } catch (e: Exception) {
-            android.util.Log.e("HomeViewModel", "💥 하이브리드 포트폴리오 계산 오류: ${e.localizedMessage}", e)
-            _uiState.update { 
-                it.copy(
-                    isLoading = false,
-                    errorMessage = "포트폴리오 계산 중 오류가 발생했습니다: ${e.localizedMessage}"
-                )
-            }
-        }
-    }
-    
-    /**
-     * 실시간 데이터로 하이브리드 가격 업데이트
-     */
-    private fun updateHybridPricesWithRealTime(realTimeQuotes: Map<String, com.lago.app.domain.entity.StockRealTimeData>, userStatus: UserCurrentStatusDto) {
-        try {
-            // 하이브리드 가격을 실시간 데이터로 업데이트
-            hybridPrices = hybridPriceCalculator.updateWithRealTimeData(hybridPrices, realTimeQuotes)
-            
-            // 업데이트된 하이브리드 가격으로 포트폴리오 재계산
-            updatePortfolioWithHybridPrices(userStatus)
-            
-        } catch (e: Exception) {
-            android.util.Log.e("HomeViewModel", "💥 하이브리드 실시간 업데이트 오류: ${e.localizedMessage}", e)
-        }
-    }
-    
-    /**
-     * 실시간 데이터와 결합하여 포트폴리오 계산 (폴백용)
-     */
-    private fun updatePortfolioWithRealTimeData(userStatus: UserCurrentStatusDto) {
-        viewModelScope.launch {
-            try {
-                // 실시간 가격 데이터 가져오기
-                val realTimePrices = realTimeStockCache.quotes.value
-                
-                // 포트폴리오 계산
-                val portfolioSummary = PortfolioCalculator.calculateMyPagePortfolio(
-                    userStatus = userStatus,
-                    realTimePrices = realTimePrices
-                )
-                
-                // 홈 화면용 주식 데이터 생성
-                val stockList = userStatus.holdings.map { holding ->
-                    createHomeStock(holding, realTimePrices[holding.stockCode]?.price)
-                }
-                
-                // UI 상태 업데이트
-                _uiState.update { 
-                    it.copy(
-                        portfolioSummary = portfolioSummary,
-                        stockList = stockList,
-                        isLoading = false,
-                        errorMessage = null
-                    )
-                }
-                
-            } catch (e: Exception) {
-                android.util.Log.e("HomeViewModel", "💥 실시간 데이터 처리 오류: ${e.localizedMessage}", e)
-                _uiState.update { 
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = "실시간 데이터 처리 중 오류가 발생했습니다: ${e.localizedMessage}"
-                    )
-                }
-            }
+            android.util.Log.e("HomeViewModel", "❌ 캐시 데이터 처리 오류: ${e.localizedMessage}", e)
+            // 캐시 실패 시 API로 폴백
+            updatePortfolioWithCloseData(userStatus)
         }
     }
 
     /**
-     * 장 마감 시 종가 데이터로 포트폴리오 계산
+     * API로 종가 조회해서 포트폴리오 계산 (폴백용)
      */
     private fun updatePortfolioWithCloseData(userStatus: UserCurrentStatusDto) {
         viewModelScope.launch {
             try {
-                android.util.Log.d("HomeViewModel", "🔒 장 마감 - 종가 데이터로 포트폴리오 계산 시작")
+                android.util.Log.d("HomeViewModel", "🔒 API로 종가 조회 - 포트폴리오 계산 시작")
                 
                 // 보유 종목 코드 리스트
                 val stockCodes = userStatus.holdings.map { it.stockCode }
                 android.util.Log.d("HomeViewModel", "📋 종가 조회 대상: ${stockCodes.joinToString()}")
                 
-                // REST API로 종가 데이터 조회
-                val closePrices = closeDataService.getPortfolioClosePrices(stockCodes)
-                android.util.Log.d("HomeViewModel", "💰 종가 데이터: $closePrices")
+                // InitialPriceService로 최신 종가 조회 (더 안정적)
+                val closePrices = try {
+                    val apiResult = initialPriceService.getLatestClosePrices(stockCodes)
+                    // API 결과를 캐시에도 저장
+                    cachedClosePrices = apiResult.mapValues { it.value.toDouble() }
+                    android.util.Log.d("HomeViewModel", "💾 API 결과를 캐시에 저장: ${cachedClosePrices.size}개 종목")
+                    apiResult
+                } catch (e: Exception) {
+                    android.util.Log.e("HomeViewModel", "❌ InitialPriceService 실패, CloseDataService로 폴백", e)
+                    // 폴백: 기존 CloseDataService 사용
+                    closeDataService.getPortfolioClosePrices(stockCodes)
+                }
+                
+                android.util.Log.d("HomeViewModel", "💰 종가 데이터: ${closePrices.size}개 종목 가격 확보")
                 
                 // 종가를 실시간 가격 형태로 변환
                 val closeRealTimePrices = closePrices.mapValues { (stockCode, closePrice) ->
+                    android.util.Log.d("HomeViewModel", "💰 $stockCode API 종가: ${closePrice}원")
                     com.lago.app.domain.entity.StockRealTimeData(
                         stockCode = stockCode,
                         closePrice = closePrice.toLong(),
@@ -515,7 +671,7 @@ class HomeViewModel @Inject constructor(
                     )
                 }
                 
-                android.util.Log.d("HomeViewModel", "✅ 장 마감 포트폴리오 계산 완료")
+                android.util.Log.d("HomeViewModel", "✅ API 종가 기준 포트폴리오 계산 완료")
                 
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "❌ 종가 데이터 처리 오류: ${e.localizedMessage}", e)
@@ -573,15 +729,47 @@ class HomeViewModel @Inject constructor(
                                 is Resource.Success -> {
                                     val userStatus = resource.data!!
                                     
-                                    // 총자산 계산 (잔고 + 보유종목 총 평가액)
-                                    val totalAssets = userStatus.balance + userStatus.holdings.sumOf { 
-                                        it.totalPurchaseAmount 
+                                    // 매매봇 보유 종목들을 WebSocket 구독에 추가
+                                    val botStockCodes = userStatus.holdings.map { it.stockCode }
+                                    if (botStockCodes.isNotEmpty()) {
+                                        smartWebSocketService.updatePortfolioStocks(botStockCodes)
+                                        android.util.Log.d("HomeViewModel", "🤖📡 봇 $botId 종목 WebSocket 구독: ${botStockCodes.joinToString()}")
                                     }
                                     
-                                    // 수익 계산 (총평가액 - 총매수액)
-                                    val totalPurchase = userStatus.holdings.sumOf { it.totalPurchaseAmount }
+                                    // 🔄 매매봇 종목들의 하이브리드 가격 계산 (종가 기준)
+                                    val botHybridPrices = try {
+                                        val initialResult = hybridPriceCalculator.calculateInitialPrices(botStockCodes)
+                                        android.util.Log.d("HomeViewModel", "🤖💰 봇 $botId 하이브리드 가격 계산: ${initialResult.successCount}/${botStockCodes.size}개 성공")
+                                        initialResult.prices
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("HomeViewModel", "🤖❌ 봇 $botId 하이브리드 가격 계산 실패", e)
+                                        emptyMap()
+                                    }
+                                    
+                                    // 📊 PortfolioCalculator 사용해서 유저 모의투자와 동일하게 계산
+                                    val realTimePrices = if (botHybridPrices.isNotEmpty()) {
+                                        // 매매봇 전용 하이브리드 가격을 실시간 데이터로 변환
+                                        hybridPriceCalculator.toStockRealTimeDataMap(botHybridPrices)
+                                    } else {
+                                        // 폴백: 실시간 캐시 사용
+                                        realTimeStockCache.quotes.value
+                                    }
+                                    
+                                    val portfolioSummary = PortfolioCalculator.calculateMyPagePortfolio(
+                                        userStatus = userStatus,
+                                        realTimePrices = realTimePrices
+                                    )
+                                    
+                                    val totalAssets = userStatus.balance + portfolioSummary.totalCurrentValue
                                     val profitLoss = totalAssets - 1000000 // 초기자금 1000만원 가정
                                     val profitRate = if (totalAssets > 0) (profitLoss.toDouble() / 1000000) * 100 else 0.0
+                                    
+                                    android.util.Log.d("HomeViewModel", "🤖💰 봇 $botId 자산 계산 (PortfolioCalculator 사용):")
+                                    android.util.Log.d("HomeViewModel", "   잔고: ${userStatus.balance}")
+                                    android.util.Log.d("HomeViewModel", "   보유종목 평가액: ${portfolioSummary.totalCurrentValue}")
+                                    android.util.Log.d("HomeViewModel", "   총자산: $totalAssets")
+                                    android.util.Log.d("HomeViewModel", "   매매봇 하이브리드 가격 사용: ${botHybridPrices.isNotEmpty()}")
+                                    android.util.Log.d("HomeViewModel", "   실시간 가격 데이터: ${realTimePrices.size}개")
                                     
                                     // 봇 정보 생성
                                     val bot = when (botId) {
@@ -666,46 +854,60 @@ class HomeViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             _uiState.update { it.copy(refreshing = true) }
-            
+
             android.util.Log.d("HomeViewModel", "🔄 새로고침: ${MarketTimeUtils.getMarketStatusString()}")
-            
-            // 하이브리드 가격 데이터 초기화
-            hybridPrices = emptyMap()
-            historyChallengePrice = emptyMap()
-            
+
+            val mode = userPreferences.getInvestmentMode()
+            if (mode == 1) {
+                historyChallengePrice = emptyMap()
+            } else {
+                cachedClosePrices = emptyMap()
+            }
+
             loadUserPortfolio()
-            loadTradingBots() // 매매봇 데이터도 새로고침
+            loadTradingBots() // 봇은 유지
             _uiState.update { it.copy(refreshing = false) }
         }
     }
+
 
     /**
      * 투자 모드 변경 시 호출 (스위치 변경)
      */
     fun onInvestmentModeChanged() {
+        android.util.Log.d("HomeViewModel", "🔄 투자 모드 변경 - 계좌 스위치 감지")
+
         cachedUserStatus?.let { userStatus ->
             val stockCodes = userStatus.holdings.map { it.stockCode }
             val newType = userPreferences.getInvestmentMode()
-            
-            android.util.Log.d("HomeViewModel", "🔄 투자 모드 변경: type=$newType")
-            
-            // 기존 가격 데이터 초기화
-            hybridPrices = emptyMap()
-            historyChallengePrice = emptyMap()
-            
-            // 새로운 모드에 맞는 가격 데이터 로드
+
+            android.util.Log.d("HomeViewModel", "🎯 모드 변경: type=$newType (${if (newType == 1) "역사챌린지" else "모의투자"})")
+
+            _uiState.update { it.copy(isLoading = true) }
+
             if (newType == 1) {
-                // 역사챌린지 모드로 변경
+                // 역사모드: 역사 가격 로드, 모의 캐시는 보존
+                historyChallengePrice = emptyMap()
+                smartWebSocketService.subscribeToHistoryChallenge(null.toString()) // 필요한 경우 재구독 준비
                 loadHistoryChallengePrice(stockCodes, userStatus)
             } else {
-                // 일반 모드로 변경
-                initializeHybridPrices(stockCodes, userStatus)
+                // 모의모드: 역사 데이터 클리어, 캐시 종가 즉시 사용 (없으면 API)
+                smartWebSocketService.unsubscribeFromHistoryChallenge()
+                historyChallengePrice = emptyMap()
+
+                if (cachedClosePrices.isNotEmpty()) {
+                    updatePortfolioWithCachedPrices(userStatus)
+                } else {
+                    updatePortfolioWithCloseData(userStatus)
+                }
             }
         } ?: run {
-            // 캐시된 데이터가 없으면 전체 데이터 다시 로드
+            // 캐시된 상태가 없으면 전체 로드
+            android.util.Log.d("HomeViewModel", "📡 캐시 없음 - 전체 포트폴리오 재로드")
             loadUserPortfolio()
         }
     }
+
 
     /**
      * 로그인 후 호출

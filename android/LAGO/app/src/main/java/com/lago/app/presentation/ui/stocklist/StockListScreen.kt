@@ -607,14 +607,13 @@ private fun HistoryChallengeStockItem(
                 
                 Spacer(modifier = Modifier.width(8.dp))
                 
-                // 변동률과 변동금액 (현재 금액 바로 오른쪽)
-                val isPositive = stock.fluctuationRate >= 0
+                // 변동률과 변동금액 (WebSocket 실제 데이터 사용)
+                val isPositive = stock.changePrice >= 0
                 val changeColor = if (isPositive) MainPink else MainBlue
                 val changeSign = if (isPositive) "+" else ""
-                val changeAmount = (stock.currentPrice * stock.fluctuationRate / 100).toInt()
                 
                 Text(
-                    text = "${changeSign}${String.format("%,d", kotlin.math.abs(changeAmount))}(${String.format("%.2f", kotlin.math.abs(stock.fluctuationRate))}%)",
+                    text = "${changeSign}${String.format("%,d", stock.changePrice.toInt())}(${String.format("%.2f", kotlin.math.abs(stock.fluctuationRate))}%)",
                     style = R_12,
                     color = changeColor
                 )

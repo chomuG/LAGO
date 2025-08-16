@@ -22,7 +22,7 @@ object DataConverter {
     fun createTimeScaleOptions(timeFrame: String): TimeScaleOptions {
         return when (timeFrame) {
             "1", "3", "5", "10", "15", "30" -> {
-                // 분봉: 시:분 형식으로 표시
+                // 분봉: 시:분 형식으로 표시 (KST 적용)
                 TimeScaleOptions(
                     timeVisible = true,
                     secondsVisible = false,
@@ -31,14 +31,14 @@ object DataConverter {
                     barSpacing = 6,
                     tickMarkFormatter = """
                         function(time) {
-                            var date = new Date(time);
-                            return ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2);
+                            var date = new Date((time + (9 * 60 * 60)) * 1000);
+                            return ('0' + date.getUTCHours()).slice(-2) + ':' + ('0' + date.getUTCMinutes()).slice(-2);
                         }
                     """.trimIndent()
                 )
             }
             "60" -> {
-                // 1시간봉: 월/일 시:분 형식
+                // 1시간봉: 월/일 시:분 형식 (KST 적용)
                 TimeScaleOptions(
                     timeVisible = true,
                     secondsVisible = false,
@@ -47,15 +47,15 @@ object DataConverter {
                     barSpacing = 6,
                     tickMarkFormatter = """
                         function(time) {
-                            var date = new Date(time);
-                            return (date.getMonth() + 1) + '/' + date.getDate() + ' ' + 
-                                   ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2);
+                            var date = new Date((time + (9 * 60 * 60)) * 1000);
+                            return (date.getUTCMonth() + 1) + '/' + date.getUTCDate() + ' ' + 
+                                   ('0' + date.getUTCHours()).slice(-2) + ':' + ('0' + date.getUTCMinutes()).slice(-2);
                         }
                     """.trimIndent()
                 )
             }
             "D" -> {
-                // 일봉: 월/일 형식
+                // 일봉: 월/일 형식 (KST 적용)
                 TimeScaleOptions(
                     timeVisible = true,
                     secondsVisible = false,
@@ -64,14 +64,14 @@ object DataConverter {
                     barSpacing = 6,
                     tickMarkFormatter = """
                         function(time) {
-                            var date = new Date(time);
-                            return (date.getMonth() + 1) + '/' + date.getDate();
+                            var date = new Date((time + (9 * 60 * 60)) * 1000);
+                            return (date.getUTCMonth() + 1) + '/' + date.getUTCDate();
                         }
                     """.trimIndent()
                 )
             }
             "W" -> {
-                // 주봉: 년/월/일 형식
+                // 주봉: 년/월/일 형식 (KST 적용)
                 TimeScaleOptions(
                     timeVisible = true,
                     secondsVisible = false,
@@ -80,14 +80,14 @@ object DataConverter {
                     barSpacing = 6,
                     tickMarkFormatter = """
                         function(time) {
-                            var date = new Date(time);
-                            return date.getFullYear() + '/' + (date.getMonth() + 1) + '/' + date.getDate();
+                            var date = new Date((time + (9 * 60 * 60)) * 1000);
+                            return date.getUTCFullYear() + '/' + (date.getUTCMonth() + 1) + '/' + date.getUTCDate();
                         }
                     """.trimIndent()
                 )
             }
             "M", "Y" -> {
-                // 월봉, 년봉: 년/월 형식
+                // 월봉, 년봉: 년/월 형식 (KST 적용)
                 TimeScaleOptions(
                     timeVisible = true,
                     secondsVisible = false,
@@ -96,8 +96,8 @@ object DataConverter {
                     barSpacing = 6,
                     tickMarkFormatter = """
                         function(time) {
-                            var date = new Date(time);
-                            return date.getFullYear() + '/' + (date.getMonth() + 1);
+                            var date = new Date((time + (9 * 60 * 60)) * 1000);
+                            return date.getUTCFullYear() + '/' + (date.getUTCMonth() + 1);
                         }
                     """.trimIndent()
                 )
@@ -107,10 +107,10 @@ object DataConverter {
     }
     
     /**
-     * Convert milliseconds timestamp to yyyy-MM-dd format
+     * Convert milliseconds timestamp to epoch seconds
      */
-    private fun convertTimestamp(timestamp: Long): String {
-        return dateFormat.format(Date(timestamp))
+    private fun convertTimestamp(timestamp: Long): Long {
+        return timestamp / 1000 // Convert milliseconds to epoch seconds
     }
     
     /**
@@ -119,7 +119,7 @@ object DataConverter {
     fun convertCandlestickData(domainData: List<DomainCandlestickData>): List<CandlestickData> {
         return domainData.map { candle ->
             CandlestickData(
-                time = convertTimestamp(candle.time), // Use yyyy-MM-dd format
+                time = convertTimestamp(candle.time), // Use epoch seconds
                 open = candle.open.toDouble(),
                 high = candle.high.toDouble(),
                 low = candle.low.toDouble(),
@@ -134,7 +134,7 @@ object DataConverter {
     fun convertLineData(domainData: List<DomainLineData>): List<ChartData> {
         return domainData.map { line ->
             ChartData(
-                time = convertTimestamp(line.time), // Use yyyy-MM-dd format
+                time = convertTimestamp(line.time), // Use epoch seconds
                 value = line.value.toDouble()
             )
         }
@@ -146,7 +146,7 @@ object DataConverter {
     fun convertVolumeData(domainData: List<DomainVolumeData>): List<ChartData> {
         return domainData.map { volume ->
             ChartData(
-                time = convertTimestamp(volume.time), // Use yyyy-MM-dd format
+                time = convertTimestamp(volume.time), // Use epoch seconds
                 value = volume.value.toDouble()
             )
         }
