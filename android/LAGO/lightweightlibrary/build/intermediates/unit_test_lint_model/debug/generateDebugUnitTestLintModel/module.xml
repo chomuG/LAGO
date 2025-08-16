@@ -1,0 +1,19 @@
+<lint-module
+    format="1"
+    dir="C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary"
+    name=":lightweightlibrary"
+    type="LIBRARY"
+    maven="LAGO:lightweightlibrary:unspecified"
+    agpVersion="8.10.1"
+    buildFolder="build"
+    bootClassPath="C:\Users\SSAFY\AppData\Local\Android\Sdk\platforms\android-35\android.jar;C:\Users\SSAFY\AppData\Local\Android\Sdk\build-tools\35.0.0\core-lambda-stubs.jar"
+    javaSourceLevel="11"
+    compileTarget="android-35"
+    neverShrinking="true">
+  <lintOptions
+      abortOnError="true"
+      absolutePaths="true"
+      checkReleaseBuilds="true"
+      explainIssues="true"/>
+  <variant name="debug"/>
+</lint-module>

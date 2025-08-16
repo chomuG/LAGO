@@ -292,15 +292,25 @@ interface ChartApiService {
     suspend fun getHistoryChallenge(): HistoryChallengeResponse
 
     /**
-     * 역사챌린지 차트 데이터 조회
+     * 역사챌린지 차트 데이터 조회 (인증 없음)
      */
     @GET("api/history-challenge/{challengeId}")
     suspend fun getHistoryChallengeChart(
-        @Header("Authorization") authorization: String,
         @Path("challengeId") challengeId: Int,
         @Query("interval") interval: String,
         @Query("fromDateTime") fromDateTime: String,
         @Query("toDateTime") toDateTime: String
+    ): List<HistoryChallengeDataResponse>
+
+    /**
+     * 역사챌린지 차트 무한 히스토리 데이터 조회 (특정 시간 이전 데이터)
+     */
+    @GET("api/history-challenge/{challengeId}/history")
+    suspend fun getHistoryChallengeHistoricalData(
+        @Path("challengeId") challengeId: Int,
+        @Query("interval") interval: String,
+        @Query("beforeDateTime") beforeDateTime: String,
+        @Query("limit") limit: Int = 50
     ): List<HistoryChallengeDataResponse>
 
     /**

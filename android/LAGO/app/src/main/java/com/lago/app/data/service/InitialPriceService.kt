@@ -1,8 +1,6 @@
 package com.lago.app.data.service
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import com.lago.app.data.remote.api.ChartApiService
 import com.lago.app.data.remote.dto.StockDayDto
 import com.lago.app.util.MarketTimeUtils
@@ -10,8 +8,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
+import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,8 +25,7 @@ class InitialPriceService @Inject constructor(
     companion object {
         private const val TAG = "InitialPriceService"
         private const val WEEK_DAYS = 7
-        @RequiresApi(Build.VERSION_CODES.O)
-        private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        private val DATE_FORMATTER = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     }
     
     /**
@@ -36,17 +33,18 @@ class InitialPriceService @Inject constructor(
      * @param stockCodes 종목 코드 리스트
      * @return Map<종목코드, 최신 거래일 종가>
      */
-    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getLatestClosePrices(stockCodes: List<String>): Map<String, Int> = withContext(Dispatchers.IO) {
         if (stockCodes.isEmpty()) {
             Log.d(TAG, "종목 코드 리스트가 비어있음")
             return@withContext emptyMap()
         }
         
-        val endDate = LocalDate.now()
-        val startDate = endDate.minusDays(WEEK_DAYS.toLong())
-        val startDateStr = startDate.format(DATE_FORMATTER)
-        val endDateStr = endDate.format(DATE_FORMATTER)
+        val calendar = Calendar.getInstance()
+        val endDate = calendar.time
+        calendar.add(Calendar.DAY_OF_YEAR, -WEEK_DAYS)
+        val startDate = calendar.time
+        val startDateStr = DATE_FORMATTER.format(startDate)
+        val endDateStr = DATE_FORMATTER.format(endDate)
         
         Log.d(TAG, "일주일치 일봉 조회 시작: ${stockCodes.size}개 종목 ($startDateStr ~ $endDateStr)")
         
@@ -86,7 +84,6 @@ class InitialPriceService @Inject constructor(
      * @param endDate 종료 날짜 (yyyy-MM-dd)
      * @return 최신 거래일 종가 (실패 시 null)
      */
-    @RequiresApi(Build.VERSION_CODES.O)
     private suspend fun getLatestClosePriceForStock(
         stockCode: String, 
         startDate: String, 
@@ -97,10 +94,10 @@ class InitialPriceService @Inject constructor(
             Log.d(TAG, "🔍 종목코드 형태 확인: '$stockCode' (길이: ${stockCode.length}자)")
             
             // 새로운 API 사용: /api/stocks/{stockCode}?interval=DAY&fromDateTime=...&toDateTime=...
-            val twoWeeksAgo = java.time.LocalDateTime.now().minusDays(14)
-                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"))
-            val now = java.time.LocalDateTime.now()
-                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"))
+            val calendar = Calendar.getInstance()
+            val now = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(calendar.time)
+            calendar.add(Calendar.DAY_OF_YEAR, -14)
+            val twoWeeksAgo = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(calendar.time)
             
             Log.d(TAG, "🌐 API 호출: GET /api/stocks/$stockCode?interval=DAY&fromDateTime=$twoWeeksAgo&toDateTime=$now")
             
@@ -150,12 +147,11 @@ class InitialPriceService @Inject constructor(
      * @param stockCode 종목 코드
      * @return 최신 거래일 종가 (실패 시 null)
      */
-    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getLatestClosePrice(stockCode: String): Int? = withContext(Dispatchers.IO) {
-        val endDate = LocalDate.now()
-        val startDate = endDate.minusDays(WEEK_DAYS.toLong())
-        val startDateStr = startDate.format(DATE_FORMATTER)
-        val endDateStr = endDate.format(DATE_FORMATTER)
+        val calendar = Calendar.getInstance()
+        val endDateStr = DATE_FORMATTER.format(calendar.time)
+        calendar.add(Calendar.DAY_OF_YEAR, -WEEK_DAYS)
+        val startDateStr = DATE_FORMATTER.format(calendar.time)
         
         return@withContext getLatestClosePriceForStock(stockCode, startDateStr, endDateStr)
     }
@@ -165,16 +161,15 @@ class InitialPriceService @Inject constructor(
      * @param stockCodes 종목 코드 리스트
      * @return Map<종목코드, PriceInfo>
      */
-    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getLatestPriceInfo(stockCodes: List<String>): Map<String, PriceInfo> = withContext(Dispatchers.IO) {
         if (stockCodes.isEmpty()) {
             return@withContext emptyMap()
         }
         
-        val endDate = LocalDate.now()
-        val startDate = endDate.minusDays(WEEK_DAYS.toLong())
-        val startDateStr = startDate.format(DATE_FORMATTER)
-        val endDateStr = endDate.format(DATE_FORMATTER)
+        val calendar = Calendar.getInstance()
+        val endDateStr = DATE_FORMATTER.format(calendar.time)
+        calendar.add(Calendar.DAY_OF_YEAR, -WEEK_DAYS)
+        val startDateStr = DATE_FORMATTER.format(calendar.time)
         
         Log.d(TAG, "가격 정보 조회 시작: ${stockCodes.size}개 종목")
         
@@ -207,19 +202,25 @@ class InitialPriceService @Inject constructor(
     /**
      * 단일 종목의 가격 정보 조회
      */
-    @RequiresApi(Build.VERSION_CODES.O)
     private suspend fun getPriceInfoForStock(
         stockCode: String,
         startDate: String,  // 예: "2024-08-01T09:00:00"
         endDate: String     // 예: "2024-08-16T15:30:00"
     ): PriceInfo? {
         return try {
-            // ✅ 전달받은 기간을 그대로 사용
+            // 2주간 데이터로 API 호출
+            val calendar = Calendar.getInstance()
+            val now = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(calendar.time)
+            calendar.add(Calendar.DAY_OF_YEAR, -14)
+            val twoWeeksAgo = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(calendar.time)
+            
+            Log.d(TAG, "🌐 API 호출: GET /api/stocks/$stockCode?interval=DAY&fromDateTime=$twoWeeksAgo&toDateTime=$now")
+            
             val priceDataList = chartApiService.getStockPriceData(
                 stockCode = stockCode,
                 interval = "DAY",
-                fromDateTime = startDate,
-                toDateTime = endDate
+                fromDateTime = twoWeeksAgo,
+                toDateTime = now
             )
 
             if (priceDataList.isEmpty()) return null
@@ -253,15 +254,16 @@ class InitialPriceService @Inject constructor(
     /**
      * 서비스 상태 정보 (디버깅용)
      */
-    @RequiresApi(Build.VERSION_CODES.O)
     fun getServiceStatus(): String {
-        val endDate = LocalDate.now()
-        val startDate = endDate.minusDays(WEEK_DAYS.toLong())
+        val calendar = Calendar.getInstance()
+        val endDateStr = DATE_FORMATTER.format(calendar.time)
+        calendar.add(Calendar.DAY_OF_YEAR, -WEEK_DAYS)
+        val startDateStr = DATE_FORMATTER.format(calendar.time)
         
         return """
             InitialPriceService 상태:
             - 현재 시각: ${MarketTimeUtils.getCurrentKoreaTime()}
-            - 조회 기간: ${startDate.format(DATE_FORMATTER)} ~ ${endDate.format(DATE_FORMATTER)}
+            - 조회 기간: $startDateStr ~ $endDateStr
             - 시장 상태: ${MarketTimeUtils.getMarketStatusString()}
         """.trimIndent()
     }

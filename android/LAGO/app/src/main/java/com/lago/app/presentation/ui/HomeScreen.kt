@@ -391,7 +391,10 @@ private fun InvestmentSection(
                                     android.util.Log.d("HomeScreen", "🏠 내 투자금: 총자산 ${totalAssets}원")
                                     viewModel.formatAmount(totalAssets)
                                 } else "13,378,095원",
-                                style = HeadEb24
+                                style = HeadEb24.copy(
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                                ),
+                                modifier = Modifier.fillMaxWidth()
                             )
 
                             Text(
@@ -408,8 +411,10 @@ private fun InvestmentSection(
                                     color = if (portfolioSummary != null) {
                                         val calculatedProfitLoss = portfolioSummary.totalCurrentValue - portfolioSummary.totalPurchaseAmount
                                         if (calculatedProfitLoss > 0) Color(0xFFED5454) else if (calculatedProfitLoss < 0) Color.Blue else Color(0xFFED5454)
-                                    } else Color(0xFFED5454)
-                                )
+                                    } else Color(0xFFED5454),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                                ),
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
 
@@ -712,7 +717,11 @@ private fun StockItem(stock: Stock) {
             )
             Text(
                 text = stock.profit,
-                style = BodyR14.copy(color = stock.profitColor)
+                style = BodyR14.copy(
+                    color = stock.profitColor,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                ),
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
@@ -771,7 +780,11 @@ private fun HomeStockItem(
             )
             Text(
                 text = viewModel.formatProfitLoss(homeStock.profitLoss, homeStock.profitRate),
-                style = BodyR14.copy(color = viewModel.getProfitLossColor(homeStock.profitLoss))
+                style = BodyR14.copy(
+                    color = viewModel.getProfitLossColor(homeStock.profitLoss),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                ),
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

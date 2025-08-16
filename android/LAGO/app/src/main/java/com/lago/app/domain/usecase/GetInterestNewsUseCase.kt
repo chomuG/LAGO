@@ -7,7 +7,7 @@ import javax.inject.Inject
 class GetInterestNewsUseCase @Inject constructor(
     private val newsRepository: NewsRepository
 ) {
-    suspend operator fun invoke(): Result<List<News>> {
-        return newsRepository.getInterestNews()
+    suspend operator fun invoke(userId: Int): Result<List<News>> {
+        return newsRepository.getInterestNews(userId)
     }
 }

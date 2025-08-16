@@ -96,8 +96,7 @@ dependencies {
     implementation("com.patrykandpatrick.vico:core:1.13.1")
 
 
-    // TradingView Lightweight Charts (로컬 모듈)
-    implementation(project(":lightweightlibrary"))
+    // TradingView Lightweight Charts는 CDN을 통해 로드됨
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")

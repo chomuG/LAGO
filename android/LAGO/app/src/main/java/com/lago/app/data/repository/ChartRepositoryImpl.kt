@@ -766,20 +766,29 @@ class ChartRepositoryImpl @Inject constructor(
     override suspend fun getHistoryChallengeChart(
         challengeId: Int,
         interval: String,
-        fromDateTime: String,
-        toDateTime: String
+        pastMinutes: Int?,
+        pastDays: Int?
     ): Flow<Resource<List<CandlestickData>>> = flow {
         try {
             emit(Resource.Loading())
 
-            val token = userPreferences.getAccessToken()
-            if (token.isNullOrEmpty()) {
-                emit(Resource.Error("Authentication required"))
-                return@flow
+            // 현재 시간 기준으로 과거 기간 계산
+            val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+            val calendar = java.util.Calendar.getInstance()
+            val toDateTime = dateFormat.format(calendar.time) // 현재 시간
+            
+            // 과거 시간 계산
+            when {
+                pastMinutes != null -> calendar.add(java.util.Calendar.MINUTE, -pastMinutes)
+                pastDays != null -> calendar.add(java.util.Calendar.DAY_OF_MONTH, -pastDays)
+                else -> calendar.add(java.util.Calendar.DAY_OF_MONTH, -100) // 기본 100일
             }
+            val fromDateTime = dateFormat.format(calendar.time)
 
+            android.util.Log.d("ChartRepositoryImpl", "🔥 역사챌린지 차트 API 호출: $fromDateTime ~ $toDateTime")
+
+            // 역사챌린지는 인증 없이 호출
             val response = apiService.getHistoryChallengeChart(
-                authorization = "Bearer $token",
                 challengeId = challengeId,
                 interval = interval,
                 fromDateTime = fromDateTime,
@@ -810,6 +819,59 @@ class ChartRepositoryImpl @Inject constructor(
             emit(Resource.Error("Network connection failed"))
         } catch (e: Exception) {
             emit(Resource.Error("Unexpected error: ${e.localizedMessage}"))
+        }
+    }
+
+    override suspend fun getHistoryChallengeHistoricalData(
+        challengeId: Int,
+        interval: String,
+        beforeDateTime: String,
+        limit: Int
+    ): Flow<Resource<List<CandlestickData>>> = flow {
+        try {
+            emit(Resource.Loading())
+
+            android.util.Log.d("ChartRepositoryImpl", "🔥 역사챌린지 무한 히스토리 API 호출")
+            android.util.Log.d("ChartRepositoryImpl", "🔥 파라미터: challengeId=$challengeId, interval=$interval")
+            android.util.Log.d("ChartRepositoryImpl", "🔥 beforeDateTime=$beforeDateTime, limit=$limit")
+
+            // 역사챌린지 무한 히스토리 API 호출 (인증 없음)
+            val response = apiService.getHistoryChallengeHistoricalData(
+                challengeId = challengeId,
+                interval = interval,
+                beforeDateTime = beforeDateTime,
+                limit = limit
+            )
+
+            // Convert HistoryChallengeDataResponse to CandlestickData
+            val candlestickData = response.map { dto ->
+                CandlestickData(
+                    time = parseHistoryChallengeDateTime(dto.originDateTime),
+                    open = dto.openPrice.toFloat(),
+                    high = dto.highPrice.toFloat(),
+                    low = dto.lowPrice.toFloat(),
+                    close = dto.closePrice.toFloat(),
+                    volume = dto.volume.toLong()
+                )
+            }.sortedBy { it.time } // 시간순 정렬
+
+            android.util.Log.d("ChartRepositoryImpl", "🔥 무한 히스토리 데이터 로드 성공: ${candlestickData.size}개 캔들")
+            
+            emit(Resource.Success(candlestickData))
+        } catch (e: HttpException) {
+            android.util.Log.e("ChartRepositoryImpl", "🚨 무한 히스토리 HTTP 오류: ${e.code()} - ${e.message()}")
+            when (e.code()) {
+                401 -> emit(Resource.Error("Authentication failed"))
+                403 -> emit(Resource.Error("Access denied"))
+                404 -> emit(Resource.Error("Historical data not found"))
+                else -> emit(Resource.Error("Network error: ${e.localizedMessage}"))
+            }
+        } catch (e: IOException) {
+            android.util.Log.e("ChartRepositoryImpl", "🚨 무한 히스토리 네트워크 오류", e)
+            emit(Resource.Error("Network connection failed"))
+        } catch (e: Exception) {
+            android.util.Log.e("ChartRepositoryImpl", "🚨 무한 히스토리 예상치 못한 오류", e)
+            emit(Resource.Error("Historical data loading failed: ${e.localizedMessage}"))
         }
     }
 
