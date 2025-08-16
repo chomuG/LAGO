@@ -58,8 +58,8 @@ public class HistoryChallengeDataResponse {
 
     public HistoryChallengeDataResponse(Object[] aggregatedData) {
         this.rowId = ((Long) aggregatedData[0]);
-        this.eventDateTime = ((Timestamp) aggregatedData[1]).toLocalDateTime();
-        this.originDateTime = ((Timestamp) aggregatedData[2]).toLocalDateTime();
+        this.eventDateTime = ((Timestamp) aggregatedData[2]).toLocalDateTime();
+        this.originDateTime = ((Timestamp) aggregatedData[1]).toLocalDateTime();
         this.openPrice = ((Integer) aggregatedData[3]);
         this.highPrice = ((Integer) aggregatedData[4]);
         this.lowPrice = ((Integer) aggregatedData[5]);
