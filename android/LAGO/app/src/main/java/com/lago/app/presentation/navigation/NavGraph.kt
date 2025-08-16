@@ -450,7 +450,12 @@ fun NavGraph(
         composable("login") {
             LoginScreen(
                 userPreferences = userPreferences,
-                onKakaoLoginClick = {
+                onLoginSuccess = {
+                    navController.navigate("home") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
+                onSignupNeeded = {
                     navController.navigate("personality_test")
                 }
             )

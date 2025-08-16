@@ -124,8 +124,10 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.reactivex.rxjava2:rxjava:2.2.21")
     implementation("io.reactivex.rxjava2:rxandroid:2.1.1")
-    
-    
+
+    //google-auth
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+
     // Memory Cache
     implementation("androidx.collection:collection-ktx:1.4.0")
 
