@@ -119,7 +119,9 @@ class ChartViewModel @Inject constructor(
     private val smartWebSocketService: SmartStockWebSocketService,
     private val smartUpdateScheduler: SmartUpdateScheduler,
     private val memoryCache: ChartMemoryCache,
-    private val realTimeCache: com.lago.app.data.cache.RealTimeStockCache
+    private val realTimeCache: com.lago.app.data.cache.RealTimeStockCache,
+    private val mockTradeRepository: com.lago.app.domain.repository.MockTradeRepository,
+    private val portfolioRepository: com.lago.app.domain.repository.PortfolioRepository
 ) : ViewModel(), HistoricalDataRequestListener {
     
     private val _uiState = MutableStateFlow(ChartUiState())
@@ -442,6 +444,7 @@ class ChartViewModel @Inject constructor(
             is ChartUiEvent.ToggleUserTradingSignals -> toggleUserTradingSignals(event.show)
             is ChartUiEvent.SelectAITradingSignals -> selectAITradingSignals(event.aiSource)
             is ChartUiEvent.ClearError -> clearErrorMessage()
+            is ChartUiEvent.ClearTradeMessage -> clearTradeMessage()
         }
     }
     
@@ -494,9 +497,16 @@ class ChartViewModel @Inject constructor(
                     when (resource) {
                         is Resource.Success -> {
                             resource.data?.let { serverStockInfo ->
+                                // 서버 데이터가 0원이면 일봉 데이터로 폴백
+                                val finalStockInfo = if (serverStockInfo.currentPrice == 0f) {
+                                    enrichStockInfoWithDayCandles(serverStockInfo, stockCode)
+                                } else {
+                                    serverStockInfo
+                                }
+                                
                                 _uiState.update { 
                                     it.copy(
-                                        currentStock = serverStockInfo,
+                                        currentStock = finalStockInfo,
                                         config = it.config.copy(stockCode = stockCode),
                                         chartLoadingStage = ChartLoadingStage.DATA_LOADING,
                                         isLoading = false
@@ -781,33 +791,56 @@ class ChartViewModel @Inject constructor(
     private fun loadUserHoldings() {
         viewModelScope.launch {
             try {
-                chartRepository.getUserHoldings().collect { resource ->
+                val userId = userPreferences.getUserId()?.toLong() ?: return@launch
+                val accountType = _uiState.value.accountType
+                android.util.Log.d("ChartViewModel", "📊 보유현황 로딩 시작: userId=$userId, accountType=$accountType")
+                
+                portfolioRepository.getUserCurrentStatus(userId, accountType).collect { resource ->
                     when (resource) {
                         is Resource.Success -> {
-                            // Convert Domain HoldingItem to UI HoldingItem
-                            val uiHoldings = resource.data?.map { domainItem ->
-                                HoldingItem(
-                                    name = domainItem.stockName,
-                                    quantity = "${domainItem.quantity}주",
-                                    value = domainItem.totalValue.toInt(),
-                                    change = domainItem.profitLossPercent,
-                                    stockCode = domainItem.stockCode
-                                )
-                            } ?: emptyList()
-                            
-                            _uiState.update { 
-                                it.copy(holdingItems = uiHoldings)
+                            val response = resource.data
+                            if (response != null) {
+                                android.util.Log.d("ChartViewModel", "📊 보유현황 데이터 수신: ${response.holdings.size}개 종목, 잔액: ${response.balance}")
+                                
+                                // Convert PortfolioController response to UI HoldingItem
+                                val uiHoldings = response.holdings.map { holding ->
+                                    android.util.Log.d("ChartViewModel", "📊 보유주식: ${holding.stockName}(${holding.stockCode}) ${holding.quantity}주")
+                                    HoldingItem(
+                                        name = holding.stockName,
+                                        quantity = "${holding.quantity}주",
+                                        value = holding.totalPurchaseAmount,
+                                        change = 0f, // 현재 수익률은 실시간 계산 필요
+                                        stockCode = holding.stockCode
+                                    )
+                                }
+                                
+                                _uiState.update { 
+                                    it.copy(
+                                        holdingItems = uiHoldings,
+                                        accountBalance = response.balance.toLong(),
+                                        profitRate = response.profitRate.toFloat()
+                                    )
+                                }
+                            } else {
+                                android.util.Log.w("ChartViewModel", "📊 보유현황 응답이 null입니다")
                             }
                         }
                         is Resource.Error -> {
-                            // Use mock data
-                            loadMockHoldings()
+                            android.util.Log.e("ChartViewModel", "포트폴리오 조회 실패: ${resource.message}")
+                            // 빈 상태로 유지 (더미 데이터 사용 안함)
+                            _uiState.update { 
+                                it.copy(holdingItems = emptyList())
+                            }
                         }
                         is Resource.Loading -> {}
                     }
                 }
             } catch (e: Exception) {
-                loadMockHoldings()
+                android.util.Log.e("ChartViewModel", "포트폴리오 조회 예외: ${e.message}")
+                // 빈 상태로 유지 (더미 데이터 사용 안함)
+                _uiState.update { 
+                    it.copy(holdingItems = emptyList())
+                }
             }
         }
     }
@@ -815,16 +848,25 @@ class ChartViewModel @Inject constructor(
     private fun loadTradingHistory() {
         viewModelScope.launch {
             try {
-                chartRepository.getTradingHistory().collect { resource ->
+                val userId = userPreferences.getUserId()?.toLong() ?: return@launch
+                val accountType = _uiState.value.accountType
+                android.util.Log.d("ChartViewModel", "📈 거래내역 로딩 시작: userId=$userId, accountType=$accountType")
+                
+                // PortfolioRepository를 사용하여 거래내역 조회 (계좌타입별)
+                portfolioRepository.getTransactionHistory(userId, accountType).collect { resource ->
                     when (resource) {
                         is Resource.Success -> {
-                            // Convert Domain TradingItem to UI TradingItem
-                            val uiTradings = resource.data?.content?.map { domainItem ->
+                            android.util.Log.d("ChartViewModel", "📈 거래내역 데이터 수신: ${resource.data?.size ?: 0}개 거래")
+                            
+                            // Convert Backend TransactionHistoryResponse to UI TradingItem
+                            val uiTradings = resource.data?.map { transaction ->
+                                android.util.Log.d("ChartViewModel", "📈 거래: ${transaction.stockName}(${transaction.stockId}) ${transaction.buySell} ${transaction.quantity}주")
                                 TradingItem(
-                                    type = if (domainItem.actionType == "BUY") "구매" else "판매",
-                                    quantity = "${domainItem.quantity}주",
-                                    amount = domainItem.totalAmount.toInt(),
-                                    date = domainItem.createdAt
+                                    type = if (transaction.buySell == "BUY") "구매" else "판매",
+                                    quantity = "${transaction.quantity ?: 0}주",
+                                    amount = transaction.price,
+                                    date = transaction.tradeAt,
+                                    stockCode = transaction.stockId ?: ""
                                 )
                             } ?: emptyList()
                             
@@ -833,17 +875,25 @@ class ChartViewModel @Inject constructor(
                             }
                         }
                         is Resource.Error -> {
-                            // Use mock data
-                            loadMockTradingHistory()
+                            android.util.Log.e("ChartViewModel", "거래내역 조회 실패: ${resource.message}")
+                            // 빈 상태로 유지 (더미 데이터 사용 안함)
+                            _uiState.update { 
+                                it.copy(tradingHistory = emptyList())
+                            }
                         }
                         is Resource.Loading -> {}
                     }
                 }
             } catch (e: Exception) {
-                loadMockTradingHistory()
+                android.util.Log.e("ChartViewModel", "거래내역 조회 예외: ${e.message}")
+                // 빈 상태로 유지 (더미 데이터 사용 안함)
+                _uiState.update { 
+                    it.copy(tradingHistory = emptyList())
+                }
             }
         }
     }
+    
     
     private fun toggleFavorite() {
         val stockCode = _uiState.value.currentStock.code
@@ -963,7 +1013,7 @@ class ChartViewModel @Inject constructor(
     }
     
     private fun handleSellClicked() {
-        // Handle sell button click - navigate to purchase screen
+        // Handle sell button click - navigate to purchase screen  
     }
     
     private fun showIndicatorSettings() {
@@ -988,6 +1038,18 @@ class ChartViewModel @Inject constructor(
         _uiState.update { 
             it.copy(errorMessage = null)
         }
+    }
+    
+    private fun clearTradeMessage() {
+        _uiState.update { 
+            it.copy(tradeMessage = null)
+        }
+    }
+    
+    fun refreshAfterTrade() {
+        // 매매 완료 후 보유현황과 매매내역 갱신
+        loadUserHoldings()
+        loadTradingHistory()
     }
     
     // 3단계 로딩 시스템을 위한 새로운 함수들
@@ -1231,24 +1293,18 @@ class ChartViewModel @Inject constructor(
     }
     
     private fun loadMockHoldings() {
-        val mockHoldings = listOf(
-            HoldingItem("삼성전자", "10주", 742000, 1.09f, "005930"),
-            HoldingItem("SK하이닉스", "5주", 675000, -1.46f, "000660"),
-            HoldingItem("NAVER", "3주", 555000, 0.82f, "035420")
-        )
+        // 더미 데이터 사용 안함 - 빈 상태로 유지
+        android.util.Log.d("ChartViewModel", "📊 Mock 데이터 호출됨 - 빈 상태로 유지")
         _uiState.update { 
-            it.copy(holdingItems = mockHoldings)
+            it.copy(holdingItems = emptyList())
         }
     }
     
     private fun loadMockTradingHistory() {
-        val mockHistory = listOf(
-            TradingItem("구매", "10주", 742000, "2024-01-15"),
-            TradingItem("판매", "5주", 371000, "2024-01-14"),
-            TradingItem("구매", "15주", 1113000, "2024-01-13")
-        )
+        // 더미 데이터 사용 안함 - 빈 상태로 유지
+        android.util.Log.d("ChartViewModel", "📈 Mock 거래내역 호출됨 - 빈 상태로 유지")
         _uiState.update { 
-            it.copy(tradingHistory = mockHistory)
+            it.copy(tradingHistory = emptyList())
         }
     }
     
@@ -1775,5 +1831,95 @@ class ChartViewModel @Inject constructor(
                 android.util.Log.d("ChartViewModel", "🏁 과거 데이터 로딩 완료")
             }
         }
+    }
+    
+    /**
+     * 차트용 주식 정보를 일봉 데이터로 보강
+     * 웹소켓/서버 데이터 없을 때 폴백용
+     */
+    private suspend fun enrichStockInfoWithDayCandles(stockInfo: ChartStockInfo, stockCode: String): ChartStockInfo {
+        return try {
+            android.util.Log.d("ChartViewModel", "📈 ${stockCode}: 주식 정보를 일봉 데이터로 보강 시작")
+            
+            // 한국 주식시장 영업일 기준으로 날짜 계산
+            val (fromDateTime, toDateTime) = com.lago.app.util.KoreanStockMarketUtils.getChartDateTimeRange()
+            android.util.Log.d("ChartViewModel", "📅 차트 데이터 범위: $fromDateTime ~ $toDateTime")
+            
+            var resource: Resource<List<CandlestickData>>? = null
+            
+            try {
+                chartRepository.getIntervalChartData(stockCode, "DAY", fromDateTime, toDateTime)
+                    .catch { e ->
+                        resource = Resource.Error("Flow error: ${e.message}")
+                    }
+                    .collect { res ->
+                        resource = res
+                        if (res is Resource.Success || res is Resource.Error) {
+                            return@collect // 성공 또는 에러 시 collect 중단
+                        }
+                    }
+            } catch (e: Exception) {
+                android.util.Log.e("ChartViewModel", "📈 ${stockCode}: collect 예외 - ${e.message}")
+                resource = Resource.Error("Collect error: ${e.message}")
+            }
+            
+            val finalResource = resource ?: Resource.Error("No response")
+            
+            when (finalResource) {
+                is Resource.Success -> {
+                    val candles = finalResource.data!!
+                    if (candles.size >= 2) {
+                        val latestCandle = candles.last() // 가장 최근일
+                        val previousCandle = candles[candles.size - 2] // 전일
+                        
+                        val currentPrice = latestCandle.close.toFloat()
+                        val priceChange = (latestCandle.close - previousCandle.close).toFloat()
+                        val priceChangePercent = if (previousCandle.close != 0f) {
+                            ((latestCandle.close - previousCandle.close) / previousCandle.close * 100).toFloat()
+                        } else 0f
+                        
+                        android.util.Log.d("ChartViewModel", "📈 ${stockCode}: 일봉 보강 완료 - ${currentPrice.toInt()}원 (${if (priceChange >= 0) "+" else ""}${priceChange.toInt()}원, ${String.format("%.2f", priceChangePercent)}%)")
+                        
+                        stockInfo.copy(
+                            currentPrice = currentPrice,
+                            priceChange = priceChange,
+                            priceChangePercent = priceChangePercent
+                        )
+                    } else {
+                        android.util.Log.w("ChartViewModel", "📈 ${stockCode}: 일봉 데이터 부족 (${candles.size}개)")
+                        stockInfo
+                    }
+                }
+                is Resource.Error -> {
+                    android.util.Log.e("ChartViewModel", "📈 ${stockCode}: 일봉 데이터 조회 실패 - ${finalResource.message}")
+                    stockInfo
+                }
+                is Resource.Loading -> {
+                    android.util.Log.d("ChartViewModel", "📈 ${stockCode}: 일봉 데이터 로딩 중...")
+                    stockInfo
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ChartViewModel", "📈 ${stockCode}: 일봉 보강 중 오류", e)
+            stockInfo
+        }
+    }
+
+    /**
+     * 계좌 타입 설정 (0=실시간모의투자, 1=역사챌린지)
+     */
+    fun setAccountType(accountType: Int) {
+        _uiState.update { it.copy(accountType = accountType) }
+        // 계좌 타입이 변경되면 보유 현황과 거래내역을 다시 로드
+        loadUserHoldings()
+        loadTradingHistory()
+    }
+
+    /**
+     * 현재 계좌 잔액 및 수익률 갱신
+     */
+    fun refreshAccountStatus() {
+        loadUserHoldings()
+        loadTradingHistory()
     }
 }

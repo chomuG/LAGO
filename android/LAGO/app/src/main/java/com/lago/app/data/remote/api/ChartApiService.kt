@@ -150,7 +150,6 @@ interface ChartApiService {
      */
     @POST("api/stocks/buy")
     suspend fun buyStock(
-        @Header("User-Id") userId: String,
         @Body request: MockTradeRequest
     ): TradeApiResponse
 
@@ -159,16 +158,6 @@ interface ChartApiService {
      */
     @POST("api/stocks/sell")
     suspend fun sellStock(
-        @Header("User-Id") userId: String,
-        @Body request: MockTradeRequest
-    ): TradeApiResponse
-
-    /**
-     * 통합 매매 주문 (백엔드: POST /api/stocks/trade)
-     */
-    @POST("api/stocks/trade")
-    suspend fun executeTradeOrder(
-        @Header("User-Id") userId: String,
         @Body request: MockTradeRequest
     ): TradeApiResponse
 
@@ -338,15 +327,6 @@ interface ChartApiService {
     @GET("api/study/chart")
     suspend fun getChartPatterns(): List<ChartPatternResponse>
 
-    /**
-     * 일봉 데이터 조회 (초기 주가 데이터) - 복원
-     */
-    @GET("api/stocks/day/{code}")
-    suspend fun getDayCandles(
-        @Path("code") stockCode: String,
-        @Query("start") startDate: String,
-        @Query("end") endDate: String
-    ): List<StockDayDto>
     
     /**
      * 종목별 시간간격별 차트 데이터 조회 (새로운 인터벌 API)

@@ -975,41 +975,6 @@ class ChartRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getDayCandles(
-        stockCode: String,
-        startDate: String,
-        endDate: String
-    ): Flow<Resource<List<CandlestickData>>> = flow {
-        try {
-            emit(Resource.Loading())
-
-            val stockId = StockCodeMapper.getStockId(stockCode)
-            if (stockId == null) {
-                emit(Resource.Error("Unknown stock code: $stockCode"))
-                return@flow
-            }
-
-            val response = apiService.getStockDayData(stockId, startDate, endDate)
-            val candlestickData = response.map { dto ->
-                CandlestickData(
-                    time = parseDate(dto.date) * 1000,
-                    open = dto.openPrice.toFloat(),
-                    high = dto.highPrice.toFloat(),
-                    low = dto.lowPrice.toFloat(),
-                    close = dto.closePrice.toFloat(),
-                    volume = dto.volume.toLong()
-                )
-            }
-
-            emit(Resource.Success(candlestickData))
-        } catch (e: HttpException) {
-            emit(Resource.Error("Network error: ${e.localizedMessage}"))
-        } catch (e: IOException) {
-            emit(Resource.Error("Network connection failed"))
-        } catch (e: Exception) {
-            emit(Resource.Error("Unexpected error: ${e.localizedMessage}"))
-        }
-    }
 
     /**
      * 역사챌린지 날짜시간 문자열을 timestamp로 변환

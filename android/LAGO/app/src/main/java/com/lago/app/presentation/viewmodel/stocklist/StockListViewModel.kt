@@ -6,8 +6,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lago.app.domain.entity.StockItem
 import com.lago.app.domain.entity.HistoryChallengeStock
+import com.lago.app.domain.entity.CandlestickData
 import com.lago.app.domain.repository.StockListRepository
 import com.lago.app.domain.repository.HistoryChallengeRepository
+import com.lago.app.domain.repository.ChartRepository
 import com.lago.app.data.remote.websocket.SmartStockWebSocketService
 import com.lago.app.data.scheduler.SmartUpdateScheduler
 import com.lago.app.domain.entity.ScreenType
@@ -18,7 +20,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlin.time.Duration.Companion.milliseconds
 import javax.inject.Inject
 
@@ -125,8 +132,20 @@ class StockListViewModel @Inject constructor(
                         stock
                     }
                 } else {
-                    android.util.Log.v("StockListViewModel", "🔍 ${stock.code}: 실시간 데이터 없음")
-                    stock
+                    // 실시간 데이터가 없으면 캐시에서 마지막 알려진 데이터 확인
+                    val cachedData = realTimeCache.getStockData(stock.code)
+                    if (cachedData != null) {
+                        android.util.Log.v("StockListViewModel", "🔍 ${stock.code}: 캐시에서 마지막 데이터 적용 (${cachedData.price.toInt()}원)")
+                        stock.copy(
+                            currentPrice = cachedData.price.toInt(),
+                            priceChange = cachedData.priceChange.toInt(),
+                            priceChangePercent = cachedData.priceChangePercent,
+                            volume = cachedData.volume ?: 0L
+                        )
+                    } else {
+                        android.util.Log.v("StockListViewModel", "🔍 ${stock.code}: 캐시에도 데이터 없음")
+                        stock
+                    }
                 }
             }
             
@@ -228,18 +247,16 @@ class StockListViewModel @Inject constructor(
                         }
                         
                         android.util.Log.w("StockListViewModel", "🔥 API에서 종목 로딩 성공: ${newStocks.size}개")
-                        newStocks.forEach { stock ->
-                            android.util.Log.d("StockListViewModel", "📈 로딩된 종목: ${stock.code} (${stock.name}) = ${stock.currentPrice}원")
-                        }
                         
-                        // 🎯 핵심: 캐시된 실시간 데이터와 병합
-                        val stocksWithRealTimeData = mergeWithCachedData(newStocks)
-                        android.util.Log.w("StockListViewModel", "🔥 캐시 병합 완료: ${stocksWithRealTimeData.count { it.currentPrice > 0 }}개 실시간 가격 적용")
+                        // 🚀 점진적 로딩: 1단계 - 종목 정보 먼저 표시 (가격은 0원이어도 OK)
+                        val stocksWithCachedData = mergeWithCachedData(newStocks)
+                        android.util.Log.w("StockListViewModel", "🔥 캐시 병합 완료: ${stocksWithCachedData.count { it.currentPrice > 0 }}개 실시간 가격 적용")
                         
+                        // 즉시 UI 업데이트 - 종목 정보 먼저 표시
                         _uiState.update {
                             it.copy(
-                                stocks = stocksWithRealTimeData,
-                                filteredStocks = stocksWithRealTimeData,
+                                stocks = stocksWithCachedData,
+                                filteredStocks = stocksWithCachedData,
                                 isLoading = false,
                                 errorMessage = null,
                                 currentPage = stockListPage.page,
@@ -247,12 +264,27 @@ class StockListViewModel @Inject constructor(
                             )
                         }
                         filterStocks()
+                        
+                        // 🚀 점진적 로딩: 2단계 - 백그라운드에서 가격 정보 업데이트
+                        viewModelScope.launch {
+                            android.util.Log.w("StockListViewModel", "🚀 백그라운드 가격 업데이트 시작")
+                            val stocksWithDayCandles = enrichWithDayCandles(stocksWithCachedData)
+                            android.util.Log.w("StockListViewModel", "🔥 일봉 폴백 완료: ${stocksWithDayCandles.count { it.currentPrice > 0 }}개 종목 가격 확보")
+                            
+                            // 가격 정보 업데이트된 데이터로 UI 재업데이트
+                            _uiState.update { currentState ->
+                                currentState.copy(
+                                    stocks = stocksWithDayCandles,
+                                    filteredStocks = applyFiltersAndSort(stocksWithDayCandles)
+                                )
+                            }
+                        }
                     }
                     is Resource.Error -> {
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
-                                errorMessage = resource.message
+                                errorMessage = "데이터를 불러오는데 실패했습니다"
                             )
                         }
                     }
@@ -319,7 +351,7 @@ class StockListViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
-                                errorMessage = resource.message
+                                errorMessage = "데이터를 불러오는데 실패했습니다"
                             )
                         }
                     }
@@ -471,8 +503,8 @@ class StockListViewModel @Inject constructor(
     private fun mergeWithCachedData(stocks: List<StockItem>): List<StockItem> {
         return stocks.map { stock ->
             val cachedData = realTimeCache.getStockData(stock.code)
-            if (cachedData != null && stock.currentPrice == 0) {
-                android.util.Log.d("StockListViewModel", "💾 캐시 적용: ${stock.code} = ${cachedData.price}원 (기존 0원)")
+            if (cachedData != null) {
+                android.util.Log.d("StockListViewModel", "💾 캐시 적용: ${stock.code} = ${cachedData.price}원 (기존 ${stock.currentPrice}원)")
                 stock.copy(
                     currentPrice = cachedData.price.toInt(),
                     priceChange = cachedData.priceChange.toInt(),
@@ -481,9 +513,129 @@ class StockListViewModel @Inject constructor(
                     updatedAt = java.time.Instant.ofEpochMilli(cachedData.timestamp).toString()
                 )
             } else {
+                android.util.Log.v("StockListViewModel", "💾 ${stock.code}: 캐시 데이터 없음, 기본값 유지")
                 stock
             }
         }
+    }
+
+    /**
+     * 일봉 데이터에서 최근 2일 종가로 현재가/등락률 계산
+     * 웹소켓/캐시 데이터 없을 때 폴백용
+     */
+    private suspend fun enrichWithDayCandles(stocks: List<StockItem>): List<StockItem> = coroutineScope {
+        // 한국 주식시장 영업일 기준으로 날짜 계산
+        val (startDate, endDate) = com.lago.app.util.KoreanStockMarketUtils.getChartDateRange()
+        com.lago.app.util.KoreanStockMarketUtils.logTradingDayInfo()
+        
+        // 0원인 종목 개수 확인
+        val zeroStocks = stocks.filter { it.currentPrice == 0 }
+        android.util.Log.d("StockListViewModel", "📈 병렬 처리 - 일봉 계산 대상: ${zeroStocks.size}개 종목")
+        
+        // 병렬 처리로 성능 대폭 향상 (40번 순차 → 40번 병렬)
+        val results = stocks.map { stock ->
+            async {
+                // 이미 실시간 데이터가 있거나 가격이 0이 아니면 스킵
+                if (stock.currentPrice != 0) {
+                    return@async stock
+                }
+                
+                // 모든 종목 처리 (테스트 제한 제거)
+                try {
+                    // 로그 최소화 (성능 향상)
+                    // android.util.Log.d("StockListViewModel", "📈 ${stock.code}: 인터벌 API로 일봉 데이터 계산 시작")
+                    
+                    // Flow 예외 안전 처리
+                    val processedStock = runCatching {
+                        
+                        // 안전한 Flow 처리
+                        var resource: com.lago.app.util.Resource<List<CandlestickData>>? = null
+                        
+                        try {
+                            // 성공하는 인터벌 API 사용 (DAY 간격)
+                            val fromDateTime = "${startDate}T09:00:00"
+                            val toDateTime = "${endDate}T15:30:00"
+                            
+                            chartRepository.getIntervalChartData(stock.code, "DAY", fromDateTime, toDateTime)
+                                .catch { e ->
+                                    resource = com.lago.app.util.Resource.Error("Flow error: ${e.message}")
+                                }
+                                .collect { res ->
+                                    resource = res
+                                    if (res is com.lago.app.util.Resource.Success || res is com.lago.app.util.Resource.Error) {
+                                        return@collect // 성공 또는 에러 시 collect 중단
+                                    }
+                                }
+                        } catch (e: Exception) {
+                            android.util.Log.e("StockListViewModel", "📈 ${stock.code}: collect 예외 - ${e.message}")
+                            resource = com.lago.app.util.Resource.Error("Collect error: ${e.message}")
+                        }
+                        
+                        val finalResource = resource ?: com.lago.app.util.Resource.Error("No response")
+                        
+                        when (finalResource) {
+                            is com.lago.app.util.Resource.Success -> {
+                                val candles = finalResource.data!!
+                                if (candles.size >= 2) {
+                                    val latestCandle = candles.last() // 가장 최근일
+                                    val previousCandle = candles[candles.size - 2] // 전일
+                                    
+                                    val currentPrice = latestCandle.close.toInt()
+                                    val priceChange = (latestCandle.close - previousCandle.close).toInt()
+                                    val priceChangePercent = if (previousCandle.close != 0f) {
+                                        ((latestCandle.close - previousCandle.close) / previousCandle.close * 100).toDouble()
+                                    } else 0.0
+                                    
+                                    // 성공 시에만 로그 (성능 향상)
+                                    android.util.Log.d("StockListViewModel", "📈 ${stock.code}: ${currentPrice}원 (${if (priceChange >= 0) "+" else ""}${priceChange}원)")
+                                    
+                                    // 계산된 데이터를 캐시에도 저장
+                                    val realTimeData = com.lago.app.domain.entity.StockRealTimeData(
+                                        stockCode = stock.code,
+                                        closePrice = latestCandle.close.toLong(),
+                                        changePrice = priceChange.toLong(),
+                                        fluctuationRate = priceChangePercent,
+                                        volume = latestCandle.volume?.toLong(),
+                                        timestamp = System.currentTimeMillis()
+                                    )
+                                    realTimeCache.updateStock(stock.code, realTimeData)
+                                    
+                                    return@runCatching stock.copy(
+                                        currentPrice = currentPrice,
+                                        priceChange = priceChange,
+                                        priceChangePercent = priceChangePercent,
+                                        volume = latestCandle.volume?.toLong() ?: 0L
+                                    )
+                                } else {
+                                    android.util.Log.w("StockListViewModel", "📈 ${stock.code}: 일봉 데이터 부족 (${candles.size}개)")
+                                }
+                            }
+                            is com.lago.app.util.Resource.Error -> {
+                                // 일봉 데이터 실패는 로그에만 기록 (사용자에게는 숨김)
+                                android.util.Log.d("StockListViewModel", "📈 ${stock.code}: 일봉 데이터 조회 실패")
+                            }
+                            is com.lago.app.util.Resource.Loading -> {
+                                android.util.Log.d("StockListViewModel", "📈 ${stock.code}: 일봉 데이터 로딩 중...")
+                            }
+                        }
+                        
+                        stock // 기본값 반환
+                    }.getOrElse { e ->
+                        // 개별 종목 실패는 조용히 처리
+                        android.util.Log.d("StockListViewModel", "📈 ${stock.code}: 처리 실패")
+                        stock
+                    }
+                    
+                    processedStock
+                } catch (e: Exception) {
+                    // 예외는 조용히 처리하고 기본값 사용
+                    android.util.Log.d("StockListViewModel", "📈 ${stock.code}: 예외 발생")
+                    stock
+                }
+            }
+        }
+        
+        results.awaitAll()
     }
 
     fun getTrendingStocks() {
@@ -511,7 +663,7 @@ class StockListViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
-                                errorMessage = resource.message
+                                errorMessage = "데이터를 불러오는데 실패했습니다"
                             )
                         }
                     }

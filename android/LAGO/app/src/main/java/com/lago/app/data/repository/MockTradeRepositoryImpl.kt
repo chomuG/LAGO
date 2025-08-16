@@ -32,41 +32,42 @@ class MockTradeRepositoryImpl @Inject constructor(
     override suspend fun buyStock(
         stockCode: String,
         quantity: Int,
-        price: Int
+        price: Int,
+        accountType: Int
     ): Flow<Resource<MockTradeResult>> = flow {
         try {
             emit(Resource.Loading())
             
-            val userId = userPreferences.getUserId()
-            if (userId == null) {
+            val userId = userPreferences.getUserIdLong()
+            if (userId == 0L) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
             }
 
             val request = MockTradeRequest(
+                userId = userId,
                 stockCode = stockCode,
+                tradeType = "BUY",
                 quantity = quantity,
-                price = price
+                price = price,
+                accountType = accountType
             )
 
-            val response = apiService.buyStock(userId.toString(), request)
+            apiService.buyStock(request)
             
-            if (response.success) {
-                val result = MockTradeResult(
-                    tradeId = response.tradeId,
-                    stockCode = response.stockCode,
-                    stockName = response.stockName,
-                    quantity = response.quantity,
-                    price = response.executedPrice,
-                    totalAmount = response.totalAmount,
-                    commission = response.commission,
-                    tradeAt = "", // 백엔드에서 제공되지 않음
-                    remainingBalance = response.remainingBalance
-                )
-                emit(Resource.Success(result))
-            } else {
-                emit(Resource.Error(response.message ?: "매수 주문 실패"))
-            }
+            // 성공시 response data 없음 - 간단한 성공 응답만 생성
+            val result = MockTradeResult(
+                tradeId = System.currentTimeMillis(), // 임시 tradeId
+                stockCode = stockCode,
+                stockName = getStockNameByCode(stockCode),
+                quantity = quantity,
+                price = price,
+                totalAmount = quantity * price.toLong(),
+                commission = 0,
+                tradeAt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date()),
+                remainingBalance = 0L // 실제 잔고는 별도 조회 필요
+            )
+            emit(Resource.Success(result))
         } catch (e: HttpException) {
             emit(Resource.Error(handleHttpError(e)))
         } catch (e: IOException) {
@@ -79,41 +80,42 @@ class MockTradeRepositoryImpl @Inject constructor(
     override suspend fun sellStock(
         stockCode: String,
         quantity: Int,
-        price: Int
+        price: Int,
+        accountType: Int
     ): Flow<Resource<MockTradeResult>> = flow {
         try {
             emit(Resource.Loading())
             
-            val userId = userPreferences.getUserId()
-            if (userId == null) {
+            val userId = userPreferences.getUserIdLong()
+            if (userId == 0L) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
             }
 
             val request = MockTradeRequest(
+                userId = userId,
                 stockCode = stockCode,
+                tradeType = "SELL",
                 quantity = quantity,
-                price = price
+                price = price,
+                accountType = accountType
             )
 
-            val response = apiService.sellStock(userId.toString(), request)
+            apiService.sellStock(request)
             
-            if (response.success) {
-                val result = MockTradeResult(
-                    tradeId = response.tradeId,
-                    stockCode = response.stockCode,
-                    stockName = response.stockName,
-                    quantity = response.quantity,
-                    price = response.executedPrice,
-                    totalAmount = response.totalAmount,
-                    commission = response.commission,
-                    tradeAt = "", // 백엔드에서 제공되지 않음
-                    remainingBalance = response.remainingBalance
-                )
-                emit(Resource.Success(result))
-            } else {
-                emit(Resource.Error(response.message ?: "매도 주문 실패"))
-            }
+            // 성공시 response data 없음 - 간단한 성공 응답만 생성
+            val result = MockTradeResult(
+                tradeId = System.currentTimeMillis(), // 임시 tradeId
+                stockCode = stockCode,
+                stockName = getStockNameByCode(stockCode),
+                quantity = quantity,
+                price = price,
+                totalAmount = quantity * price.toLong(),
+                commission = 0,
+                tradeAt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date()),
+                remainingBalance = 0L // 실제 잔고는 별도 조회 필요
+            )
+            emit(Resource.Success(result))
         } catch (e: HttpException) {
             emit(Resource.Error(handleHttpError(e)))
         } catch (e: IOException) {
@@ -595,6 +597,35 @@ class MockTradeRepositoryImpl @Inject constructor(
             404 -> "요청한 데이터를 찾을 수 없습니다"
             500 -> "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요"
             else -> "네트워크 오류가 발생했습니다 (${exception.code()})"
+        }
+    }
+    
+    /**
+     * 주식 코드로 주식명 조회 (기본 매핑)
+     */
+    private fun getStockNameByCode(stockCode: String): String {
+        return when (stockCode) {
+            "005930" -> "삼성전자"
+            "000660" -> "SK하이닉스"
+            "035420" -> "NAVER"
+            "035720" -> "카카오"
+            "051910" -> "LG화학"
+            "006400" -> "삼성SDI"
+            "028260" -> "삼성물산"
+            "068270" -> "셀트리온"
+            "207940" -> "삼성바이오로직스"
+            "096770" -> "SK이노베이션"
+            "323410" -> "카카오뱅크"
+            "267260" -> "HD현대일렉트릭"
+            "000270" -> "기아"
+            "012330" -> "현대모비스"
+            "030200" -> "KT"
+            "017670" -> "SK텔레콤"
+            "105560" -> "KB금융"
+            "086790" -> "하나금융지주"
+            "003550" -> "LG"
+            "034730" -> "SK"
+            else -> stockCode // 알 수 없는 코드는 그대로 반환
         }
     }
 }

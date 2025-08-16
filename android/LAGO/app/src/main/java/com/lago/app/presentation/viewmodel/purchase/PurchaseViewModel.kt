@@ -7,6 +7,13 @@ import com.lago.app.domain.entity.StockHolding
 import com.lago.app.domain.entity.AccountBalance
 import com.lago.app.domain.entity.MockTradeResult
 import com.lago.app.domain.repository.MockTradeRepository
+import com.lago.app.domain.repository.PortfolioRepository
+import com.lago.app.data.local.prefs.UserPreferences
+import com.lago.app.data.remote.dto.AccountCurrentStatusResponse
+import com.lago.app.data.remote.dto.StockHoldingResponse
+import com.lago.app.data.remote.api.ChartApiService
+import com.lago.app.util.KoreanStockMarketUtils
+import com.lago.app.util.ChartInterval
 import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,23 +38,28 @@ data class PurchaseUiState(
     val accountBalance: Long = 0L, // 계좌 잔고
     val errorMessage: String? = null,
     val isTradeCompleted: Boolean = false,
-    val tradeResult: MockTradeResult? = null
+    val tradeResult: MockTradeResult? = null,
+    val accountType: Int = 0 // 0=실시간모의투자, 1=역사챌린지, 2=자동매매봇
 )
 
 @HiltViewModel
 class PurchaseViewModel @Inject constructor(
-    private val mockTradeRepository: MockTradeRepository
+    private val mockTradeRepository: MockTradeRepository,
+    private val portfolioRepository: PortfolioRepository,
+    private val userPreferences: UserPreferences,
+    private val chartApiService: ChartApiService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PurchaseUiState())
     val uiState: StateFlow<PurchaseUiState> = _uiState
 
-    fun loadStockInfo(stockCode: String, isPurchaseType: Boolean = true) {
+    fun loadStockInfo(stockCode: String, isPurchaseType: Boolean = true, accountType: Int = 0) {
+        android.util.Log.d("PurchaseViewModel", "💰 주식정보 로딩 시작: stockCode=$stockCode, isPurchaseType=$isPurchaseType, accountType=$accountType")
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
             try {
-                // 1. 주식 정보 조회
+                // 1. 주식 정보 조회 (MockTradeRepository 사용 - 더 안정적인 API)
                 mockTradeRepository.getStockDisplayInfo(stockCode).collect { resource ->
                     when (resource) {
                         is Resource.Loading -> {
@@ -55,21 +67,39 @@ class PurchaseViewModel @Inject constructor(
                         }
                         is Resource.Success -> {
                             val stockInfo = resource.data!!
+                            android.util.Log.d("PurchaseViewModel", "💰 주식정보 조회 성공: ${stockInfo.name}(${stockInfo.code}) ${stockInfo.currentPrice}원")
                             
-                            // 2. 계좌 잔고 조회
-                            loadAccountInfo(stockInfo, isPurchaseType)
+                            android.util.Log.d("PurchaseViewModel", "💰 주식정보를 UI에 임시 반영: ${stockInfo.name}, ${stockInfo.currentPrice}원")
+                            
+                            // 먼저 주식 기본 정보를 UI에 반영
+                            _uiState.update { state ->
+                                state.copy(
+                                    stockCode = stockInfo.code,
+                                    stockName = stockInfo.name,
+                                    currentPrice = stockInfo.currentPrice,
+                                    isPurchaseType = isPurchaseType,
+                                    accountType = accountType,
+                                    isLoading = true // 계좌 정보 로딩 중
+                                )
+                            }
+                            
+                            // 2. 계좌 잔고 조회 (별도 코루틴에서 실행)
+                            launch {
+                                loadAccountInfo(stockInfo, isPurchaseType, accountType)
+                            }
                         }
                         is Resource.Error -> {
-                            _uiState.update { 
-                                it.copy(
-                                    isLoading = false,
-                                    errorMessage = resource.message
-                                )
+                            android.util.Log.e("PurchaseViewModel", "💰 주식정보 조회 실패: ${resource.message}")
+                            
+                            // 장 마감 시간이나 주말에는 마지막 일봉 데이터를 시도
+                            launch {
+                                tryGetLastStockData(stockCode, isPurchaseType, accountType)
                             }
                         }
                     }
                 }
             } catch (e: Exception) {
+                android.util.Log.e("PurchaseViewModel", "💰 주식정보 로드 중 예외 발생: ${e.message}", e)
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
@@ -80,38 +110,45 @@ class PurchaseViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadAccountInfo(stockInfo: StockDisplayInfo, isPurchaseType: Boolean) {
-        // 계좌 잔고 조회
-        mockTradeRepository.getAccountBalance().collect { balanceResource ->
-            when (balanceResource) {
+    private suspend fun loadAccountInfo(stockInfo: StockDisplayInfo, isPurchaseType: Boolean, accountType: Int) {
+        // PortfolioRepository를 사용하여 계좌 정보 조회
+        val userId = userPreferences.getUserIdLong()
+        if (userId == 0L) return
+        android.util.Log.d("PurchaseViewModel", "💰 계좌정보 로딩 시작: userId=$userId, accountType=$accountType")
+        
+        portfolioRepository.getUserCurrentStatus(userId, accountType).collect { resource ->
+            when (resource) {
                 is Resource.Success -> {
-                    val balance = balanceResource.data!!
+                    val accountStatus = resource.data!!
+                    android.util.Log.d("PurchaseViewModel", "💰 계좌정보 조회 성공: 잔액=${accountStatus.balance}원, 보유종목=${accountStatus.holdings.size}개")
                     
                     if (isPurchaseType) {
                         // 매수: 계좌 잔고 기반으로 최대 구매 가능 금액 설정
+                        android.util.Log.d("PurchaseViewModel", "💰 매수 모드: 잔액=${accountStatus.balance}원으로 설정")
                         _uiState.update { state ->
                             state.copy(
                                 stockCode = stockInfo.code,
                                 stockName = stockInfo.name,
                                 currentPrice = stockInfo.currentPrice,
-                                holdingInfo = "${String.format("%,d", balance.balance)}원",
+                                holdingInfo = "${String.format("%,d", accountStatus.balance)}원",
                                 isPurchaseType = isPurchaseType,
-                                maxAmount = balance.balance,
-                                accountBalance = balance.balance,
+                                maxAmount = accountStatus.balance.toLong(),
+                                accountBalance = accountStatus.balance.toLong(),
                                 holdingQuantity = 0,
+                                accountType = accountType,
                                 isLoading = false
                             )
                         }
                     } else {
                         // 매도: 보유 주식 수량 조회
-                        loadHoldingInfo(stockInfo, balance)
+                        loadHoldingInfo(stockInfo, accountStatus, accountType)
                     }
                 }
                 is Resource.Error -> {
                     _uiState.update { 
                         it.copy(
                             isLoading = false,
-                            errorMessage = balanceResource.message
+                            errorMessage = resource.message
                         )
                     }
                 }
@@ -122,44 +159,27 @@ class PurchaseViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadHoldingInfo(stockInfo: StockDisplayInfo, balance: AccountBalance) {
-        // 보유 주식 조회
-        mockTradeRepository.getStockHoldings().collect { holdingsResource ->
-            when (holdingsResource) {
-                is Resource.Success -> {
-                    val holdings = holdingsResource.data!!
-                    val holding = holdings.find { it.stockCode == stockInfo.code }
-                    
-                    _uiState.update { state ->
-                        state.copy(
-                            stockCode = stockInfo.code,
-                            stockName = stockInfo.name,
-                            currentPrice = stockInfo.currentPrice,
-                            holdingInfo = if (holding != null) {
-                                "${holding.quantity}주 보유 (평균 ${String.format("%,d", holding.avgBuyPrice)}원)"
-                            } else {
-                                "보유 주식 없음"
-                            },
-                            isPurchaseType = false,
-                            maxAmount = (holding?.quantity ?: 0) * stockInfo.currentPrice.toLong(),
-                            accountBalance = balance.balance,
-                            holdingQuantity = holding?.quantity ?: 0,
-                            isLoading = false
-                        )
-                    }
-                }
-                is Resource.Error -> {
-                    _uiState.update { 
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = holdingsResource.message
-                        )
-                    }
-                }
-                is Resource.Loading -> {
-                    // 이미 로딩 중
-                }
-            }
+    private suspend fun loadHoldingInfo(stockInfo: StockDisplayInfo, accountStatus: AccountCurrentStatusResponse, accountType: Int) {
+        // PortfolioRepository에서 보유 주식 정보 조회 (accountStatus.holdings 사용)
+        val holding = accountStatus.holdings.find { it.stockCode == stockInfo.code }
+        
+        _uiState.update { state ->
+            state.copy(
+                stockCode = stockInfo.code,
+                stockName = stockInfo.name,
+                currentPrice = stockInfo.currentPrice,
+                holdingInfo = if (holding != null) {
+                    "${holding.quantity}주 보유 (평균 ${String.format("%,d", holding.totalPurchaseAmount / holding.quantity)}원)"
+                } else {
+                    "보유 주식 없음"
+                },
+                isPurchaseType = false,
+                maxAmount = (holding?.quantity ?: 0) * stockInfo.currentPrice.toLong(),
+                accountBalance = accountStatus.balance.toLong(),
+                holdingQuantity = holding?.quantity ?: 0,
+                accountType = accountType,
+                isLoading = false
+            )
         }
     }
 
@@ -256,7 +276,8 @@ class PurchaseViewModel @Inject constructor(
         mockTradeRepository.buyStock(
             stockCode = state.stockCode,
             quantity = state.purchaseQuantity,
-            price = state.currentPrice
+            price = state.currentPrice,
+            accountType = state.accountType
         ).collect { resource ->
             when (resource) {
                 is Resource.Loading -> {
@@ -299,7 +320,8 @@ class PurchaseViewModel @Inject constructor(
         mockTradeRepository.sellStock(
             stockCode = state.stockCode,
             quantity = state.purchaseQuantity,
-            price = state.currentPrice
+            price = state.currentPrice,
+            accountType = state.accountType
         ).collect { resource ->
             when (resource) {
                 is Resource.Loading -> {
@@ -347,6 +369,158 @@ class PurchaseViewModel @Inject constructor(
                 totalPrice = 0L,
                 percentage = 0f
             )
+        }
+    }
+
+    /**
+     * 장 마감 시간이나 실시간 데이터 실패 시 마지막 일봉 데이터로 주식 정보 조회
+     */
+    private suspend fun tryGetLastStockData(stockCode: String, isPurchaseType: Boolean, accountType: Int) {
+        try {
+            android.util.Log.d("PurchaseViewModel", "💰 마지막 일봉 데이터 조회 시도: $stockCode")
+            
+            // 먼저 현재 영업일 정보를 로그로 확인
+            KoreanStockMarketUtils.logTradingDayInfo()
+            
+            // KoreanStockMarketUtils를 사용하여 영업일 기준 날짜 범위 생성 (DateTime 형식)
+            val (startDateTime, endDateTime) = KoreanStockMarketUtils.getChartDateTimeRange()
+            android.util.Log.d("PurchaseViewModel", "💰 DateTime 범위: $startDateTime ~ $endDateTime")
+            android.util.Log.d("PurchaseViewModel", "💰 API 호출: api/stocks/$stockCode?interval=DAY&fromDateTime=$startDateTime&toDateTime=$endDateTime")
+            
+            val intervalData = chartApiService.getIntervalChartData(stockCode, ChartInterval.DAY.value, startDateTime, endDateTime)
+            android.util.Log.d("PurchaseViewModel", "💰 인터벌 API 응답: ${intervalData.size}개 데이터 수신")
+            
+            if (intervalData.isNotEmpty()) {
+                // 가장 최근 데이터 사용
+                val latestData = intervalData.last()
+                val stockName = getStockNameByCode(stockCode)
+                
+                android.util.Log.d("PurchaseViewModel", "💰 마지막 일봉 데이터 조회 성공: $stockName ${latestData.closePrice}원 (${latestData.bucket})")
+                
+                val stockInfo = StockDisplayInfo(
+                    stockInfoId = latestData.stockInfoId,
+                    code = latestData.code,
+                    name = stockName,
+                    market = "KOSPI",
+                    currentPrice = latestData.closePrice.toInt(),
+                    openPrice = latestData.openPrice.toInt(),
+                    highPrice = latestData.highPrice.toInt(),
+                    lowPrice = latestData.lowPrice.toInt(),
+                    volume = latestData.volume,
+                    priceChange = (latestData.closePrice - latestData.openPrice).toInt(),
+                    priceChangeRate = ((latestData.closePrice - latestData.openPrice).toDouble() / latestData.openPrice * 100),
+                    updatedAt = latestData.bucket.split("T")[0], // "2024-08-13T09:00:00" → "2024-08-13"
+                    isFavorite = false
+                )
+                
+                // UI에 반영
+                _uiState.update { state ->
+                    state.copy(
+                        stockCode = stockInfo.code,
+                        stockName = stockInfo.name,
+                        currentPrice = stockInfo.currentPrice,
+                        isPurchaseType = isPurchaseType,
+                        accountType = accountType,
+                        isLoading = true // 계좌 정보 로딩 중
+                    )
+                }
+                
+                // 계좌 정보 로드
+                loadAccountInfo(stockInfo, isPurchaseType, accountType)
+                
+            } else {
+                android.util.Log.e("PurchaseViewModel", "💰 일봉 데이터도 없음: $stockCode")
+                // 정말 마지막 수단으로 기본 정보 사용
+                val stockName = getStockNameByCode(stockCode)
+                if (stockName.isNotEmpty()) {
+                    _uiState.update { 
+                        it.copy(
+                            isLoading = false,
+                            stockCode = stockCode,
+                            stockName = stockName,
+                            currentPrice = 1000, // 최후의 기본값
+                            errorMessage = "최신 주식 데이터를 가져올 수 없습니다. 기본 정보를 표시합니다."
+                        )
+                    }
+                } else {
+                    _uiState.update { 
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = "주식 정보를 찾을 수 없습니다. 올바른 종목코드를 확인해주세요."
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PurchaseViewModel", "💰 일봉 데이터 조회 실패: ${e.message}", e)
+            
+            // 예외 타입별 상세 로그
+            when (e) {
+                is retrofit2.HttpException -> {
+                    android.util.Log.e("PurchaseViewModel", "💰 HTTP 에러: ${e.code()} - ${e.message()}")
+                    android.util.Log.e("PurchaseViewModel", "💰 에러 응답: ${e.response()?.errorBody()?.string()}")
+                }
+                is java.io.IOException -> {
+                    android.util.Log.e("PurchaseViewModel", "💰 네트워크 에러: ${e.message}")
+                }
+                else -> {
+                    android.util.Log.e("PurchaseViewModel", "💰 기타 에러: ${e.javaClass.simpleName} - ${e.message}")
+                }
+            }
+            
+            // 최후의 수단으로 기본 정보 사용
+            val stockName = getStockNameByCode(stockCode)
+            if (stockName.isNotEmpty()) {
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false,
+                        stockCode = stockCode,
+                        stockName = stockName,
+                        currentPrice = 1000, // 최후의 기본값
+                        errorMessage = "주식 데이터를 가져올 수 없습니다. 네트워크를 확인해주세요."
+                    )
+                }
+            } else {
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "주식 정보를 찾을 수 없습니다."
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 주식 코드로 주식명 조회 (기본 매핑)
+     * 실제로는 로컬 DB나 캐시에서 조회해야 함
+     */
+    private fun getStockNameByCode(stockCode: String): String {
+        return when (stockCode) {
+            "005930" -> "삼성전자"
+            "000660" -> "SK하이닉스"
+            "035420" -> "NAVER"
+            "035720" -> "카카오"
+            "051910" -> "LG화학"
+            "006400" -> "삼성SDI"
+            "028260" -> "삼성물산"
+            "068270" -> "셀트리온"
+            "207940" -> "삼성바이오로직스"
+            "096770" -> "SK이노베이션"
+            "323410" -> "카카오뱅크"
+            "267260" -> "HD현대일렉트릭"
+            "000270" -> "기아"
+            "012330" -> "현대모비스"
+            "030200" -> "KT"
+            "017670" -> "SK텔레콤"
+            "105560" -> "KB금융"
+            "086790" -> "하나금융지주"
+            "003550" -> "LG"
+            "034730" -> "SK"
+            else -> {
+                android.util.Log.w("PurchaseViewModel", "⚠️ 알 수 없는 주식 코드: $stockCode")
+                "" // 빈 문자열 반환하여 에러 처리
+            }
         }
     }
 }
