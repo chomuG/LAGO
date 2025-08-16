@@ -4,6 +4,7 @@ import com.lago.app.data.remote.dto.TransactionDto
 import com.lago.app.data.remote.dto.UserCurrentStatusDto
 import com.lago.app.data.remote.dto.RankingDto
 import com.lago.app.data.remote.dto.HistoryChallengeDto
+import com.lago.app.data.remote.dto.StockInfoDto
 import retrofit2.http.*
 
 interface ApiService {
@@ -43,4 +44,7 @@ interface ApiService {
 
     @GET("api/history-challenge")
     suspend fun getHistoryChallenge(): HistoryChallengeDto
+
+    @GET("api/stocks/info")
+    suspend fun getStocksInfo(): List<StockInfoDto>
 }

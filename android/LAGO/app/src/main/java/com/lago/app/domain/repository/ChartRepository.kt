@@ -101,13 +101,23 @@ interface ChartRepository {
     suspend fun getHistoryChallenge(): Flow<Resource<com.lago.app.data.remote.dto.HistoryChallengeResponse>>
 
     /**
-     * 역사챌린지 차트 데이터 조회
+     * 역사챌린지 차트 데이터 조회 (현재 시간 기준 과거 기간)
      */
     suspend fun getHistoryChallengeChart(
         challengeId: Int,
         interval: String,
-        fromDateTime: String,
-        toDateTime: String
+        pastMinutes: Int? = null,  // 과거 몇 분 (분봉용)
+        pastDays: Int? = null      // 과거 몇 일 (일봉용) 
+    ): Flow<Resource<List<CandlestickData>>>
+
+    /**
+     * 역사챌린지 차트 무한 히스토리 데이터 조회 (특정 시간 이전 데이터)
+     */
+    suspend fun getHistoryChallengeHistoricalData(
+        challengeId: Int,
+        interval: String,
+        beforeDateTime: String,  // 이 시간 이전 데이터
+        limit: Int = 50
     ): Flow<Resource<List<CandlestickData>>>
 
     /**

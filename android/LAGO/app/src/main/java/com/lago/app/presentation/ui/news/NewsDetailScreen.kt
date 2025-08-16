@@ -25,17 +25,33 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lago.app.R
 import com.lago.app.presentation.theme.*
 import com.lago.app.presentation.ui.components.CommonTopAppBar
+import com.lago.app.presentation.viewmodel.NewsDetailViewModel
+import com.lago.app.presentation.viewmodel.NewsDetailUiState
+import com.lago.app.domain.entity.News
+import com.lago.app.util.formatTimeAgo
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewsDetailScreen(
     newsId: String = "1",
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    viewModel: NewsDetailViewModel = hiltViewModel()
 ) {
     var isAiSummaryExpanded by remember { mutableStateOf(true) }
+    
+    val newsDetailState by viewModel.newsDetailState.collectAsStateWithLifecycle()
+    
+    LaunchedEffect(newsId) {
+        val id = newsId.toIntOrNull() ?: 1
+        viewModel.loadNewsDetail(id)
+    }
     
     Column(
         modifier = Modifier
@@ -48,16 +64,68 @@ fun NewsDetailScreen(
             onBackClick = onBackClick
         )
         
-        // Scrollable Content
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-        ) {
+        when (newsDetailState) {
+            is NewsDetailUiState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MainBlue)
+                }
+            }
+            is NewsDetailUiState.Success -> {
+                NewsDetailContent(
+                    news = (newsDetailState as NewsDetailUiState.Success).news,
+                    isAiSummaryExpanded = isAiSummaryExpanded,
+                    onToggleAiSummary = { isAiSummaryExpanded = !isAiSummaryExpanded }
+                )
+            }
+            is NewsDetailUiState.Error -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "뉴스를 불러올 수 없습니다",
+                            style = TitleB16,
+                            color = Color.Red
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { 
+                                val id = newsId.toIntOrNull() ?: 1
+                                viewModel.loadNewsDetail(id)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MainBlue)
+                        ) {
+                            Text("다시 시도", color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NewsDetailContent(
+    news: News,
+    isAiSummaryExpanded: Boolean,
+    onToggleAiSummary: () -> Unit
+) {
+    // Scrollable Content
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+    ) {
             // News Title
             Text(
-                text = "삼성전자 신제품 발표, 반도체 부문 실적 개선 전망으로 주가 상승 기대",
+                text = news.title,
                 style = TitleB20,
                 color = Color.Black,
                 lineHeight = 24.sp,
@@ -66,7 +134,7 @@ fun NewsDetailScreen(
             
             // Date
             Text(
-                text = "2025년 7월 30일 10:21",
+                text = formatDateTime(news.publishedAt),
                 style = BodyR14,
                 color = Gray700,
                 modifier = Modifier.padding(bottom = 24.dp)
@@ -75,13 +143,7 @@ fun NewsDetailScreen(
             // AI Summary Section
             Card(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(
-                        elevation = 4.dp,
-                        shape = RoundedCornerShape(12.dp),
-                        spotColor = ShadowColor,
-                        ambientColor = ShadowColor
-                    ),
+                    .fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = Color.White
@@ -94,7 +156,7 @@ fun NewsDetailScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { isAiSummaryExpanded = !isAiSummaryExpanded },
+                            .clickable { onToggleAiSummary() },
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -102,7 +164,7 @@ fun NewsDetailScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                painter = painterResource(id = R.drawable.hand_clap),
+                                painter = painterResource(id = R.drawable.robot_icon),
                                 contentDescription = "AI",
                                 tint = MainBlue,
                                 modifier = Modifier.size(20.dp)
@@ -132,15 +194,15 @@ fun NewsDetailScreen(
                         Column(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            AiSummaryItem(
-                                text = "삼성전자가 새로운 22나노 반도체 AI 칩 생산 계획을 제공했습니다."
-                            )
-                            AiSummaryItem(
-                                text = "이는 역대 최대 단일 고객 수주로, 미국 텍사스 공장에서 생산될 예정입니다."
-                            )
-                            AiSummaryItem(
-                                text = "업계 마스크는 '초기 계약일 뿐'이라며 향후 물량 확대를 시사했습니다."
-                            )
+                            // summary 필드를 파싱해서 표시
+                            val summaryText = news.summary.removePrefix("{").removeSuffix("}")
+                            val summaryItems = summaryText.split(",").map { it.trim() }
+                            
+                            summaryItems.forEach { item ->
+                                if (item.isNotBlank()) {
+                                    AiSummaryItem(text = item)
+                                }
+                            }
                         }
                     }
                 }
@@ -176,9 +238,7 @@ fun NewsDetailScreen(
             
             // News Content
             Text(
-                text = """이재용 삼성전자 회장이 미국 워싱턴 D.C.방문차 출국길에 올랐습니다. 현재 미국에서 진행되는 관세 협상을 지원하기 위한 출장으로 보입니다.
-                
-이 회장은 오늘 오후 3시 50분쯤 김포공항에 도착해 미국으로 출국했습니다. 미국 증권 특례에 대한 취재진 질문에 답변을 하지 않았습니다.""",
+                text = news.content,
                 style = BodyR16,
                 color = Color.Black,
                 lineHeight = 24.sp
@@ -187,7 +247,6 @@ fun NewsDetailScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
-}
 
 @Composable
 fun AiSummaryItem(
@@ -197,10 +256,9 @@ fun AiSummaryItem(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top
     ) {
-        Icon(
+        Image(
             painter = painterResource(id = R.drawable.news_sum_icon),
             contentDescription = "AI 요약 아이콘",
-            tint = MainBlue,
             modifier = Modifier
                 .size(16.dp)
                 .offset(y = 2.dp)
@@ -214,6 +272,18 @@ fun AiSummaryItem(
         )
     }
 }
+
+fun formatDateTime(dateTimeStr: String): String {
+    return try {
+        val inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
+        val outputFormatter = DateTimeFormatter.ofPattern("yyyy년 M월 d일 HH:mm")
+        val dateTime = LocalDateTime.parse(dateTimeStr, inputFormatter)
+        dateTime.format(outputFormatter)
+    } catch (e: Exception) {
+        dateTimeStr // 파싱 실패 시 원본 반환
+    }
+}
+
 
 @Preview(showBackground = true)
 @Composable

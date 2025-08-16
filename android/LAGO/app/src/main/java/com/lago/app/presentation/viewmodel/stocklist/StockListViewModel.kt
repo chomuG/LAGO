@@ -132,6 +132,16 @@ class StockListViewModel @Inject constructor(
             
             // 역사챌린지는 전용 WebSocket 채널 (/topic/history-challenge) 사용
             // 캐시에서 역사챌린지 종목 실시간 데이터 가져와서 업데이트
+            android.util.Log.d("StockListViewModel", "🔥 역사챌린지 업데이트 시도: ${currentState.historyChallengeStocks.size}개 종목")
+            currentState.historyChallengeStocks.forEach { stock ->
+                val historyChallengeKey = "HISTORY_CHALLENGE_${stock.stockCode}"
+                val hasData = quotesMap.containsKey(historyChallengeKey)
+                android.util.Log.d("StockListViewModel", "🔥 역사챌린지 ${stock.stockCode} (키: $historyChallengeKey): 캐시 데이터 $hasData")
+                if (hasData) {
+                    val data = quotesMap[historyChallengeKey]!!
+                    android.util.Log.d("StockListViewModel", "🔥 역사챌린지 ${stock.stockCode} 캐시 데이터: price=${data.price}, changePrice=${data.priceChange}, fluctuationRate=${data.priceChangePercent}")
+                }
+            }
             val updatedHistoryStocks = updateHistoryChallengeStocksWithCache(currentState.historyChallengeStocks, quotesMap)
             
             android.util.Log.d("StockListViewModel", "✅ UI 업데이트 완료: 일반 ${updateCount}개 종목 변경됨 (역사챌린지는 별도 채널)")
@@ -524,6 +534,7 @@ class StockListViewModel @Inject constructor(
                         is Resource.Success -> {
                             val challenge = resource.data ?: return@collect
                             android.util.Log.d("StockListViewModel", "🔥 역사챌린지 성공: ${challenge.stockName} (${challenge.stockCode})")
+                            android.util.Log.d("StockListViewModel", "🔥 API 데이터: currentPrice=${challenge.currentPrice}, fluctuationPrice=${challenge.fluctuationPrice}, fluctuationRate=${challenge.fluctuationRate}")
                             
                             // HistoryChallengeResponse를 HistoryChallengeStock으로 변환
                             val historyChallengeStock = HistoryChallengeStock(
@@ -536,6 +547,7 @@ class StockListViewModel @Inject constructor(
                                 lowPrice = 0f, // WebSocket에서 업데이트
                                 closePrice = challenge.currentPrice.toFloat(),
                                 fluctuationRate = challenge.fluctuationRate,
+                                changePrice = challenge.fluctuationPrice.toFloat(), // API에서 받은 실제 전일대비 가격차이
                                 tradingVolume = 0L, // WebSocket에서 업데이트
                                 marketCap = null,
                                 profitRate = null // 역사챌린지에서는 수익률 별도 계산
@@ -546,10 +558,13 @@ class StockListViewModel @Inject constructor(
                             }
                             
                             android.util.Log.d("StockListViewModel", "🔥 UI 상태 업데이트 완료: ${historyChallengeStock.stockName}")
+                            android.util.Log.d("StockListViewModel", "🔥 생성된 HistoryChallengeStock: currentPrice=${historyChallengeStock.currentPrice}, changePrice=${historyChallengeStock.changePrice}, fluctuationRate=${historyChallengeStock.fluctuationRate}")
                             android.util.Log.d("StockListViewModel", "🔥 현재 historyChallengeStocks 크기: ${_uiState.value.historyChallengeStocks.size}")
                             
                             // 역사챌린지 WebSocket 구독 시작 (실제 stockCode 전달)
+                            android.util.Log.d("StockListViewModel", "🔥 WebSocket 구독 시작 전: ${challenge.stockCode}")
                             subscribeToHistoryChallengeWebSocket(challenge.stockCode)
+                            android.util.Log.d("StockListViewModel", "🔥 WebSocket 구독 시작 후: ${challenge.stockCode}")
                         }
                         is Resource.Error -> {
                             android.util.Log.e("StockListViewModel", "🚨 역사챌린지 API 오류: ${resource.message}")
@@ -627,21 +642,41 @@ class StockListViewModel @Inject constructor(
         var updateCount = 0
         
         val updatedStocks = historyChallengeStocks.map { stock ->
-            val realTimeData = quotesMap[stock.stockCode]
+            val historyChallengeKey = "HISTORY_CHALLENGE_${stock.stockCode}"
+            val realTimeData = quotesMap[historyChallengeKey]
             if (realTimeData != null) {
-                android.util.Log.d("StockListViewModel", "🔥 역사챌린지 ${stock.stockCode} 실시간 업데이트: ${realTimeData.closePrice}원")
-                updateCount++
+                val newCurrentPrice = realTimeData.closePrice?.toFloat() ?: stock.currentPrice
+                val newChangePrice = realTimeData.priceChange.toFloat()
+                val newFluctuationRate = realTimeData.priceChangePercent.toFloat()
                 
-                stock.copy(
-                    currentPrice = realTimeData.closePrice?.toFloat() ?: stock.currentPrice,
-                    openPrice = realTimeData.openPrice?.toFloat() ?: stock.openPrice,
-                    highPrice = realTimeData.highPrice?.toFloat() ?: stock.highPrice,
-                    lowPrice = realTimeData.lowPrice?.toFloat() ?: stock.lowPrice,
-                    closePrice = realTimeData.closePrice?.toFloat() ?: stock.closePrice,
-                    fluctuationRate = realTimeData.fluctuationRate?.toFloat() ?: stock.fluctuationRate,
-                    tradingVolume = realTimeData.volume ?: stock.tradingVolume
-                )
+                // 변경 사항이 있는지 체크
+                if (stock.currentPrice != newCurrentPrice || 
+                    stock.changePrice != newChangePrice || 
+                    stock.fluctuationRate != newFluctuationRate) {
+                    
+                    android.util.Log.d("StockListViewModel", "🔥 역사챌린지 ${stock.stockCode} 실시간 업데이트: ${realTimeData.closePrice}원")
+                    android.util.Log.d("StockListViewModel", "🔥 역사챌린지 이전 값: currentPrice=${stock.currentPrice}, changePrice=${stock.changePrice}, fluctuationRate=${stock.fluctuationRate}")
+                    android.util.Log.d("StockListViewModel", "🔥 역사챌린지 새 값: currentPrice=${newCurrentPrice}, changePrice=${newChangePrice}, fluctuationRate=${newFluctuationRate}")
+                    updateCount++
+                    
+                    val updatedStock = stock.copy(
+                        currentPrice = newCurrentPrice,
+                        openPrice = realTimeData.openPrice?.toFloat() ?: stock.openPrice,
+                        highPrice = realTimeData.highPrice?.toFloat() ?: stock.highPrice,
+                        lowPrice = realTimeData.lowPrice?.toFloat() ?: stock.lowPrice,
+                        closePrice = realTimeData.closePrice?.toFloat() ?: stock.closePrice,
+                        fluctuationRate = newFluctuationRate,
+                        changePrice = newChangePrice,
+                        tradingVolume = realTimeData.volume ?: stock.tradingVolume
+                    )
+                    android.util.Log.d("StockListViewModel", "🔥 역사챌린지 업데이트 후: currentPrice=${updatedStock.currentPrice}, changePrice=${updatedStock.changePrice}, fluctuationRate=${updatedStock.fluctuationRate}")
+                    updatedStock
+                } else {
+                    android.util.Log.v("StockListViewModel", "🔥 역사챌린지 ${stock.stockCode}: 변경사항 없음")
+                    stock
+                }
             } else {
+                android.util.Log.d("StockListViewModel", "🔥 역사챌린지 ${stock.stockCode} (키: $historyChallengeKey): 캐시에 데이터 없음")
                 stock
             }
         }

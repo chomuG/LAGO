@@ -4,6 +4,7 @@ import com.lago.app.data.remote.dto.TransactionDto
 import com.lago.app.util.Constants
 import com.lago.app.data.remote.dto.UserCurrentStatusDto
 import com.lago.app.data.remote.dto.HistoryChallengeDto
+import com.lago.app.data.remote.dto.StockInfoDto
 import retrofit2.Retrofit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -134,6 +135,11 @@ class RemoteDataSource @Inject constructor(
 
     suspend fun getHistoryChallenge(): HistoryChallengeDto {
         return apiService.getHistoryChallenge()
+    }
+
+    suspend fun getStocksInfo(): List<StockInfoDto> {
+        android.util.Log.d("API_CALL", "Getting stocks info from: ${Constants.BASE_URL}api/stocks/info")
+        return apiService.getStocksInfo()
     }
 }
 
