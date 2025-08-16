@@ -500,23 +500,40 @@ fun ChartScreen(
                     .fillMaxWidth()
                     .weight(1f)  // 자동으로 압축/확장
             ) {
-                // TradingView v5 Multi-Panel Chart with Native API (기존 방식 유지)
-                val multiPanelData = DataConverter.createMultiPanelData(
-                    candlestickData = uiState.candlestickData,
-                    volumeData = uiState.volumeData,
-                    sma5Data = uiState.sma5Data,
-                    sma20Data = uiState.sma20Data,
-                    rsiData = uiState.rsiData,
-                    macdData = uiState.macdData,
-                    bollingerBands = uiState.bollingerBands,
-                    enabledIndicators = uiState.config.indicators.toEnabledIndicators(),
-                    timeFrame = uiState.config.timeFrame
-                )
+                // TradingView v5 Multi-Panel Chart with Native API - 토글 변경 시 재생성
+                val enabledIndicators = uiState.config.indicators.toEnabledIndicators()
+                val multiPanelData = remember(
+                    uiState.candlestickData,
+                    uiState.volumeData,
+                    uiState.sma5Data,
+                    uiState.sma20Data,
+                    uiState.rsiData,
+                    uiState.macdData,
+                    uiState.bollingerBands,
+                    enabledIndicators,
+                    uiState.config.timeFrame
+                ) {
+                    android.util.Log.d("ChartScreen", "🔄 MultiPanelData 재생성 - enabled: $enabledIndicators")
+                    DataConverter.createMultiPanelData(
+                        candlestickData = uiState.candlestickData,
+                        volumeData = if (enabledIndicators.volume) uiState.volumeData else emptyList(),
+                        sma5Data = if (enabledIndicators.sma5) uiState.sma5Data else emptyList(),
+                        sma20Data = if (enabledIndicators.sma20) uiState.sma20Data else emptyList(),
+                        rsiData = if (enabledIndicators.rsi) uiState.rsiData else emptyList(),
+                        macdData = if (enabledIndicators.macd) uiState.macdData else null,
+                        bollingerBands = if (enabledIndicators.bollingerBands) uiState.bollingerBands else null,
+                        enabledIndicators = enabledIndicators,
+                        timeFrame = uiState.config.timeFrame
+                    )
+                }
 
                 // 기존 MultiPanelChart 사용 + 실시간 업데이트 추가
                 var chartWebView by remember { mutableStateOf<android.webkit.WebView?>(null) }
+                var chartBridge by remember { mutableStateOf<com.lago.app.presentation.ui.chart.v5.JsBridge?>(null) }
                 
-                MultiPanelChart(
+                // 강제 재로딩을 위한 key (timeFrame 포함 - 안정적인 재생성 방식)
+                key("chart-${enabledIndicators.hashCode()}-${uiState.config.timeFrame}") {
+                    MultiPanelChart(
                     data = multiPanelData,
                     timeFrame = uiState.config.timeFrame,
                     tradingSignals = uiState.tradingSignals,
@@ -524,23 +541,20 @@ fun ChartScreen(
                         .fillMaxSize()
                         .padding(horizontal = Spacing.md),
                     onChartReady = {
-                        // 차트 렌더링 완료 콜백 - 이제 안전하게 JS 호출 가능
+                        // ✅ 여기서 큐 flush - JavaScript 차트 초기화 완료 시점
+                        chartBridge?.markReady()
                         viewModel.onChartReady()
-                        
-                        // JsBridge 설정 (WebView가 준비된 후, 무한 히스토리 리스너 포함)
-                        chartWebView?.let { webView ->
-                            val bridge = com.lago.app.presentation.ui.chart.v5.JsBridge(
-                                webView = webView,
-                                historicalDataListener = viewModel
-                            )
-                            bridge.markReady() // 즉시 준비 상태로 설정
-                            viewModel.setChartBridge(bridge)
-                        }
                     },
                     onWebViewReady = { webViewInstance ->
                         chartWebView = webViewInstance
-                        // 초기 timeFrame 설정 적용
-                        webViewInstance.evaluateJavascript("window.updateTimeFrame('${uiState.config.timeFrame}');", null)
+                        
+                        // JsBridge 생성 및 저장
+                        val bridge = com.lago.app.presentation.ui.chart.v5.JsBridge(
+                            webView = webViewInstance,
+                            historicalDataListener = viewModel
+                        )
+                        chartBridge = bridge
+                        viewModel.setChartBridge(bridge)
                     },
                     onChartLoading = { isLoading ->
                         // 웹뷰 로딩 상태 콜백
@@ -556,7 +570,12 @@ fun ChartScreen(
                     onCrosshairMove = { time, value, panelId ->
                         // Handle crosshair move
                     },
-                )
+                    onRequestHistory = { bars ->
+                        // 무한 히스토리 요청 처리
+                        viewModel.onRequestHistoricalData(bars)
+                    }
+                    )
+                }
             }
 
             // 차트와 시간버튼 사이 간격 최소화

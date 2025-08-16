@@ -349,6 +349,16 @@ interface ChartApiService {
     ): List<StockDayDto>
     
     /**
+     * 종목별 시간간격별 차트 데이터 조회 (새로운 인터벌 API)
+     */
+    @GET("api/stocks/{code}")
+    suspend fun getIntervalChartData(
+        @Path("code") stockCode: String,
+        @Query("interval") interval: String, // "MINUTE1", "MINUTE5", "MINUTE15", "MINUTE30", "HOUR1", "DAY", etc.
+        @Query("fromDateTime") fromDateTime: String, // KST: "2024-08-13T09:00:00"
+        @Query("toDateTime") toDateTime: String // KST: "2024-08-15T15:30:00"
+    ): List<IntervalChartDataDto>
+
      * 주식 시세 데이터 조회 (새로운 엔드포인트 - 사용 안함)
      * GET /api/stocks/{stockCode}?interval=DAY&fromDateTime=...&toDateTime=...
      */

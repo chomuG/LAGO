@@ -25,41 +25,34 @@ import java.util.*
 import kotlinx.coroutines.flow.sample
 import kotlin.time.Duration.Companion.milliseconds
 
+// MinuteBucket 클래스 제거됨 - 웹소켓에서 완전한 OHLCV 데이터를 받음
+
 /**
- * 분봉 집계를 위한 데이터 클래스
- * 서버에서 받은 틱 데이터를 분 단위로 집계
+ * 타임프레임별 버킷 시작 시각 계산 (TradingView 권장)
+ * @param epochSec epoch seconds
+ * @param timeFrame 타임프레임 ("1", "3", "5", "15", "30", "60", "D" 등)
+ * @return 버킷 시작 시각 (epoch seconds)
  */
-private data class MinuteBucket(
-    val minuteTime: Long, // 분 시작 시간 (epoch seconds)
-    var open: Float,      // 시가 (첫 번째 틱 가격)
-    var high: Float,      // 고가 (최고 가격)
-    var low: Float,       // 저가 (최저 가격)
-    var close: Float,     // 종가 (마지막 틱 가격)
-    var volume: Long      // 거래량 (누적)
-) {
-    /**
-     * 새로운 틱 데이터로 OHLC 업데이트
-     */
-    fun updateWithTick(tickPrice: Float, tickVolume: Long) {
-        high = maxOf(high, tickPrice)
-        low = minOf(low, tickPrice)
-        close = tickPrice
-        volume += tickVolume
+private fun bucketStartEpochSec(epochSec: Long, timeFrame: String): Long {
+    val frameSec = when (timeFrame) {
+        "1" -> 60L
+        "3" -> 3 * 60L
+        "5" -> 5 * 60L
+        "10" -> 10 * 60L
+        "15" -> 15 * 60L
+        "30" -> 30 * 60L
+        "60" -> 60 * 60L
+        "D" -> 24 * 60 * 60L // 일봉은 24시간 단위로 스냅
+        else -> 60L // 기본 1분
     }
+    val bucketStart = (epochSec / frameSec) * frameSec
     
-    /**
-     * CandlestickData로 변환
-     */
-    fun toCandlestickData(): CandlestickData {
-        return CandlestickData(
-            time = minuteTime,
-            open = open,
-            high = high,
-            low = low,
-            close = close,
-            volume = volume
-        )
-    }
+    // 디버그 로그
+    val originalTime = Date(epochSec * 1000)
+    val bucketTime = Date(bucketStart * 1000)
+    android.util.Log.d("BucketSnap", "🕐 ${timeFrame}분봉 스냅: ${originalTime} → ${bucketTime}")
+    
+    return bucketStart
 }
 
 /**
@@ -84,6 +77,7 @@ class HistoryChallengeChartViewModel @Inject constructor(
     
     // 실시간 차트 업데이트를 위한 JsBridge
     private var chartBridge: com.lago.app.presentation.ui.chart.v5.JsBridge? = null
+    var jsBridge: com.lago.app.presentation.ui.chart.v5.JsBridge? = null
     
     // 무한 히스토리 관련 상태 변수들
     private var currentEarliestTime: Long? = null
@@ -95,9 +89,6 @@ class HistoryChallengeChartViewModel @Inject constructor(
     
     // 현재 활성 역사챌린지 정보
     private var currentChallengeId: Int? = null
-    
-    // 분봉 집계를 위한 현재 분 버킷
-    private var currentMinuteBucket: MinuteBucket? = null
     
     init {
         loadHistoryChallengeList()
@@ -142,23 +133,9 @@ class HistoryChallengeChartViewModel @Inject constructor(
             currentState.copy(currentStock = updatedStock)
         }
         
-        // 실시간 데이터를 차트에 반영
-        realTimeData.closePrice?.let { closePrice ->
-            val currentTime = System.currentTimeMillis()
-            val currentTimeFrame = _uiState.value.config.timeFrame
-            
-            val chartTime = com.lago.app.presentation.ui.chart.v5.JsBridge.Companion.TimeUtils.formatTimeForChart(currentTime, currentTimeFrame)
-            
-            val candleData = com.lago.app.presentation.ui.chart.v5.CandleData(
-                time = chartTime,
-                open = closePrice.toFloat(), // 실시간에서는 동일한 값 사용
-                high = closePrice.toFloat(),
-                low = closePrice.toFloat(), 
-                close = closePrice.toFloat()
-            )
-            
-            chartBridge?.updateRealTimeBar(candleData)
-        }
+        // 역사챌린지에서는 실시간 차트 업데이트를 웹소켓 데이터로만 처리
+        // updateChartWithRealTimeData는 웹소켓에서 originDateTime을 받아야 함
+        android.util.Log.d("HistoryChallengeChart", "역사챌린지: 실시간 업데이트는 웹소켓 originDateTime 기반으로만 처리")
     }
     
     /**
@@ -166,11 +143,12 @@ class HistoryChallengeChartViewModel @Inject constructor(
      */
     private fun setInitialChartData(candlestickData: List<CandlestickData>, interval: String) {
         chartBridge?.let { bridge ->
-            // 타임프레임에 따른 적절한 시간 포맷으로 변환
+            // 역사챌린지에서는 항상 epoch seconds로 시간 변환
             val chartCandles = candlestickData.map { candle ->
-                val chartTime = com.lago.app.presentation.ui.chart.v5.JsBridge.Companion.TimeUtils.formatTimeForChart(candle.time, getCurrentTimeFrame())
+                // candle.time이 milliseconds면 seconds로 변환, 이미 seconds면 그대로 사용
+                val epochSeconds = if (candle.time > 9999999999L) candle.time / 1000 else candle.time
                 com.lago.app.presentation.ui.chart.v5.CandleData(
-                    time = chartTime,
+                    time = epochSeconds,
                     open = candle.open,
                     high = candle.high,
                     low = candle.low,
@@ -180,9 +158,10 @@ class HistoryChallengeChartViewModel @Inject constructor(
             
             // 거래량 데이터 변환 (있는 경우)
             val volumeData = candlestickData.map { candle ->
-                val chartTime = com.lago.app.presentation.ui.chart.v5.JsBridge.Companion.TimeUtils.formatTimeForChart(candle.time, getCurrentTimeFrame())
+                // candle.time이 milliseconds면 seconds로 변환, 이미 seconds면 그대로 사용
+                val epochSeconds = if (candle.time > 9999999999L) candle.time / 1000 else candle.time
                 com.lago.app.presentation.ui.chart.v5.VolumeData(
-                    time = chartTime,
+                    time = epochSeconds,
                     value = candle.volume,
                     color = if (candle.close >= candle.open) "#26a69a" else "#ef5350" // 상승/하락 색상
                 )
@@ -206,11 +185,12 @@ class HistoryChallengeChartViewModel @Inject constructor(
      */
     private fun prependHistoricalDataToChart(historicalData: List<CandlestickData>) {
         chartBridge?.let { bridge ->
-            // 과거 데이터를 적절한 시간 포맷으로 변환
+            // 역사챌린지에서는 항상 epoch seconds로 시간 변환
             val historicalCandles = historicalData.map { candle ->
-                val chartTime = com.lago.app.presentation.ui.chart.v5.JsBridge.Companion.TimeUtils.formatTimeForChart(candle.time, getCurrentTimeFrame())
+                // candle.time이 milliseconds면 seconds로 변환, 이미 seconds면 그대로 사용
+                val epochSeconds = if (candle.time > 9999999999L) candle.time / 1000 else candle.time
                 com.lago.app.presentation.ui.chart.v5.CandleData(
-                    time = chartTime,
+                    time = epochSeconds,
                     open = candle.open,
                     high = candle.high,
                     low = candle.low,
@@ -220,9 +200,10 @@ class HistoryChallengeChartViewModel @Inject constructor(
             
             // 과거 거래량 데이터 변환
             val historicalVolumes = historicalData.map { candle ->
-                val chartTime = com.lago.app.presentation.ui.chart.v5.JsBridge.Companion.TimeUtils.formatTimeForChart(candle.time, getCurrentTimeFrame())
+                // candle.time이 milliseconds면 seconds로 변환, 이미 seconds면 그대로 사용
+                val epochSeconds = if (candle.time > 9999999999L) candle.time / 1000 else candle.time
                 com.lago.app.presentation.ui.chart.v5.VolumeData(
-                    time = chartTime,
+                    time = epochSeconds,
                     value = candle.volume,
                     color = if (candle.close >= candle.open) "#26a69a" else "#ef5350"
                 )
@@ -235,10 +216,9 @@ class HistoryChallengeChartViewModel @Inject constructor(
     }
 
     /**
-     * 역사챌린지 데이터를 CandlestickData로 변환
-     * originDateTime을 분 단위로 정규화하여 epoch seconds로 변환
+     * 역사챌린지 데이터를 CandlestickData로 변환 (타임프레임별 버킷 시작 시각으로 스냅)
      */
-    private fun convertHistoryChallengeData(data: Map<String, Any>): CandlestickData {
+    private fun convertHistoryChallengeData(data: Map<String, Any>, timeFrame: String = "1"): CandlestickData {
         val originDateTime = data["originDateTime"] as String
         val openPrice = (data["openPrice"] as Number).toFloat()
         val highPrice = (data["highPrice"] as Number).toFloat()
@@ -246,19 +226,11 @@ class HistoryChallengeChartViewModel @Inject constructor(
         val closePrice = (data["closePrice"] as Number).toFloat()
         val volume = (data["volume"] as Number).toLong()
         
-        // originDateTime을 분 단위로 정규화하여 epoch seconds로 변환
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-        val parsedDate = dateFormat.parse(originDateTime) ?: Date(0)
-        
-        // 분 단위로 정규화 (초, 밀리초 제거)
-        val calendar = Calendar.getInstance()
-        calendar.time = parsedDate
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val minuteStartTimestamp = calendar.timeInMillis / 1000 // epoch seconds
+        // originDateTime을 타임프레임별 버킷 시작 시각으로 변환 (TradingView 권장)
+        val bucketStartTime = parseHistoryChallengeDateTime(originDateTime, timeFrame)
         
         return CandlestickData(
-            time = minuteStartTimestamp,
+            time = bucketStartTime,
             open = openPrice,
             high = highPrice,
             low = lowPrice,
@@ -368,8 +340,10 @@ class HistoryChallengeChartViewModel @Inject constructor(
                             )
                             
                             // 모든 데이터 처리 (rowId가 0이어도 유효한 데이터)
+                            // 현재 타임프레임에 맞는 버킷 시작 시각으로 스냅
+                            val currentTimeFrame = _uiState.value.config.timeFrame
                             val candleData = CandlestickData(
-                                time = parseHistoryChallengeDateTime(webSocketData.originDateTime),
+                                time = parseHistoryChallengeDateTime(webSocketData.originDateTime, currentTimeFrame),
                                 open = webSocketData.openPrice.toFloat(),
                                 high = webSocketData.highPrice.toFloat(),
                                 low = webSocketData.lowPrice.toFloat(),
@@ -398,30 +372,35 @@ class HistoryChallengeChartViewModel @Inject constructor(
     }
     
     /**
-     * 역사챌린지 날짜시간 문자열을 분 단위로 정규화된 epoch seconds로 변환
+     * 역사챌린지 날짜시간 문자열을 타임프레임별 버킷 시작 시각으로 변환 (TradingView 권장)
      */
-    private fun parseHistoryChallengeDateTime(dateTimeString: String): Long {
+    private fun parseHistoryChallengeDateTime(dateTimeString: String, timeFrame: String = "1"): Long {
         return try {
             val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
             val parsedDate = format.parse(dateTimeString) ?: return 0L
             
-            // 분 단위로 정규화 (초, 밀리초 제거)
+            // 기본적으로 초, 밀리초 제거
             val calendar = Calendar.getInstance()
             calendar.time = parsedDate
             calendar.set(Calendar.SECOND, 0)
             calendar.set(Calendar.MILLISECOND, 0)
-            calendar.timeInMillis / 1000 // epoch seconds
+            val rawEpochSec = calendar.timeInMillis / 1000
+            
+            // 타임프레임별 버킷 시작 시각으로 스냅
+            bucketStartEpochSec(rawEpochSec, timeFrame)
         } catch (e: Exception) {
             try {
                 val format2 = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                 val parsedDate = format2.parse(dateTimeString) ?: return 0L
                 
-                // 분 단위로 정규화 (초, 밀리초 제거)
                 val calendar = Calendar.getInstance()
                 calendar.time = parsedDate
                 calendar.set(Calendar.SECOND, 0)
                 calendar.set(Calendar.MILLISECOND, 0)
-                calendar.timeInMillis / 1000 // epoch seconds
+                val rawEpochSec = calendar.timeInMillis / 1000
+                
+                // 타임프레임별 버킷 시작 시각으로 스냅
+                bucketStartEpochSec(rawEpochSec, timeFrame)
             } catch (e2: Exception) {
                 0L
             }
@@ -429,131 +408,84 @@ class HistoryChallengeChartViewModel @Inject constructor(
     }
     
     /**
-     * 실시간 데이터 업데이트 (분봉 집계 로직 포함)
-     * 서버 틱 데이터를 분 단위로 집계하여 TradingView 차트에 반영
+     * 실시간 데이터 업데이트 (웹소켓 originDateTime 기반)
+     * 웹소켓에서 받은 역사챌린지 데이터를 TradingView 차트에 반영
      */
     private fun updateRealTimeChart(candleData: CandlestickData) {
-        // WebSocket에서 받은 데이터를 틱으로 처리
-        val tickTime = candleData.time // 이미 분 단위로 정규화된 epoch seconds
+        // WebSocket에서 받은 데이터는 이미 버킷 시작 시각으로 스냅됨
+        val bucketTime = candleData.time // 이미 타임프레임별 버킷 시작 시각
         val tickPrice = candleData.close
         val tickVolume = candleData.volume
         
-        android.util.Log.d("HistoryChallengeChart", "📊 틱 데이터 수신: time=${Date(tickTime * 1000)}, price=$tickPrice, volume=$tickVolume")
+        android.util.Log.d("HistoryChallengeChart", "📊 역사챌린지 데이터 수신: time=${Date(bucketTime * 1000)}, price=$tickPrice, volume=$tickVolume")
         
-        // 현재 분 버킷 확인 및 집계
-        val aggregatedCandle = aggregateTickToMinuteBar(tickTime, tickPrice, tickVolume)
-        
-        if (aggregatedCandle != null) {
-            android.util.Log.d("HistoryChallengeChart", "📊 분봉 집계 완료: ${Date(aggregatedCandle.time * 1000)} OHLC(${aggregatedCandle.open}, ${aggregatedCandle.high}, ${aggregatedCandle.low}, ${aggregatedCandle.close})")
+        // 현재 상태의 캔들스틱 데이터 업데이트
+        _uiState.update { state ->
+            val updatedCandles = state.candlestickData.toMutableList()
             
-            // 현재 상태의 캔들스틱 데이터 업데이트
-            _uiState.update { state ->
-                val updatedCandles = state.candlestickData.toMutableList()
+            // 같은 시간대면 마지막 캔들 업데이트, 다르면 새 캔들 추가
+            if (updatedCandles.isNotEmpty()) {
+                val lastCandle = updatedCandles.last()
                 
-                // 같은 시간대면 마지막 캔들 업데이트, 다르면 새 캔들 추가
-                if (updatedCandles.isNotEmpty()) {
-                    val lastCandle = updatedCandles.last()
-                    
-                    if (aggregatedCandle.time == lastCandle.time) {
-                        // 동일한 분: 기존 캔들 업데이트
-                        updatedCandles[updatedCandles.size - 1] = aggregatedCandle
-                        android.util.Log.d("HistoryChallengeChart", "📊 기존 분봉 업데이트: ${Date(aggregatedCandle.time * 1000)}")
-                    } else {
-                        // 새로운 분: 새 캔들 추가
-                        updatedCandles.add(aggregatedCandle)
-                        android.util.Log.d("HistoryChallengeChart", "📊 새 분봉 생성: ${Date(aggregatedCandle.time * 1000)}")
-                    }
+                if (bucketTime == lastCandle.time) {
+                    // 동일한 버킷: 기존 캔들 업데이트
+                    updatedCandles[updatedCandles.size - 1] = candleData
+                    android.util.Log.d("HistoryChallengeChart", "📊 기존 캔들 업데이트: ${Date(bucketTime * 1000)}")
+                } else if (bucketTime > lastCandle.time) {
+                    // 새로운 버킷: 새 캔들 추가
+                    updatedCandles.add(candleData)
+                    android.util.Log.d("HistoryChallengeChart", "📊 새 캔들 생성: ${Date(bucketTime * 1000)}")
                 } else {
-                    updatedCandles.add(aggregatedCandle)
-                    android.util.Log.d("HistoryChallengeChart", "📊 첫 분봉 생성: ${Date(aggregatedCandle.time * 1000)}")
+                    // 과거 시간 (정상적이지 않음)
+                    android.util.Log.w("HistoryChallengeChart", "📊 과거 시간 데이터 무시: ${Date(bucketTime * 1000)} < ${Date(lastCandle.time * 1000)}")
+                    return@update state
                 }
-                
-                state.copy(
-                    candlestickData = updatedCandles,
-                    currentStock = state.currentStock.copy(
-                        currentPrice = aggregatedCandle.close,
-                        priceChange = if (updatedCandles.size > 1) {
-                            aggregatedCandle.close - updatedCandles[updatedCandles.size - 2].close
-                        } else 0f,
-                        priceChangePercent = if (updatedCandles.size > 1) {
-                            val prevClose = updatedCandles[updatedCandles.size - 2].close
-                            ((aggregatedCandle.close - prevClose) / prevClose) * 100
-                        } else 0f
-                    )
-                )
+            } else {
+                updatedCandles.add(candleData)
+                android.util.Log.d("HistoryChallengeChart", "📊 첫 캔들 생성: ${Date(bucketTime * 1000)}")
             }
             
-            // TradingView 권장 방식으로 실시간 차트 업데이트
-            chartBridge?.let { bridge ->
-                val realTimeCandle = com.lago.app.presentation.ui.chart.v5.CandleData(
-                    time = aggregatedCandle.time, // epoch seconds
-                    open = aggregatedCandle.open,
-                    high = aggregatedCandle.high,
-                    low = aggregatedCandle.low,
-                    close = aggregatedCandle.close
+            state.copy(
+                candlestickData = updatedCandles,
+                currentStock = state.currentStock.copy(
+                    currentPrice = candleData.close,
+                    priceChange = if (updatedCandles.size > 1) {
+                        candleData.close - updatedCandles[updatedCandles.size - 2].close
+                    } else 0f,
+                    priceChangePercent = if (updatedCandles.size > 1) {
+                        val prevClose = updatedCandles[updatedCandles.size - 2].close
+                        ((candleData.close - prevClose) / prevClose) * 100
+                    } else 0f
                 )
-                
-                // series.update() 방식: 동일 time = 덮어쓰기, 새 time = 새 바 추가
-                bridge.updateRealTimeBar(realTimeCandle)
-                android.util.Log.d("HistoryChallengeChart", "📊 차트 업데이트 완료: ${Date(aggregatedCandle.time * 1000)}")
-                
-                // 거래량도 업데이트
-                val realTimeVolume = com.lago.app.presentation.ui.chart.v5.VolumeData(
-                    time = aggregatedCandle.time,
-                    value = aggregatedCandle.volume,
-                    color = if (aggregatedCandle.close >= aggregatedCandle.open) "#26a69a" else "#ef5350"
-                )
-                bridge.updateRealTimeVolume(realTimeVolume)
-            }
+            )
+        }
+        
+        // TradingView 권장 방식으로 실시간 차트 업데이트
+        chartBridge?.let { bridge ->
+            val realTimeCandle = com.lago.app.presentation.ui.chart.v5.CandleData(
+                time = bucketTime, // 이미 버킷 시작 시각
+                open = candleData.open,
+                high = candleData.high,
+                low = candleData.low,
+                close = candleData.close
+            )
+            
+            // series.update() 방식: 동일 time = 덮어쓰기, 새 time = 새 바 추가
+            bridge.updateRealTimeBar(realTimeCandle)
+            android.util.Log.d("HistoryChallengeChart", "📊 차트 업데이트 완료: ${Date(bucketTime * 1000)}")
+            
+            // 거래량도 업데이트
+            val realTimeVolume = com.lago.app.presentation.ui.chart.v5.VolumeData(
+                time = bucketTime,
+                value = candleData.volume,
+                color = if (candleData.close >= candleData.open) "#26a69a" else "#ef5350"
+            )
+            bridge.updateRealTimeVolume(realTimeVolume)
         }
     }
     
-    /**
-     * 틱 데이터를 분봉으로 집계
-     * @param tickTime 틱 시간 (이미 분 단위로 정규화된 epoch seconds)
-     * @param tickPrice 틱 가격
-     * @param tickVolume 틱 거래량
-     * @return 집계된 분봉 데이터 (업데이트가 있을 때만 반환)
-     */
-    private fun aggregateTickToMinuteBar(tickTime: Long, tickPrice: Float, tickVolume: Long): CandlestickData? {
-        val currentBucket = currentMinuteBucket
-        
-        if (currentBucket == null) {
-            // 첫 번째 틱: 새 분 버킷 생성
-            currentMinuteBucket = MinuteBucket(
-                minuteTime = tickTime,
-                open = tickPrice,
-                high = tickPrice,
-                low = tickPrice,
-                close = tickPrice,
-                volume = tickVolume
-            )
-            android.util.Log.d("HistoryChallengeChart", "📊 새 분 버킷 생성: ${Date(tickTime * 1000)}")
-            return currentMinuteBucket!!.toCandlestickData()
-        } else if (currentBucket.minuteTime == tickTime) {
-            // 같은 분: 기존 버킷 업데이트
-            currentBucket.updateWithTick(tickPrice, tickVolume)
-            android.util.Log.d("HistoryChallengeChart", "📊 기존 분 버킷 업데이트: ${Date(tickTime * 1000)}")
-            return currentBucket.toCandlestickData()
-        } else if (tickTime > currentBucket.minuteTime) {
-            // 새로운 분: 이전 버킷 완료하고 새 버킷 생성
-            android.util.Log.d("HistoryChallengeChart", "📊 분 경계 넘어감: ${Date(currentBucket.minuteTime * 1000)} → ${Date(tickTime * 1000)}")
-            
-            currentMinuteBucket = MinuteBucket(
-                minuteTime = tickTime,
-                open = tickPrice,
-                high = tickPrice,
-                low = tickPrice,
-                close = tickPrice,
-                volume = tickVolume
-            )
-            return currentMinuteBucket!!.toCandlestickData()
-        } else {
-            // 과거 시간의 틱 (정상적이지 않은 상황)
-            android.util.Log.w("HistoryChallengeChart", "📊 과거 시간 틱 무시: ${Date(tickTime * 1000)} < ${Date(currentBucket.minuteTime * 1000)}")
-            return null
-        }
-    }
+    // 기존 aggregateTickToMinuteBar 함수 제거됨
+    // 웹소켓에서 완전한 OHLCV 데이터를 받으므로 별도 집계 불필요
     
     /**
      * 역사챌린지 목록 로드
@@ -583,7 +515,7 @@ class HistoryChallengeChartViewModel @Inject constructor(
                                     ),
                                     config = ChartConfig(
                                         stockCode = challenge.stockCode,
-                                        timeFrame = "D",
+                                        timeFrame = "1", // 역사챌린지는 1분봉
                                         indicators = ChartIndicators()
                                     ),
                                     isLoading = false,
@@ -642,7 +574,7 @@ class HistoryChallengeChartViewModel @Inject constructor(
                     ),
                     config = ChartConfig(
                         stockCode = "005930",
-                        timeFrame = "D",
+                        timeFrame = "1", // 역사챌린지는 1분봉
                         indicators = ChartIndicators()
                     )
                 )
@@ -1149,11 +1081,11 @@ class HistoryChallengeChartViewModel @Inject constructor(
     // 차트 브릿지 설정
     fun setChartBridge(bridge: com.lago.app.presentation.ui.chart.v5.JsBridge) {
         this.chartBridge = bridge
+        this.jsBridge = bridge // jsBridge도 함께 설정
         android.util.Log.d("HistoryChallengeChart", "차트 브릿지 설정 완료")
         
-        // 역사챌린지는 1분봉으로 설정
-        bridge.updateTimeFrame("1")
-        android.util.Log.d("HistoryChallengeChart", "TimeFrame을 1분봉으로 설정")
+        // 역사챌린지는 1분봉으로 차트 생성시 설정됨 (재생성 방식)
+        android.util.Log.d("HistoryChallengeChart", "TimeFrame은 차트 생성시 1분봉으로 설정됨")
     }
     
     // HistoricalDataRequestListener 구현

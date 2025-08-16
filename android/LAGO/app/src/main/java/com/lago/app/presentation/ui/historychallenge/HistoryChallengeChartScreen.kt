@@ -1745,6 +1745,8 @@ private fun StableChartComponent(
             .fillMaxSize()
             .padding(horizontal = Spacing.md),
         onChartReady = {
+            // ✅ 여기서 큐 flush - JavaScript 차트 초기화 완료 시점
+            viewModel.jsBridge?.markReady()
             viewModel.onChartReady()
         },
         onWebViewReady = { webViewInstance ->
@@ -1754,7 +1756,7 @@ private fun StableChartComponent(
                 webView = webViewInstance,
                 historicalDataListener = viewModel
             )
-            bridge.markReady()
+            viewModel.jsBridge = bridge // ViewModel에 bridge 저장
             viewModel.setChartBridge(bridge)
         },
         onChartLoading = { isLoading ->
