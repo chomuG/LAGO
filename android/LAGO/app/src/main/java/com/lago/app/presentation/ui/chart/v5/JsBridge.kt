@@ -106,9 +106,6 @@ class JsBridge(
         enqueue("""window.updateSymbolName('${symbolName.replace("'", "\\'")}')""")
     }
 
-    fun updateTimeFrame(timeFrame: String) {
-        enqueue("""window.updateTimeFrame('${timeFrame}')""")
-    }
 
     fun setTradeMarkers(markersJson: String) {
         val escapedJson = markersJson.replace("'", "\\'").replace("\"", "\\\"")
@@ -117,6 +114,32 @@ class JsBridge(
 
     fun clearTradeMarkers() {
         enqueue("""window.clearTradeMarkers()""")
+    }
+
+    /**
+     * 메인 패널 오버레이 지표 동적 업데이트 (재생성 없이)
+     * 재생성 방식에서는 불필요하지만 향후 최적화를 위해 유지
+     */
+    fun updateSMA5(data: List<com.lago.app.presentation.ui.chart.v5.ChartData>) {
+        val json = if (data.isEmpty()) "[]" else gson.toJson(data)
+        enqueue("""window.seriesMap.sma5?.setData($json)""")
+    }
+
+    fun updateSMA20(data: List<com.lago.app.presentation.ui.chart.v5.ChartData>) {
+        val json = if (data.isEmpty()) "[]" else gson.toJson(data)
+        enqueue("""window.seriesMap.sma20?.setData($json)""")
+    }
+
+    fun updateBollingerBands(upperBand: List<com.lago.app.presentation.ui.chart.v5.ChartData>, middleBand: List<com.lago.app.presentation.ui.chart.v5.ChartData>, lowerBand: List<com.lago.app.presentation.ui.chart.v5.ChartData>) {
+        val upperJson = if (upperBand.isEmpty()) "[]" else gson.toJson(upperBand)
+        val middleJson = if (middleBand.isEmpty()) "[]" else gson.toJson(middleBand)
+        val lowerJson = if (lowerBand.isEmpty()) "[]" else gson.toJson(lowerBand)
+        
+        enqueue("""
+            window.seriesMap.bb_upper?.setData($upperJson);
+            window.seriesMap.bb_middle?.setData($middleJson);
+            window.seriesMap.bb_lower?.setData($lowerJson);
+        """.trimIndent())
     }
     
     // 무한 히스토리 관련 메서드들

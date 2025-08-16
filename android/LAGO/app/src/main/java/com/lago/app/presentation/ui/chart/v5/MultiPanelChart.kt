@@ -401,6 +401,15 @@ private fun generateMultiPanelHtml(
         });
         
         function initLAGOMultiPanelChart() {
+            // 전역 네임스페이스들 미리 준비 (초기에 꼭!)
+            window.seriesMap       = window.seriesMap || {};
+            window.__mainData      = window.__mainData || [];
+            window.__volData       = window.__volData  || [];
+            window.setInitialData  = window.setInitialData || function(){};
+            window.updateBar       = window.updateBar || function(){};
+            window.updateVolume    = window.updateVolume || function(){};
+            window.updateSymbolName= window.updateSymbolName || function(){};
+            
             try {
                 // 로딩 화면 숨기고 차트 컨테이너 표시
                 document.getElementById('loading').style.display = 'none';
@@ -647,9 +656,26 @@ private fun generateMultiPanelHtml(
                 // 보조지표용 패널들 추가
                 console.log('🔍 LAGO: Creating', indicators.length, 'indicator panels');
                 console.log('🔍 Indicators data:', indicators);
+                
+                // 실제 데이터 크기 로깅
+                console.log('sizes:',
+                    'price', priceData.length,
+                    'ind', indicators.map(i => (i?.type||'')+':'+(i?.data?.length||0)).join(','),
+                    'sma5', (JSON.parse(decodeBase64('$sma5DataBase64'))||[]).length,
+                    'sma20', (JSON.parse(decodeBase64('$sma20DataBase64'))||[]).length,
+                    'bb', !!JSON.parse(decodeBase64('$bollingerBandsBase64')),
+                    'macd', !!JSON.parse(decodeBase64('$macdDataBase64'))
+                );
+                
+                // 안전한 type 파싱 + 인디케이터별 try-catch
                 indicators.forEach((indicator, index) => {
-                    console.log('🔍 Processing indicator:', indicator.type, indicator.name, 'data points:', indicator.data?.length);
-                    createLAGOIndicatorPane(indicator, index + 1, priceData);
+                    try {
+                        const type = (indicator?.type ?? '').toString().toLowerCase(); // ✅ 안전
+                        console.log('🔍 indicator:', type, indicator?.name, 'points:', indicator?.data?.length ?? 0);
+                        createLAGOIndicatorPane({ ...indicator, type }, index + 1, priceData);
+                    } catch (e) {
+                        console.error('❌ Indicator pane failed:', indicator?.type, e);
+                    }
                 });
                 
                 // 패널 높이 조정
@@ -1029,14 +1055,8 @@ private fun generateMultiPanelHtml(
                 return arr;
             }
             
-            // 프레임 업데이트 시 시간축 동기화
-            window.updateTimeFrame = function(tf) { 
-                currentTimeFrame = tf; 
-                applyTimeScaleForFrame(tf);
-                console.log('LAGO: TimeFrame updated to:', tf);
-            }
             
-            // 초기 프레임 설정 적용
+            // 차트 초기화 직후 기존 timeScale 적용 (재생성 방식이므로 불필요한 동적 함수 제거)
             if (currentTimeFrame) {
                 applyTimeScaleForFrame(currentTimeFrame);
             }
@@ -1416,7 +1436,6 @@ private fun generateMultiPanelHtml(
         window.updateBar      = window.updateBar      || function(){ console.warn('updateBar called before init'); };
         window.updateVolume   = window.updateVolume   || function(){ console.warn('updateVolume called before init'); };
         window.updateSymbolName = window.updateSymbolName || function(){ console.warn('updateSymbolName called before init'); };
-        window.updateTimeFrame = window.updateTimeFrame || function(){ console.warn('updateTimeFrame called before init'); };
         
         // (mainSeries와 chart가 생성된 "이후"에 실제 구현으로 덮어쓰기)
         
@@ -1461,10 +1480,9 @@ private fun generateMultiPanelHtml(
         window.updateVolume = function(jsonBar) {
             try {
                 const v = JSON.parse(jsonBar); // {time, value}
-                if (window.seriesMap.volume && window.seriesMap.main) {
-                    // 같은 시간대의 캔들 데이터 확인
-                    const mainData = window.seriesMap.main.data();
-                    const lastCandle = mainData[mainData.length - 1];
+                if (window.seriesMap.volume) {
+                    // 캐시된 캔들 데이터 확인 (브라우저 호환성을 위해 .data() 대신 캐시 사용)
+                    const lastCandle = (window.__mainData || [])[(window.__mainData || []).length - 1];
                     
                     if (lastCandle && v.time === lastCandle.time) {
                         // 캔들 색상에 따라 볼륨 색상 결정
@@ -1501,13 +1519,7 @@ private fun generateMultiPanelHtml(
             } catch (e) { console.error('LAGO updateSymbolName error', e); }
         };
         
-        // 6) 시간프레임 업데이트
-        window.updateTimeFrame = function(timeFrame) {
-            try {
-                currentTimeFrame = timeFrame;
-                console.log('LAGO: Time frame updated to', timeFrame);
-            } catch (e) { console.error('LAGO updateTimeFrame error', e); }
-        };
+        // 6) 시간프레임 업데이트는 이미 위에서 applyTimeScaleForFrame 버전으로 정의됨
         
         // 7) 무한 히스토리 관련 함수들
         function loadMoreHistoricalData(barsToLoad) {

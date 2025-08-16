@@ -1084,9 +1084,8 @@ class HistoryChallengeChartViewModel @Inject constructor(
         this.jsBridge = bridge // jsBridge도 함께 설정
         android.util.Log.d("HistoryChallengeChart", "차트 브릿지 설정 완료")
         
-        // 역사챌린지는 1분봉으로 설정
-        bridge.updateTimeFrame("1")
-        android.util.Log.d("HistoryChallengeChart", "TimeFrame을 1분봉으로 설정")
+        // 역사챌린지는 1분봉으로 차트 생성시 설정됨 (재생성 방식)
+        android.util.Log.d("HistoryChallengeChart", "TimeFrame은 차트 생성시 1분봉으로 설정됨")
     }
     
     // HistoricalDataRequestListener 구현

@@ -659,6 +659,7 @@ class ChartViewModel @Inject constructor(
     private fun loadIndicators(stockCode: String, timeFrame: String) {
         viewModelScope.launch {
             try {
+                android.util.Log.d("ChartViewModel", "🔄 loadIndicators 시작: $stockCode, $timeFrame")
                 val enabledIndicators = mutableListOf<String>()
                 val currentConfig = _uiState.value.config.indicators
                 
@@ -670,12 +671,15 @@ class ChartViewModel @Inject constructor(
                 if (currentConfig.macd) enabledIndicators.add("macd")
                 if (currentConfig.bollingerBands) enabledIndicators.add("bollinger_bands")
                 
+                android.util.Log.d("ChartViewModel", "🎯 활성화된 지표: $enabledIndicators")
+                
                 if (enabledIndicators.isNotEmpty()) {
                     chartRepository.getIndicators(stockCode, enabledIndicators, timeFrame).collect { resource ->
                         when (resource) {
                             is Resource.Success -> {
                                 val data = resource.data
                                 if (data != null) {
+                                    android.util.Log.d("ChartViewModel", "✅ 지표 데이터 로딩 성공 - SMA5: ${data.sma5.size}, SMA20: ${data.sma20.size}, RSI: ${data.rsi.size}, MACD: ${data.macd != null}, BB: ${data.bollingerBands != null}")
                                     _uiState.update { 
                                         it.copy(
                                             sma5Data = data.sma5,
@@ -685,6 +689,8 @@ class ChartViewModel @Inject constructor(
                                             bollingerBands = data.bollingerBands
                                         )
                                     }
+                                } else {
+                                    android.util.Log.w("ChartViewModel", "⚠️ 지표 데이터가 null입니다")
                                 }
                             }
                             is Resource.Error -> {
@@ -727,8 +733,7 @@ class ChartViewModel @Inject constructor(
             }
         }
         
-        // 차트에 시간프레임 변경 알림 (JavaScript에서 시간축 표시 방식 변경)
-        chartBridge?.updateTimeFrame(timeFrame)
+        // 시간프레임 변경 시 웹뷰 재생성으로 새 timeScale 옵션 적용 (안정적 방식)
         
         // 새로운 프레임에 맞는 데이터 다시 로드 (새로운 인터벌 API 사용)
         loadChartDataWithInterval(stockCode, timeFrame)
@@ -1717,18 +1722,28 @@ class ChartViewModel @Inject constructor(
                                     it.copy(candlestickData = sortedData)
                                 }
                                 
-                                // JavaScript로 과거 데이터 전달
-                                val candlesJson = gson.toJson(historicalData.map { candle ->
-                                    mapOf(
-                                        "time" to candle.time / 1000, // epoch seconds
-                                        "open" to candle.open.toInt(),
-                                        "high" to candle.high.toInt(),
-                                        "low" to candle.low.toInt(),
-                                        "close" to candle.close.toInt()
+                                // JavaScript로 과거 데이터 전달 (prependHistoricalData 사용)
+                                val candleDataList = historicalData.map { candle ->
+                                    com.lago.app.presentation.ui.chart.v5.CandleData(
+                                        time = candle.time / 1000, // epoch seconds
+                                        open = candle.open.toFloat(),
+                                        high = candle.high.toFloat(),
+                                        low = candle.low.toFloat(),
+                                        close = candle.close.toFloat()
                                     )
-                                })
+                                }
                                 
-                                chartBridge?.addHistoricalData(candlesJson)
+                                // 과거 볼륨 데이터도 가져오기 (있다면)
+                                val volumeDataList = historicalData.mapNotNull { candle ->
+                                    candle.volume?.let { vol ->
+                                        com.lago.app.presentation.ui.chart.v5.VolumeData(
+                                            time = candle.time / 1000,
+                                            value = vol.toLong()
+                                        )
+                                    }
+                                }
+                                
+                                chartBridge?.prependHistoricalData(candleDataList, volumeDataList)
                                 android.util.Log.d("ChartViewModel", "📊 JavaScript로 과거 데이터 전송 완료: ${historicalData.size}개")
                                 
                             } else {
@@ -1740,6 +1755,8 @@ class ChartViewModel @Inject constructor(
                             _uiState.update { 
                                 it.copy(errorMessage = "과거 데이터 로딩 실패: ${resource.message}")
                             }
+                            // 실패해도 JS 로딩 플래그 해제를 위해 빈 배열 전송
+                            chartBridge?.prependHistoricalData(emptyList(), emptyList())
                         }
                         is Resource.Loading -> {
                             android.util.Log.d("ChartViewModel", "⏳ 과거 데이터 로딩 중...")
@@ -1751,6 +1768,8 @@ class ChartViewModel @Inject constructor(
                 _uiState.update { 
                     it.copy(errorMessage = "과거 데이터 로딩 중 오류가 발생했습니다: ${e.message}")
                 }
+                // 예외 발생시에도 JS 로딩 플래그 해제를 위해 빈 배열 전송
+                chartBridge?.prependHistoricalData(emptyList(), emptyList())
             } finally {
                 isLoadingHistory = false
                 android.util.Log.d("ChartViewModel", "🏁 과거 데이터 로딩 완료")
