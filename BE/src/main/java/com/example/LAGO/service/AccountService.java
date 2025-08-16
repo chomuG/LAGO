@@ -31,7 +31,7 @@ public class AccountService {
     private final MockTradeRepository mockTradeRepository;
     
     private static final Integer MOCK_TRADING_INITIAL_BALANCE = 1000000; // 100만원
-    private static final Integer HISTORICAL_CHALLENGE_INITIAL_BALANCE = 10000000; // 천만원
+    private static final Integer HISTORICAL_CHALLENGE_INITIAL_BALANCE = 1000000; // 백만원
     private static final Integer MOCK_TRADING_TYPE = 0;
     private static final Integer HISTORICAL_CHALLENGE_TYPE = 1;
 
