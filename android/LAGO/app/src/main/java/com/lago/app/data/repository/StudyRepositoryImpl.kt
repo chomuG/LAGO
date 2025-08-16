@@ -7,6 +7,7 @@ import com.lago.app.data.remote.dto.toEntity
 import com.lago.app.domain.entity.ChartPattern
 import com.lago.app.domain.entity.DailyQuizResult
 import com.lago.app.domain.entity.DailyQuizStatus
+import com.lago.app.domain.entity.DailyQuizStreak
 import com.lago.app.domain.entity.Quiz
 import com.lago.app.domain.entity.QuizResult
 import com.lago.app.domain.entity.Term
@@ -92,6 +93,20 @@ class StudyRepositoryImpl @Inject constructor(
                     ranking = response.ranking,
                     bonusAmount = response.bonusAmount,
                     explanation = response.explanation
+                )
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    override suspend fun getDailyQuizStreak(userId: Int): Result<DailyQuizStreak> {
+        return try {
+            val response = studyApiService.getDailyQuizStreak(userId)
+            Result.success(
+                DailyQuizStreak(
+                    userId = response.userId,
+                    streak = response.streak
                 )
             )
         } catch (e: Exception) {

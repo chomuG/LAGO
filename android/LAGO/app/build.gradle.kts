@@ -83,6 +83,9 @@ dependencies {
     
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.6")
+    
+    // Splash Screen
+    implementation("androidx.core:core-splashscreen:1.0.1")
 
     // Vico Charts
     implementation("com.patrykandpatrick.vico:compose:1.13.1")

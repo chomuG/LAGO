@@ -44,7 +44,7 @@ fun DailyQuizScreen(
                 quizResult = QuizResult(
                     isCorrect = result.correct,
                     rank = result.ranking,
-                    reward = result.score
+                    reward = result.bonusAmount
                 )
                 showResult = true
                 viewModel.resetSolveState()

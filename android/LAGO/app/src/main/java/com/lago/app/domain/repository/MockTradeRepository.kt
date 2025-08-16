@@ -43,9 +43,19 @@ interface MockTradeRepository {
     suspend fun getAccountBalance(): Flow<Resource<AccountBalance>>
     
     /**
+     * 특정 유저의 계좌 잔고 조회 (ACCOUNTS 테이블)
+     */
+    suspend fun getAccountBalanceByUserId(userId: Int): Flow<Resource<AccountBalance>>
+    
+    /**
      * 보유 주식 현황 조회 (STOCK_HOLDING + STOCK_INFO + TICKS 조인)
      */
     suspend fun getStockHoldings(): Flow<Resource<List<StockHolding>>>
+    
+    /**
+     * 특정 유저의 보유 주식 현황 조회 (STOCK_HOLDING + STOCK_INFO + TICKS 조인)
+     */
+    suspend fun getStockHoldingsByUserId(userId: Int): Flow<Resource<List<StockHolding>>>
     
     /**
      * 거래 내역 조회 (MOCK_TRADE 테이블 페이징)

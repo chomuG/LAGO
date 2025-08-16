@@ -154,7 +154,6 @@ class MyPageViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             
             try {
-//                val userId = userPreferences.getUserId() ?: throw Exception("사용자 ID를 찾을 수 없습니다.")
                 val userId = userPreferences.getUserIdLong().toInt()
                 android.util.Log.d("MyPageViewModel", "📡 API 요청 시작: userId=$userId")
 

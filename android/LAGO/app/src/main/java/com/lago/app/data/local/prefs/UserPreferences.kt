@@ -39,15 +39,7 @@ class UserPreferences @Inject constructor(
             .apply()
     }
 
-    fun getUserId(): String? {
-        return sharedPreferences.getString(KEY_USER_ID, null)
-    }
-
-    fun setUserId(userId: String) {
-        sharedPreferences.edit()
-            .putString(KEY_USER_ID, userId)
-            .apply()
-    }
+    // 기존 String 버전 메서드들 제거됨 - Long 버전 사용
 
     fun getUsername(): String? {
         return sharedPreferences.getString(KEY_USERNAME, null)
