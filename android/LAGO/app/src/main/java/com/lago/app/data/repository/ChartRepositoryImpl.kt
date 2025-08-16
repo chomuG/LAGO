@@ -281,6 +281,72 @@ class ChartRepositoryImpl @Inject constructor(
         }
     }
     
+    override suspend fun getIntervalChartData(
+        stockCode: String,
+        interval: String,
+        fromDateTime: String,
+        toDateTime: String
+    ): Flow<Resource<List<CandlestickData>>> = flow {
+        try {
+            emit(Resource.Loading())
+            
+            android.util.Log.d("ChartRepositoryImpl", "🔥 모의투자 인터벌 API 호출 시작")
+            android.util.Log.d("ChartRepositoryImpl", "🔥 파라미터: stockCode=$stockCode, interval=$interval")
+            android.util.Log.d("ChartRepositoryImpl", "🔥 시간범위: $fromDateTime ~ $toDateTime")
+            android.util.Log.d("ChartRepositoryImpl", "🔥 호출 URL: GET /api/stocks/$stockCode?interval=$interval&fromDateTime=$fromDateTime&toDateTime=$toDateTime")
+            
+            // 새로운 인터벌 API 호출
+            val response = apiService.getIntervalChartData(stockCode, interval, fromDateTime, toDateTime)
+            
+            android.util.Log.d("ChartRepositoryImpl", "🔥 API 응답 받음: ${response.size}개 데이터")
+            if (response.isNotEmpty()) {
+                val firstDto = response.first()
+                val lastDto = response.last()
+                android.util.Log.d("ChartRepositoryImpl", "🔥 첫 데이터: bucket=${firstDto.bucket}, close=${firstDto.closePrice}")
+                android.util.Log.d("ChartRepositoryImpl", "🔥 마지막 데이터: bucket=${lastDto.bucket}, close=${lastDto.closePrice}")
+            }
+            
+            // IntervalChartDataDto를 CandlestickData로 변환
+            val candlestickData = response.map { dto ->
+                // bucket 필드를 epoch seconds로 변환 (이미 버킷 시작 시각임)
+                val bucketEpochSec = parseDateTime(dto.bucket)
+                
+                android.util.Log.v("ChartRepositoryImpl", "🔥 변환: ${dto.bucket} → $bucketEpochSec (${java.util.Date(bucketEpochSec * 1000)})")
+                
+                CandlestickData(
+                    time = bucketEpochSec, // 이미 정확한 버킷 시작 시각
+                    open = dto.openPrice.toFloat(),
+                    high = dto.highPrice.toFloat(),
+                    low = dto.lowPrice.toFloat(),
+                    close = dto.closePrice.toFloat(),
+                    volume = dto.volume
+                )
+            }
+            
+            android.util.Log.d("ChartRepositoryImpl", "🔥 최종 변환 완료: ${candlestickData.size}개 캔들")
+            if (candlestickData.isNotEmpty()) {
+                val firstCandle = candlestickData.first()
+                val lastCandle = candlestickData.last()
+                android.util.Log.d("ChartRepositoryImpl", "🔥 첫 캔들: time=${firstCandle.time} (${java.util.Date(firstCandle.time * 1000)}), close=${firstCandle.close}")
+                android.util.Log.d("ChartRepositoryImpl", "🔥 마지막 캔들: time=${lastCandle.time} (${java.util.Date(lastCandle.time * 1000)}), close=${lastCandle.close}")
+            }
+            
+            emit(Resource.Success(candlestickData))
+            
+        } catch (e: HttpException) {
+            android.util.Log.e("ChartRepositoryImpl", "🚨 HTTP 에러: ${e.code()} - ${e.message()}")
+            android.util.Log.e("ChartRepositoryImpl", "🚨 HTTP 응답 본문: ${e.response()?.errorBody()?.string()}")
+            emit(Resource.Error("Network error: ${e.localizedMessage}"))
+        } catch (e: IOException) {
+            android.util.Log.e("ChartRepositoryImpl", "🚨 연결 에러: ${e.localizedMessage}")
+            emit(Resource.Error("Connection error: ${e.localizedMessage}"))
+        } catch (e: Exception) {
+            android.util.Log.e("ChartRepositoryImpl", "🚨 예외 발생: ${e.localizedMessage}")
+            android.util.Log.e("ChartRepositoryImpl", "🚨 스택 트레이스: ", e)
+            emit(Resource.Error("Unexpected error: ${e.localizedMessage}"))
+        }
+    }
+    
     private fun parseDateTime(dateTimeString: String): Long {
         val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
         return try {

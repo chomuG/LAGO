@@ -12,12 +12,22 @@ interface ChartRepository {
     suspend fun getStockInfo(stockCode: String): Flow<Resource<ChartStockInfo>>
     
     /**
-     * 차트 데이터 조회
+     * 차트 데이터 조회 (기존)
      */
     suspend fun getCandlestickData(
         stockCode: String,
         timeFrame: String,
         period: Int = 100
+    ): Flow<Resource<List<CandlestickData>>>
+    
+    /**
+     * 인터벌 차트 데이터 조회 (새로운 API)
+     */
+    suspend fun getIntervalChartData(
+        stockCode: String,
+        interval: String, // "MINUTE1", "MINUTE5", "MINUTE15", "MINUTE30", "HOUR1", "DAY"
+        fromDateTime: String, // KST: "2024-08-13T09:00:00"
+        toDateTime: String // KST: "2024-08-15T15:30:00"
     ): Flow<Resource<List<CandlestickData>>>
     
     /**

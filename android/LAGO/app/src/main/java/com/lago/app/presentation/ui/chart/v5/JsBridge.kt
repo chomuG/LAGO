@@ -13,8 +13,8 @@ data class Candle(val time: Long, val open: Int, var high: Int, var low: Int, va
 data class VolumeBar(val time: Long, val value: Long)
 
 // TradingView 차트 전용 데이터 구조 (새로 추가)
-data class CandleData(val time: Any, val open: Float, val high: Float, val low: Float, val close: Float)
-data class VolumeData(val time: Any, val value: Long, val color: String? = null)
+data class CandleData(val time: Long, val open: Float, val high: Float, val low: Float, val close: Float)
+data class VolumeData(val time: Long, val value: Long, val color: String? = null)
 
 // 무한 히스토리 데이터 요청 리스너
 interface HistoricalDataRequestListener {
@@ -28,6 +28,9 @@ class JsBridge(
 ) {
     private val queue = ArrayDeque<String>()
     private var ready = false
+    
+    // time 단위 정규화: ms(13자리) → sec(10자리)
+    private fun normalizeSec(t: Long) = if (t > 9_999_999_999L) t / 1000 else t
 
     fun markReady() {
         ready = true
@@ -40,9 +43,26 @@ class JsBridge(
      * 차트 초기 데이터 설정 (TradingView 권장: series.setData())
      */
     fun setInitialData(candles: List<CandleData>, volumes: List<VolumeData> = emptyList()) {
-        val candlesJson = gson.toJson(candles)
-        val volumesJson = gson.toJson(volumes)
-        enqueue("""window.setSeriesData(${candlesJson.quote()}, ${volumesJson.quote()})""")
+        android.util.Log.d("JsBridge", "🔥 setInitialData 호출: ${candles.size}개 캔들, ${volumes.size}개 거래량")
+        
+        // time 정규화 적용
+        val cc = candles.map { it.copy(time = normalizeSec(it.time)) }
+        val vv = volumes.map { it.copy(time = normalizeSec(it.time)) }
+        
+        if (cc.isNotEmpty()) {
+            android.util.Log.d("JsBridge", "🔥 첫 캔들(정규화): time=${cc.first().time}, close=${cc.first().close}")
+            android.util.Log.d("JsBridge", "🔥 마지막 캔들(정규화): time=${cc.last().time}, close=${cc.last().close}")
+        }
+        
+        val candlesJson = gson.toJson(cc)
+        val volumesJson = gson.toJson(vv)
+        
+        android.util.Log.d("JsBridge", "🔥 JSON 변환 완료 - 캔들 JSON 길이: ${candlesJson.length}, 거래량 JSON 길이: ${volumesJson.length}")
+        android.util.Log.v("JsBridge", "🔥 캔들 JSON 샘플: ${candlesJson.take(200)}...")
+        
+        val jsCommand = """window.setSeriesData(${candlesJson.quote()}, ${volumesJson.quote()})"""
+        android.util.Log.d("JsBridge", "🔥 JavaScript 명령 실행: ${jsCommand.take(100)}...")
+        enqueue(jsCommand)
     }
 
     /**
@@ -50,28 +70,36 @@ class JsBridge(
      * 동일 time = 현재 바 덮어쓰기, 새로운 time = 새 바 추가
      */
     fun updateRealTimeBar(bar: CandleData) {
-        val barJson = gson.toJson(bar)
+        val b = bar.copy(time = normalizeSec(bar.time))
+        val barJson = gson.toJson(b)
         enqueue("""window.updateRealTimeBar(${barJson.quote()})""")
     }
 
     fun updateRealTimeVolume(vol: VolumeData) {
-        val volJson = gson.toJson(vol)
+        val v = vol.copy(time = normalizeSec(vol.time))
+        val volJson = gson.toJson(v)
         enqueue("""window.updateRealTimeVolume(${volJson.quote()})""")
     }
 
     // 기존 호환성을 위한 래퍼 메서드들
     fun setLegacyInitialData(candles: List<Candle>, volumes: List<VolumeBar> = emptyList()) {
-        val convertedCandles = candles.map { CandleData(it.time, it.open.toFloat(), it.high.toFloat(), it.low.toFloat(), it.close.toFloat()) }
-        val convertedVolumes = volumes.map { VolumeData(it.time, it.value) }
-        setInitialData(convertedCandles, convertedVolumes)
+        val cc = candles.map { 
+            CandleData(normalizeSec(it.time), it.open.toFloat(), it.high.toFloat(), it.low.toFloat(), it.close.toFloat()) 
+        }
+        val vv = volumes.map { VolumeData(normalizeSec(it.time), it.value) }
+        setInitialData(cc, vv)
     }
 
     fun updateBar(bar: Candle) {
-        updateRealTimeBar(CandleData(bar.time, bar.open.toFloat(), bar.high.toFloat(), bar.low.toFloat(), bar.close.toFloat()))
+        // time을 epoch seconds로 변환 (JavaScript에서 숫자로 받을 수 있도록)
+        val epochSeconds = if (bar.time > 9999999999L) bar.time / 1000 else bar.time
+        updateRealTimeBar(CandleData(epochSeconds, bar.open.toFloat(), bar.high.toFloat(), bar.low.toFloat(), bar.close.toFloat()))
     }
 
     fun updateVolume(vol: VolumeBar) {
-        updateRealTimeVolume(VolumeData(vol.time, vol.value))
+        // time을 epoch seconds로 변환 (JavaScript에서 숫자로 받을 수 있도록)
+        val epochSeconds = if (vol.time > 9999999999L) vol.time / 1000 else vol.time
+        updateRealTimeVolume(VolumeData(epochSeconds, vol.value))
     }
 
     fun updateSymbolName(symbolName: String) {
@@ -103,8 +131,12 @@ class JsBridge(
      * @param historicalVolumes 과거 거래량 데이터 (옵션)
      */
     fun prependHistoricalData(historicalCandles: List<CandleData>, historicalVolumes: List<VolumeData> = emptyList()) {
-        val candlesJson = gson.toJson(historicalCandles)
-        val volumesJson = gson.toJson(historicalVolumes)
+        // time 정규화 적용
+        val cc = historicalCandles.map { it.copy(time = normalizeSec(it.time)) }
+        val vv = historicalVolumes.map { it.copy(time = normalizeSec(it.time)) }
+        
+        val candlesJson = gson.toJson(cc)
+        val volumesJson = gson.toJson(vv)
         enqueue("""window.prependHistoricalData(${candlesJson.quote()}, ${volumesJson.quote()})""")
     }
 

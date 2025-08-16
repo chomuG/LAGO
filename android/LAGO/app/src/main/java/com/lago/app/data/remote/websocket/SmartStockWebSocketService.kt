@@ -148,6 +148,26 @@ class SmartStockWebSocketService @Inject constructor(
         }
     }
     
+    /**
+     * originDateTime 문자열을 timestamp(milliseconds)로 변환
+     * @param originDateTime "2021-06-30T14:10:00" 형태의 문자열
+     * @return timestamp in milliseconds
+     */
+    private fun parseOriginDateTimeToTimestamp(originDateTime: String?): Long {
+        if (originDateTime.isNullOrBlank()) {
+            return System.currentTimeMillis() // fallback
+        }
+        
+        return try {
+            val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+            val parsedDate = format.parse(originDateTime)
+            parsedDate?.time ?: System.currentTimeMillis()
+        } catch (e: Exception) {
+            android.util.Log.w("SmartStockWebSocket", "originDateTime 파싱 실패: $originDateTime", e)
+            System.currentTimeMillis() // fallback
+        }
+    }
+    
     private fun subscribeToStocks(stockCodes: List<String>) {
         val client = stompClient ?: return
         
@@ -298,7 +318,8 @@ class SmartStockWebSocketService @Inject constructor(
                             changePrice = webSocketData.fluctuationPrice.toLong(), // changePrice 필드에 저장
                             change = webSocketData.fluctuationPrice.toLong(), // change 필드에도 저장 (priceChange calculated property용)
                             fluctuationRate = webSocketData.fluctuationRate.toDouble(),
-                            timestamp = System.currentTimeMillis()
+                            // originDateTime을 timestamp로 변환 (역사챌린지용)
+                            timestamp = parseOriginDateTimeToTimestamp(webSocketData.originDateTime)
                         )
                         
                         // 캐시에 저장 (역사챌린지 전용 키 사용)

@@ -31,8 +31,8 @@ object DataConverter {
                     barSpacing = 6,
                     tickMarkFormatter = """
                         function(time) {
-                            var date = new Date((time + (9 * 60 * 60)) * 1000);
-                            return ('0' + date.getUTCHours()).slice(-2) + ':' + ('0' + date.getUTCMinutes()).slice(-2);
+                            var date = new Date(time * 1000);
+                            return ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2);
                         }
                     """.trimIndent()
                 )
@@ -47,9 +47,9 @@ object DataConverter {
                     barSpacing = 6,
                     tickMarkFormatter = """
                         function(time) {
-                            var date = new Date((time + (9 * 60 * 60)) * 1000);
-                            return (date.getUTCMonth() + 1) + '/' + date.getUTCDate() + ' ' + 
-                                   ('0' + date.getUTCHours()).slice(-2) + ':' + ('0' + date.getUTCMinutes()).slice(-2);
+                            var date = new Date(time * 1000);
+                            return (date.getMonth() + 1) + '/' + date.getDate() + ' ' + 
+                                   ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2);
                         }
                     """.trimIndent()
                 )
@@ -64,8 +64,8 @@ object DataConverter {
                     barSpacing = 6,
                     tickMarkFormatter = """
                         function(time) {
-                            var date = new Date((time + (9 * 60 * 60)) * 1000);
-                            return (date.getUTCMonth() + 1) + '/' + date.getUTCDate();
+                            var date = new Date(time * 1000);
+                            return (date.getMonth() + 1) + '/' + date.getDate();
                         }
                     """.trimIndent()
                 )
@@ -80,8 +80,8 @@ object DataConverter {
                     barSpacing = 6,
                     tickMarkFormatter = """
                         function(time) {
-                            var date = new Date((time + (9 * 60 * 60)) * 1000);
-                            return date.getUTCFullYear() + '/' + (date.getUTCMonth() + 1) + '/' + date.getUTCDate();
+                            var date = new Date(time * 1000);
+                            return date.getFullYear() + '/' + (date.getMonth() + 1) + '/' + date.getDate();
                         }
                     """.trimIndent()
                 )
@@ -96,8 +96,8 @@ object DataConverter {
                     barSpacing = 6,
                     tickMarkFormatter = """
                         function(time) {
-                            var date = new Date((time + (9 * 60 * 60)) * 1000);
-                            return date.getUTCFullYear() + '/' + (date.getUTCMonth() + 1);
+                            var date = new Date(time * 1000);
+                            return date.getFullYear() + '/' + (date.getMonth() + 1);
                         }
                     """.trimIndent()
                 )

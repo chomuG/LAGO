@@ -515,6 +515,7 @@ fun ChartScreen(
 
                 // 기존 MultiPanelChart 사용 + 실시간 업데이트 추가
                 var chartWebView by remember { mutableStateOf<android.webkit.WebView?>(null) }
+                var chartBridge by remember { mutableStateOf<com.lago.app.presentation.ui.chart.v5.JsBridge?>(null) }
                 
                 MultiPanelChart(
                     data = multiPanelData,
@@ -524,23 +525,22 @@ fun ChartScreen(
                         .fillMaxSize()
                         .padding(horizontal = Spacing.md),
                     onChartReady = {
-                        // 차트 렌더링 완료 콜백 - 이제 안전하게 JS 호출 가능
+                        // ✅ 여기서 큐 flush - JavaScript 차트 초기화 완료 시점
+                        chartBridge?.markReady()
                         viewModel.onChartReady()
-                        
-                        // JsBridge 설정 (WebView가 준비된 후, 무한 히스토리 리스너 포함)
-                        chartWebView?.let { webView ->
-                            val bridge = com.lago.app.presentation.ui.chart.v5.JsBridge(
-                                webView = webView,
-                                historicalDataListener = viewModel
-                            )
-                            bridge.markReady() // 즉시 준비 상태로 설정
-                            viewModel.setChartBridge(bridge)
-                        }
                     },
                     onWebViewReady = { webViewInstance ->
                         chartWebView = webViewInstance
                         // 초기 timeFrame 설정 적용
                         webViewInstance.evaluateJavascript("window.updateTimeFrame('${uiState.config.timeFrame}');", null)
+                        
+                        // JsBridge 생성 및 저장
+                        val bridge = com.lago.app.presentation.ui.chart.v5.JsBridge(
+                            webView = webViewInstance,
+                            historicalDataListener = viewModel
+                        )
+                        chartBridge = bridge
+                        viewModel.setChartBridge(bridge)
                     },
                     onChartLoading = { isLoading ->
                         // 웹뷰 로딩 상태 콜백

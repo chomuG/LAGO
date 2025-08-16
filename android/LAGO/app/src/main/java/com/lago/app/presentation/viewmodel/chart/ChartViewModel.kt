@@ -91,14 +91,23 @@ fun bucketStartEpochSec(epochSec: Long, tf: String): Long = when (tf) {
  */
 fun normalizeToBucket(bars: List<CandlestickData>, tf: String): List<CandlestickData> {
     if (bars.isEmpty()) return bars
-    val grouped = bars.groupBy { bucketStartEpochSec(it.time, tf) }.toSortedMap()
-    return grouped.map { (t, list) ->
+    
+    // 원본 데이터의 time이 milliseconds인지 seconds인지 확인
+    val firstTime = bars.first().time
+    val isMilliseconds = firstTime > 1_000_000_000_000L // 2001년 이후라면 milliseconds
+    
+    val grouped = bars.groupBy { candle ->
+        val epochSec = if (isMilliseconds) candle.time / 1000 else candle.time
+        bucketStartEpochSec(epochSec, tf)
+    }.toSortedMap()
+    
+    return grouped.map { (bucketTime, list) ->
         val o = list.first().open
         val h = list.maxOf { it.high }
         val l = list.minOf { it.low }
         val c = list.last().close
         val v = list.sumOf { it.volume }
-        CandlestickData(time = t, open = o, high = h, low = l, close = c, volume = v)
+        CandlestickData(time = bucketTime, open = o, high = h, low = l, close = c, volume = v)
     }
 }
 
@@ -120,6 +129,154 @@ class ChartViewModel @Inject constructor(
     
     // 안전 타임아웃을 위한 Job
     private var chartLoadingTimeoutJob: Job? = null
+    
+    /**
+     * 새로운 인터벌 API를 사용하여 차트 데이터 로드 (모의투자용)
+     */
+    fun loadChartDataWithInterval(stockCode: String, timeFrame: String, pastHours: Int? = null) {
+        android.util.Log.d("ChartViewModel", "🔥 loadChartDataWithInterval 호출됨: stockCode=$stockCode, timeFrame=$timeFrame, pastHours=$pastHours")
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("ChartViewModel", "🔥 ViewModel 코루틴 시작")
+                _uiState.update { it.copy(isLoading = true) }
+                
+                // 시간프레임에 따른 적절한 과거 기간 계산 (충분한 캔들 수 확보)
+                val calculatedPastHours = pastHours ?: calculateOptimalPastHours(timeFrame)
+                android.util.Log.d("ChartViewModel", "🔥 계산된 과거 기간: ${calculatedPastHours}시간 (timeFrame: $timeFrame)")
+                
+                // 시간 범위 계산 (KST)
+                val now = Calendar.getInstance()
+                val toDateTime = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(now.time)
+                
+                now.add(Calendar.HOUR_OF_DAY, -calculatedPastHours)
+                val fromDateTime = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(now.time)
+                
+                // 타임프레임을 인터벌로 변환
+                val interval = convertTimeFrameToInterval(timeFrame)
+                
+                // 새로운 인터벌 API 호출
+                val response = chartRepository.getIntervalChartData(stockCode, interval, fromDateTime, toDateTime)
+                
+                response.collect { resource ->
+                    when (resource) {
+                        is Resource.Success -> {
+                            val data = resource.data ?: emptyList()
+                            android.util.Log.d("ChartViewModel", "🔥 인터벌 API 성공: ${data.size}개 캔들")
+                            
+                            _uiState.update { state ->
+                                state.copy(
+                                    candlestickData = data,
+                                    isLoading = false,
+                                    errorMessage = null
+                                )
+                            }
+                            
+                            // 차트에 데이터 설정 (역사챌린지와 동일한 방식)
+                            chartBridge?.let { bridge ->
+                                android.util.Log.d("ChartViewModel", "🔥 차트 브릿지 찾음, 데이터 변환 시작")
+                                
+                                // 캔들 데이터 변환
+                                val chartCandles = data.map { candle ->
+                                    // candle.time이 milliseconds면 seconds로 변환, 이미 seconds면 그대로 사용
+                                    val epochSeconds = if (candle.time > 9999999999L) candle.time / 1000 else candle.time
+                                    android.util.Log.v("ChartViewModel", "🔥 캔들 변환: ${candle.time} → $epochSeconds (${java.util.Date(epochSeconds * 1000)})")
+                                    com.lago.app.presentation.ui.chart.v5.CandleData(
+                                        time = epochSeconds,
+                                        open = candle.open,
+                                        high = candle.high,
+                                        low = candle.low,
+                                        close = candle.close
+                                    )
+                                }
+                                
+                                // 거래량 데이터 변환 (역사챌린지와 동일한 방식)
+                                val volumeData = data.map { candle ->
+                                    val epochSeconds = if (candle.time > 9999999999L) candle.time / 1000 else candle.time
+                                    com.lago.app.presentation.ui.chart.v5.VolumeData(
+                                        time = epochSeconds,
+                                        value = candle.volume,
+                                        color = if (candle.close >= candle.open) "#26a69a" else "#ef5350" // 상승/하락 색상
+                                    )
+                                }
+                                
+                                android.util.Log.d("ChartViewModel", "🔥 변환 완료 - 캔들: ${chartCandles.size}개, 거래량: ${volumeData.size}개")
+                                if (chartCandles.isNotEmpty()) {
+                                    android.util.Log.d("ChartViewModel", "🔥 첫 캔들: time=${chartCandles.first().time}, close=${chartCandles.first().close}")
+                                    android.util.Log.d("ChartViewModel", "🔥 마지막 캔들: time=${chartCandles.last().time}, close=${chartCandles.last().close}")
+                                }
+                                
+                                // 차트에 초기 데이터 설정 (캔들 + 거래량)
+                                bridge.setInitialData(chartCandles, volumeData)
+                                android.util.Log.d("ChartViewModel", "🔥 bridge.setInitialData() 호출 완료")
+                            } ?: run {
+                                android.util.Log.w("ChartViewModel", "⚠️ chartBridge가 null입니다!")
+                            }
+                        }
+                        is Resource.Error -> {
+                            android.util.Log.e("ChartViewModel", "🚨 인터벌 API 실패: ${resource.message}")
+                            _uiState.update { 
+                                it.copy(
+                                    isLoading = false, 
+                                    errorMessage = resource.message
+                                ) 
+                            }
+                        }
+                        is Resource.Loading -> {
+                            _uiState.update { it.copy(isLoading = true) }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ChartViewModel", "인터벌 API 호출 실패", e)
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false, 
+                        errorMessage = "데이터 로드 실패: ${e.message}"
+                    ) 
+                }
+            }
+        }
+    }
+    
+    /**
+     * 시간프레임에 따른 최적의 과거 기간 계산 (충분한 캔들 수 확보)
+     * 목표: 100~200개 캔들 확보
+     */
+    private fun calculateOptimalPastHours(timeFrame: String): Int {
+        return when (timeFrame) {
+            "1" -> 24 * 7      // 1분봉: 1주일 (7일 * 24시간 = 168시간)
+            "3" -> 24 * 14     // 3분봉: 2주일 (336시간)
+            "5" -> 24 * 21     // 5분봉: 3주일 (504시간)
+            "10" -> 24 * 30    // 10분봉: 30일 (720시간)
+            "15" -> 24 * 45    // 15분봉: 45일 (1080시간)
+            "30" -> 24 * 60    // 30분봉: 60일 (1440시간)
+            "60" -> 24 * 90    // 60분봉: 90일 (2160시간)
+            "D" -> 24 * 365    // 일봉: 1년 (8760시간)
+            "W" -> 24 * 365 * 3 // 주봉: 3년 (26280시간)
+            "M" -> 24 * 365 * 5 // 월봉: 5년 (43800시간)
+            else -> 24 * 30    // 기본값: 30일
+        }
+    }
+    
+    /**
+     * UI 타임프레임을 API interval로 변환
+     */
+    private fun convertTimeFrameToInterval(timeFrame: String): String {
+        return when (timeFrame) {
+            "1" -> "MINUTE"      // 역사챌린지와 동일하게 변경
+            "3" -> "MINUTE3"
+            "5" -> "MINUTE5"
+            "10" -> "MINUTE10"
+            "15" -> "MINUTE15"
+            "30" -> "MINUTE30"
+            "60" -> "MINUTE60"   // HOUR1 -> MINUTE60으로 변경
+            "D" -> "DAY"
+            "W" -> "WEEK"
+            "M" -> "MONTH"
+            "Y" -> "YEAR"        // 추가
+            else -> "DAY"        // 기본값을 DAY로 변경 (역사챌린지와 동일)
+        }
+    }
     
     // 실시간 차트 업데이트를 위한 JsBridge와 MinuteAggregator
     private var chartBridge: com.lago.app.presentation.ui.chart.v5.JsBridge? = null
@@ -176,50 +333,46 @@ class ChartViewModel @Inject constructor(
      * TradingView 표준 방식: 현재 시간프레임의 마지막 캔들만 업데이트
      */
     private fun updateRealTimeChart(realTimeData: com.lago.app.domain.entity.StockRealTimeData) {
+        android.util.Log.d("ChartViewModel", "🔥 updateRealTimeChart 호출됨 - 종목: ${realTimeData.stockCode}, 가격: ${realTimeData.price}")
+        android.util.Log.d("ChartViewModel", "🔥 웹소켓 데이터 - originDateTime: ${realTimeData.originDateTime}, date: ${realTimeData.date}, timestamp: ${realTimeData.timestamp}")
         try {
             val currentTimeFrame = _uiState.value.config.timeFrame
             
-            // 웹소켓 데이터를 Tick으로 변환
-            // date는 "HHmmss" 형태로만 오므로 오늘 날짜와 결합
-            val timeString = if (!realTimeData.date.isNullOrBlank() && realTimeData.date.length >= 6) {
-                realTimeData.date // "102821" 형태
+            // 웹소켓 데이터에서 올바른 KST timestamp 사용
+            val kstTimestamp = realTimeData.getKstTimestamp()
+            val kstEpochSec = kstTimestamp / 1000
+            
+            // 역사챌린지 모드 감지 및 로깅
+            val isHistorical = realTimeData.isHistoricalMode()
+            val dateTimeStr = if (isHistorical) {
+                java.time.Instant.ofEpochMilli(kstTimestamp)
+                    .atZone(java.time.ZoneId.of("Asia/Seoul"))
+                    .toLocalDateTime().toString()
             } else {
-                java.time.LocalTime.now().format(
-                    java.time.format.DateTimeFormatter.ofPattern("HHmmss")
-                )
+                "현재시간기준"
             }
             
-            val tick = com.lago.app.presentation.ui.chart.v5.Tick(
-                code = realTimeData.stockCode,
-                date = timeString,
-                openPrice = realTimeData.openPrice?.toInt() ?: realTimeData.price.toInt(),
-                highPrice = realTimeData.highPrice?.toInt() ?: realTimeData.price.toInt(), 
-                lowPrice = realTimeData.lowPrice?.toInt() ?: realTimeData.price.toInt(),
-                closePrice = realTimeData.price.toInt(),
-                volume = realTimeData.volume ?: 1000L
-            )
+            // 버킷 시작 시각 계산 (통합된 시간 처리)
+            val bucketTime = bucketStartEpochSec(kstEpochSec, currentTimeFrame)
+            val bucketDateTimeStr = java.time.Instant.ofEpochSecond(bucketTime)
+                .atZone(java.time.ZoneId.of("Asia/Seoul"))
+                .toLocalDateTime().toString()
             
-            // 시간프레임별 실시간 업데이트 처리 (버킷 스냅 적용)
+            android.util.Log.d("ChartViewModel", "📊 실시간 업데이트 - 모드: ${if(isHistorical) "역사챌린지" else "실시간"}, 원본시간: $dateTimeStr, 버킷시간: $bucketDateTimeStr, 프레임: $currentTimeFrame")
+            
+            // 시간프레임별 실시간 업데이트 처리
             when (currentTimeFrame) {
                 "1", "3", "5", "10", "15", "30" -> {
-                    // 분봉: 버킷 시작 시각으로 스냅하여 집계
-                    val currentEpochSec = System.currentTimeMillis() / 1000
-                    val bucketTime = bucketStartEpochSec(currentEpochSec, currentTimeFrame)
-                    
-                    minuteAggregator.onTick(tick) { candle, volumeBar ->
-                        // 캔들의 time을 버킷 시작 시각으로 설정
-                        val snappedCandle = candle.copy(time = bucketTime)
-                        val snappedVolumeBar = volumeBar.copy(time = bucketTime)
-                        updateChartCandle(snappedCandle, snappedVolumeBar)
-                    }
+                    // 분봉: 직접 캔들 업데이트 (MinuteAggregator 우회)
+                    updateDirectCandle(realTimeData, bucketTime)
                 }
                 "60" -> {
-                    // 시간봉: 간단한 실시간 업데이트 (현재 시간의 캔들만)
-                    updateSimpleRealTime(realTimeData)
+                    // 시간봉
+                    updateDirectCandle(realTimeData, bucketTime)
                 }
                 "D", "W", "M", "Y" -> {
-                    // 일봉/주봉/월봉/년봉: 현재 기간의 마지막 캔들만 실시간 업데이트
-                    updatePeriodRealTime(realTimeData, currentTimeFrame)
+                    // 일봉/주봉/월봉/년봉
+                    updateDirectCandle(realTimeData, bucketTime)
                 }
             }
             
@@ -229,89 +382,29 @@ class ChartViewModel @Inject constructor(
     }
     
     /**
-     * 시간봉/일봉용 간단한 실시간 업데이트 (가격만 업데이트, 새 캔들 생성 안함)
+     * 통합된 실시간 캔들 업데이트 (모든 timeframe 공통)
      */
-    private fun updateSimpleRealTime(realTimeData: com.lago.app.domain.entity.StockRealTimeData) {
-        try {
-            val now = java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul"))
-            val epochSec = now.toEpochSecond(java.time.ZoneOffset.of("+09:00"))
-            
-            // 간단한 캔들 업데이트 (현재 시간 기준으로 마지막 캔들 업데이트만)
-            val candle = com.lago.app.presentation.ui.chart.v5.Candle(
-                time = epochSec,
-                open = realTimeData.openPrice?.toInt() ?: realTimeData.price.toInt(),
-                high = realTimeData.highPrice?.toInt() ?: realTimeData.price.toInt(),
-                low = realTimeData.lowPrice?.toInt() ?: realTimeData.price.toInt(),
-                close = realTimeData.price.toInt()
-            )
-            
-            val volumeBar = com.lago.app.presentation.ui.chart.v5.VolumeBar(
-                epochSec, 
-                realTimeData.volume ?: 1000L
-            )
-            
-            updateChartCandle(candle, volumeBar)
-            android.util.Log.d("ChartViewModel", "⚡ 간단 실시간 업데이트: ${realTimeData.price}원")
-            
-        } catch (e: Exception) {
-            android.util.Log.e("ChartViewModel", "간단 실시간 업데이트 실패", e)
-        }
+    private fun updateDirectCandle(realTimeData: com.lago.app.domain.entity.StockRealTimeData, bucketTime: Long) {
+        android.util.Log.d("ChartViewModel", "🔥 updateDirectCandle 호출 - bucketTime: $bucketTime")
+        
+        val candle = com.lago.app.presentation.ui.chart.v5.Candle(
+            time = bucketTime,
+            open = realTimeData.openPrice?.toInt() ?: realTimeData.price.toInt(),
+            high = realTimeData.highPrice?.toInt() ?: realTimeData.price.toInt(),
+            low = realTimeData.lowPrice?.toInt() ?: realTimeData.price.toInt(),
+            close = realTimeData.price.toInt()
+        )
+        
+        val volumeBar = com.lago.app.presentation.ui.chart.v5.VolumeBar(
+            bucketTime, 
+            realTimeData.volume ?: 1000L
+        )
+        
+        android.util.Log.d("ChartViewModel", "🔥 캔들 생성 완료 - time: ${candle.time}, close: ${candle.close}")
+        updateChartCandle(candle, volumeBar)
+        android.util.Log.d("ChartViewModel", "📊 실시간 캔들 업데이트: ${realTimeData.price}원 (버킷시간: $bucketTime)")
     }
     
-    /**
-     * 일봉/주봉/월봉/년봉용 기간별 실시간 업데이트 (현재 기간의 마지막 캔들만 업데이트)
-     */
-    private fun updatePeriodRealTime(realTimeData: com.lago.app.domain.entity.StockRealTimeData, timeFrame: String) {
-        try {
-            val now = java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul"))
-            
-            // 기간 시작점 계산
-            val periodStart = when (timeFrame) {
-                "D" -> {
-                    // 일봉: 오늘 00:00
-                    now.withHour(0).withMinute(0).withSecond(0).withNano(0)
-                }
-                "W" -> {
-                    // 주봉: 이번 주 월요일 00:00
-                    now.with(java.time.DayOfWeek.MONDAY)
-                        .withHour(0).withMinute(0).withSecond(0).withNano(0)
-                }
-                "M" -> {
-                    // 월봉: 이번 달 1일 00:00
-                    now.withDayOfMonth(1)
-                        .withHour(0).withMinute(0).withSecond(0).withNano(0)
-                }
-                "Y" -> {
-                    // 년봉: 올해 1월 1일 00:00
-                    now.withDayOfYear(1)
-                        .withHour(0).withMinute(0).withSecond(0).withNano(0)
-                }
-                else -> now // fallback
-            }
-            
-            val epochSec = periodStart.toEpochSecond(java.time.ZoneOffset.of("+09:00"))
-            
-            // 현재 기간의 캔들 업데이트 (새 캔들 생성하지 않고 기존 캔들 업데이트)
-            val candle = com.lago.app.presentation.ui.chart.v5.Candle(
-                time = epochSec,
-                open = realTimeData.openPrice?.toInt() ?: realTimeData.price.toInt(),
-                high = realTimeData.highPrice?.toInt() ?: realTimeData.price.toInt(),
-                low = realTimeData.lowPrice?.toInt() ?: realTimeData.price.toInt(),
-                close = realTimeData.price.toInt()
-            )
-            
-            val volumeBar = com.lago.app.presentation.ui.chart.v5.VolumeBar(
-                epochSec, 
-                realTimeData.volume ?: 1000L
-            )
-            
-            updateChartCandle(candle, volumeBar)
-            android.util.Log.d("ChartViewModel", "📅 ${timeFrame}봉 실시간 업데이트: ${realTimeData.price}원 (기간: ${periodStart.toLocalDate()})")
-            
-        } catch (e: Exception) {
-            android.util.Log.e("ChartViewModel", "기간별 실시간 업데이트 실패", e)
-        }
-    }
     
     private fun updateChartCandle(candle: com.lago.app.presentation.ui.chart.v5.Candle, volumeBar: com.lago.app.presentation.ui.chart.v5.VolumeBar) {
         chartBridge?.let { bridge ->
@@ -416,8 +509,8 @@ class ChartViewModel @Inject constructor(
                                 // 스마트 웹소켓에 차트 종목 변경 알림 (HOT 우선순위)
                                 smartWebSocketService.updateChartStock(stockCode)
                                 
-                                // 주식 정보 로드 후 차트 데이터 로드
-                                loadChartData(stockCode, _uiState.value.config.timeFrame)
+                                // 주식 정보 로드 후 차트 데이터 로드 (새로운 인터벌 API 사용)
+                                loadChartDataWithInterval(stockCode, _uiState.value.config.timeFrame)
                                 checkFavoriteStatus(stockCode)
                                 
                                 // 실시간 데이터 구독은 SmartStockWebSocketService에서 자동 관리됨
@@ -471,8 +564,8 @@ class ChartViewModel @Inject constructor(
             // 스마트 웹소켓에 차트 종목 변경 알림 (HOT 우선순위)
             smartWebSocketService.updateChartStock(stockCode)
             
-            // 차트 데이터는 여전히 서버에서 가져와야 함
-            loadChartData(stockCode, _uiState.value.config.timeFrame)
+            // 차트 데이터는 여전히 서버에서 가져와야 함 (새로운 인터벌 API 사용)
+            loadChartDataWithInterval(stockCode, _uiState.value.config.timeFrame)
             checkFavoriteStatus(stockCode)
             
             // 실시간 데이터 구독은 SmartStockWebSocketService에서 자동 관리됨
@@ -637,8 +730,8 @@ class ChartViewModel @Inject constructor(
         // 차트에 시간프레임 변경 알림 (JavaScript에서 시간축 표시 방식 변경)
         chartBridge?.updateTimeFrame(timeFrame)
         
-        // 새로운 프레임에 맞는 데이터 다시 로드
-        loadChartData(stockCode, timeFrame)
+        // 새로운 프레임에 맞는 데이터 다시 로드 (새로운 인터벌 API 사용)
+        loadChartDataWithInterval(stockCode, timeFrame)
         
         // 실시간 구독은 SmartStockWebSocketService에서 자동 관리됨
     }
@@ -807,7 +900,7 @@ class ChartViewModel @Inject constructor(
         val currentStock = _uiState.value.currentStock.code
         val currentTimeFrame = _uiState.value.config.timeFrame
         
-        loadChartData(currentStock, currentTimeFrame)
+        loadChartDataWithInterval(currentStock, currentTimeFrame)
         loadUserHoldings()
         loadTradingHistory()
     }
