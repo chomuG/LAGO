@@ -303,43 +303,17 @@ public class NewsService {
             return Page.empty(pageable);
         }
 
-        // 관심종목의 종목명들로 뉴스 키워드 검색
-        List<String> stockNames = userInterests.stream()
-                .map(interest -> {
-                    String stockName = interest.getStockInfo().getName();
-                    log.debug("관심종목: {} (코드: {})", stockName, interest.getStockInfo().getCode());
-                    return stockName;
-                })
+        // 관심종목의 종목코드들 수집
+        List<String> stockCodes = userInterests.stream()
+                .map(interest -> interest.getStockInfo().getCode())
                 .distinct()
                 .collect(Collectors.toList());
         
-        log.info("사용자 {}의 관심종목: {}", userId, stockNames);
+        log.info("사용자 {}의 관심종목 코드: {}", userId, stockCodes);
 
-        // 각 종목명으로 개별 검색 후 결과 합치기
-        Set<Long> foundNewsIds = new HashSet<>();
-        for (String stockName : stockNames) {
-            log.info("개별 검색: '{}'", stockName);
-            Page<News> individualResult = newsRepository.findByKeywordSearch(stockName, 
-                org.springframework.data.domain.PageRequest.of(0, 100)); // 충분히 큰 사이즈로 검색
-            
-            individualResult.getContent().forEach(news -> {
-                foundNewsIds.add(news.getId());
-                log.debug("매칭된 뉴스: {}", news.getTitle());
-            });
-            log.info("'{}' 검색 결과: {}개", stockName, individualResult.getTotalElements());
-        }
-        
-        log.info("총 매칭된 뉴스 ID 개수: {}", foundNewsIds.size());
-        
-        if (foundNewsIds.isEmpty()) {
-            log.info("검색 결과가 없음 - 종목명들: {}", stockNames);
-            return Page.empty(pageable);
-        }
-        
-        // 매칭된 뉴스 ID들로 최종 페이징 조회
-        Page<News> newsPage = newsRepository.findByIdInOrderByPublishedAtDesc(
-            new ArrayList<>(foundNewsIds), pageable);
-        log.info("최종 반환되는 뉴스 개수: {}", newsPage.getTotalElements());
+        // type 필드로 뉴스 검색
+        Page<News> newsPage = newsRepository.findByTypeInOrderByPublishedAtDesc(stockCodes, pageable);
+        log.info("검색된 뉴스 개수: {}", newsPage.getTotalElements());
         
         return newsPage.map(NewsResponse::from);
     }
@@ -562,7 +536,7 @@ public class NewsService {
                 .summary(getStringArrayAsString(newsData, "summary_lines"))
                 .sentiment(getStringValue(newsData, "label"))
                 .publishedAt(parsePublishedDate(newsData))
-                .type(getStringValue(newsData, "collection_type"))
+                .type(getStringValue(newsData, "symbol"))
                 .build();
 
         return news;
