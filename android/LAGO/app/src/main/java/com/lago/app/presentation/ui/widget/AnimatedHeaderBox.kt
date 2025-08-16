@@ -90,16 +90,17 @@ fun AnimatedHeaderBox(
                     verticalAlignment = Alignment.Bottom
                 ) {
                     Text(
-                        text = "${String.format("%.0f", stockInfo.currentPrice)}원",
+                        text = "${String.format("%,.0f", stockInfo.currentPrice)}원",
                         style = HeadEb32,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     
                     Spacer(modifier = Modifier.width(Spacing.sm))
                     
-                    val previousDay = stockInfo.previousDay ?: 0
-                    val isPositive = previousDay >= 0  // previousDay로 색상 판단
-                    val changeText = "${previousDay}(${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%)"
+                    val priceChange = stockInfo.priceChange.toInt()
+                    val isPositive = priceChange >= 0  // priceChange로 색상 판단
+                    val changeSign = if (isPositive) "+" else ""
+                    val changeText = "${changeSign}${String.format("%,d", priceChange)}(${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%)"
                     
                     Text(
                         text = changeText,
@@ -133,16 +134,17 @@ fun AnimatedHeaderBox(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "${String.format("%.0f", stockInfo.currentPrice)}원",
+                        text = "${String.format("%,.0f", stockInfo.currentPrice)}원",
                         style = BodyR14,
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
                     Spacer(modifier = Modifier.width(Spacing.xs + 2.dp))
 
-                    val previousDay = stockInfo.previousDay ?: 0
-                    val isPositive = previousDay >= 0  // previousDay로 색상 판단
-                    val percentText = "${String.format("%.2f", stockInfo.priceChangePercent)}%"
+                    val priceChange = stockInfo.priceChange.toInt()
+                    val isPositive = priceChange >= 0  // priceChange로 색상 판단
+                    val changeSign = if (isPositive) "+" else ""
+                    val percentText = "${changeSign}${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%"
                     
                     Text(
                         text = percentText,

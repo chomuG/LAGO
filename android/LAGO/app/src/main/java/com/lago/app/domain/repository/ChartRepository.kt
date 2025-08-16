@@ -138,12 +138,4 @@ interface ChartRepository {
         pastDateTime: String
     ): Flow<Resource<List<com.lago.app.data.remote.dto.HistoryChallengeNewsResponse>>>
 
-    /**
-     * 일봉 데이터 조회 (초기 주가 데이터)
-     */
-    suspend fun getDayCandles(
-        stockCode: String,
-        startDate: String,
-        endDate: String
-    ): Flow<Resource<List<CandlestickData>>>
 }

@@ -6,6 +6,8 @@ import com.google.gson.annotations.SerializedName
  * 모의투자 매수/매도 요청 DTO (백엔드 TradeRequest 형식)
  */
 data class MockTradeRequest(
+    @SerializedName("userId")
+    val userId: Long,
     @SerializedName("stockCode")
     val stockCode: String,
     @SerializedName("tradeType")
@@ -13,7 +15,9 @@ data class MockTradeRequest(
     @SerializedName("quantity") 
     val quantity: Int,
     @SerializedName("price")
-    val price: Int  // 주당 가격
+    val price: Int,  // 주당 가격
+    @SerializedName("accountType")
+    val accountType: Int = 0  // 0=실시간모의투자, 1=역사챌린지, 2=자동매매봇
 )
 
 /**
@@ -169,4 +173,96 @@ data class AccountDto(
     val createdAt: String,
     @SerializedName("type")
     val type: String
+)
+
+/**
+ * 백엔드 StockHoldingResponse 형식
+ */
+data class StockHoldingResponse(
+    @SerializedName("holdingId")
+    val holdingId: Long,
+    @SerializedName("stockCode")
+    val stockCode: String,
+    @SerializedName("stockName")
+    val stockName: String,
+    @SerializedName("quantity")
+    val quantity: Int,
+    @SerializedName("averagePrice")
+    val averagePrice: Int,
+    @SerializedName("totalCost")
+    val totalCost: Int,
+    @SerializedName("currentPrice")
+    val currentPrice: Int,
+    @SerializedName("currentValue")
+    val currentValue: Int,
+    @SerializedName("profitLoss")
+    val profitLoss: Int,
+    @SerializedName("profitLossRate")
+    val profitLossRate: Float,
+    @SerializedName("firstPurchaseDate")
+    val firstPurchaseDate: String?,
+    @SerializedName("lastTradeDate")
+    val lastTradeDate: String?,
+    @SerializedName("market")
+    val market: String?,
+    @SerializedName("sector")
+    val sector: String?
+)
+
+/**
+ * 백엔드 AccountCurrentStatusResponse 형식
+ */
+data class AccountCurrentStatusResponse(
+    @SerializedName("accountId")
+    val accountId: Long,
+    @SerializedName("balance")
+    val balance: Int,
+    @SerializedName("profitRate")
+    val profitRate: Double,
+    @SerializedName("holdings")
+    val holdings: List<CurrentHoldingInfo>,
+    @SerializedName("userId")
+    val userId: Long,
+    @SerializedName("nickname")
+    val nickname: String,
+    @SerializedName("personality")
+    val personality: String
+)
+
+/**
+ * 백엔드 CurrentHoldingInfo 형식
+ */
+data class CurrentHoldingInfo(
+    @SerializedName("stockCode")
+    val stockCode: String,
+    @SerializedName("stockName")
+    val stockName: String,
+    @SerializedName("quantity")
+    val quantity: Int,
+    @SerializedName("totalPurchaseAmount")
+    val totalPurchaseAmount: Int
+)
+
+/**
+ * 백엔드 TransactionHistoryResponse 형식 (AccountController용)
+ */
+data class TransactionHistoryResponse(
+    @SerializedName("tradeId")
+    val tradeId: Long,
+    @SerializedName("accountId")
+    val accountId: Long,
+    @SerializedName("stockName")
+    val stockName: String?,
+    @SerializedName("stockId")
+    val stockId: String?,
+    @SerializedName("quantity")
+    val quantity: Int?,
+    @SerializedName("buySell")
+    val buySell: String?,
+    @SerializedName("price")
+    val price: Int,
+    @SerializedName("tradeAt")
+    val tradeAt: String,
+    @SerializedName("isQuiz")
+    val isQuiz: Boolean
 )

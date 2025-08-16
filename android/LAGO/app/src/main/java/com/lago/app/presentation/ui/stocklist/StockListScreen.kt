@@ -151,7 +151,7 @@ fun StockListScreen(
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
-                                        text = uiState.errorMessage ?: "",
+                                        text = "다시 시도해주세요",
                                         style = R_14,
                                         color = Gray500
                                     )
@@ -534,24 +534,44 @@ private fun StockItemCard(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "${String.format("%,d", stock.currentPrice)}원",
-                    style = R_14,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                // 변동률과 변동금액 (현재 금액 바로 오른쪽)
-                val isPositive = stock.priceChangePercent >= 0
-                val changeColor = if (isPositive) MainPink else MainBlue
-                val changeSign = if (isPositive) "+" else ""
-                
-                Text(
-                    text = "${changeSign}${String.format("%,d", stock.priceChange)}(${String.format("%.2f", kotlin.math.abs(stock.priceChangePercent))}%)",
-                    style = R_12,
-                    color = changeColor
-                )
+                if (stock.currentPrice == 0) {
+                    // 🚀 가격 로딩 중 표시
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(12.dp),
+                            strokeWidth = 1.5.dp,
+                            color = Gray500
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "가격 로딩 중...",
+                            style = R_12,
+                            color = Gray500
+                        )
+                    }
+                } else {
+                    // 실제 가격 정보 표시
+                    Text(
+                        text = "${String.format("%,d", stock.currentPrice)}원",
+                        style = R_14,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    // 변동률과 변동금액 (현재 금액 바로 오른쪽)
+                    val isPositive = stock.priceChangePercent >= 0
+                    val changeColor = if (isPositive) MainPink else MainBlue
+                    val changeSign = if (isPositive) "+" else ""
+                    
+                    Text(
+                        text = "${changeSign}${String.format("%,d", stock.priceChange)}(${String.format("%.2f", kotlin.math.abs(stock.priceChangePercent))}%)",
+                        style = R_12,
+                        color = changeColor
+                    )
+                }
             }
         }
 

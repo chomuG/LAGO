@@ -137,7 +137,7 @@ fun NavGraph(
                     previousDay = null
                 ),
                 onNavigateToStockPurchase = { stockCode, action ->
-                    navController.navigate("stock_purchase/$stockCode/$action")
+                    navController.navigate("stock_purchase/$stockCode/$action/0") // 0=실시간모의투자
                 },
                 onNavigateToAIDialog = {
                     navController.navigate(NavigationItem.AIDialog.route)
@@ -206,7 +206,7 @@ fun NavGraph(
             ChartScreen(
                 stockCode = stockCode,
                 onNavigateToStockPurchase = { stockCode, action ->
-                    navController.navigate("stock_purchase/$stockCode/$action")
+                    navController.navigate("stock_purchase/$stockCode/$action/0") // 0=실시간모의투자
                 },
                 onNavigateToAIDialog = {
                     navController.navigate(NavigationItem.AIDialog.route)
@@ -331,18 +331,24 @@ fun NavGraph(
 
         // Stock Purchase Screen with arguments
         composable(
-            route = "stock_purchase/{stockCode}/{action}",
+            route = "stock_purchase/{stockCode}/{action}/{accountType}",
             arguments = listOf(
                 navArgument("stockCode") { type = NavType.StringType },
-                navArgument("action") { type = NavType.StringType }
+                navArgument("action") { type = NavType.StringType },
+                navArgument("accountType") { 
+                    type = NavType.IntType
+                    defaultValue = 0 // 0=실시간모의투자
+                }
             )
         ) { backStackEntry ->
             val stockCode = backStackEntry.arguments?.getString("stockCode") ?: ""
             val action = backStackEntry.arguments?.getString("action") ?: "buy"
+            val accountType = backStackEntry.arguments?.getInt("accountType") ?: 0
 
             StockPurchaseScreen(
                 stockCode = stockCode,
                 action = action,
+                accountType = accountType,
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -418,7 +424,7 @@ fun NavGraph(
             HistoryChallengeChartScreen(
                 stockCode = stockCode,
                 onNavigateToStockPurchase = { code, action ->
-                    navController.navigate("stock_purchase/$code/$action")
+                    navController.navigate("stock_purchase/$code/$action/1") // 1=역사챌린지
                 },
                 onNavigateBack = {
                     navController.popBackStack()

@@ -40,7 +40,13 @@ data class ChartUiState(
     val showIndicatorSettings: Boolean = false,
     val tradingSignals: List<TradingSignal> = emptyList(),
     val showUserTradingSignals: Boolean = false,
-    val selectedAI: SignalSource? = null
+    val selectedAI: SignalSource? = null,
+    val isTrading: Boolean = false,
+    val tradeMessage: String? = null,
+    val lastTradeResult: com.lago.app.domain.entity.MockTradeResult? = null,
+    val accountType: Int = 0, // 0=실시간모의투자, 1=역사챌린지
+    val accountBalance: Long = 0L, // 보유 현금
+    val profitRate: Float = 0f // 수익률
 )
 
 enum class ChartLoadingStage {

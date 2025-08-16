@@ -21,7 +21,8 @@ interface MockTradeRepository {
     suspend fun buyStock(
         stockCode: String,
         quantity: Int,
-        price: Int
+        price: Int,
+        accountType: Int = 0  // 0=실시간모의투자, 1=역사챌린지, 2=자동매매봇
     ): Flow<Resource<MockTradeResult>>
     
     /**
@@ -30,7 +31,8 @@ interface MockTradeRepository {
     suspend fun sellStock(
         stockCode: String,
         quantity: Int,
-        price: Int
+        price: Int,
+        accountType: Int = 0  // 0=실시간모의투자, 1=역사챌린지, 2=자동매매봇
     ): Flow<Resource<MockTradeResult>>
     
     // =====================================

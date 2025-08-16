@@ -103,7 +103,7 @@ fun DockingHeader(
         
         // 현재가
         Text(
-            text = "${String.format("%.0f", stockInfo.currentPrice)}원",
+            text = "${String.format("%,.0f", stockInfo.currentPrice)}원",
             modifier = Modifier
                 .layoutId("price")
                 .graphicsLayer {

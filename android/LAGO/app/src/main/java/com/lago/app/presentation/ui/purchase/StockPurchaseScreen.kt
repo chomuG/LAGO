@@ -33,6 +33,7 @@ import kotlin.math.abs
 fun StockPurchaseScreen(
     stockCode: String,
     action: String = "buy", // "buy" or "sell"
+    accountType: Int = 0, // 0=실시간모의투자, 1=역사챌린지, 2=자동매매봇
     viewModel: PurchaseViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit = {},
     onTransactionComplete: () -> Unit = {}
@@ -45,8 +46,21 @@ fun StockPurchaseScreen(
     val appBarHeight = 60.dp
     val buttonHeight = 56.dp
 
-    LaunchedEffect(stockCode, isPurchaseType) {
-        viewModel.loadStockInfo(stockCode, isPurchaseType)
+    LaunchedEffect(stockCode, isPurchaseType, accountType) {
+        android.util.Log.d("StockPurchaseScreen", "🔄 LaunchedEffect 실행: stockCode=$stockCode, isPurchaseType=$isPurchaseType, accountType=$accountType")
+        viewModel.loadStockInfo(stockCode, isPurchaseType, accountType)
+    }
+
+    // UI State 변화 로깅
+    LaunchedEffect(uiState) {
+        android.util.Log.d("StockPurchaseScreen", "📊 UI State 업데이트: " +
+                "stockName=${uiState.stockName}, " +
+                "currentPrice=${uiState.currentPrice}, " +
+                "accountBalance=${uiState.accountBalance}, " +
+                "holdingQuantity=${uiState.holdingQuantity}, " +
+                "isLoading=${uiState.isLoading}, " +
+                "errorMessage=${uiState.errorMessage}"
+        )
     }
 
     // 계산: 현재 가격 기준으로 몇 주인지
@@ -102,46 +116,48 @@ fun StockPurchaseScreen(
                 .windowInsetsPadding(WindowInsets.statusBars) // 상태표시줄 패딩 추가
                 .background(Color.White)
         ) {
-            // 스크롤 가능한 메인 컨텐츠 영역 (Flexible 사용)
-            Box(
+            // 메인 컨텐츠 영역 - 스크롤 제거하고 완전 고정 레이아웃
+            Column(
                 modifier = Modifier
                     .weight(1f) // 남은 공간을 모두 차지
                     .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp)
-                ) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    // 종목 정보 카드 (고정 비율)
+                // 🎯 가변 영역: 종목 정보 카드 - 위쪽 여백 흡수
+                Column(
+                    modifier = Modifier.weight(1f), // 🔥 가변 영역
+                    verticalArrangement = Arrangement.Center
+                ) {
                     StockInfoCard(
                         stockName = uiState.stockName,
                         currentPrice = uiState.currentPrice,
                         holdingInfo = uiState.holdingInfo,
                         isPurchaseType = isPurchaseType,
-                        holdingQuantity = uiState.holdingQuantity
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // 거래 입력 영역 (Flexible로 확장)
-                    TransactionShareInput(
-                        shareCount = shareCount,
-                        percentage = uiState.percentage,
-                        onShareChange = { newShareCount ->
-                            val newAmount = newShareCount * currentPrice
-                            viewModel.onAmountChange(newAmount)
-                        },
-                        isPurchaseType = isPurchaseType,
                         holdingQuantity = uiState.holdingQuantity,
-                        currentPrice = currentPrice
+                        accountBalance = uiState.accountBalance
                     )
-
-                    Spacer(modifier = Modifier.height(24.dp)) // 하단 여유 공간
                 }
+
+                // 🎯 가변 영역: 중간 여백
+                Spacer(modifier = Modifier.weight(0.3f)) // 🔥 가변 영역
+
+                // 📍 고정 영역: 거래 입력 영역 (하단에 밀착)
+                TransactionShareInput(
+                    shareCount = shareCount,
+                    percentage = uiState.percentage,
+                    onShareChange = { newShareCount ->
+                        val newAmount = newShareCount * currentPrice
+                        viewModel.onAmountChange(newAmount)
+                    },
+                    isPurchaseType = isPurchaseType,
+                    holdingQuantity = uiState.holdingQuantity,
+                    currentPrice = currentPrice,
+                    accountBalance = uiState.accountBalance
+                )
+
+                Spacer(modifier = Modifier.height(16.dp)) // 하단 최소 여백
             }
         }
     }
@@ -187,7 +203,7 @@ private fun PurchaseTopBar(
         }
 
         Text(
-            text = "$stockName $transactionType",
+            text = if (stockName.isNotBlank()) "$stockName $transactionType" else transactionType,
             style = TitleB18,
             color = Gray900,
             modifier = Modifier.weight(1f),
@@ -204,8 +220,20 @@ private fun StockInfoCard(
     currentPrice: Int,
     holdingInfo: String?,
     isPurchaseType: Boolean,
-    holdingQuantity: Int
+    holdingQuantity: Int,
+    accountBalance: Long = 0L
 ) {
+    // 컴포넌트 렌더링 시 값 로깅
+    LaunchedEffect(stockName, currentPrice, accountBalance, holdingQuantity) {
+        android.util.Log.d("StockInfoCard", "🎨 StockInfoCard 렌더링: " +
+                "stockName='$stockName', " +
+                "currentPrice=$currentPrice, " +
+                "accountBalance=$accountBalance, " +
+                "holdingQuantity=$holdingQuantity, " +
+                "isPurchaseType=$isPurchaseType"
+        )
+    }
+    
     Column {
         Text(
             text = stockName,
@@ -222,7 +250,7 @@ private fun StockInfoCard(
 
         if (isPurchaseType) {
             Text(
-                text = "보유 현금 : ${String.format("%,d", 2000000)}원",
+                text = "보유 현금 : ${String.format("%,d", accountBalance)}원",
                 style = BodyR14,
                 color = Gray600,
                 modifier = Modifier.padding(top = 8.dp)
@@ -245,11 +273,12 @@ private fun TransactionShareInput(
     onShareChange: (Long) -> Unit,
     isPurchaseType: Boolean,
     holdingQuantity: Int,
-    currentPrice: Int
+    currentPrice: Int,
+    accountBalance: Long = 0L
 ) {
     val pricePerShare = currentPrice.toLong()
 
-    val availableCash = 2000000L
+    val availableCash = accountBalance
     val maxShares = if (isPurchaseType) {
         if (pricePerShare > 0) {
             (availableCash / pricePerShare).coerceAtLeast(1L)
@@ -259,16 +288,15 @@ private fun TransactionShareInput(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 16.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
-        // 대표 영역: 몇 주 / 약 금액 (상단 고정 영역)
+        // 🎯 가변 영역 1: 대표 영역 (몇 주 / 금액) - 위쪽 여백 흡수
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .weight(1f), // 🔥 가변 영역: 화면 크기에 따라 늘어남
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = "${shareCount}주",
@@ -280,17 +308,20 @@ private fun TransactionShareInput(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "약 ${String.format("%,d", shareCount * pricePerShare)}원",
+                text = "${String.format("%,d", shareCount * pricePerShare)}원",
                 style = BodyR14,
                 color = Gray700
             )
         }
 
-        // 최대/보유 & 단가
+        // 🎯 가변 영역 2: 중간 여백 - 중간 여백 흡수
+        Spacer(modifier = Modifier.weight(0.5f)) // 🔥 가변 영역
+
+        // 📍 고정 영역 시작: 최대/보유 & 단가
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 12.dp),
+                .padding(bottom = 8.dp), // 🔧 고정 간격
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             if (isPurchaseType) {
@@ -314,11 +345,11 @@ private fun TransactionShareInput(
             )
         }
 
-        // 퍼센트 버튼 (주 기준)
+        // 📍 고정 영역: 퍼센트 버튼
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 20.dp),
+                .padding(bottom = 8.dp), // 🔧 고정 간격
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             listOf(10f, 25f, 50f, 100f).forEach { pct ->
@@ -344,7 +375,7 @@ private fun TransactionShareInput(
             }
         }
 
-        // 숫자 키패드 (주 수 입력) - Flexible로 남은 공간 활용
+        // 📍 고정 영역: 키패드 (구매하기 버튼과 붙어있게)
         NumberKeypad(
             currentValue = shareCount.toString(),
             onValueChange = { newSharesString ->
@@ -436,34 +467,6 @@ private fun TransactionConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "$stockName ${if (isPurchaseType) "구매" else "판매"} 확인",
-                style = TitleB18,
-                color = Gray900
-            )
-        },
-        text = {
-            Column {
-                Text(
-                    text = "가격 : ${String.format("%,d", currentPrice)} 원",
-                    style = BodyR14,
-                    color = Gray700
-                )
-                Text(
-                    text = "수량 : $quantity 주",
-                    style = BodyR14,
-                    color = Gray700,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-                Text(
-                    text = "총 금액 : ${String.format("%,d", totalPrice)} 원",
-                    style = SubtitleSb16,
-                    color = Gray900,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-        },
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
@@ -484,7 +487,41 @@ private fun TransactionConfirmDialog(
                 Text("취소", style = TitleB16)
             }
         },
+        text = {
+            Column(
+                modifier = Modifier.padding(0.dp)
+            ) {
+                // 제목
+                Text(
+                    text = "$stockName ${if (isPurchaseType) "구매" else "판매"} 확인",
+                    style = TitleB18,
+                    color = Gray900,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                // 내용
+                Text(
+                    text = "가격 : ${String.format("%,d", currentPrice)} 원",
+                    style = BodyR14,
+                    color = Gray700,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+                Text(
+                    text = "수량 : $quantity 주",
+                    style = BodyR14,
+                    color = Gray700,
+                    modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                )
+                Text(
+                    text = "총 금액 : ${String.format("%,d", totalPrice)} 원",
+                    style = SubtitleSb16,
+                    color = Gray900,
+                    modifier = Modifier.padding(start = 8.dp, top = 8.dp)
+                )
+            }
+        },
         containerColor = Color.White,
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        tonalElevation = 0.dp
     )
 }

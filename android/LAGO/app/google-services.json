@@ -22,14 +22,6 @@
           }
         },
         {
-          "client_id": "641435048942-dfth3vmd0s73fu1rnlfrn4sl6grkprhj.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.lago.app",
-            "certificate_hash": "204f17c28ffa52add3769aac30777a2e2a573175"
-          }
-        },
-        {
           "client_id": "641435048942-tn0f6sriv3a1sf4nakcospbqa09udlch.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

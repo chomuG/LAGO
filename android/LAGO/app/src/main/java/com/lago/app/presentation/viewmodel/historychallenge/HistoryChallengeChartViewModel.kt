@@ -677,6 +677,9 @@ class HistoryChallengeChartViewModel @Inject constructor(
             is ChartUiEvent.ClearError -> {
                 clearError()
             }
+            is ChartUiEvent.ClearTradeMessage -> {
+                // 역사챌린지에서는 매매 메시지가 없으므로 빈 처리
+            }
             is ChartUiEvent.ToggleFavorite -> {
                 toggleFavorite()
             }
