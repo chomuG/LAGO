@@ -72,7 +72,7 @@ fun WordbookScreen(
     
     
     LaunchedEffect(Unit) {
-        viewModel.loadTerms(userId = 1) // 일단 userId 1로 고정
+        viewModel.loadTerms() // UserPreferences에서 저장된 userId 사용
     }
     
     var sortOrder by remember { mutableStateOf("이름순") }

@@ -82,7 +82,7 @@ fun RandomQuizScreen(
                     onBackClick = onBackClick,
                     onAnswerSelected = { userAnswer ->
                         // TODO: 실제 유저 ID 가져오기 (현재는 더미 값 1 사용)
-                        viewModel.solveQuiz(userId = 1, userAnswer = userAnswer)
+                        viewModel.solveQuiz(userAnswer = userAnswer)
                     }
                 )
             }

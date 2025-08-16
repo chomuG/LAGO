@@ -10,7 +10,12 @@ class UserPreferences @Inject constructor(
 ) {
     companion object {
         private const val KEY_AUTH_TOKEN = "auth_token"
+        private const val KEY_ACCESS_TOKEN = "access_token"
+        private const val KEY_REFRESH_TOKEN = "refresh_token"
+        private const val KEY_TEMP_TOKEN = "temp_token"
         private const val KEY_USER_ID = "user_id"
+        private const val KEY_USER_EMAIL = "user_email"
+        private const val KEY_USER_NICKNAME = "user_nickname"
         private const val KEY_USERNAME = "username"
         private const val KEY_LAST_SELECTED_STOCK = "last_selected_stock"
         private const val KEY_CHART_TIME_FRAME = "chart_time_frame"
@@ -94,6 +99,84 @@ class UserPreferences @Inject constructor(
             .putInt(KEY_INVESTMENT_MODE, mode)
             .apply()
         android.util.Log.d("UserPreferences", "Investment mode saved: $mode")
+    }
+
+    // 새로 추가된 토큰 관리 메서드들
+    fun saveAccessToken(token: String) {
+        sharedPreferences.edit()
+            .putString(KEY_ACCESS_TOKEN, token)
+            .apply()
+    }
+
+    fun getAccessToken(): String? {
+        return sharedPreferences.getString(KEY_ACCESS_TOKEN, null)
+    }
+
+    fun saveRefreshToken(token: String) {
+        sharedPreferences.edit()
+            .putString(KEY_REFRESH_TOKEN, token)
+            .apply()
+    }
+
+    fun getRefreshToken(): String? {
+        return sharedPreferences.getString(KEY_REFRESH_TOKEN, null)
+    }
+
+    fun saveTempToken(token: String) {
+        sharedPreferences.edit()
+            .putString(KEY_TEMP_TOKEN, token)
+            .apply()
+    }
+
+    fun getTempToken(): String? {
+        return sharedPreferences.getString(KEY_TEMP_TOKEN, null)
+    }
+
+    fun clearTempToken() {
+        sharedPreferences.edit()
+            .remove(KEY_TEMP_TOKEN)
+            .apply()
+    }
+
+    fun saveUserId(userId: Long) {
+        sharedPreferences.edit()
+            .putLong(KEY_USER_ID, userId)
+            .apply()
+    }
+
+    fun getUserIdLong(): Long {
+        return sharedPreferences.getLong(KEY_USER_ID, 0L)
+    }
+
+    fun saveUserEmail(email: String) {
+        sharedPreferences.edit()
+            .putString(KEY_USER_EMAIL, email)
+            .apply()
+    }
+
+    fun getUserEmail(): String? {
+        return sharedPreferences.getString(KEY_USER_EMAIL, null)
+    }
+
+    fun saveUserNickname(nickname: String) {
+        sharedPreferences.edit()
+            .putString(KEY_USER_NICKNAME, nickname)
+            .apply()
+    }
+
+    fun getUserNickname(): String? {
+        return sharedPreferences.getString(KEY_USER_NICKNAME, null)
+    }
+
+    fun clearAuthData() {
+        sharedPreferences.edit()
+            .remove(KEY_ACCESS_TOKEN)
+            .remove(KEY_REFRESH_TOKEN)
+            .remove(KEY_TEMP_TOKEN)
+            .remove(KEY_USER_ID)
+            .remove(KEY_USER_EMAIL)
+            .remove(KEY_USER_NICKNAME)
+            .apply()
     }
 
     fun clearAllData() {

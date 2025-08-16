@@ -19,13 +19,14 @@ sealed class TermsUiState {
 
 @HiltViewModel
 class WordbookViewModel @Inject constructor(
-    private val getTermsUseCase: GetTermsUseCase
+    private val getTermsUseCase: GetTermsUseCase,
+    private val userPreferences: com.lago.app.data.local.prefs.UserPreferences
 ) : ViewModel() {
     
     private val _termsState = MutableStateFlow<TermsUiState>(TermsUiState.Loading)
     val termsState: StateFlow<TermsUiState> = _termsState.asStateFlow()
     
-    fun loadTerms(userId: Int? = null) {
+    fun loadTerms(userId: Int = userPreferences.getUserIdLong().toInt()) {
         viewModelScope.launch {
             _termsState.value = TermsUiState.Loading
             

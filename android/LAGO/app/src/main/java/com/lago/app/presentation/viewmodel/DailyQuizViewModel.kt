@@ -30,7 +30,8 @@ sealed class DailyQuizSolveUiState {
 @HiltViewModel
 class DailyQuizViewModel @Inject constructor(
     private val getDailyQuizUseCase: GetDailyQuizUseCase,
-    private val solveDailyQuizUseCase: SolveDailyQuizUseCase
+    private val solveDailyQuizUseCase: SolveDailyQuizUseCase,
+    private val userPreferences: com.lago.app.data.local.prefs.UserPreferences
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow<DailyQuizUiState>(DailyQuizUiState.Loading)
@@ -42,9 +43,10 @@ class DailyQuizViewModel @Inject constructor(
     private var currentQuizId: Int = 0
     private var startTime: Long = 0
     
-    fun loadDailyQuiz(userId: Int = 1) {
+    fun loadDailyQuiz(userId: Int = userPreferences.getUserIdLong().toInt()) {
         viewModelScope.launch {
             _uiState.value = DailyQuizUiState.Loading
+            android.util.Log.d("DailyQuizViewModel", "로드 - 사용할 userId: $userId")
             startTime = System.currentTimeMillis()
             
             getDailyQuizUseCase(userId)
@@ -58,9 +60,10 @@ class DailyQuizViewModel @Inject constructor(
         }
     }
     
-    fun solveQuiz(userId: Int = 1, userAnswer: Boolean) {
+    fun solveQuiz(userId: Int = userPreferences.getUserIdLong().toInt(), userAnswer: Boolean) {
         if (currentQuizId == 0) return
         
+        android.util.Log.d("DailyQuizViewModel", "퀴즈 풀이 - 사용할 userId: $userId")
         val solvedTimeSeconds = ((System.currentTimeMillis() - startTime) / 1000).toInt()
         
         viewModelScope.launch {
@@ -80,7 +83,7 @@ class DailyQuizViewModel @Inject constructor(
         _solveState.value = DailyQuizSolveUiState.Idle
     }
     
-    fun retryLoadQuiz(userId: Int = 1) {
+    fun retryLoadQuiz(userId: Int = userPreferences.getUserIdLong().toInt()) {
         loadDailyQuiz(userId)
     }
 }

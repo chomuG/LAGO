@@ -27,8 +27,8 @@ class OrderHistoryViewModel @Inject constructor(
             android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Loading transactions for userId: $userId, type: $type")
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
-            // userId가 null이면 fallback: 일반 사용자 5
-            val actualUserId = userId ?: 5
+            // userId가 null이면 fallback: 저장된 사용자 ID
+            val actualUserId = userId ?: userPreferences.getUserIdLong().toInt()
             android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Using userId: $actualUserId for type: $type")
             
             val userIdLong = actualUserId.toLong()
@@ -98,8 +98,8 @@ class OrderHistoryViewModel @Inject constructor(
     
     // 개발용: 로그인 시뮬레이션 (userId를 5로 설정)
     fun simulateLogin() {
-        userPreferences.setUserId("5")
-        android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Simulated login with userId: 5")
+        userPreferences.saveUserId(userPreferences.getUserIdLong())
+        android.util.Log.d("VIEWMODEL", "OrderHistoryViewModel - Using stored userId: ${userPreferences.getUserIdLong()}")
         loadTransactions(null) // null로 호출하면 UserPreferences에서 5를 가져옴
     }
     
