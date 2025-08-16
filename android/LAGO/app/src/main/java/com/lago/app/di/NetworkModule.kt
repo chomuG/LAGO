@@ -6,6 +6,7 @@ import com.lago.app.data.remote.StudyApiService
 import com.lago.app.util.Constants
 import com.lago.app.data.remote.api.ChartApiService
 import com.lago.app.data.remote.api.HistoryChallengeApiService
+import com.lago.app.data.remote.api.AuthApiService
 import com.lago.app.data.service.InitialPriceService
 import com.lago.app.util.HybridPriceCalculator
 import com.google.gson.Gson
@@ -88,6 +89,12 @@ object NetworkModule {
     @Singleton
     fun provideHistoryChallengeApiService(retrofit: Retrofit): HistoryChallengeApiService {
         return retrofit.create(HistoryChallengeApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAuthApiService(retrofit: Retrofit): AuthApiService {
+        return retrofit.create(AuthApiService::class.java)
     }
 
     @Provides

@@ -73,11 +73,12 @@ fun HomeScreen(
     onOrderHistoryClick: (Int) -> Unit = {}, // type을 파라미터로 전달
     onLoginClick: () -> Unit = {},
     onTradingBotClick: (Int) -> Unit = {},
-    onStockClick: (String) -> Unit = {},
+    onStockClick: (String, String) -> Unit = { _, _ ->},
     viewModel: com.lago.app.presentation.viewmodel.home.HomeViewModel = hiltViewModel()
 ) {
-    val isLoggedIn = userPreferences.getAuthToken() != null
+    val isLoggedIn = userPreferences.getAccessToken() != null
     val username = userPreferences.getUsername() ?: "게스트"
+    android.util.Log.d("HomeScreen", "저장된 userId: ${userPreferences.getUserIdLong()}")
     val uiState by viewModel.uiState.collectAsState()
     // ViewModel에서 API로 가져온 매매봇 데이터 사용, 없으면 기본 데이터
     val tradingBots = if (uiState.tradingBots.isNotEmpty()) {
@@ -390,7 +391,10 @@ private fun InvestmentSection(
                                     android.util.Log.d("HomeScreen", "🏠 내 투자금: 총자산 ${totalAssets}원")
                                     viewModel.formatAmount(totalAssets)
                                 } else "13,378,095원",
-                                style = HeadEb24
+                                style = HeadEb24.copy(
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                                ),
+                                modifier = Modifier.fillMaxWidth()
                             )
 
                             Text(
@@ -407,8 +411,10 @@ private fun InvestmentSection(
                                     color = if (portfolioSummary != null) {
                                         val calculatedProfitLoss = portfolioSummary.totalCurrentValue - portfolioSummary.totalPurchaseAmount
                                         if (calculatedProfitLoss > 0) Color(0xFFED5454) else if (calculatedProfitLoss < 0) Color.Blue else Color(0xFFED5454)
-                                    } else Color(0xFFED5454)
-                                )
+                                    } else Color(0xFFED5454),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                                ),
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
 
@@ -600,7 +606,7 @@ private fun StockSection(
     isLoggedIn: Boolean = true,
     homeStocks: List<com.lago.app.presentation.viewmodel.home.HomeStock> = emptyList(),
     viewModel: com.lago.app.presentation.viewmodel.home.HomeViewModel? = null,
-    onStockClick: (String) -> Unit = {}
+    onStockClick: (String, String) -> Unit = { _, _ ->}
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp)
@@ -711,7 +717,11 @@ private fun StockItem(stock: Stock) {
             )
             Text(
                 text = stock.profit,
-                style = BodyR14.copy(color = stock.profitColor)
+                style = BodyR14.copy(
+                    color = stock.profitColor,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                ),
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
@@ -724,12 +734,12 @@ private fun StockItem(stock: Stock) {
 private fun HomeStockItem(
     homeStock: com.lago.app.presentation.viewmodel.home.HomeStock,
     viewModel: com.lago.app.presentation.viewmodel.home.HomeViewModel,
-    onStockClick: (String) -> Unit = {}
+    onStockClick: (String, String) -> Unit = { _, _ ->}
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onStockClick(homeStock.stockCode) },
+            .clickable { onStockClick(homeStock.stockCode, homeStock.stockName) },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -770,7 +780,11 @@ private fun HomeStockItem(
             )
             Text(
                 text = viewModel.formatProfitLoss(homeStock.profitLoss, homeStock.profitRate),
-                style = BodyR14.copy(color = viewModel.getProfitLossColor(homeStock.profitLoss))
+                style = BodyR14.copy(
+                    color = viewModel.getProfitLossColor(homeStock.profitLoss),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                ),
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

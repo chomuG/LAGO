@@ -458,7 +458,7 @@ class ChartRepositoryImpl @Inject constructor(
     override suspend fun getUserHoldings(): Flow<Resource<List<HoldingItem>>> = flow {
         try {
             emit(Resource.Loading())
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("Authentication required"))
                 return@flow
@@ -490,7 +490,7 @@ class ChartRepositoryImpl @Inject constructor(
     ): Flow<Resource<TradingHistoryPage>> = flow {
         try {
             emit(Resource.Loading())
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("Authentication required"))
                 return@flow
@@ -526,7 +526,7 @@ class ChartRepositoryImpl @Inject constructor(
     override suspend fun addToFavorites(stockCode: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("Authentication required"))
                 return@flow
@@ -550,7 +550,7 @@ class ChartRepositoryImpl @Inject constructor(
     override suspend fun removeFromFavorites(stockCode: String): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("Authentication required"))
                 return@flow
@@ -574,7 +574,7 @@ class ChartRepositoryImpl @Inject constructor(
     override suspend fun getFavorites(): Flow<Resource<List<String>>> = flow {
         try {
             emit(Resource.Loading())
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("Authentication required"))
                 return@flow
@@ -629,7 +629,7 @@ class ChartRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("Authentication required"))
                 return@flow
@@ -948,7 +948,7 @@ class ChartRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
 
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("Authentication required"))
                 return@flow

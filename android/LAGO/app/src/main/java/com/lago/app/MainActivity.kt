@@ -161,7 +161,8 @@ fun LagoApp(userPreferences: UserPreferences) {
         "history_challenge_chart/{stockCode}",  // 역사 챌린지 차트 화면
         "stock_purchase/{stockCode}/{transactionType}", // 구매/판매 화면,
         "ai_portfolio",
-        "ai_portfolio/{userId}" // userId가 포함된 AI 포트폴리오 화면
+        "ai_portfolio/{userId}", // userId가 포함된 AI 포트폴리오 화면
+        "portfolio/{userId}/{userName}"
     )
 
     // Check if current route matches any of the hidden routes (including parameterized routes)
@@ -206,9 +207,7 @@ fun LagoApp(userPreferences: UserPreferences) {
             NavGraph(
                 navController = navController,
                 modifier = if (showBottomBarWithDelay) {
-                    Modifier
-                        .padding(innerPadding)
-                        .windowInsetsPadding(WindowInsets.statusBars)
+                    Modifier.padding(innerPadding)
                 } else {
                     Modifier
                         .windowInsetsPadding(WindowInsets.statusBars)

@@ -38,13 +38,13 @@ import com.lago.app.R
 fun RankingScreen(
     userPreferences: com.lago.app.data.local.prefs.UserPreferences,
     onBackClick: () -> Unit = {},
-    onUserClick: () -> Unit = {},
-    onAiPortfolioClick: () -> Unit = {},
+    onUserClick: (Int, String) -> Unit = { _, _ ->},
+    onAiPortfolioClick: (Int) -> Unit = {},
     onLoginClick: () -> Unit = {},
     viewModel: RankingViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val isLoggedIn = userPreferences.getAuthToken() != null
+    val isLoggedIn = userPreferences.getAccessToken() != null
 
     Column(
         modifier = Modifier
@@ -71,7 +71,17 @@ fun RankingScreen(
                     ApiRankingCard(
                         user = uiState.currentUser!!,
                         viewModel = viewModel,
-                        onUserClick = onUserClick
+                        onUserClick = {
+                            val currentUser = uiState.currentUser!!
+                            android.util.Log.d("RANKING_SCREEN", "현재 사용자 클릭 - userId: ${currentUser.userId}, username: ${currentUser.username}, isAi: ${currentUser.isAi}")
+                            if (currentUser.isAi) { 
+                                android.util.Log.d("RANKING_SCREEN", "현재 사용자 AI로 판별 - AI 포트폴리오로 이동")
+                                onAiPortfolioClick(currentUser.userId) 
+                            } else { 
+                                android.util.Log.d("RANKING_SCREEN", "현재 사용자 일반 사용자로 판별 - 일반 포트폴리오로 이동")
+                                onUserClick(currentUser.userId, currentUser.username) 
+                            }
+                        }
                     )
                 }
                 isLoggedIn -> {
@@ -92,7 +102,8 @@ fun RankingScreen(
                 ApiPodiumSection(
                     top3Users = uiState.top3Users,
                     viewModel = viewModel,
-                    onUserClick = onUserClick
+                    onUserClick = onUserClick,
+                    onAiPortfolioClick = onAiPortfolioClick
                 )
             }
 
@@ -101,7 +112,16 @@ fun RankingScreen(
                 ApiRankingCard(
                     user = user,
                     viewModel = viewModel,
-                    onUserClick = if (user.isAi) onAiPortfolioClick else onUserClick
+                    onUserClick = {
+                        android.util.Log.d("RANKING_SCREEN", "사용자 클릭 - userId: ${user.userId}, username: ${user.username}, isAi: ${user.isAi}")
+                        if (user.isAi) { 
+                            android.util.Log.d("RANKING_SCREEN", "AI로 판별 - AI 포트폴리오로 이동")
+                            onAiPortfolioClick(user.userId) 
+                        } else { 
+                            android.util.Log.d("RANKING_SCREEN", "일반 사용자로 판별 - 일반 포트폴리오로 이동")
+                            onUserClick(user.userId, user.username) 
+                        }
+                    }
                 )
             }
 
@@ -242,7 +262,8 @@ fun ApiRankingCard(
 fun ApiPodiumSection(
     top3Users: List<CalculatedRankingUser>,
     viewModel: RankingViewModel,
-    onUserClick: () -> Unit = {}
+    onUserClick: (Int, String) -> Unit = { _, _ ->},
+    onAiPortfolioClick: (Int) -> Unit = {}
 ) {
     if (top3Users.size < 3) return
 
@@ -279,7 +300,16 @@ fun ApiPodiumSection(
                     amountStyle = SubtitleSb14,
                     bottomPadding = 154.dp,
                     medalResource = R.drawable.silver,
-                    onUserClick = onUserClick
+                    onUserClick = {
+                        android.util.Log.d("RANKING_SCREEN", "포디움 사용자 클릭 (2등) - userId: ${it.userId}, username: ${it.username}, isAi: ${it.isAi}")
+                        if (it.isAi) { 
+                            android.util.Log.d("RANKING_SCREEN", "2등 AI로 판별 - AI 포트폴리오로 이동")
+                            onAiPortfolioClick(it.userId) 
+                        } else { 
+                            android.util.Log.d("RANKING_SCREEN", "2등 일반 사용자로 판별 - 일반 포트폴리오로 이동")
+                            onUserClick(it.userId, it.username) 
+                        }
+                    }
                 )
             }
 
@@ -293,7 +323,16 @@ fun ApiPodiumSection(
                     amountColor = MainPink,
                     bottomPadding = 190.dp,
                     medalResource = R.drawable.gold,
-                    onUserClick = onUserClick
+                    onUserClick = {
+                        android.util.Log.d("RANKING_SCREEN", "포디움 사용자 클릭 (1등) - userId: ${it.userId}, username: ${it.username}, isAi: ${it.isAi}")
+                        if (it.isAi) { 
+                            android.util.Log.d("RANKING_SCREEN", "1등 AI로 판별 - AI 포트폴리오로 이동")
+                            onAiPortfolioClick(it.userId) 
+                        } else { 
+                            android.util.Log.d("RANKING_SCREEN", "1등 일반 사용자로 판별 - 일반 포트폴리오로 이동")
+                            onUserClick(it.userId, it.username) 
+                        }
+                    }
                 )
             }
 
@@ -306,7 +345,16 @@ fun ApiPodiumSection(
                     amountStyle = SubtitleSb14,
                     bottomPadding = 128.dp,
                     medalResource = R.drawable.bronze,
-                    onUserClick = onUserClick
+                    onUserClick = {
+                        android.util.Log.d("RANKING_SCREEN", "포디움 사용자 클릭 (3등) - userId: ${it.userId}, username: ${it.username}, isAi: ${it.isAi}")
+                        if (it.isAi) { 
+                            android.util.Log.d("RANKING_SCREEN", "3등 AI로 판별 - AI 포트폴리오로 이동")
+                            onAiPortfolioClick(it.userId) 
+                        } else { 
+                            android.util.Log.d("RANKING_SCREEN", "3등 일반 사용자로 판별 - 일반 포트폴리오로 이동")
+                            onUserClick(it.userId, it.username) 
+                        }
+                    }
                 )
             }
         }

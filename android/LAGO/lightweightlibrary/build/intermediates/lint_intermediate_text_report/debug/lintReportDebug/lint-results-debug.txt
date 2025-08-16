@@ -1,0 +1,60 @@
+C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build.gradle.kts:84: Warning: A newer version of org.jetbrains.kotlin:kotlin-stdlib than 1.9.21 is available: 2.1.0 [GradleDependency]
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.21")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build.gradle.kts:85: Warning: A newer version of androidx.webkit:webkit than 1.11.0 is available: 1.14.0 [GradleDependency]
+    implementation("androidx.webkit:webkit:1.11.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build.gradle.kts:86: Warning: A newer version of com.google.code.gson:gson than 2.11.0 is available: 2.13.1 [GradleDependency]
+    implementation("com.google.code.gson:gson:2.11.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build.gradle.kts:89: Warning: A newer version of androidx.test.ext:junit than 1.1.5 is available: 1.3.0 [GradleDependency]
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build.gradle.kts:90: Warning: A newer version of androidx.test.espresso:espresso-core than 3.5.1 is available: 3.7.0 [GradleDependency]
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build.gradle.kts:84: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.21")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build.gradle.kts:85: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.webkit:webkit:1.11.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build.gradle.kts:86: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("com.google.code.gson:gson:2.11.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build.gradle.kts:88: Warning: Use the existing version catalog reference (libs.junit) instead [UseTomlInstead]
+    testImplementation("junit:junit:4.13.2")
+                       ~~~~~~~~~~~~~~~~~~~~
+C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build.gradle.kts:89: Warning: Use the existing version catalog reference (libs.androidx.junit) instead [UseTomlInstead]
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build.gradle.kts:90: Warning: Use the existing version catalog reference (libs.androidx.espresso.core) instead [UseTomlInstead]
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UseTomlInstead":
+   If your project is using a libs.versions.toml file, you should place all
+   Gradle dependencies in the TOML file. This lint check looks for version
+   declarations outside of the TOML file and suggests moving them (and in the
+   IDE, provides a quickfix to performing the operation automatically).
+
+C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\src\main\java\com\tradingview\lightweightcharts\view\WebSession.kt:39: Warning: Custom view WebSession overrides onTouchEvent but not performClick [ClickableViewAccessibility]
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+                 ~~~~~~~~~~~~
+
+   Explanation for issues of type "ClickableViewAccessibility":
+   If a View that overrides onTouchEvent or uses an OnTouchListener does not
+   also implement performClick and call it when clicks are detected, the View
+   may not handle accessibility actions properly. Logic handling the click
+   actions should ideally be placed in View#performClick as some accessibility
+   services invoke performClick when a click action should occur.
+
+0 errors, 12 warnings

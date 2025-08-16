@@ -12,7 +12,8 @@ import javax.inject.Singleton
 
 @Singleton
 class RankingRepositoryImpl @Inject constructor(
-    private val apiService: ApiService
+    private val apiService: ApiService,
+    private val userPreferences: com.lago.app.data.local.prefs.UserPreferences
 ) : RankingRepository {
     
     override suspend fun getRanking(): Flow<Resource<List<CalculatedRankingUser>>> = flow {
@@ -45,7 +46,7 @@ class RankingRepositoryImpl @Inject constructor(
             (profit.toDouble() / initialAsset) * 100
         } else 0.0
         
-        android.util.Log.d("RankingRepository", "🏆 ${dto.username}: 총자산 ${dto.totalAsset}원 → 수익 ${profit}원 (${String.format("%.1f", profitRate)}%)")
+        android.util.Log.d("RankingRepository", "🏆 ${dto.username}: 총자산 ${dto.totalAsset}원 → 수익 ${profit}원 (${String.format("%.1f", profitRate)}%), isAi: ${dto.isAi}")
         
         return CalculatedRankingUser(
             rank = dto.rank,
@@ -54,8 +55,8 @@ class RankingRepositoryImpl @Inject constructor(
             totalAsset = dto.totalAsset,
             calculatedProfitRate = profitRate,
             calculatedProfit = profit,
-            isCurrentUser = dto.userId == 5, // 임시 테스트용 사용자 ID
-            isAi = dto.username.contains("AI") || dto.username.contains("봇"), // AI 봇 판별
+            isCurrentUser = dto.userId.toLong() == userPreferences.getUserIdLong(), // 저장된 사용자 ID와 비교
+            isAi = dto.isAi, // API에서 받은 isAi 값 사용
             personality = dto.personality
         )
     }

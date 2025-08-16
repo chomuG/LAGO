@@ -23,7 +23,8 @@ class SmartStockWebSocketService @Inject constructor(
     private val userPreferences: UserPreferences,
     private val realTimeCache: RealTimeStockCache,
     private val smartUpdateScheduler: com.lago.app.data.scheduler.SmartUpdateScheduler,
-    private val gson: Gson
+    private val gson: Gson,
+    private val remoteDataSource: com.lago.app.data.remote.RemoteDataSource
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var stompClient: StompClient? = null
@@ -129,22 +130,39 @@ class SmartStockWebSocketService @Inject constructor(
     
     private suspend fun initializeSubscriptions() {
         try {
-            Log.d(TAG, "초기 구독 시작")
+            Log.d(TAG, "초기 구독 시작 - API에서 종목 목록 받아오기")
             
-            // 기본적으로 모든 종목 구독 (구독 해제 안함)
+            // API에서 모든 종목 목록 받아오기
+            val stocksInfo = remoteDataSource.getStocksInfo()
+            val stockCodes = stocksInfo.map { it.code }
+            
+            Log.d(TAG, "API에서 받은 종목: ${stockCodes.size}개")
+            Log.d(TAG, "종목 목록: ${stockCodes.joinToString()}")
+            
+            // 모든 종목 구독 시작
+            subscribeToStocks(stockCodes)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "API에서 종목 목록 받아오기 실패, 기본 목록 사용", e)
+            
+            // API 실패 시 기본 목록 사용
             val defaultStocks = listOf(
+                // 주요 대형주
                 "005930", "000660", "035420", "035720", "207940", "373220",
                 "051910", "006400", "068270", "003550", "105560", "055550",
                 "034730", "000270", "066570", "028260", "012330", "096770",
                 "017670", "316140", "018260", "005380", "011200", "259960",
-                "032830", "005490", "028050", "000100", "000720", "005850"
+                "032830", "005490", "028050", "000100", "000720", "005850",
+                
+                // 추가 종목들 (유저가 API 응답에서 본 종목들)
+                "196170", "247540", "252670", "263750", "267260", "293490",
+                "003670", "015760", "017810", "032640", "033780", "034020",
+                "036460", "058470", "005940", "066970", "086790", "088980",
+                "090430", "097950", "030200"
             )
             
             Log.d(TAG, "기본 ${defaultStocks.size}개 종목 구독 시작")
             subscribeToStocks(defaultStocks)
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "초기 구독 실패", e)
         }
     }
     

@@ -62,8 +62,9 @@ fun NavGraph(
                 onTradingBotClick = { userId ->
                     navController.navigate("ai_portfolio/$userId")
                 },
-                onStockClick = { stockCode ->
-                    navController.navigate("chart_simple/$stockCode")
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 }
             )
         }
@@ -86,8 +87,9 @@ fun NavGraph(
                 onTradingBotClick = { userId ->
                     navController.navigate("ai_portfolio/$userId")
                 },
-                onStockClick = { stockCode ->
-                    navController.navigate("chart_simple/$stockCode")
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 }
             )
         }
@@ -96,7 +98,7 @@ fun NavGraph(
             StockListScreen(
                 onStockClick = { stockCode, stockName, currentPrice, priceChange, priceChangePercent ->
                     val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
-                    navController.navigate("chart/$stockCode/$encodedName/$currentPrice/$priceChange/$priceChangePercent")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 },
                 onHistoryChallengeStockClick = { stockCode ->
                     navController.navigate("history_challenge_chart/$stockCode")
@@ -107,37 +109,14 @@ fun NavGraph(
             )
         }
 
-        composable(NavigationItem.Chart.route) {
-            ChartScreen(
-                stockCode = "005930", // 삼성전자 임시 목 데이터
-                onNavigateToStockPurchase = { stockCode, action ->
-                    navController.navigate("stock_purchase/$stockCode/$action")
-                },
-                onNavigateToAIDialog = {
-                    navController.navigate(NavigationItem.AIDialog.route)
-                },
-                onNavigateBack = {
-                    // 차트 탭에서는 뒤로가기 버튼 비활성화 (바텀네비게이션 탭이므로)
-                },
-                onNavigateToStock = { selectedStockCode ->
-                    navController.navigate("chart/$selectedStockCode") {
-                        // 현재 차트 화면을 새로운 차트 화면으로 교체 (스택에 쌓지 않음)
-                        popUpTo("chart") { inclusive = true }
-                        launchSingleTop = true
-                    }
-                }
-            )
-        }
+
 
         // Chart Screen with stock parameters
         composable(
-            route = "chart/{stockCode}/{stockName}/{currentPrice}/{priceChange}/{priceChangePercent}",
+            route = "chart/{stockCode}/{stockName}",
             arguments = listOf(
                 navArgument("stockCode") { type = NavType.StringType },
-                navArgument("stockName") { type = NavType.StringType },
-                navArgument("currentPrice") { type = NavType.IntType },
-                navArgument("priceChange") { type = NavType.IntType },
-                navArgument("priceChangePercent") { type = NavType.FloatType }
+                navArgument("stockName") { type = NavType.StringType }
             )
         ) { backStackEntry ->
             val stockCode = backStackEntry.arguments?.getString("stockCode") ?: "005930"
@@ -145,18 +124,16 @@ fun NavGraph(
                 backStackEntry.arguments?.getString("stockName") ?: "삼성전자", 
                 "UTF-8"
             )
-            val currentPrice = backStackEntry.arguments?.getInt("currentPrice") ?: 74200
-            val priceChange = backStackEntry.arguments?.getInt("priceChange") ?: 0
-            val priceChangePercent = backStackEntry.arguments?.getFloat("priceChangePercent") ?: 0f
+            android.util.Log.d("CHART_NAV", "차트 네비게이션 - stockCode: $stockCode, stockName: $stockName")
 
             ChartScreen(
                 stockCode = stockCode,
                 initialStockInfo = ChartStockInfo(
                     code = stockCode,
                     name = stockName,
-                    currentPrice = currentPrice.toFloat(),
-                    priceChange = priceChange.toFloat(),
-                    priceChangePercent = priceChangePercent,
+                    currentPrice = 0f, // 기본값
+                    priceChange = 0f, // 기본값
+                    priceChangePercent = 0f, // 기본값
                     previousDay = null
                 ),
                 onNavigateToStockPurchase = { stockCode, action ->
@@ -209,9 +186,10 @@ fun NavGraph(
                 onRankingClick = {
                     navController.navigate("ranking")
                 },
-                onStockClick = { stockCode ->
-                    // MyPage에서는 기본 방식으로 네비게이션 (backward compatibility)
-                    navController.navigate("chart_simple/$stockCode")
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    android.util.Log.d("MYPAGE_NAV", "MyPage 주식 클릭 - stockCode: $stockCode, stockName: $stockName, encodedName: $encodedName")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 }
             )
         }
@@ -252,11 +230,14 @@ fun NavGraph(
                 onBackClick = {
                     navController.popBackStack()
                 },
-                onUserClick = {
-                    navController.navigate("portfolio")
+                onUserClick = { userId, userName ->
+                    android.util.Log.d("NAV_GRAPH", "일반 사용자 포트폴리오 네비게이션 - userId: $userId, userName: $userName")
+                    val encodedName = java.net.URLEncoder.encode(userName, "UTF-8")
+                    navController.navigate("portfolio/$userId/$encodedName")
                 },
-                onAiPortfolioClick = {
-                    navController.navigate("ai_portfolio")
+                onAiPortfolioClick = { userId ->
+                    android.util.Log.d("NAV_GRAPH", "AI 포트폴리오 네비게이션 - userId: $userId")
+                    navController.navigate("ai_portfolio/$userId")
                 },
                 onLoginClick = {
                     navController.navigate("login")
@@ -264,10 +245,39 @@ fun NavGraph(
             )
         }
 
+        composable(
+            route = "portfolio/{userId}/{userName}",
+            arguments = listOf(
+                navArgument("userId") { type = NavType.IntType },
+                navArgument("userName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getInt("userId") ?: 1
+            val userName = java.net.URLDecoder.decode(
+                backStackEntry.arguments?.getString("userName") ?: "사용자", 
+                "UTF-8"
+            )
+            PortfolioScreen(
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    android.util.Log.d("PORTFOLIO_NAV", "Portfolio 주식 클릭 - stockCode: $stockCode, stockName: $stockName, encodedName: $encodedName")
+                    navController.navigate("chart/$stockCode/$encodedName")
+                },
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                userName = userName,
+                userId = userId
+            )
+        }
+
+        // Backward compatibility for portfolio without parameters
         composable("portfolio") {
             PortfolioScreen(
-                onStockClick = { stockCode ->
-                    navController.navigate("chart_simple/$stockCode")
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    android.util.Log.d("PORTFOLIO_NAV", "Portfolio 주식 클릭 - stockCode: $stockCode, stockName: $stockName, encodedName: $encodedName")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 },
                 onBackClick = {
                     navController.popBackStack()
@@ -287,8 +297,10 @@ fun NavGraph(
                 onBackClick = {
                     navController.popBackStack()
                 },
-                onStockClick = { stockCode ->
-                    navController.navigate("chart_simple/$stockCode")
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    android.util.Log.d("AI_PORTFOLIO_NAV", "AI Portfolio 주식 클릭 - stockCode: $stockCode, stockName: $stockName, encodedName: $encodedName")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 },
                 onOrderHistoryClick = { botUserId, type ->
                     android.util.Log.d("NAV_GRAPH", "AiPortfolio - onOrderHistoryClick: botUserId=$botUserId, type=$type")
@@ -304,8 +316,10 @@ fun NavGraph(
                 onBackClick = {
                     navController.popBackStack()
                 },
-                onStockClick = { stockCode ->
-                    navController.navigate("chart_simple/$stockCode")
+                onStockClick = { stockCode, stockName ->
+                    val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
+                    android.util.Log.d("AI_PORTFOLIO_NAV", "AI Portfolio 주식 클릭 - stockCode: $stockCode, stockName: $stockName, encodedName: $encodedName")
+                    navController.navigate("chart/$stockCode/$encodedName")
                 },
                 onOrderHistoryClick = { botUserId, type ->
                     android.util.Log.d("NAV_GRAPH", "AiPortfolio - onOrderHistoryClick: botUserId=$botUserId, type=$type")
@@ -416,7 +430,12 @@ fun NavGraph(
         composable("login") {
             LoginScreen(
                 userPreferences = userPreferences,
-                onKakaoLoginClick = {
+                onLoginSuccess = {
+                    navController.navigate("home") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
+                onSignupNeeded = {
                     navController.navigate("personality_test")
                 }
             )
@@ -425,16 +444,12 @@ fun NavGraph(
         // Personality Test Flow
         composable("personality_test") {
             PersonalityTestNavigation(
+                userPreferences = userPreferences,
                 onBackToHome = {
                     navController.popBackStack()
                 },
                 onTestComplete = { result ->
-                    // 투자성향 테스트 완료 시 임시 로그인 처리
-                    userPreferences.setAuthToken("temp_token_12345")
-                    userPreferences.setUserId("temp_user_001")
-                    userPreferences.setUsername(result.nickname)
-
-                    // 결과를 저장하고 홈으로 돌아가기
+                    // 회원가입 완료 후 홈으로 돌아가기
                     navController.navigate(NavigationItem.Home.route) {
                         popUpTo(NavigationItem.Home.route) {
                             inclusive = false

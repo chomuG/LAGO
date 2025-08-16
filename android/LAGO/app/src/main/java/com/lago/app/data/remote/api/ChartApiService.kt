@@ -339,7 +339,7 @@ interface ChartApiService {
     suspend fun getChartPatterns(): List<ChartPatternResponse>
 
     /**
-     * 일봉 데이터 조회 (초기 주가 데이터)
+     * 일봉 데이터 조회 (초기 주가 데이터) - 복원
      */
     @GET("api/stocks/day/{code}")
     suspend fun getDayCandles(
@@ -358,4 +358,15 @@ interface ChartApiService {
         @Query("fromDateTime") fromDateTime: String, // KST: "2024-08-13T09:00:00"
         @Query("toDateTime") toDateTime: String // KST: "2024-08-15T15:30:00"
     ): List<IntervalChartDataDto>
+
+     * 주식 시세 데이터 조회 (새로운 엔드포인트 - 사용 안함)
+     * GET /api/stocks/{stockCode}?interval=DAY&fromDateTime=...&toDateTime=...
+     */
+    @GET("api/stocks/{stockCode}")
+    suspend fun getStockPriceData(
+        @Path("stockCode") stockCode: String,
+        @Query("interval") interval: String = "DAY",
+        @Query("fromDateTime") fromDateTime: String,
+        @Query("toDateTime") toDateTime: String
+    ): List<StockPriceDataDto>
 }
