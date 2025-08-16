@@ -25,9 +25,10 @@ class NewsRepositoryImpl @Inject constructor(
         }
     }
     
-    override suspend fun getInterestNews(): Result<List<News>> {
+    override suspend fun getInterestNews(userId: Int): Result<List<News>> {
         return try {
-            val response = newsApiService.getInterestNews()
+            android.util.Log.d("NewsRepository", "📰 관심뉴스 API 호출 시작 - userId: $userId, page: 0, size: 20")
+            val response = newsApiService.getInterestNews(userId = userId, page = 0, size = 20)
             android.util.Log.d("NewsRepository", "📰 관심뉴스 API 응답: totalElements=${response.totalElements}, content 크기=${response.content.size}")
             // content 배열에서 실제 뉴스 데이터 추출
             val newsList = response.content.map { it.toDomain() }

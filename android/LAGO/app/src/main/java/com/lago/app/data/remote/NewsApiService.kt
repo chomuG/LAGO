@@ -15,7 +15,11 @@ interface NewsApiService {
     ): NewsPageResponse
     
     @GET("api/news/watchlist")
-    suspend fun getInterestNews(): NewsPageResponse
+    suspend fun getInterestNews(
+        @Query("userId") userId: Int,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20
+    ): NewsPageResponse
     
     @GET("api/news/{newsId}")
     suspend fun getNewsDetail(
