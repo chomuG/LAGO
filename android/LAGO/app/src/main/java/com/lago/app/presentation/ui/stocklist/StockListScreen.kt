@@ -242,26 +242,29 @@ fun StockListScreen(
                             News(
                                 newsId = 1,
                                 title = "삼성전자, 3분기 영업이익 전년 동기 대비 277% 증가",
+                                content = "삼성전자가 3분기 실적을 발표하며...",
+                                summary = "{3분기 실적, 영업이익 증가, 반도체 회복}",
                                 publishedAt = "2024-10-31T10:30:00Z",
                                 sentiment = "호재",
+                                type = "da"
                             ),
                             News(
                                 newsId = 2,
                                 title = "SK하이닉스, HBM 시장 확대로 주가 상승 전망",
+                                content = "SK하이닉스가 HBM 메모리 시장에서...",
+                                summary = "{HBM 시장, 주가 상승, 메모리 반도체}",
                                 publishedAt = "2024-10-31T09:15:00Z",
                                 sentiment = "호재",
+                                type = "da"
                             ),
                             News(
                                 newsId = 3,
                                 title = "현대차, 전기차 판매 부진으로 실적 우려",
-                                publishedAt = "2024-10-31T08:00:00Z",
+                                content = "현대차의 전기차 판매량이 예상보다...",
+                                summary = "{전기차 판매, 실적 우려, 자동차 산업}",
+                                publishedAt = "2024-10-31T08:45:00Z",
                                 sentiment = "악재",
-                            ),
-                            News(
-                                newsId = 4,
-                                title = "LG에너지솔루션, 북미 배터리 공장 가동 시작",
-                                publishedAt = "2024-10-31T07:30:00Z",
-                                sentiment = "중립",
+                                type = "da"
                             )
                         )
                         
@@ -604,14 +607,13 @@ private fun HistoryChallengeStockItem(
                 
                 Spacer(modifier = Modifier.width(8.dp))
                 
-                // 변동률과 변동금액 (현재 금액 바로 오른쪽)
-                val isPositive = stock.fluctuationRate >= 0
+                // 변동률과 변동금액 (WebSocket 실제 데이터 사용)
+                val isPositive = stock.changePrice >= 0
                 val changeColor = if (isPositive) MainPink else MainBlue
                 val changeSign = if (isPositive) "+" else ""
-                val changeAmount = (stock.currentPrice * stock.fluctuationRate / 100).toInt()
                 
                 Text(
-                    text = "${changeSign}${String.format("%,d", kotlin.math.abs(changeAmount))}(${String.format("%.2f", kotlin.math.abs(stock.fluctuationRate))}%)",
+                    text = "${changeSign}${String.format("%,d", stock.changePrice.toInt())}(${String.format("%.2f", kotlin.math.abs(stock.fluctuationRate))}%)",
                     style = R_12,
                     color = changeColor
                 )

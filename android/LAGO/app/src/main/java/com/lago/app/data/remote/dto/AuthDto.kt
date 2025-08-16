@@ -36,7 +36,7 @@ data class LoginData(
 )
 
 data class UserDto(
-    @SerializedName("id")
+    @SerializedName("userId")
     val id: Long,
     @SerializedName("email")
     val email: String,
@@ -62,15 +62,14 @@ data class CompleteSignupResponse(
     val success: Boolean,
     @SerializedName("message")
     val message: String,
-    @SerializedName("data")
-    val data: SignupData?
-)
-
-data class SignupData(
-    @SerializedName("user")
-    val user: UserDto?,
+    @SerializedName("expiresIn")
+    val expiresIn: String?,
     @SerializedName("accessToken")
     val accessToken: String?,
+    @SerializedName("tokenType")
+    val tokenType: String?,
+    @SerializedName("user")
+    val user: UserDto?,
     @SerializedName("refreshToken")
     val refreshToken: String?
 )

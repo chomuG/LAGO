@@ -24,6 +24,8 @@ import com.lago.app.presentation.theme.*
 fun PersonalityTestResultScreen(
     nickname: String = "",
     totalScore: Int = 0,
+    isLoading: Boolean = false,
+    error: String? = null,
     onCompleteClick: () -> Unit = {}
 ) {
     val personalityType = PersonalityTestData.calculatePersonality(totalScore)
@@ -209,6 +211,7 @@ fun PersonalityTestResultScreen(
             
             Button(
                 onClick = onCompleteClick,
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -217,10 +220,29 @@ fun PersonalityTestResultScreen(
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    Text(
+                        text = "시작하기",
+                        style = TitleB16,
+                        color = Color.White
+                    )
+                }
+            }
+            
+            // 에러 메시지 표시
+            error?.let { errorMessage ->
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "시작하기",
-                    style = TitleB16,
-                    color = Color.White
+                    text = errorMessage,
+                    color = Color.Red,
+                    style = BodyR14,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
             

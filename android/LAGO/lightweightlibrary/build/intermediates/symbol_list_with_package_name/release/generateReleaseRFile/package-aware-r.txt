@@ -1,0 +1,2 @@
+com.tradingview.lightweightcharts
+string app_name

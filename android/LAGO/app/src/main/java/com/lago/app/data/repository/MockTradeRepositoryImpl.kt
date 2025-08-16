@@ -206,7 +206,7 @@ class MockTradeRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
@@ -253,7 +253,7 @@ class MockTradeRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
@@ -294,7 +294,7 @@ class MockTradeRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
@@ -473,7 +473,7 @@ class MockTradeRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
@@ -496,7 +496,7 @@ class MockTradeRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
@@ -518,7 +518,7 @@ class MockTradeRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow
@@ -561,7 +561,7 @@ class MockTradeRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
             
-            val token = userPreferences.getAuthToken()
+            val token = userPreferences.getAccessToken()
             if (token.isNullOrEmpty()) {
                 emit(Resource.Error("로그인이 필요합니다"))
                 return@flow

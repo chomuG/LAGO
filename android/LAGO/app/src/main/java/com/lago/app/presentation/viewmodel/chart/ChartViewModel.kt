@@ -26,6 +26,82 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.*
 
+/**
+ * 시간 버킷 타입 정의
+ */
+sealed class TimeBucket {
+    data class Minute(val mins: Int): TimeBucket()
+    object Day: TimeBucket()
+    // 필요하면 Week/Month/Year 추가 가능
+}
+
+/**
+ * String TimeFrame을 TimeBucket으로 변환
+ */
+fun String.toTimeBucket(): TimeBucket = when (this) {
+    "1" -> TimeBucket.Minute(1)
+    "3" -> TimeBucket.Minute(3) 
+    "5" -> TimeBucket.Minute(5)
+    "10" -> TimeBucket.Minute(10)
+    "15" -> TimeBucket.Minute(15)
+    "30" -> TimeBucket.Minute(30)
+    "60" -> TimeBucket.Minute(60)
+    "D" -> TimeBucket.Day
+    else -> TimeBucket.Minute(1) // 기본값
+}
+
+/**
+ * 버킷 스냅 함수들 - 모든 프레임을 버킷 시작 시각(KST)으로 스냅
+ */
+private val KST = java.time.ZoneId.of("Asia/Seoul")
+
+fun floorToMinuteBucketKst(epochSec: Long, minutes: Int): Long {
+    val z = java.time.Instant.ofEpochSecond(epochSec).atZone(KST)
+    val floored = z.withSecond(0).withNano(0)
+        .withMinute(z.minute - (z.minute % minutes))
+    return floored.toEpochSecond()
+}
+
+fun bucketStartEpochSec(epochSec: Long, tf: String): Long = when (tf) {
+    "1","3","5","10","15","30","60" -> {
+        val m = tf.toInt()
+        floorToMinuteBucketKst(epochSec, m)
+    }
+    "D" -> java.time.Instant.ofEpochSecond(epochSec).atZone(KST)
+        .toLocalDate().atStartOfDay(KST).toEpochSecond()
+    "W" -> {
+        val z = java.time.Instant.ofEpochSecond(epochSec).atZone(KST)
+        z.toLocalDate().with(java.time.DayOfWeek.MONDAY)
+            .atStartOfDay(KST).toEpochSecond()
+    }
+    "M" -> {
+        val z = java.time.Instant.ofEpochSecond(epochSec).atZone(KST)
+        z.withDayOfMonth(1).toLocalDate().atStartOfDay(KST).toEpochSecond()
+    }
+    "Y" -> {
+        val z = java.time.Instant.ofEpochSecond(epochSec).atZone(KST)
+        z.withDayOfYear(1).toLocalDate().atStartOfDay(KST).toEpochSecond()
+    }
+    else -> floorToMinuteBucketKst(epochSec, 1)
+}
+
+/**
+ * 과거 캔들 데이터를 버킷에 재샘플링하여 정규화
+ * 15분봉이면 항상 ...00/15/30/45분으로 맞춤
+ */
+fun normalizeToBucket(bars: List<CandlestickData>, tf: String): List<CandlestickData> {
+    if (bars.isEmpty()) return bars
+    val grouped = bars.groupBy { bucketStartEpochSec(it.time, tf) }.toSortedMap()
+    return grouped.map { (t, list) ->
+        val o = list.first().open
+        val h = list.maxOf { it.high }
+        val l = list.minOf { it.low }
+        val c = list.last().close
+        val v = list.sumOf { it.volume }
+        CandlestickData(time = t, open = o, high = h, low = l, close = c, volume = v)
+    }
+}
+
 @HiltViewModel
 class ChartViewModel @Inject constructor(
     private val chartRepository: ChartRepository,
@@ -123,12 +199,18 @@ class ChartViewModel @Inject constructor(
                 volume = realTimeData.volume ?: 1000L
             )
             
-            // 시간프레임별 실시간 업데이트 처리
+            // 시간프레임별 실시간 업데이트 처리 (버킷 스냅 적용)
             when (currentTimeFrame) {
                 "1", "3", "5", "10", "15", "30" -> {
-                    // 분봉: MinuteAggregator 사용 (분마다 새 캔들 생성 + 현재 분 캔들 실시간 업데이트)
+                    // 분봉: 버킷 시작 시각으로 스냅하여 집계
+                    val currentEpochSec = System.currentTimeMillis() / 1000
+                    val bucketTime = bucketStartEpochSec(currentEpochSec, currentTimeFrame)
+                    
                     minuteAggregator.onTick(tick) { candle, volumeBar ->
-                        updateChartCandle(candle, volumeBar)
+                        // 캔들의 time을 버킷 시작 시각으로 설정
+                        val snappedCandle = candle.copy(time = bucketTime)
+                        val snappedVolumeBar = volumeBar.copy(time = bucketTime)
+                        updateChartCandle(snappedCandle, snappedVolumeBar)
                     }
                 }
                 "60" -> {
@@ -407,11 +489,14 @@ class ChartViewModel @Inject constructor(
                             is Resource.Success -> {
                                 val data = resource.data ?: emptyList()
                                 // DB에 과거 데이터가 없을 때 더미 데이터 생성 (시간축 표시용)
-                                val chartData = if (data.isEmpty()) {
+                                val rawData = if (data.isEmpty()) {
                                     generateDummyChartData(stockCode, timeFrame)
                                 } else {
                                     data
                                 }
+                                
+                                // 버킷 재샘플링으로 정규화 (15분봉이면 ...00/15/30/45분으로 맞춤)
+                                val chartData = normalizeToBucket(rawData, timeFrame)
                                 
                                 // 현재 차트의 가장 오래된 데이터 시간 추적
                                 currentEarliestTime = chartData.minByOrNull { it.time }?.time
@@ -525,6 +610,7 @@ class ChartViewModel @Inject constructor(
     
     private fun changeTimeFrame(timeFrame: String) {
         val stockCode = _uiState.value.currentStock.code
+        val newBucket = timeFrame.toTimeBucket()
         
         _uiState.update { 
             it.copy(
@@ -535,10 +621,23 @@ class ChartViewModel @Inject constructor(
         // 설정 저장
         userPreferences.setChartTimeFrame(timeFrame)
         
-        // 차트에 시간프레임 변경 알림
+        // 버킷이 변경될 때 aggregator 리셋
+        when (newBucket) {
+            is TimeBucket.Minute -> {
+                // 분봉 버킷으로 변경 - aggregator 리셋하여 분단위 집계 시작
+                minuteAggregator.reset()
+                android.util.Log.d("ChartViewModel", "🔄 Aggregator reset for minute bucket: ${newBucket.mins}분봉")
+            }
+            is TimeBucket.Day -> {
+                // 일봉 버킷으로 변경 - aggregator 필요없음 (서버에서 일봉 데이터 직접 제공)
+                android.util.Log.d("ChartViewModel", "📅 Switched to day bucket - no aggregation needed")
+            }
+        }
+        
+        // 차트에 시간프레임 변경 알림 (JavaScript에서 시간축 표시 방식 변경)
         chartBridge?.updateTimeFrame(timeFrame)
         
-        // Reload chart data with new timeframe
+        // 새로운 프레임에 맞는 데이터 다시 로드
         loadChartData(stockCode, timeFrame)
         
         // 실시간 구독은 SmartStockWebSocketService에서 자동 관리됨
@@ -1503,10 +1602,12 @@ class ChartViewModel @Inject constructor(
                 ).collect { resource ->
                     when (resource) {
                         is Resource.Success -> {
-                            val historicalData = resource.data ?: emptyList()
+                            val rawHistoricalData = resource.data ?: emptyList()
                             
-                            if (historicalData.isNotEmpty()) {
-                                android.util.Log.d("ChartViewModel", "✅ 과거 데이터 로드 성공: ${historicalData.size}개")
+                            if (rawHistoricalData.isNotEmpty()) {
+                                // 과거 데이터도 버킷 재샘플링으로 정규화
+                                val historicalData = normalizeToBucket(rawHistoricalData, currentTimeFrame)
+                                android.util.Log.d("ChartViewModel", "✅ 과거 데이터 로드 성공: ${historicalData.size}개 (정규화 완료)")
                                 
                                 // 기존 차트 데이터와 병합 (과거 데이터를 앞에 추가)
                                 val existingData = _uiState.value.candlestickData

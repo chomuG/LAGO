@@ -1,6 +1,8 @@
 package com.lago.app.util
 
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import com.lago.app.data.service.InitialPriceService
 import com.lago.app.data.service.PriceInfo
 import com.lago.app.domain.entity.StockRealTimeData
@@ -111,15 +113,37 @@ class HybridPriceCalculator @Inject constructor(
             return emptyMap()
         }
         
+        if (realTimeData.isEmpty()) {
+            Log.w(TAG, "실시간 데이터가 비어있음 - 업데이트 스킵")
+            return basePrices
+        }
+        
+        Log.d(TAG, "🔍 실시간 업데이트 시작: 기본가격 ${basePrices.size}개, 실시간데이터 ${realTimeData.size}개")
+        
         val updatedPrices = basePrices.toMutableMap()
         var realTimeUpdateCount = 0
         
         realTimeData.forEach { (stockCode, realtimeStock) ->
             val basePrice = basePrices[stockCode]
             if (basePrice != null) {
+                // 🔍 소켓 데이터 상세 로그
+                Log.v(TAG, "🔍 소켓 데이터 검사: $stockCode")
+                Log.v(TAG, "   tradePrice: ${realtimeStock.tradePrice}")
+                Log.v(TAG, "   currentPrice: ${realtimeStock.currentPrice}")
+                Log.v(TAG, "   closePrice: ${realtimeStock.closePrice}")
+                Log.v(TAG, "   계산된 price: ${realtimeStock.price}")
+                
+                // 🚫 매우 엄격한 조건: 실제 의미있는 가격 데이터만 허용
+                val hasValidPrice = (realtimeStock.tradePrice != null && realtimeStock.tradePrice!! > 0) ||
+                                  (realtimeStock.currentPrice != null && realtimeStock.currentPrice!! > 0) ||
+                                  (realtimeStock.closePrice != null && realtimeStock.closePrice!! > 0)
+                
                 val realTimePrice = realtimeStock.price.toInt()
-                if (realTimePrice > 0) {
-                    // 실시간 데이터로 업데이트
+                val priceChanged = realTimePrice != basePrice.basePrice
+                val significantChange = kotlin.math.abs(realTimePrice - basePrice.basePrice) > 0
+                
+                if (hasValidPrice && realTimePrice > 0 && priceChanged && significantChange) {
+                    // 실시간 데이터로 업데이트 (기존 가격과 다를 때만)
                     val changePrice = realTimePrice - basePrice.basePrice
                     val changeRate = if (basePrice.basePrice > 0) {
                         (changePrice.toDouble() / basePrice.basePrice) * 100
@@ -136,8 +160,18 @@ class HybridPriceCalculator @Inject constructor(
                     )
                     
                     realTimeUpdateCount++
-                    Log.v(TAG, "실시간 업데이트: $stockCode = $realTimePrice (기준: ${basePrice.basePrice})")
+                    Log.d(TAG, "✅ 실시간 업데이트: $stockCode = $realTimePrice (기준: ${basePrice.basePrice})")
+                } else {
+                    val reasons = mutableListOf<String>()
+                    if (!hasValidPrice) reasons.add("유효가격없음")
+                    if (realTimePrice <= 0) reasons.add("가격0이하")
+                    if (!priceChanged) reasons.add("가격동일")
+                    if (!significantChange) reasons.add("변화없음")
+                    
+                    Log.d(TAG, "❌ 업데이트 거부: $stockCode = $realTimePrice (기준: ${basePrice.basePrice}) - ${reasons.joinToString(",")}")
                 }
+            } else {
+                Log.v(TAG, "❌ 기본 가격 없음: $stockCode")
             }
         }
         

@@ -32,7 +32,7 @@ fun DailyQuizScreen(
     var dailyQuizResult by remember { mutableStateOf<com.lago.app.domain.entity.DailyQuizResult?>(null) }
     
     LaunchedEffect(Unit) {
-        viewModel.loadDailyQuiz(userId = 1)
+        viewModel.loadDailyQuiz()
     }
     
     // API 응답 처리
@@ -79,7 +79,7 @@ fun DailyQuizScreen(
                     onBackClick = onBackClick,
                     onAnswerSelected = { userAnswer ->
                         // API 호출
-                        viewModel.solveQuiz(userId = 1, userAnswer = userAnswer)
+                        viewModel.solveQuiz(userAnswer = userAnswer)
                     },
                     onQuizResult = { result ->
                         quizResult = result
@@ -103,7 +103,7 @@ fun DailyQuizScreen(
                 onBackClick = onBackClick,
                 onAnswerSelected = { userAnswer ->
                     // API 호출
-                    viewModel.solveQuiz(userId = 1, userAnswer = userAnswer)
+                    viewModel.solveQuiz(userAnswer = userAnswer)
                 },
                 onQuizResult = { result ->
                     quizResult = result

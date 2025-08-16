@@ -3,14 +3,20 @@ package com.lago.app.data.remote.dto
 import com.google.gson.annotations.SerializedName
 
 data class NewsDto(
-    @SerializedName("news_id")
+    @SerializedName("id")
     val newsId: Int,
     @SerializedName("title")
     val title: String,
+    @SerializedName("content")
+    val content: String,
+    @SerializedName("summary")
+    val summary: String,
     @SerializedName("sentiment")
     val sentiment: String,
     @SerializedName("publishedAt")
-    val publishedAt: String
+    val publishedAt: String,
+    @SerializedName("type")
+    val type: String
 )
 
 /**

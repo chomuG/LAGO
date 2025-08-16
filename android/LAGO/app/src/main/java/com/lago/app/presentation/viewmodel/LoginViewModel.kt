@@ -144,9 +144,12 @@ class LoginViewModel @Inject constructor(
                                         userPreferences.saveRefreshToken(it) 
                                     }
                                     loginData.user?.let { user ->
+                                        Log.d("LoginViewModel", "기존 로그인 - User 객체: ${user}")
+                                        Log.d("LoginViewModel", "기존 로그인 - User.id 값: ${user.id}")
                                         userPreferences.saveUserId(user.id)
                                         userPreferences.saveUserEmail(user.email)
                                         user.nickname?.let { userPreferences.saveUserNickname(it) }
+                                        Log.d("LoginViewModel", "기존 로그인 - 저장 후 확인 userId: ${userPreferences.getUserIdLong()}")
                                     }
                                     _uiState.value = _uiState.value.copy(
                                         isLoading = false,
@@ -205,10 +208,17 @@ class LoginViewModel @Inject constructor(
 
     fun completeSignup(nickname: String, personality: String) {
         viewModelScope.launch {
+            Log.d("LoginViewModel", "===== 회원가입 완료 시작 =====")
+            Log.d("LoginViewModel", "입력된 닉네임: $nickname")
+            Log.d("LoginViewModel", "선택된 성격: $personality")
+            
             _uiState.value = _uiState.value.copy(isLoading = true)
             
             val tempToken = userPreferences.getTempToken()
+            Log.d("LoginViewModel", "저장된 임시 토큰: $tempToken")
+            
             if (tempToken.isNullOrEmpty()) {
+                Log.e("LoginViewModel", "임시 토큰이 없음!")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "임시 토큰이 없습니다. 다시 로그인해주세요."
@@ -217,32 +227,47 @@ class LoginViewModel @Inject constructor(
             }
             
             try {
+                Log.d("LoginViewModel", "AuthRepository.completeSignup 호출 시작")
                 when (val result = authRepository.completeSignup(tempToken, nickname, personality)) {
                     is Resource.Success -> {
-                        val signupData = result.data?.data
-                        if (result.data?.success == true && signupData != null) {
+                        Log.d("LoginViewModel", "회원가입 완료 성공 응답 수신")
+                        Log.d("LoginViewModel", "응답 데이터: ${result.data}")
+                        
+                        if (result.data?.success == true) {
+                            Log.d("LoginViewModel", "회원가입 성공 - 토큰 저장 시작")
+                            
                             // 회원가입 완료 - 토큰 저장하고 메인으로
-                            signupData.accessToken?.let { 
-                                userPreferences.saveAccessToken(it) 
+                            result.data.accessToken?.let { 
+                                userPreferences.saveAccessToken(it)
+                                Log.d("LoginViewModel", "AccessToken 저장 완료")
                             }
-                            signupData.refreshToken?.let { 
-                                userPreferences.saveRefreshToken(it) 
+                            result.data.refreshToken?.let { 
+                                userPreferences.saveRefreshToken(it)
+                                Log.d("LoginViewModel", "RefreshToken 저장 완료")
                             }
-                            signupData.user?.let { user ->
+                            result.data.user?.let { user ->
+                                Log.d("LoginViewModel", "User 객체 파싱됨: ${user}")
+                                Log.d("LoginViewModel", "User.id 값: ${user.id}")
                                 userPreferences.saveUserId(user.id)
                                 userPreferences.saveUserEmail(user.email)
                                 userPreferences.saveUserNickname(user.nickname ?: nickname)
-                            }
+                                Log.d("LoginViewModel", "사용자 정보 저장 완료: ${user}")
+                                Log.d("LoginViewModel", "저장 후 확인 - userId: ${userPreferences.getUserIdLong()}")
+                            } ?: Log.e("LoginViewModel", "User 객체가 null입니다!")
                             
                             // 임시 토큰 삭제
-                            userPreferences.clearAuthData()
+                            userPreferences.clearTempToken()
+                            Log.d("LoginViewModel", "임시 토큰 삭제 완료")
                             
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 loginSuccess = true,
                                 needsSignup = false
                             )
+                            Log.d("LoginViewModel", "회원가입 완료 - UI 상태 업데이트 완료")
                         } else {
+                            Log.e("LoginViewModel", "회원가입 응답 실패")
+                            Log.e("LoginViewModel", "success: ${result.data?.success}")
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 error = result.data?.message ?: "회원가입 완료 실패"
@@ -251,6 +276,7 @@ class LoginViewModel @Inject constructor(
                     }
                     is Resource.Error -> {
                         Log.e("LoginViewModel", "회원가입 완료 실패: ${result.message}")
+                        Log.e("LoginViewModel", "에러 메시지: ${result.message}")
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             error = result.message ?: "회원가입 완료 중 오류가 발생했습니다."
@@ -262,11 +288,13 @@ class LoginViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Log.e("LoginViewModel", "회원가입 완료 중 예외 발생: ${e.message}", e)
+                Log.e("LoginViewModel", "예외 스택 트레이스: ", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "회원가입 완료 중 오류가 발생했습니다: ${e.message}"
                 )
             }
+            Log.d("LoginViewModel", "===== 회원가입 완료 요청 종료 =====")
         }
     }
 }
