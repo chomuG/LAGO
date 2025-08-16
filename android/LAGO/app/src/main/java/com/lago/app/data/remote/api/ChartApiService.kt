@@ -359,7 +359,7 @@ interface ChartApiService {
         @Query("toDateTime") toDateTime: String // KST: "2024-08-15T15:30:00"
     ): List<IntervalChartDataDto>
 
-     * 주식 시세 데이터 조회 (새로운 엔드포인트 - 사용 안함)
+     /* 주식 시세 데이터 조회 (새로운 엔드포인트 - 사용 안함)
      * GET /api/stocks/{stockCode}?interval=DAY&fromDateTime=...&toDateTime=...
      */
     @GET("api/stocks/{stockCode}")
