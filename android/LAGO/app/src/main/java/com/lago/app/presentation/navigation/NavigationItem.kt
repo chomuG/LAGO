@@ -23,12 +23,6 @@ sealed class NavigationItem(
         iconRes = R.drawable.stock
     )
 
-    object Chart : NavigationItem(
-        route = "chart",
-        title = "차트",
-        iconRes = R.drawable.stock
-    )
-
     object Learn : NavigationItem(
         route = "learn",
         title = "학습",
@@ -65,7 +59,6 @@ val bottomNavigationItems = listOf(
     NavigationItem.Home,
     NavigationItem.Investment,
     NavigationItem.Learn,
-    NavigationItem.Chart,
     NavigationItem.News,
     NavigationItem.MyPage
 )
