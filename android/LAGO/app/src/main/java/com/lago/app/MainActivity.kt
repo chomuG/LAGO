@@ -207,9 +207,7 @@ fun LagoApp(userPreferences: UserPreferences) {
             NavGraph(
                 navController = navController,
                 modifier = if (showBottomBarWithDelay) {
-                    Modifier
-                        .padding(innerPadding)
-                        .windowInsetsPadding(WindowInsets.statusBars)
+                    Modifier.padding(innerPadding)
                 } else {
                     Modifier
                         .windowInsetsPadding(WindowInsets.statusBars)

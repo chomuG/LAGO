@@ -109,27 +109,7 @@ fun NavGraph(
             )
         }
 
-        composable(NavigationItem.Chart.route) {
-            ChartScreen(
-                stockCode = "005930", // 삼성전자 임시 목 데이터
-                onNavigateToStockPurchase = { stockCode, action ->
-                    navController.navigate("stock_purchase/$stockCode/$action")
-                },
-                onNavigateToAIDialog = {
-                    navController.navigate(NavigationItem.AIDialog.route)
-                },
-                onNavigateBack = {
-                    // 차트 탭에서는 뒤로가기 버튼 비활성화 (바텀네비게이션 탭이므로)
-                },
-                onNavigateToStock = { selectedStockCode ->
-                    navController.navigate("chart/$selectedStockCode") {
-                        // 현재 차트 화면을 새로운 차트 화면으로 교체 (스택에 쌓지 않음)
-                        popUpTo("chart") { inclusive = true }
-                        launchSingleTop = true
-                    }
-                }
-            )
-        }
+
 
         // Chart Screen with stock parameters
         composable(
