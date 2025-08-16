@@ -96,7 +96,7 @@ fun NavGraph(
 
         composable(NavigationItem.Investment.route) {
             StockListScreen(
-                onStockClick = { stockCode, stockName, currentPrice, priceChange, priceChangePercent ->
+                onStockClick = { stockCode, stockName ->
                     val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
                     navController.navigate("chart/$stockCode/$encodedName")
                 },
@@ -119,23 +119,17 @@ fun NavGraph(
                 navArgument("stockName") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val stockCode = backStackEntry.arguments?.getString("stockCode") ?: "005930"
+            val stockCode = backStackEntry.arguments?.getString("stockCode") ?: ""
             val stockName = java.net.URLDecoder.decode(
-                backStackEntry.arguments?.getString("stockName") ?: "삼성전자", 
+                backStackEntry.arguments?.getString("stockName") ?: "", 
                 "UTF-8"
             )
             android.util.Log.d("CHART_NAV", "차트 네비게이션 - stockCode: $stockCode, stockName: $stockName")
 
             ChartScreen(
                 stockCode = stockCode,
-                initialStockInfo = ChartStockInfo(
-                    code = stockCode,
-                    name = stockName,
-                    currentPrice = 0f, // 기본값
-                    priceChange = 0f, // 기본값
-                    priceChangePercent = 0f, // 기본값
-                    previousDay = null
-                ),
+                stockName = stockName,
+                initialStockInfo = null, // 기본값 대신 null로 설정하여 기존 가격 유지
                 onNavigateToStockPurchase = { stockCode, action ->
                     navController.navigate("stock_purchase/$stockCode/$action/0") // 0=실시간모의투자
                 },
@@ -145,8 +139,9 @@ fun NavGraph(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onNavigateToStock = { selectedStockCode ->
-                    navController.navigate("chart/$selectedStockCode") {
+                onNavigateToStock = { selectedStockCode, selectedStockName ->
+                    val encodedName = java.net.URLEncoder.encode(selectedStockName, "UTF-8")
+                    navController.navigate("chart/$selectedStockCode/$encodedName") {
                         // 현재 차트 화면을 새로운 차트 화면으로 교체 (스택에 쌓지 않음)
                         popUpTo("chart") { inclusive = true }
                         launchSingleTop = true
@@ -201,10 +196,11 @@ fun NavGraph(
                 navArgument("stockCode") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val stockCode = backStackEntry.arguments?.getString("stockCode") ?: "005930"
+            val stockCode = backStackEntry.arguments?.getString("stockCode") ?: ""
 
             ChartScreen(
                 stockCode = stockCode,
+                stockName = "", // chart_simple에서는 이름 없음
                 onNavigateToStockPurchase = { stockCode, action ->
                     navController.navigate("stock_purchase/$stockCode/$action/0") // 0=실시간모의투자
                 },
@@ -214,9 +210,10 @@ fun NavGraph(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onNavigateToStock = { selectedStockCode ->
-                    navController.navigate("chart_simple/$selectedStockCode") {
-                        popUpTo("chart_simple") { inclusive = true }
+                onNavigateToStock = { selectedStockCode, selectedStockName ->
+                    val encodedName = java.net.URLEncoder.encode(selectedStockName, "UTF-8")
+                    navController.navigate("chart/$selectedStockCode/$encodedName") {
+                        popUpTo("chart") { inclusive = true }
                         launchSingleTop = true
                     }
                 }
@@ -420,7 +417,7 @@ fun NavGraph(
                 navArgument("stockCode") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val stockCode = backStackEntry.arguments?.getString("stockCode") ?: "005930"
+            val stockCode = backStackEntry.arguments?.getString("stockCode") ?: ""
             HistoryChallengeChartScreen(
                 stockCode = stockCode,
                 onNavigateToStockPurchase = { code, action ->

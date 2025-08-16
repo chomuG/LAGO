@@ -1,6 +1,9 @@
 package com.lago.app.data.local
 
 import androidx.room.TypeConverter
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.lago.app.domain.entity.CandlestickData
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -22,5 +25,17 @@ class Converters {
                 null
             }
         }
+    }
+    
+    // Chart data converters
+    @TypeConverter
+    fun fromCandlestickDataList(value: List<CandlestickData>): String {
+        return Gson().toJson(value)
+    }
+
+    @TypeConverter
+    fun toCandlestickDataList(value: String): List<CandlestickData> {
+        val listType = object : TypeToken<List<CandlestickData>>() {}.type
+        return Gson().fromJson(value, listType)
     }
 }

@@ -4,15 +4,15 @@ import com.lago.app.domain.entity.*
 
 data class ChartUiState(
     val currentStock: ChartStockInfo = ChartStockInfo(
-        code = "005930",
-        name = "삼성전자",
-        currentPrice = 74200f,
-        priceChange = 800f,
-        priceChangePercent = 1.09f,
+        code = "",
+        name = "",
+        currentPrice = 0f,
+        priceChange = 0f,
+        priceChangePercent = 0f,
         previousDay = null
     ),
     val config: ChartConfig = ChartConfig(
-        stockCode = "005930",
+        stockCode = "",
         timeFrame = "10",
         indicators = ChartIndicators()
     ),
@@ -25,7 +25,7 @@ data class ChartUiState(
     val sma60Data: List<LineData> = emptyList(),
     val sma120Data: List<LineData> = emptyList(),
     val bollingerBands: BollingerBandsResult? = null,
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = true,
     val chartLoadingStage: ChartLoadingStage = ChartLoadingStage.INITIAL,
     val errorMessage: String? = null,
     val isFavorite: Boolean = false,
@@ -70,6 +70,6 @@ data class TradingItem(
     val quantity: String,
     val amount: Int,
     val date: String,
-    val stockCode: String = "005930" // 기본값으로 삼성전자 추가
+    val stockCode: String = ""
 )
 

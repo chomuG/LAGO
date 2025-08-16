@@ -12,6 +12,9 @@ import com.lago.app.data.scheduler.SmartUpdateScheduler
 import com.lago.app.domain.entity.ScreenType
 import com.lago.app.data.remote.dto.WebSocketConnectionState
 import com.lago.app.data.cache.ChartMemoryCache
+import com.lago.app.data.local.dao.ChartCacheDao
+import com.lago.app.data.local.entity.CachedChartData
+import com.lago.app.data.local.entity.CachedStockInfo
 import com.lago.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -121,7 +124,8 @@ class ChartViewModel @Inject constructor(
     private val memoryCache: ChartMemoryCache,
     private val realTimeCache: com.lago.app.data.cache.RealTimeStockCache,
     private val mockTradeRepository: com.lago.app.domain.repository.MockTradeRepository,
-    private val portfolioRepository: com.lago.app.domain.repository.PortfolioRepository
+    private val portfolioRepository: com.lago.app.domain.repository.PortfolioRepository,
+    private val chartCacheDao: ChartCacheDao
 ) : ViewModel(), HistoricalDataRequestListener {
     
     private val _uiState = MutableStateFlow(ChartUiState())
@@ -140,6 +144,46 @@ class ChartViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 android.util.Log.d("ChartViewModel", "🔥 ViewModel 코루틴 시작")
+                
+                val cacheId = CachedChartData.createId(stockCode, timeFrame)
+                
+                // 1. 캐시에서 먼저 확인
+                val cachedData = chartCacheDao.getCachedChartData(cacheId)
+                if (cachedData != null) {
+                    android.util.Log.d("ChartViewModel", "💾 캐시된 차트 데이터 사용: ${cachedData.data.size}개 캔들")
+                    
+                    // 캐시된 데이터로 UI 즉시 업데이트
+                    _uiState.update { state ->
+                        state.copy(
+                            candlestickData = cachedData.data,
+                            isLoading = false,
+                            errorMessage = null
+                        )
+                    }
+                    
+                    // 차트에 캐시된 데이터 설정
+                    chartBridge?.let { bridge ->
+                        android.util.Log.d("ChartViewModel", "💾 캐시된 데이터를 차트에 설정")
+                        
+                        // CandlestickData를 CandleData로 변환
+                        val candleDataList = cachedData.data.map { candlestick ->
+                            com.lago.app.presentation.ui.chart.v5.CandleData(
+                                time = candlestick.time,
+                                open = candlestick.open,
+                                high = candlestick.high,
+                                low = candlestick.low,
+                                close = candlestick.close
+                            )
+                        }
+                        
+                        bridge.setInitialData(candleDataList)
+                        _uiState.update { it.copy(chartLoadingStage = ChartLoadingStage.CHART_READY) }
+                    }
+                    
+                    // 캐시된 데이터를 보여준 후 백그라운드에서 최신 데이터 확인
+                    // 계속 진행하여 서버에서 최신 데이터를 가져옴
+                }
+                
                 _uiState.update { it.copy(isLoading = true) }
                 
                 // 시간프레임에 따른 적절한 과거 기간 계산 (충분한 캔들 수 확보)
@@ -165,11 +209,25 @@ class ChartViewModel @Inject constructor(
                             val data = resource.data ?: emptyList()
                             android.util.Log.d("ChartViewModel", "🔥 인터벌 API 성공: ${data.size}개 캔들")
                             
+                            // 2. 서버에서 받은 최신 데이터를 캐시에 저장
+                            if (data.isNotEmpty()) {
+                                val currentTime = System.currentTimeMillis()
+                                val cachedChartData = CachedChartData(
+                                    id = cacheId,
+                                    stockCode = stockCode,
+                                    timeFrame = timeFrame,
+                                    data = data,
+                                    lastUpdated = currentTime
+                                )
+                                chartCacheDao.insertChartData(cachedChartData)
+                                android.util.Log.d("ChartViewModel", "💾 차트 데이터 캐시에 저장됨")
+                            }
+                            
                             _uiState.update { state ->
                                 state.copy(
                                     candlestickData = data,
                                     isLoading = false,
-                                    errorMessage = null
+                                    errorMessage = null // 성공 시 에러 메시지 클리어
                                 )
                             }
                             
@@ -216,11 +274,20 @@ class ChartViewModel @Inject constructor(
                         }
                         is Resource.Error -> {
                             android.util.Log.e("ChartViewModel", "🚨 인터벌 API 실패: ${resource.message}")
+                            // 차트 데이터 로드 실패 시에도 로딩 유지하고 백그라운드에서 재시도
                             _uiState.update { 
                                 it.copy(
-                                    isLoading = false, 
+                                    isLoading = true, 
                                     errorMessage = resource.message
                                 ) 
+                            }
+                            // 3초 후 자동 재시도
+                            viewModelScope.launch {
+                                delay(3000)
+                                if (_uiState.value.errorMessage != null) {
+                                    android.util.Log.d("ChartViewModel", "🔄 차트 데이터 자동 재시도: $stockCode")
+                                    loadChartDataWithInterval(stockCode, timeFrame, pastHours)
+                                }
                             }
                         }
                         is Resource.Loading -> {
@@ -230,11 +297,20 @@ class ChartViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 android.util.Log.e("ChartViewModel", "인터벌 API 호출 실패", e)
+                // 예외 시에도 로딩 유지하고 백그라운드에서 재시도
                 _uiState.update { 
                     it.copy(
-                        isLoading = false, 
+                        isLoading = true, 
                         errorMessage = "데이터 로드 실패: ${e.message}"
                     ) 
+                }
+                // 5초 후 자동 재시도
+                viewModelScope.launch {
+                    delay(5000)
+                    if (_uiState.value.errorMessage != null) {
+                        android.util.Log.d("ChartViewModel", "🔄 API 예외 자동 재시도: $stockCode")
+                        loadChartDataWithInterval(stockCode, timeFrame, pastHours)
+                    }
                 }
             }
         }
@@ -294,6 +370,31 @@ class ChartViewModel @Inject constructor(
         loadInitialData()
         // 웹소켓은 SmartStockWebSocketService에서 통합 관리
         observeRealTimePrice()
+        // 캐시 정리 시작
+        startCacheCleanup()
+    }
+    
+    private fun startCacheCleanup() {
+        viewModelScope.launch {
+            // 10분마다 캐시 정리
+            while (true) {
+                delay(10 * 60 * 1000) // 10분
+                try {
+                    // 만료된 캐시 삭제
+                    chartCacheDao.deleteExpiredChartData()
+                    chartCacheDao.deleteExpiredStockInfo()
+                    
+                    // 24시간 이전의 오래된 데이터 삭제
+                    val oneDayAgo = System.currentTimeMillis() - (24 * 60 * 60 * 1000)
+                    chartCacheDao.deleteOldChartData(oneDayAgo)
+                    chartCacheDao.deleteOldStockInfo(oneDayAgo)
+                    
+                    android.util.Log.d("ChartViewModel", "🧹 캐시 정리 완료")
+                } catch (e: Exception) {
+                    android.util.Log.e("ChartViewModel", "캐시 정리 실패", e)
+                }
+            }
+        }
     }
     
     private fun observeRealTimePrice() {
@@ -310,22 +411,27 @@ class ChartViewModel @Inject constructor(
                         .sample(100.milliseconds) // 차트는 100ms마다 업데이트
                 }
                 .collect { realTimeData ->
-                    // UI 상태 업데이트
-                    _uiState.update { state ->
-                        state.copy(
-                            currentStock = state.currentStock.copy(
-                                currentPrice = realTimeData.price.toFloat(),
-                                priceChange = realTimeData.priceChange.toFloat(),
-                                priceChangePercent = realTimeData.priceChangePercent.toFloat(),
-                                previousDay = realTimeData.previousDay // 웹소켓 previousDay 적용
+                    // 🎯 유효한 실시간 데이터가 있을 때만 업데이트 (마지막 알려진 가격 유지)
+                    if (realTimeData.price > 0.0) {
+                        android.util.Log.d("ChartViewModel", "📈 유효한 실시간 데이터 - 가격 업데이트: ${realTimeData.stockCode} = ${realTimeData.price.toInt()}원")
+                        
+                        // UI 상태 업데이트
+                        _uiState.update { state ->
+                            state.copy(
+                                currentStock = state.currentStock.copy(
+                                    currentPrice = realTimeData.price.toFloat(),
+                                    priceChange = realTimeData.priceChange.toFloat(),
+                                    priceChangePercent = realTimeData.priceChangePercent.toFloat(),
+                                    previousDay = realTimeData.previousDay // 웹소켓 previousDay 적용
+                                )
                             )
-                        )
+                        }
+                        
+                        // 실시간 차트 캔들 업데이트
+                        updateRealTimeChart(realTimeData)
+                    } else {
+                        android.util.Log.d("ChartViewModel", "⚠️ 무효한 실시간 데이터 - 마지막 알려진 가격 유지: ${realTimeData.stockCode} price=${realTimeData.price}")
                     }
-                    
-                    // 실시간 차트 캔들 업데이트
-                    updateRealTimeChart(realTimeData)
-                    
-                    android.util.Log.d("ChartViewModel", "📈 차트 가격 업데이트: ${realTimeData.stockCode} = ${realTimeData.price.toInt()}원")
                 }
         }
     }
@@ -448,6 +554,22 @@ class ChartViewModel @Inject constructor(
         }
     }
     
+    /**
+     * 네비게이션에서 받은 주식 정보를 즉시 설정 (빈 화면 방지)
+     */
+    fun setInitialStockInfo(stockCode: String, stockName: String) {
+        android.util.Log.d("ChartViewModel", "🎯 초기 주식 정보 설정: $stockName($stockCode)")
+        _uiState.update { currentState ->
+            currentState.copy(
+                currentStock = currentState.currentStock.copy(
+                    code = stockCode,
+                    name = stockName
+                ),
+                config = currentState.config.copy(stockCode = stockCode)
+            )
+        }
+    }
+    
     private fun loadInitialData() {
         // 저장된 설정 불러오기
         val savedTimeFrame = userPreferences.getChartTimeFrame()
@@ -475,14 +597,27 @@ class ChartViewModel @Inject constructor(
             )
         }
         
-        val defaultStockCode = "005930" // Samsung Electronics
-        changeStock(defaultStockCode)
+        // 초기 상태에서는 종목이 설정되지 않았으므로 홀딩/거래내역만 로드
         loadUserHoldings()
         loadTradingHistory()
     }
     
     private fun changeStock(stockCode: String) {
         viewModelScope.launch {
+            val currentStock = _uiState.value.currentStock
+            
+            // 🎯 같은 종목이면서 이미 유효한 데이터가 있는 경우에만 early return
+            if (currentStock.code == stockCode && 
+                currentStock.name.isNotEmpty() && 
+                currentStock.currentPrice > 0f) {
+                android.util.Log.d("ChartViewModel", "✅ 같은 종목 재로드 - 기존 가격 유지: ${currentStock.currentPrice}원")
+                // 기존 가격 유지하면서 데이터만 새로 로드
+                smartWebSocketService.updateChartStock(stockCode)
+                loadChartDataWithInterval(stockCode, _uiState.value.config.timeFrame)
+                checkFavoriteStatus(stockCode)
+                return@launch
+            }
+            
             _uiState.update { 
                 it.copy(
                     isLoading = true, 
@@ -491,25 +626,94 @@ class ChartViewModel @Inject constructor(
                 ) 
             }
             
-            // 실제 서버에서 주식 정보 가져오기
+            // 주식 정보 캐시 확인
+            val cachedStockInfo = chartCacheDao.getCachedStockInfo(stockCode)
+            if (cachedStockInfo != null) {
+                android.util.Log.d("ChartViewModel", "💾 캐시된 주식 정보 사용: ${cachedStockInfo.name}")
+                
+                val stockInfo = ChartStockInfo(
+                    code = cachedStockInfo.stockCode,
+                    name = cachedStockInfo.name,
+                    currentPrice = cachedStockInfo.currentPrice,
+                    priceChange = cachedStockInfo.priceChange,
+                    priceChangePercent = cachedStockInfo.priceChangePercent,
+                    previousDay = cachedStockInfo.previousDay
+                )
+                
+                _uiState.update { 
+                    it.copy(
+                        currentStock = stockInfo,
+                        config = it.config.copy(stockCode = stockCode),
+                        chartLoadingStage = ChartLoadingStage.DATA_LOADING,
+                        isLoading = false,
+                        errorMessage = null
+                    )
+                }
+                
+                // 차트 레전드에 종목명 업데이트
+                chartBridge?.updateSymbolName(stockInfo.name)
+                
+                // 캐시된 데이터 먼저 표시 후 백그라운드에서 최신 데이터 확인
+            }
+            
+            // 실제 서버에서 주식 정보 가져오기 (캐시가 있어도 최신 데이터 확인)
             try {
                 chartRepository.getStockInfo(stockCode).collect { resource ->
                     when (resource) {
                         is Resource.Success -> {
                             resource.data?.let { serverStockInfo ->
-                                // 서버 데이터가 0원이면 일봉 데이터로 폴백
+                                // 🎯 서버 데이터가 0원이면 일봉 데이터로 폴백, 그것도 안되면 기본값 유지
                                 val finalStockInfo = if (serverStockInfo.currentPrice == 0f) {
-                                    enrichStockInfoWithDayCandles(serverStockInfo, stockCode)
+                                    val enrichedInfo = enrichStockInfoWithDayCandles(serverStockInfo, stockCode)
+                                    // 일봉 데이터도 0원이면 기존 가격 정보 유지
+                                    if (enrichedInfo.currentPrice == 0f) {
+                                        val currentStockInfo = _uiState.value.currentStock
+                                        android.util.Log.d("ChartViewModel", "⚠️ 서버 및 일봉 데이터 모두 0원 - 기존 가격 유지")
+                                        android.util.Log.d("ChartViewModel", "⚠️ 현재 종목: ${currentStockInfo.code}(${currentStockInfo.currentPrice}원), 요청 종목: $stockCode")
+                                        
+                                        // 🎯 같은 종목이면 기존 가격 유지, 다른 종목이면 에러 처리
+                                        if (currentStockInfo.code == stockCode && currentStockInfo.currentPrice > 0f) {
+                                            android.util.Log.d("ChartViewModel", "✅ 같은 종목 - 기존 가격 유지: ${currentStockInfo.currentPrice}원")
+                                            enrichedInfo.copy(currentPrice = currentStockInfo.currentPrice)
+                                        } else {
+                                            android.util.Log.e("ChartViewModel", "❌ 가격 데이터 완전 실패 - 에러 상태 유지")
+                                            // 🎯 하드코딩 대신 에러 상태로 처리하여 사용자에게 알림
+                                            _uiState.update { 
+                                                it.copy(
+                                                    isLoading = false,
+                                                    errorMessage = "주식 가격 정보를 불러올 수 없습니다. 네트워크를 확인해주세요."
+                                                )
+                                            }
+                                            return@collect // 더 이상 진행하지 않음
+                                        }
+                                    } else {
+                                        enrichedInfo
+                                    }
                                 } else {
                                     serverStockInfo
                                 }
+                                
+                                // 주식 정보를 캐시에 저장
+                                val currentTime = System.currentTimeMillis()
+                                val cachedStockInfo = CachedStockInfo(
+                                    stockCode = finalStockInfo.code,
+                                    name = finalStockInfo.name,
+                                    currentPrice = finalStockInfo.currentPrice,
+                                    priceChange = finalStockInfo.priceChange,
+                                    priceChangePercent = finalStockInfo.priceChangePercent,
+                                    previousDay = finalStockInfo.previousDay,
+                                    lastUpdated = currentTime
+                                )
+                                chartCacheDao.insertStockInfo(cachedStockInfo)
+                                android.util.Log.d("ChartViewModel", "💾 주식 정보 캐시에 저장됨: ${finalStockInfo.name}")
                                 
                                 _uiState.update { 
                                     it.copy(
                                         currentStock = finalStockInfo,
                                         config = it.config.copy(stockCode = stockCode),
                                         chartLoadingStage = ChartLoadingStage.DATA_LOADING,
-                                        isLoading = false
+                                        isLoading = false,
+                                        errorMessage = null // 성공 시 에러 메시지 클리어
                                     )
                                 }
                                 
@@ -527,11 +731,20 @@ class ChartViewModel @Inject constructor(
                             }
                         }
                         is Resource.Error -> {
+                            // 에러 시에도 로딩 유지하고 백그라운드에서 재시도
                             _uiState.update { 
                                 it.copy(
-                                    isLoading = false,
+                                    isLoading = true,
                                     errorMessage = "주식 정보를 불러올 수 없습니다: ${resource.message}"
                                 )
+                            }
+                            // 3초 후 자동 재시도
+                            viewModelScope.launch {
+                                delay(3000)
+                                if (_uiState.value.errorMessage != null) {
+                                    android.util.Log.d("ChartViewModel", "🔄 주식 정보 자동 재시도: $stockCode")
+                                    changeStock(stockCode) // 자동 재시도
+                                }
                             }
                         }
                         is Resource.Loading -> {
@@ -545,11 +758,20 @@ class ChartViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                // 예외 시에도 로딩 유지하고 백그라운드에서 재시도
                 _uiState.update { 
                     it.copy(
-                        isLoading = false,
+                        isLoading = true,
                         errorMessage = "네트워크 연결 실패: ${e.localizedMessage}"
                     )
+                }
+                // 5초 후 자동 재시도
+                viewModelScope.launch {
+                    delay(5000)
+                    if (_uiState.value.errorMessage != null) {
+                        android.util.Log.d("ChartViewModel", "🔄 네트워크 오류 자동 재시도: $stockCode")
+                        changeStock(stockCode) // 자동 재시도
+                    }
                 }
             }
         }
@@ -591,12 +813,8 @@ class ChartViewModel @Inject constructor(
                         when (resource) {
                             is Resource.Success -> {
                                 val data = resource.data ?: emptyList()
-                                // DB에 과거 데이터가 없을 때 더미 데이터 생성 (시간축 표시용)
-                                val rawData = if (data.isEmpty()) {
-                                    generateDummyChartData(stockCode, timeFrame)
-                                } else {
-                                    data
-                                }
+                                // DB에 과거 데이터가 없으면 빈 차트로 표시
+                                val rawData = data
                                 
                                 // 버킷 재샘플링으로 정규화 (15분봉이면 ...00/15/30/45분으로 맞춤)
                                 val chartData = normalizeToBucket(rawData, timeFrame)
@@ -791,7 +1009,8 @@ class ChartViewModel @Inject constructor(
     private fun loadUserHoldings() {
         viewModelScope.launch {
             try {
-                val userId = userPreferences.getUserId()?.toLong() ?: return@launch
+                val userId = userPreferences.getUserIdLong()
+                if (userId == 0L) return@launch
                 val accountType = _uiState.value.accountType
                 android.util.Log.d("ChartViewModel", "📊 보유현황 로딩 시작: userId=$userId, accountType=$accountType")
                 
@@ -848,7 +1067,8 @@ class ChartViewModel @Inject constructor(
     private fun loadTradingHistory() {
         viewModelScope.launch {
             try {
-                val userId = userPreferences.getUserId()?.toLong() ?: return@launch
+                val userId = userPreferences.getUserIdLong()
+                if (userId == 0L) return@launch
                 val accountType = _uiState.value.accountType
                 android.util.Log.d("ChartViewModel", "📈 거래내역 로딩 시작: userId=$userId, accountType=$accountType")
                 
@@ -1583,136 +1803,10 @@ class ChartViewModel @Inject constructor(
     }
     
     private fun generateMockTradingSignals(): List<TradingSignal> {
-        val calendar = java.util.Calendar.getInstance()
-        val currentTime = calendar.time
-        
-        // 10일 전
-        calendar.add(java.util.Calendar.DAY_OF_MONTH, -10)
-        val time10DaysAgo = calendar.time
-        
-        // 5일 전  
-        calendar.time = currentTime
-        calendar.add(java.util.Calendar.DAY_OF_MONTH, -5)
-        val time5DaysAgo = calendar.time
-        
-        // 8일 전
-        calendar.time = currentTime
-        calendar.add(java.util.Calendar.DAY_OF_MONTH, -8) 
-        val time8DaysAgo = calendar.time
-        
-        // 3일 전
-        calendar.time = currentTime
-        calendar.add(java.util.Calendar.DAY_OF_MONTH, -3)
-        val time3DaysAgo = calendar.time
-        
-        // 6일 전
-        calendar.time = currentTime
-        calendar.add(java.util.Calendar.DAY_OF_MONTH, -6)
-        val time6DaysAgo = calendar.time
-        
-        return listOf(
-            TradingSignal(
-                id = "signal_1",
-                stockCode = "005930",
-                signalType = SignalType.BUY,
-                signalSource = SignalSource.USER,
-                timestamp = time10DaysAgo,
-                price = 72000.0,
-                message = "사용자 매수"
-            ),
-            TradingSignal(
-                id = "signal_2", 
-                stockCode = "005930",
-                signalType = SignalType.SELL,
-                signalSource = SignalSource.USER,
-                timestamp = time5DaysAgo,
-                price = 74500.0,
-                message = "사용자 매도"
-            ),
-            TradingSignal(
-                id = "signal_3",
-                stockCode = "005930", 
-                signalType = SignalType.BUY,
-                signalSource = SignalSource.AI_BLUE,
-                timestamp = time8DaysAgo,
-                price = 71500.0,
-                message = "AI 파랑 매수"
-            ),
-            TradingSignal(
-                id = "signal_4",
-                stockCode = "005930",
-                signalType = SignalType.SELL, 
-                signalSource = SignalSource.AI_GREEN,
-                timestamp = time3DaysAgo,
-                price = 75000.0,
-                message = "AI 초록 매도"
-            ),
-            TradingSignal(
-                id = "signal_5",
-                stockCode = "005930",
-                signalType = SignalType.BUY,
-                signalSource = SignalSource.AI_RED,
-                timestamp = time6DaysAgo,
-                price = 73200.0,
-                message = "AI 빨강 매수"
-            )
-        )
+        // 하드코딩된 더미 데이터 제거 - 실제 API에서 데이터 가져오도록 수정
+        return emptyList()
     }
     
-    /**
-     * DB에 과거 데이터가 없을 때 더미 차트 데이터 생성 (시간축 표시용)
-     */
-    private fun generateDummyChartData(stockCode: String, timeFrame: String): List<CandlestickData> {
-        val now = java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul"))
-        val dummyData = mutableListOf<CandlestickData>()
-        
-        // 시간프레임별 간격과 개수 설정
-        val (intervalMinutes, count) = when (timeFrame) {
-            "1" -> 1 to 30        // 1분봉: 30개 (30분)
-            "3" -> 3 to 20        // 3분봉: 20개 (60분)
-            "5" -> 5 to 24        // 5분봉: 24개 (2시간)
-            "10" -> 10 to 18      // 10분봉: 18개 (3시간)
-            "15" -> 15 to 16      // 15분봉: 16개 (4시간)
-            "30" -> 30 to 16      // 30분봉: 16개 (8시간)
-            "60" -> 60 to 12      // 1시간봉: 12개 (12시간)
-            "D" -> 1440 to 30     // 일봉: 30개 (30일)
-            "W" -> 10080 to 20    // 주봉: 20개 (20주)
-            "M" -> 43200 to 12    // 월봉: 12개 (12개월)
-            "Y" -> 525600 to 5    // 년봉: 5개 (5년)
-            else -> 1 to 30
-        }
-        
-        // 기본 가격 (삼성전자 기준)
-        var basePrice = 75000
-        
-        for (i in count downTo 1) {
-            val timePoint = now.minusMinutes((i * intervalMinutes).toLong())
-            val epochSec = timePoint.toEpochSecond(java.time.ZoneOffset.of("+09:00"))
-            
-            // 가격 변동 시뮬레이션 (±2% 내에서 랜덤)
-            val variation = (-0.02 + Math.random() * 0.04) // -2% ~ +2%
-            val open = basePrice
-            val close = (basePrice * (1 + variation)).toInt()
-            val high = maxOf(open, close, (basePrice * (1 + Math.abs(variation))).toInt())
-            val low = minOf(open, close, (basePrice * (1 - Math.abs(variation))).toInt())
-            
-            dummyData.add(
-                CandlestickData(
-                    time = epochSec,
-                    open = open.toFloat(),
-                    high = high.toFloat(),
-                    low = low.toFloat(),
-                    close = close.toFloat(),
-                    volume = (Math.random() * 1000000).toLong() // 랜덤 거래량
-                )
-            )
-            
-            basePrice = close // 다음 캔들의 기준가격
-        }
-        
-        android.util.Log.d("ChartViewModel", "🔧 더미 차트 데이터 생성: ${dummyData.size}개 ($timeFrame)")
-        return dummyData
-    }
     
     // ======================== 무한 히스토리 구현 ========================
     
@@ -1922,4 +2016,5 @@ class ChartViewModel @Inject constructor(
         loadUserHoldings()
         loadTradingHistory()
     }
+    
 }
