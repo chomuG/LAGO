@@ -72,4 +72,8 @@ public interface NewsRepository extends JpaRepository<News, Long> {
     // ID 리스트로 뉴스 조회 (관심종목 뉴스용)
     @Query("SELECT n FROM News n WHERE n.id IN :ids ORDER BY n.publishedAt DESC")
     Page<News> findByIdInOrderByPublishedAtDesc(@Param("ids") List<Long> ids, Pageable pageable);
+    
+    // type 필드로 뉴스 조회 (관심종목 뉴스용 - 올바른 방법)
+    @Query("SELECT n FROM News n WHERE n.type IN :types ORDER BY n.publishedAt DESC")
+    Page<News> findByTypeInOrderByPublishedAtDesc(@Param("types") List<String> types, Pageable pageable);
 }
