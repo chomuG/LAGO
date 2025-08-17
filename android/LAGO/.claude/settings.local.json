@@ -20,7 +20,8 @@
       "WebFetch(domain:github.com)",
       "Bash(cmd /c:*)",
       "Bash(dir)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

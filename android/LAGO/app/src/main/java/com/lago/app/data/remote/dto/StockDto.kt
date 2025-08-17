@@ -109,3 +109,17 @@ data class StockListParams(
     val page: Int = 0,
     val size: Int = 20
 )
+
+/**
+ * 사용자별 관심종목 DTO (새로운 API 응답용)
+ */
+data class UserFavoriteStockDto(
+    @SerializedName("interestId")
+    val interestId: Int,
+    @SerializedName("userId")
+    val userId: Int,
+    @SerializedName("stockCode")
+    val stockCode: String,
+    @SerializedName("stockName")
+    val stockName: String
+)

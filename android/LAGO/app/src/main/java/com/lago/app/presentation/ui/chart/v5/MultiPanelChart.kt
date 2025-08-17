@@ -376,16 +376,18 @@ private fun generateMultiPanelHtml(
             document.head.appendChild(script);
         }
         
+        // ▼ 전역 상태 선포 (undefined 가드)
+        let legends = [];
+        let paneSeriesMap = [];
+        const seriesInfoMap = new Map();
+        
         // 전역 변수
         let chart;
         let panes = [];
         let series = [];
         
         // 패널별 레전드 시스템 변수
-        let legends = [];           // 패널별 레전드 DOM 배열
-        let paneSeriesMap = [];     // 패널별 시리즈 집합 배열
         let currentSymbol = 'STOCK';
-        let seriesInfoMap = new Map(); // 시리즈 정보 저장 (이름, 색상 등)
         
         // 시간프레임별 업데이트를 위한 변수
         let currentTimeFrame = '${timeFrame}'; // Kotlin에서 전달받는 timeFrame
@@ -479,7 +481,9 @@ private fun generateMultiPanelHtml(
                     },
                 });
                 
-                mainSeries.setData(priceData);
+                // F) 캐시 보장 후 데이터 설정
+                window.__mainData = Array.isArray(priceData) ? priceData : [];
+                mainSeries.setData(window.__mainData);
                 series.push({ series: mainSeries, name: 'OHLC', paneIndex: 0 });
                 
                 // seriesMap에 메인 시리즈 추가 (기존 volume 등 보존)
@@ -488,12 +492,7 @@ private fun generateMultiPanelHtml(
                 // 메인 시리즈 정보 저장
                 seriesInfoMap.set(mainSeries, { name: currentSymbol, color: '#333' });
                 
-                // 패널별 레전드 시스템 초기화
-                const container = document.getElementById('chart-container');
-                initializePaneLegends(container);
-                
-                // 크로스헤어 이벤트 구독 (패널별 처리)
-                chart.subscribeCrosshairMove(updatePaneLegends);
+                // 레전드 초기화는 모든 패널/시리즈 생성 후에 실행
                 
                 // 무한 히스토리 이벤트 리스너 추가
                 chart.timeScale().subscribeVisibleLogicalRangeChange(function(logicalRange) {
@@ -509,21 +508,17 @@ private fun generateMultiPanelHtml(
                 // 초기 데이터 길이 저장
                 currentDataLength = priceData.length;
                 
-                // 매수/매도 신호 마커 시스템 초기화
-                let markersApi = null;
-                
                 // Android에서 호출할 수 있는 매수/매도 신호 설정 함수
                 window.setTradeMarkers = function(markersJson) {
                     try {
                         const markers = JSON.parse(markersJson);
                         console.log('LAGO: Setting', markers.length, 'trade markers');
                         
-                        if (!markersApi && markers.length > 0) {
-                            // 첫 번째 마커 생성 - 공식 API 사용
-                            markersApi = createSeriesMarkers(mainSeries, markers);
-                        } else if (markersApi) {
-                            // 기존 마커 업데이트
-                            markersApi.setMarkers(markers);
+                        // E) 마커 안전 설정
+                        if (Array.isArray(markers) && markers.length > 0) {
+                            mainSeries.setMarkers(markers);
+                        } else {
+                            mainSeries.setMarkers([]); // 지우는 경우
                         }
                         
                         console.log('✅ Trade markers updated successfully');
@@ -534,10 +529,8 @@ private fun generateMultiPanelHtml(
                 
                 // 마커 제거 함수
                 window.clearTradeMarkers = function() {
-                    if (markersApi) {
-                        markersApi.setMarkers([]);
-                        console.log('Trade markers cleared');
-                    }
+                    mainSeries.setMarkers([]);
+                    console.log('Trade markers cleared');
                 };
                 
                 // 초기 매수/매도 신호 적용
@@ -546,8 +539,8 @@ private fun generateMultiPanelHtml(
                     console.log('LAGO: Initial trading signals loaded:', tradingSignalsData.length);
                     
                     if (tradingSignalsData && tradingSignalsData.length > 0) {
-                        // createSeriesMarkers API로 초기 마커 생성 - 공식 API 사용
-                        markersApi = createSeriesMarkers(mainSeries, tradingSignalsData);
+                        // v5 API 호환: setMarkers만 사용
+                        mainSeries.setMarkers(tradingSignalsData);
                         console.log('✅ Initial trade markers created successfully');
                         
                         // 마커 요약 정보 로깅
@@ -680,6 +673,13 @@ private fun generateMultiPanelHtml(
                 
                 // 패널 높이 조정
                 adjustPaneHeights();
+                
+                // 모든 패널/시리즈 생성 완료 후 레전드 초기화
+                const container = document.getElementById('chart-container');
+                reInitLegends(container);
+                
+                // ✅ 레전드 DOM 완성 후 크로스헤어 구독
+                chart.subscribeCrosshairMove(updatePaneLegends);
                 
                 // 이벤트 핸들러 추가
                 setupEventHandlers();
@@ -1324,6 +1324,30 @@ private fun generateMultiPanelHtml(
             });
         }
         
+        // 재초기화를 위한 레전드 헬퍼 (기존 DOM 제거 후 재생성)
+        function reInitLegends(container) {
+            // 기존 레전드 DOM 모두 제거
+            const existingLegends = container.querySelectorAll('.pane-legend');
+            existingLegends.forEach(el => el.remove());
+            
+            // ✅ panes 안전 가드
+            const panes = (chart.panes && typeof chart.panes === 'function') ? chart.panes() : [];
+            const paneCount = Array.isArray(panes) ? panes.length : 1;
+
+            legends = Array.from({ length: paneCount }, (_, i) => {
+                const el = document.createElement('div');
+                el.className = 'pane-legend';
+                el.id = 'legend-pane-' + i;
+                container.appendChild(el);
+                return el;
+            });
+            
+            // 순서대로 1회 호출
+            refreshPaneLegends();
+            layoutLegends();
+            updateStaticLegends();
+        }
+        
         // 패널별 시리즈 매핑 갱신
         function refreshPaneLegends() {
             paneSeriesMap = chart.panes().map(pane => new Set(pane.getSeries()));
@@ -1354,6 +1378,8 @@ private fun generateMultiPanelHtml(
         
         // 패널별 레전드 업데이트 (모든 패널 항상 표시)
         function updatePaneLegends(param) {
+            if (!Array.isArray(legends) || legends.length === 0) return;
+            
             // 크로스헤어가 있을 때만 실시간 값 업데이트
             if (!param.time || param.point === undefined) {
                 // 크로스헤어가 없을 때는 기본 레전드만 표시
@@ -1662,7 +1688,8 @@ private fun generateMultiPanelHtml(
                     return;
                 }
                 
-                const currentData = mainSeries.data() || [];
+                // v5 API 호환: 캐시된 데이터 사용
+                const currentData = window.__mainData || [];
                 
                 // 현재 뷰 범위 저장 (뷰 보정을 위해)
                 const prevRange = chart.timeScale().getVisibleLogicalRange();
@@ -1670,7 +1697,8 @@ private fun generateMultiPanelHtml(
                 
                 // 새 데이터를 앞에 붙여서 전체 데이터 갱신
                 const mergedData = [...newData, ...currentData];
-                mainSeries.setData(mergedData);
+                window.__mainData = mergedData;
+                mainSeries.setData(window.__mainData);
                 
                 // 뷰 범위 보정 (앞에 추가된 만큼 인덱스 조정)
                 const addedCount = newData.length;
@@ -1691,6 +1719,353 @@ private fun generateMultiPanelHtml(
             }
         };
         
+        // ===== 패턴 분석 관련 JavaScript 브릿지 =====
+        
+        // ChartBridge 객체 생성 (JsBridge와 연결)
+        window.ChartBridge = {
+            onVisibleRangeAnalysis: function(fromTime, toTime) {
+                // JsBridge의 analyzePatternInRange 메서드 호출
+                if (window.ChartInterface && window.ChartInterface.analyzePatternInRange) {
+                    window.ChartInterface.analyzePatternInRange(fromTime, toTime);
+                } else if (window.AndroidInterface && window.AndroidInterface.analyzePatternInRange) {
+                    window.AndroidInterface.analyzePatternInRange(fromTime, toTime);
+                }
+            },
+            
+            onPatternAnalysisError: function(message) {
+                // JsBridge의 onPatternAnalysisError 메서드 호출
+                if (window.ChartInterface && window.ChartInterface.onPatternAnalysisError) {
+                    window.ChartInterface.onPatternAnalysisError(message);
+                } else if (window.AndroidInterface && window.AndroidInterface.onPatternAnalysisError) {
+                    window.AndroidInterface.onPatternAnalysisError(message);
+                }
+            }
+        };
+        
+        // 패턴 분석 요청 함수
+        window.requestPatternAnalysis = function() {
+            try {
+                const visibleRange = chart.timeScale().getVisibleTimeRange();
+                if (visibleRange && window.ChartBridge) {
+                    window.ChartBridge.onVisibleRangeAnalysis(
+                        Math.floor(visibleRange.from).toString(),
+                        Math.floor(visibleRange.to).toString()
+                    );
+                    console.log('LAGO: Pattern analysis requested for range:', Math.floor(visibleRange.from), 'to', Math.floor(visibleRange.to));
+                } else {
+                    console.error('차트가 준비되지 않았거나 ChartBridge가 없습니다.');
+                    if (window.ChartBridge) {
+                        window.ChartBridge.onPatternAnalysisError('차트 영역을 가져올 수 없습니다.');
+                    }
+                }
+            } catch (error) {
+                console.error('패턴 분석 요청 실패:', error);
+                if (window.ChartBridge) {
+                    window.ChartBridge.onPatternAnalysisError('차트 영역을 가져올 수 없습니다.');
+                }
+            }
+        };
+        
+        // 차트의 보이는 영역에서 패턴 분석을 실행 (JsBridge에서 호출)
+        window.analyzePatternInVisibleRange = function() {
+            try {
+                const visibleRange = chart.timeScale().getVisibleTimeRange();
+                if (visibleRange && window.ChartBridge) {
+                    window.ChartBridge.onVisibleRangeAnalysis(
+                        Math.floor(visibleRange.from).toString(),
+                        Math.floor(visibleRange.to).toString()
+                    );
+                    console.log('LAGO: analyzePatternInVisibleRange called successfully');
+                } else {
+                    console.error('차트가 준비되지 않았거나 ChartBridge가 없습니다.');
+                    if (window.ChartBridge) {
+                        window.ChartBridge.onPatternAnalysisError('차트 영역을 가져올 수 없습니다.');
+                    }
+                }
+            } catch (error) {
+                console.error('패턴 분석 요청 실패:', error);
+                if (window.ChartBridge) {
+                    window.ChartBridge.onPatternAnalysisError('차트 영역을 가져올 수 없습니다.');
+                }
+            }
+        };
+        
+        // 패턴 분석 결과 표시 함수
+        window.displayPatternResult = function(resultJson) {
+            try {
+                const result = JSON.parse(resultJson);
+                console.log('LAGO: 패턴 분석 결과:', result);
+                
+                // 차트에 패턴 결과 표시 (향후 확장 가능)
+                // 예: 패턴 영역 하이라이트, 마커 추가 등
+                
+            } catch (error) {
+                console.error('패턴 결과 표시 실패:', error);
+            }
+        };
+        
+        // D) 시간 타입 안전 변환 헬퍼
+        function toEpochSec(t) {
+            if (typeof t === 'number') return Math.floor(t);
+            if (t && typeof t === 'object' && 'year' in t) {
+                // BusinessDay { year, month, day }
+                return Math.floor(Date.UTC(t.year, (t.month || 1) - 1, t.day || 1) / 1000);
+            }
+            return null;
+        }
+
+        function getVisibleTimeRangeSafe() {
+            const ts = chart.timeScale();
+            const r = ts.getVisibleTimeRange ? ts.getVisibleTimeRange()
+                    : (ts.getVisibleRange ? ts.getVisibleRange() : null);
+            if (!r) return null;
+            const from = toEpochSec(r.from);
+            const to = toEpochSec(r.to);
+            if (from == null || to == null) return null;
+            return { from, to };
+        }
+        
+        // 보이는 영역 정보 반환 함수 (디버깅용)
+        window.getVisibleRange = function() {
+            try {
+                const visible = getVisibleTimeRangeSafe();
+                return visible ? { from: visible.from, to: visible.to } : null;
+            } catch (error) {
+                console.error('getVisibleRange 실패:', error);
+                return null;
+            }
+        };
+        
+    
+        // ===== LAGO strict v5.0.8 bridge (injected by atomic loader) =====
+        (function(){ /* minimal shell; extended below */ })();
+        // ===== end LAGO strict v5.0.8 bridge =====
+    
+    
+        // ===== LAGO atomic loader & indicator data support =====
+        (function(){
+            try {
+                // No-ops for legacy
+                window.layoutLegends = function(){};
+                window.reInitLegends = function(){};
+
+                var chart = window.chart;
+                var mainSeries = window.__mainSeries;
+                var volumeSeries = null;
+                var indicatorSeriesMap = window.__indicatorSeriesMap || {};
+                var indicatorPaneIndexMap = window.__indicatorPaneIndexMap || {};
+                var followRT = true;
+                var activeLoadId = null;
+                var pendingOps = []; // queued ops until endLoad
+                var pendingCandles = null;
+                var pendingVolumes = null;
+
+                function ensureChart(){
+                    if (chart && mainSeries) return true;
+                    var el = document.getElementById('chart-container') || document.querySelector('#chart-container');
+                    if (!el || !LightweightCharts?.createChart) return false;
+                    chart = LightweightCharts.createChart(el, {
+                        timeScale: { rightOffset: 2, timeVisible: true, secondsVisible: true },
+                        layout: { textColor: '#333', background: { type: 'solid', color: '#fff' } },
+                    });
+                    window.chart = chart;
+                    mainSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {}, 0);
+                    window.__mainSeries = mainSeries;
+
+                    var ts = chart.timeScale();
+                    ts.subscribeVisibleLogicalRangeChange(function(){
+                        var range = ts.getVisibleLogicalRange();
+                        if (!range || !mainSeries?.barsInLogicalRange) { followRT = true; return; }
+                        var info = mainSeries.barsInLogicalRange(range) || {};
+                        followRT = (info.barsAfter ?? 0) < 1;
+                    });
+
+                    try { Android?.onChartReady?.(); } catch(e){}
+                    return true;
+                }
+
+                function toCandles(arr){
+                    if (!arr) return [];
+                    if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e){ return []; } }
+                    if (!Array.isArray(arr)) return [];
+                    var out = [];
+                    for (var i=0;i<arr.length;i++){
+                        var c = arr[i]||{};
+                        var t = Number(c.time), o=Number(c.open), h=Number(c.high), l=Number(c.low), cl=Number(c.close);
+                        if (isFinite(t)&&t>0&&isFinite(o)&&isFinite(h)&&isFinite(l)&&isFinite(cl)) out.push({time:t,open:o,high:h,low:l,close:cl});
+                    }
+                    return out;
+                }
+                function toVolumes(arr){
+                    if (!arr) return [];
+                    if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e){ return []; } }
+                    if (!Array.isArray(arr)) return [];
+                    var out = [];
+                    for (var i=0;i<arr.length;i++){
+                        var v = arr[i]||{}; var t=Number(v.time), val=Number(v.value);
+                        if (isFinite(t)&&t>0&&isFinite(val)) out.push({time:t,value:val,color:v.color});
+                    }
+                    return out;
+                }
+                function toLinePoints(arr){
+                    if (!arr) return [];
+                    if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e){ return []; } }
+                    if (!Array.isArray(arr)) return [];
+                    var out = [];
+                    for (var i=0;i<arr.length;i++){
+                        var p = arr[i]||{}; var t=Number(p.time), val=Number(p.value);
+                        if (isFinite(t)&&t>0&&isFinite(val)) out.push({time:t, value:val});
+                    }
+                    return out;
+                }
+
+                function paneCount(){ try { return chart?.panes?.().length ?? 1; } catch(e){ return 1; } }
+                function getOrCreatePaneIndexForKey(key){
+                    if (Object.prototype.hasOwnProperty.call(indicatorPaneIndexMap, key)) return indicatorPaneIndexMap[key];
+                    var idx = paneCount(); // 0=main
+                    indicatorPaneIndexMap[key] = idx;
+                    window.__indicatorPaneIndexMap = indicatorPaneIndexMap;
+                    return idx;
+                }
+                function maybeRemovePane(idx, key){
+                    try {
+                        var panes = chart?.panes?.() || [];
+                        if (!panes[idx]) return;
+                        var series = panes[idx].getSeries ? panes[idx].getSeries() : [];
+                        if (!series || series.length === 0) {
+                            chart.removePane(idx);
+                            if (key) delete indicatorPaneIndexMap[key];
+                        }
+                    } catch(e){}
+                }
+
+                function createIndicator(key, payload){
+                    if (!ensureChart()) return;
+                    var k = String(key||'').toLowerCase();
+                    var idx = getOrCreatePaneIndexForKey(k);
+                    var s = null;
+                    // parse payload
+                    var cfg = payload;
+                    if (typeof cfg === 'string') { try { cfg = JSON.parse(cfg); } catch(e){} }
+
+                    if (k === 'volume') {
+                        s = chart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' } }, idx);
+                        volumeSeries = s;
+                        if (cfg?.points) s.setData(toVolumes(cfg.points));
+                    } else if (k === 'rsi') {
+                        s = chart.addSeries(LightweightCharts.LineSeries, { color: '#7f8cff' }, idx);
+                        if (cfg?.points) s.setData(toLinePoints(cfg.points));
+                    } else if (k === 'macd') {
+                        s = chart.addSeries(LightweightCharts.LineSeries, { color: '#ff7f7f' }, idx);
+                        if (cfg?.points) s.setData(toLinePoints(cfg.points));
+                    } else if (k.startsWith('sma')) {
+                        s = chart.addSeries(LightweightCharts.LineSeries, { color: '#999999' }, 0);
+                        if (cfg?.points) s.setData(toLinePoints(cfg.points));
+                    } else {
+                        s = chart.addSeries(LightweightCharts.LineSeries, {}, idx);
+                        if (cfg?.points) s.setData(toLinePoints(cfg.points));
+                    }
+                    indicatorSeriesMap[k] = s;
+                    window.__indicatorSeriesMap = indicatorSeriesMap;
+                }
+
+                // ---- Atomic load protocol ----
+                window.beginLoad = function(loadId){
+                    activeLoadId = String(loadId||Date.now());
+                    pendingOps = [];
+                    pendingCandles = null;
+                    pendingVolumes = null;
+                };
+                window.endLoad = function(loadId){
+                    var id = String(loadId||"");
+                    if (activeLoadId === null || (id && id !== activeLoadId)) return;
+                    if (!ensureChart()) return;
+                    // Apply base data first
+                    if (pendingCandles) {
+                        var c = toCandles(pendingCandles);
+                        mainSeries.setData(c);
+                        window.__mainData = c;
+                    }
+                    if (pendingVolumes && volumeSeries) {
+                        var v = toVolumes(pendingVolumes);
+                        volumeSeries.setData(v);
+                    }
+                    // Then apply queued ops (indicators etc.)
+                    for (var i=0;i<pendingOps.length;i++){
+                        try { pendingOps[i](); } catch(e){ console.warn('pending op failed', e); }
+                    }
+                    pendingOps = [];
+                    if (followRT) try { chart.timeScale().scrollToRealTime(); } catch(e){}
+                    activeLoadId = null;
+                };
+
+                window.setSeriesData = function(candles, volumes){
+                    if (!ensureChart()) return;
+                    if (activeLoadId) {
+                        pendingCandles = candles;
+                        pendingVolumes = volumes;
+                        return;
+                    }
+                    var c = toCandles(candles);
+                    mainSeries.setData(c);
+                    window.__mainData = c;
+                    if (volumeSeries && volumes) {
+                        var v = toVolumes(volumes);
+                        volumeSeries.setData(v);
+                    }
+                    if (followRT) try { chart.timeScale().scrollToRealTime(); } catch(e){}
+                };
+
+                window.setIndicatorEnabled = function(type, enabled, payload){
+                    var k = String(type||'').toLowerCase();
+                    var op = function(){
+                        if (enabled) {
+                            if (!indicatorSeriesMap[k]) createIndicator(k, payload);
+                            else if (payload) {
+                                // update existing data
+                                var cfg = payload; if (typeof cfg==='string') { try { cfg = JSON.parse(cfg); } catch(e){} }
+                                var s = indicatorSeriesMap[k];
+                                if (s && cfg?.points) {
+                                    var pts = (k==='volume') ? toVolumes(cfg.points) : toLinePoints(cfg.points);
+                                    try { s.setData(pts); } catch(e){}
+                                }
+                            }
+                        } else {
+                            var s = indicatorSeriesMap[k];
+                            if (s?.remove) try { s.remove(); } catch(e){}
+                            delete indicatorSeriesMap[k];
+                            var idx = indicatorPaneIndexMap[k];
+                            if (typeof idx==='number') maybeRemovePane(idx, k);
+                            if (k==='volume') volumeSeries = null;
+                        }
+                    };
+                    if (activeLoadId) pendingOps.push(op); else op();
+                };
+
+                window.addIndicatorPane = function(type){ window.setIndicatorEnabled(type, true, null); };
+                window.removeIndicatorPane = function(type){ window.setIndicatorEnabled(type, false, null); };
+
+                window.setTimeFrame = function(tf){ window.currentTimeFrame = String(tf||"D"); };
+
+                window.updateRealTimeBar = function(bar){
+                    if (!ensureChart()) return;
+                    var arr = toCandles([bar]);
+                    if (arr.length===0) return;
+                    mainSeries.update(arr[0]);
+                    if (followRT) try { chart.timeScale().scrollToRealTime(); } catch(e){}
+                };
+                window.updateRealTimeVolume = function(bar){
+                    if (!ensureChart() || !volumeSeries) return;
+                    var arr = toVolumes([bar]);
+                    if (arr.length===0) return;
+                    volumeSeries.update(arr[0]);
+                };
+            } catch(e){
+                console.error('LAGO atomic loader init failed', e);
+            }
+        })();
+        // ===== end atomic loader =====
+
     </script>
 </body>
 </html>

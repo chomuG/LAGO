@@ -134,4 +134,14 @@ interface MockTradeRepository {
      * 관심종목 여부 확인
      */
     suspend fun isFavorite(stockCode: String): Flow<Resource<Boolean>>
+    
+    /**
+     * 관심종목 토글 (새로운 API 기반)
+     */
+    suspend fun toggleFavorite(stockCode: String): Flow<Resource<Boolean>>
+    
+    /**
+     * 사용자 관심종목 목록 로드 (캐시 초기화용)
+     */
+    suspend fun loadUserFavorites(): Flow<Resource<Set<String>>>
 }

@@ -10,6 +10,8 @@ import com.lago.app.domain.entity.CandlestickData
 import com.lago.app.domain.repository.StockListRepository
 import com.lago.app.domain.repository.HistoryChallengeRepository
 import com.lago.app.domain.repository.ChartRepository
+import com.lago.app.domain.repository.MockTradeRepository
+import com.lago.app.data.cache.FavoriteCache
 import com.lago.app.data.remote.websocket.SmartStockWebSocketService
 import com.lago.app.data.scheduler.SmartUpdateScheduler
 import com.lago.app.domain.entity.ScreenType
@@ -62,7 +64,9 @@ class StockListViewModel @Inject constructor(
     private val chartRepository: com.lago.app.domain.repository.ChartRepository,
     private val smartWebSocketService: SmartStockWebSocketService,
     private val smartUpdateScheduler: SmartUpdateScheduler,
-    private val realTimeCache: com.lago.app.data.cache.RealTimeStockCache
+    private val realTimeCache: com.lago.app.data.cache.RealTimeStockCache,
+    private val mockTradeRepository: MockTradeRepository,
+    private val favoriteCache: FavoriteCache
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StockListUiState())
@@ -74,10 +78,12 @@ class StockListViewModel @Inject constructor(
         
         // 2. 캐시 StateFlow 구독 (자동 UI 업데이트)
         observeRealTimeData()
+        observeFavoriteData()
         
         // 3. 초기 데이터 로드
         loadStocks()
         loadHistoryChallengeStocks()
+        loadUserFavorites()
         
         // 4. 역사챌린지 실시간 데이터 업데이트 관제 (예정)
         // observeHistoryChallengeRealTimeData()
@@ -422,28 +428,18 @@ class StockListViewModel @Inject constructor(
 
     fun toggleFavorite(stockCode: String) {
         viewModelScope.launch {
-            stockListRepository.toggleFavorite(stockCode).collect { resource ->
+            mockTradeRepository.toggleFavorite(stockCode).collect { resource ->
                 when (resource) {
+                    is Resource.Loading -> {
+                        android.util.Log.d("StockListViewModel", "💖 관심종목 토글 중: $stockCode")
+                    }
                     is Resource.Success -> {
-                        // 성공 시 UI 상태 업데이트
-                        _uiState.update { state ->
-                            val updatedStocks = state.stocks.map { stock ->
-                                if (stock.code == stockCode) {
-                                    stock.copy(isFavorite = !stock.isFavorite)
-                                } else {
-                                    stock
-                                }
-                            }
-                            state.copy(stocks = updatedStocks)
-                        }
-                        filterStocks()
+                        val action = if (resource.data == true) "추가" else "제거"
+                        android.util.Log.d("StockListViewModel", "💖 관심종목 토글 성공: $stockCode → $action")
                     }
                     is Resource.Error -> {
-                        // 에러 처리 (토스트 메시지 등)
+                        android.util.Log.e("StockListViewModel", "💖 관심종목 토글 실패: $stockCode - ${resource.message}")
                         _uiState.update { it.copy(errorMessage = resource.message) }
-                    }
-                    is Resource.Loading -> {
-                        // 로딩 상태 처리 (필요시)
                     }
                 }
             }
@@ -498,23 +494,27 @@ class StockListViewModel @Inject constructor(
     
     /**
      * 캐시된 실시간 데이터와 API 종목 데이터를 병합
-     * API에서 0원으로 온 데이터에 실시간 캐시 데이터 적용
+     * API에서 0원으로 온 데이터에 실시간 캐시 데이터 적용 + 관심종목 상태 적용
      */
     private fun mergeWithCachedData(stocks: List<StockItem>): List<StockItem> {
+        val favorites = favoriteCache.favoriteFlow.value
         return stocks.map { stock ->
             val cachedData = realTimeCache.getStockData(stock.code)
+            val isFavorite = favorites.contains(stock.code)
+            
             if (cachedData != null) {
-                android.util.Log.d("StockListViewModel", "💾 캐시 적용: ${stock.code} = ${cachedData.price}원 (기존 ${stock.currentPrice}원)")
+                android.util.Log.d("StockListViewModel", "💾 캐시 적용: ${stock.code} = ${cachedData.price}원 (기존 ${stock.currentPrice}원), 관심종목: $isFavorite")
                 stock.copy(
                     currentPrice = cachedData.price.toInt(),
                     priceChange = cachedData.priceChange.toInt(),
                     priceChangePercent = cachedData.priceChangePercent,
                     volume = cachedData.volume ?: 0L,
-                    updatedAt = java.time.Instant.ofEpochMilli(cachedData.timestamp).toString()
+                    updatedAt = java.time.Instant.ofEpochMilli(cachedData.timestamp).toString(),
+                    isFavorite = isFavorite
                 )
             } else {
-                android.util.Log.v("StockListViewModel", "💾 ${stock.code}: 캐시 데이터 없음, 기본값 유지")
-                stock
+                android.util.Log.v("StockListViewModel", "💾 ${stock.code}: 캐시 데이터 없음, 기본값 유지, 관심종목: $isFavorite")
+                stock.copy(isFavorite = isFavorite)
             }
         }
     }
@@ -604,7 +604,8 @@ class StockListViewModel @Inject constructor(
                                         currentPrice = currentPrice,
                                         priceChange = priceChange,
                                         priceChangePercent = priceChangePercent,
-                                        volume = latestCandle.volume?.toLong() ?: 0L
+                                        volume = latestCandle.volume?.toLong() ?: 0L,
+                                        isFavorite = favoriteCache.favoriteFlow.value.contains(stock.code)
                                     )
                                 } else {
                                     android.util.Log.w("StockListViewModel", "📈 ${stock.code}: 일봉 데이터 부족 (${candles.size}개)")
@@ -839,4 +840,53 @@ class StockListViewModel @Inject constructor(
         
         return updatedStocks
     }
+    
+    // =====================================
+    // 관심종목 기능
+    // =====================================
+    
+    /**
+     * 관심종목 상태 변화 관찰
+     */
+    private fun observeFavoriteData() {
+        viewModelScope.launch {
+            favoriteCache.favoriteFlow.collect { favorites ->
+                // 관심종목 상태가 변경되면 StockItem의 isFavorite 상태 업데이트
+                _uiState.update { currentState ->
+                    val updatedStocks = currentState.stocks.map { stock ->
+                        stock.copy(isFavorite = favorites.contains(stock.code))
+                    }
+                    currentState.copy(
+                        stocks = updatedStocks,
+                        filteredStocks = applyFiltersAndSort(updatedStocks)
+                    )
+                }
+                android.util.Log.d("StockListViewModel", "💖 관심종목 상태 업데이트: ${favorites.size}개")
+            }
+        }
+    }
+    
+    /**
+     * 사용자 관심종목 초기 로드
+     */
+    private fun loadUserFavorites() {
+        viewModelScope.launch {
+            mockTradeRepository.loadUserFavorites().collect { resource ->
+                when (resource) {
+                    is Resource.Loading -> {
+                        android.util.Log.d("StockListViewModel", "💖 관심종목 로딩 중...")
+                    }
+                    is Resource.Success -> {
+                        android.util.Log.d("StockListViewModel", "💖 관심종목 로드 성공: ${resource.data?.size ?: 0}개")
+                        // 캐시는 이미 Repository에서 업데이트됨
+                    }
+                    is Resource.Error -> {
+                        android.util.Log.e("StockListViewModel", "💖 관심종목 로드 실패: ${resource.message}")
+                    }
+                }
+            }
+        }
+    }
+    
+    
 }

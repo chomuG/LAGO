@@ -156,31 +156,7 @@ data class StockItemDto(
     @SerializedName("updated_at") val updatedAt: String
 )
 
-// Pattern Analysis Request/Response
-data class PatternAnalysisRequest(
-    @SerializedName("time_frame") val timeFrame: String, // "1", "5", "15", "D", etc.
-    @SerializedName("start_time") val startTime: String?, // ISO 8601 format or null for current visible range
-    @SerializedName("end_time") val endTime: String?, // ISO 8601 format or null for current visible range
-    @SerializedName("analysis_type") val analysisType: String = "comprehensive" // "comprehensive", "trend", "reversal"
-)
-
-data class PatternAnalysisResponse(
-    @SerializedName("success") val success: Boolean,
-    @SerializedName("data") val data: PatternAnalysisDataDto
-)
-
-data class PatternAnalysisDataDto(
-    @SerializedName("patterns") val patterns: List<PatternResultDto>,
-    @SerializedName("analysis_time") val analysisTime: String,
-    @SerializedName("confidence_score") val confidenceScore: Float
-)
-
-data class PatternResultDto(
-    @SerializedName("pattern_name") val patternName: String,
-    @SerializedName("description") val description: String,
-    @SerializedName("confidence") val confidence: Float,
-    @SerializedName("recommendation") val recommendation: String?
-)
+// Pattern Analysis classes moved to separate files
 
 // Simple Stock Response (actual API format)
 data class SimpleStockDto(
