@@ -48,6 +48,21 @@ public interface MockTradeRepository extends JpaRepository<MockTrade, Long> {
     List<Object[]> findCurrentHoldingsByAccountIdAndType(@Param("accountId") Long accountId, @Param("accountType") Integer accountType);
 
     /**
+     * 유저+계좌타입 기준으로 보유 종목 합산 조회 (유저의 해당타입 모든 계좌 합산)
+     * 매수/매도를 계산해서 현재 보유량이 0보다 큰 종목만 반환
+     */
+    @Query("""
+        SELECT mt.stockId,
+               SUM(CASE WHEN mt.tradeType = 'BUY' THEN mt.quantity ELSE -mt.quantity END) as currentQuantity
+        FROM MockTrade mt
+        JOIN Account a ON mt.accountId = a.accountId
+        WHERE a.userId = :userId AND a.type = :accountType
+        GROUP BY mt.stockId
+        HAVING SUM(CASE WHEN mt.tradeType = 'BUY' THEN mt.quantity ELSE -mt.quantity END) > 0
+        """)
+    List<Object[]> findCurrentHoldingsByUserIdAndType(@Param("userId") Long userId, @Param("accountType") Integer accountType);
+
+    /**
      * 특정 사용자의 모의투자 계좌(type=0)에 대한 모든 거래 내역 조회
      * StockInfo와 조인하여 주식명과 코드 정보도 함께 가져옴
      * quiz 데이터(stock_id가 null인 경우)도 포함
