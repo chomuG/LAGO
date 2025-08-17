@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.lago.app.data.local.LagoDatabase
 import com.lago.app.data.cache.ChartMemoryCache
+import com.lago.app.data.local.dao.ChartCacheDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,5 +34,10 @@ object DatabaseModule {
     @Singleton
     fun provideChartMemoryCache(): ChartMemoryCache {
         return ChartMemoryCache()
+    }
+    
+    @Provides
+    fun provideChartCacheDao(database: LagoDatabase): ChartCacheDao {
+        return database.chartCacheDao()
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.ui.res.painterResource
 import com.lago.app.R
+import com.lago.app.presentation.ui.components.CircularStockLogo
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +64,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.ui.draw.clipToBounds
 import kotlin.math.abs
 // Theme imports
@@ -149,12 +151,13 @@ data class SafeZones(
 @Composable
 fun ChartScreen(
     stockCode: String? = null,
+    stockName: String? = null,
     initialStockInfo: ChartStockInfo? = null,
     viewModel: ChartViewModel = hiltViewModel(),
     onNavigateToStockPurchase: (String, String) -> Unit = { _, _ -> },
     onNavigateToAIDialog: () -> Unit = {},
     onNavigateBack: () -> Unit = {},
-    onNavigateToStock: (String) -> Unit = {}
+    onNavigateToStock: (String, String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val density = LocalDensity.current
@@ -235,13 +238,35 @@ fun ChartScreen(
     var showCharacterDialog by remember { mutableStateOf(false) }
 
     // 투자 탭에서 선택된 주식 코드로 차트 데이터 로드
-    LaunchedEffect(stockCode, initialStockInfo) {
+    LaunchedEffect(stockCode, stockName, initialStockInfo) {
+        android.util.Log.d("ChartScreen", "🎯 LaunchedEffect 시작 - stockCode: '$stockCode', stockName: '$stockName', initialStockInfo: $initialStockInfo")
+        
         stockCode?.let { code ->
-            if (initialStockInfo != null) {
+            android.util.Log.d("ChartScreen", "📊 종목 변경 시작 - code: '$code'")
+            
+            // 🔥 즉시 기본 정보 설정 (빈 화면 방지)
+            val nameToUse = stockName ?: ""
+            
+            if (code.isNotEmpty()) {
+                android.util.Log.d("ChartScreen", "⚡ 즉시 주식 정보 설정: $nameToUse($code)")
+                viewModel.setInitialStockInfo(code, nameToUse)
+            }
+            
+            // initialStockInfo가 null이거나 가격이 0이면 서버에서 데이터 가져오기
+            if (initialStockInfo != null && initialStockInfo.currentPrice > 0f) {
+                android.util.Log.d("ChartScreen", "✅ initialStockInfo 사용 - ${initialStockInfo.name}(${initialStockInfo.currentPrice})")
                 viewModel.onEvent(ChartUiEvent.ChangeStockWithInfo(code, initialStockInfo))
             } else {
+                android.util.Log.d("ChartScreen", "🌐 서버에서 데이터 가져오기 - code: '$code'")
+                // 서버에서 실제 데이터 가져오기 (기존 가격 유지)
                 viewModel.onEvent(ChartUiEvent.ChangeStock(code))
             }
+            
+            // 차트 화면 진입 시 보유종목/매매내역 갱신 (구매/판매 후 돌아온 경우 대응)
+            delay(500) // 화면 전환 완료 후 갱신
+            viewModel.refreshAfterTrade()
+        } ?: run {
+            android.util.Log.e("ChartScreen", "❌ stockCode가 null 또는 빈 값: '$stockCode'")
         }
     }
 
@@ -827,6 +852,10 @@ fun ChartScreen(
             }
         }
         
+        // 전체 로딩 오버레이 제거 - 각 UI 요소별로 개별 렌더링
+        
+        // 에러 시에도 알럿 대신 로딩 유지 (백그라운드에서 자동 재시도)
+        
         // Character Selection Dialog
         if (showCharacterDialog) {
             CharacterSelectionDialog(
@@ -912,6 +941,7 @@ private fun TopAppBar(
                 modifier = Modifier.size(24.dp)
             )
         }
+
 
         IconButton(
             onClick = onSettingsClick,
@@ -1079,7 +1109,7 @@ private fun BottomSheetContent(
     holdingsListState: LazyListState,
     tradingHistoryListState: LazyListState,
     bottomSheetState: BottomSheetState,
-    onStockClick: (String) -> Unit,
+    onStockClick: (String, String) -> Unit,
     isCompact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -1168,7 +1198,7 @@ private fun BottomSheetContent(
 private fun HoldingsContent(
     holdings: List<HoldingItem>,
     currentStockCode: String,
-    onStockClick: (String) -> Unit,
+    onStockClick: (String, String) -> Unit,
     listState: LazyListState,
     nestedScrollConnection: NestedScrollConnection,
     bottomSheetState: BottomSheetState
@@ -1210,7 +1240,7 @@ private fun HoldingsContent(
 private fun HoldingItemRow(
     item: HoldingItem,
     currentStockCode: String,
-    onStockClick: (String) -> Unit
+    onStockClick: (String, String) -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -1222,43 +1252,19 @@ private fun HoldingItemRow(
             ) {
                 // Only navigate if the selected stock is different from current stock
                 if (item.stockCode != currentStockCode) {
-                    onStockClick(item.stockCode)
+                    onStockClick(item.stockCode, item.name)
                 }
             },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // 종목별 컬러 아이콘
-            val stockColor = when (item.name) {
-                "삼성전자" -> Color(0xFF1428A0)
-                "GS리테일" -> Color(0xFF00A651)
-                "한화생명" -> Color(0xFFE8501A)
-                "LG전자" -> Color(0xFFA50034)
-                "하이트진로맥주" -> Color(0xFFED1C24)
-                else -> Color(0xFF666666)
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(stockColor, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = when (item.name) {
-                        "삼성전자" -> "삼성"
-                        "GS리테일" -> "GS"
-                        "한화생명" -> "한화"
-                        "LG전자" -> "LG"
-                        "하이트진로맥주" -> "진로"
-                        else -> "종목"
-                    },
-                    color = Color.White,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            // 실제 종목 로고 사용
+            CircularStockLogo(
+                stockCode = item.stockCode,
+                stockName = item.name,
+                size = 40.dp
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 
@@ -1944,6 +1950,6 @@ fun ChartScreenPreview() {
         onNavigateToStockPurchase = { _, _ -> },
         onNavigateToAIDialog = {},
         onNavigateBack = {},
-        onNavigateToStock = {}
+        onNavigateToStock = { _, _ -> }
     )
 }

@@ -10,11 +10,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.lago.app.domain.entity.ChartStockInfo
 import com.lago.app.presentation.theme.*
+
+@Composable
+private fun SkeletonPlaceholder(
+    width: Dp,
+    height: Dp,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .width(width)
+            .height(height)
+            .background(
+                color = Gray200.copy(alpha = 0.3f), // 매우 연한 회색
+                shape = RoundedCornerShape(4.dp)
+            )
+    )
+}
 
 @Composable
 fun AnimatedHeaderBox(
@@ -23,6 +41,8 @@ fun AnimatedHeaderBox(
     contentOffsetY: Float,
     modifier: Modifier = Modifier
 ) {
+    // 스켈레톤 상태 감지 (이름이 비어있거나 가격이 0이면 스켈레톤 표시)
+    val isSkeletonMode = stockInfo.name.isEmpty() || stockInfo.currentPrice == 0f
     // 박스 애니메이션 값들 계산
     val boxPadding = 16f - (headerAlignmentProgress * 16f) // 16 -> 0
     val boxTranslationY = -headerAlignmentProgress * 32f // 0 -> -32 (앱바 아이콘과 같은 높이)
@@ -77,11 +97,19 @@ fun AnimatedHeaderBox(
                     },
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = stockInfo.name,
-                    style = SubtitleSb24,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                if (isSkeletonMode) {
+                    // 스켈레톤 모드: 종목명 플레이스홀더
+                    SkeletonPlaceholder(
+                        width = 120.dp,
+                        height = 24.dp
+                    )
+                } else {
+                    Text(
+                        text = stockInfo.name,
+                        style = SubtitleSb24,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(Spacing.sm))
 
@@ -89,24 +117,40 @@ fun AnimatedHeaderBox(
                 Row(
                     verticalAlignment = Alignment.Bottom
                 ) {
-                    Text(
-                        text = "${String.format("%,.0f", stockInfo.currentPrice)}원",
-                        style = HeadEb32,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    
-                    Spacer(modifier = Modifier.width(Spacing.sm))
-                    
-                    val priceChange = stockInfo.priceChange.toInt()
-                    val isPositive = priceChange >= 0  // priceChange로 색상 판단
-                    val changeSign = if (isPositive) "+" else ""
-                    val changeText = "${changeSign}${String.format("%,d", priceChange)}(${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%)"
-                    
-                    Text(
-                        text = changeText,
-                        style = SubtitleSb14,
-                        color = if (isPositive) MainPink else MainBlue
-                    )
+                    if (isSkeletonMode) {
+                        // 스켈레톤 모드: 가격 플레이스홀더
+                        SkeletonPlaceholder(
+                            width = 140.dp,
+                            height = 32.dp
+                        )
+                        
+                        Spacer(modifier = Modifier.width(Spacing.sm))
+                        
+                        // 수익률 플레이스홀더
+                        SkeletonPlaceholder(
+                            width = 80.dp,
+                            height = 14.dp
+                        )
+                    } else {
+                        Text(
+                            text = "${String.format("%,.0f", stockInfo.currentPrice)}원",
+                            style = HeadEb32,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        
+                        Spacer(modifier = Modifier.width(Spacing.sm))
+                        
+                        val priceChange = stockInfo.priceChange.toInt()
+                        val isPositive = priceChange >= 0  // priceChange로 색상 판단
+                        val changeSign = if (isPositive) "+" else ""
+                        val changeText = "${changeSign}${String.format("%,d", priceChange)}(${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%)"
+                        
+                        Text(
+                            text = changeText,
+                            style = SubtitleSb14,
+                            color = if (isPositive) MainPink else MainBlue
+                        )
+                    }
                 }
             }
 
@@ -120,12 +164,20 @@ fun AnimatedHeaderBox(
                         translationY = (1f - easedTransition) * 10f // 부드러운 이동
                     }
             ) {
-                // 주가 타이틀
-                Text(
-                    text = stockInfo.name,
-                    style = SubtitleSb16,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                if (isSkeletonMode) {
+                    // 스켈레톤 모드: 종목명 플레이스홀더 (작은 버전)
+                    SkeletonPlaceholder(
+                        width = 80.dp,
+                        height = 16.dp
+                    )
+                } else {
+                    // 주가 타이틀
+                    Text(
+                        text = stockInfo.name,
+                        style = SubtitleSb16,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(2.dp))
 
@@ -133,24 +185,40 @@ fun AnimatedHeaderBox(
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "${String.format("%,.0f", stockInfo.currentPrice)}원",
-                        style = BodyR14,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    if (isSkeletonMode) {
+                        // 스켈레톤 모드: 가격 플레이스홀더 (작은 버전)
+                        SkeletonPlaceholder(
+                            width = 70.dp,
+                            height = 14.dp
+                        )
+                        
+                        Spacer(modifier = Modifier.width(Spacing.xs + 2.dp))
+                        
+                        // 수익률 플레이스홀더 (작은 버전)
+                        SkeletonPlaceholder(
+                            width = 45.dp,
+                            height = 14.dp
+                        )
+                    } else {
+                        Text(
+                            text = "${String.format("%,.0f", stockInfo.currentPrice)}원",
+                            style = BodyR14,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
 
-                    Spacer(modifier = Modifier.width(Spacing.xs + 2.dp))
+                        Spacer(modifier = Modifier.width(Spacing.xs + 2.dp))
 
-                    val priceChange = stockInfo.priceChange.toInt()
-                    val isPositive = priceChange >= 0  // priceChange로 색상 판단
-                    val changeSign = if (isPositive) "+" else ""
-                    val percentText = "${changeSign}${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%"
-                    
-                    Text(
-                        text = percentText,
-                        style = SubtitleSb14,
-                        color = if (isPositive) MainPink else MainBlue
-                    )
+                        val priceChange = stockInfo.priceChange.toInt()
+                        val isPositive = priceChange >= 0  // priceChange로 색상 판단
+                        val changeSign = if (isPositive) "+" else ""
+                        val percentText = "${changeSign}${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%"
+                        
+                        Text(
+                            text = percentText,
+                            style = SubtitleSb14,
+                            color = if (isPositive) MainPink else MainBlue
+                        )
+                    }
                 }
             }
         }

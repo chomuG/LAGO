@@ -125,20 +125,15 @@ fun StockPurchaseScreen(
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 🎯 가변 영역: 종목 정보 카드 - 위쪽 여백 흡수
-                Column(
-                    modifier = Modifier.weight(1f), // 🔥 가변 영역
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    StockInfoCard(
-                        stockName = uiState.stockName,
-                        currentPrice = uiState.currentPrice,
-                        holdingInfo = uiState.holdingInfo,
-                        isPurchaseType = isPurchaseType,
-                        holdingQuantity = uiState.holdingQuantity,
-                        accountBalance = uiState.accountBalance
-                    )
-                }
+                // 📍 고정 영역: 종목 정보 카드
+                StockInfoCard(
+                    stockName = uiState.stockName,
+                    currentPrice = uiState.currentPrice,
+                    holdingInfo = uiState.holdingInfo,
+                    isPurchaseType = isPurchaseType,
+                    holdingQuantity = uiState.holdingQuantity,
+                    accountBalance = uiState.accountBalance
+                )
 
                 // 🎯 가변 영역: 중간 여백
                 Spacer(modifier = Modifier.weight(0.3f)) // 🔥 가변 영역
@@ -235,19 +230,6 @@ private fun StockInfoCard(
     }
     
     Column {
-        Text(
-            text = stockName,
-            style = TitleB20,
-            color = Gray900
-        )
-
-        Text(
-            text = "1주 = ${String.format("%,d", currentPrice)}원",
-            style = BodyR14,
-            color = Gray700,
-            modifier = Modifier.padding(top = 4.dp)
-        )
-
         if (isPurchaseType) {
             Text(
                 text = "보유 현금 : ${String.format("%,d", accountBalance)}원",

@@ -43,7 +43,7 @@ import com.lago.app.presentation.ui.components.CircularStockLogo
 @Composable
 fun StockListScreen(
     viewModel: StockListViewModel = hiltViewModel(),
-    onStockClick: (String, String, Int, Int, Double) -> Unit,
+    onStockClick: (String, String) -> Unit,
     onHistoryChallengeStockClick: (String) -> Unit = {},
     onNewsClick: (Int) -> Unit = {}
 ) {
@@ -106,10 +106,7 @@ fun StockListScreen(
                                     onClick = { 
                                         onStockClick(
                                             stock.code,
-                                            stock.name,
-                                            stock.currentPrice,
-                                            stock.priceChange,
-                                            stock.priceChangePercent
+                                            stock.name
                                         )
                                     }
                                 )
