@@ -37,29 +37,8 @@ public class ChartAnalysisServiceImpl implements ChartAnalysisService {
     private final HistoryChallengeDataRepository challengeDataRepository;
     private final HistoryChallengeRepository historyChallengeRepository; // 추가
 
-    @Value("${services.chart-analysis.url}")
+    @Value("${chart-analysis.url}")
     private String chartAnalysisUrl;
-
-    @Override
-    // 임시 테스트 메서드
-    public String testPythonConnection() {
-        try {
-            log.info("Python 서버 헬스 체크를 시도합니다...");
-            WebClient webClient = WebClient.create("http://192.168.0.13:5000");
-            
-            String response = webClient.get()
-                    .uri("/")
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block(Duration.ofSeconds(5));
-            
-            log.info("Python 서버 응답 성공: {}", response);
-            return response;
-        } catch (Exception e) {
-            log.error("Python 서버 연결 테스트 실패", e);
-            return "Connection failed: " + e.getMessage();
-        }
-    }
 
     @Override
     public List<ChartAnalysisResponse> analyzePatterns(String stockCode, ChartMode chartMode, Interval interval, LocalDateTime fromDateTime, LocalDateTime toDateTime) {
@@ -111,7 +90,7 @@ public class ChartAnalysisServiceImpl implements ChartAnalysisService {
 
         try {
             log.info("Python 분석 서버로 차트 패턴 분석을 요청합니다...");
-            WebClient webClient = webClientBuilder.baseUrl("http://192.168.0.6:5000/detect-patterns").build();
+            WebClient webClient = webClientBuilder.baseUrl(chartAnalysisUrl + "/detect-patterns").build();
 
             return webClient.post()
                     .bodyValue(ohlcData)

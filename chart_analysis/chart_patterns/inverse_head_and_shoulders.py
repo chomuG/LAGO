@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd 
 import logging
 
-from charts_utils import find_points
-from pivot_points import find_all_pivot_points
+from .charts_utils import find_points
+from .pivot_points import find_all_pivot_points
 from scipy.stats import linregress
 
 def find_inverse_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivot_interval: int = 10, short_pivot_interval: int = 5,

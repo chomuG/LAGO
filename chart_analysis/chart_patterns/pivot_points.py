@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd 
 import logging
 
-from utils import check_ohlc_names
-from plotting import display_pivot_points
+from .utils import check_ohlc_names
+from .plotting import display_pivot_points
 from tqdm import tqdm
 from typing import Union
 

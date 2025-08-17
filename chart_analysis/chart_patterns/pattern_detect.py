@@ -1,18 +1,18 @@
 import pandas as pd
 from flask import Flask, request, jsonify
-from config import HOST, PORT, DEBUG, LOG_LEVEL, LOG_FORMAT
+from .config import HOST, PORT, DEBUG, LOG_LEVEL, LOG_FORMAT
 import logging
 import concurrent.futures
 
 # Import pattern detection functions
-from doubles import find_doubles_pattern
-from flag import find_flag_pattern
-from head_and_shoulders import find_head_and_shoulders
-from inverse_head_and_shoulders import find_inverse_head_and_shoulders
-from pennant import find_pennant
-from triangles import find_triangle_pattern
-from plotting import display_chart_pattern
-from pivot_points import find_all_pivot_points
+from .doubles import find_doubles_pattern
+from .flag import find_flag_pattern
+from .head_and_shoulders import find_head_and_shoulders
+from .inverse_head_and_shoulders import find_inverse_head_and_shoulders
+from .pennant import find_pennant
+from .triangles import find_triangle_pattern
+from .plotting import display_chart_pattern
+from .pivot_points import find_all_pivot_points
 
 # --- Configuration ---
 
