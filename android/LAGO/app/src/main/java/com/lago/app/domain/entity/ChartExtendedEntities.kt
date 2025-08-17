@@ -43,16 +43,4 @@ data class TradingItem(
     val createdAt: String
 )
 
-// Pattern Analysis Result (already referenced in ChartViewModel)
-data class PatternAnalysisResult(
-    val patterns: List<PatternItem>,
-    val analysisTime: String,
-    val confidenceScore: Float
-)
-
-data class PatternItem(
-    val patternName: String,
-    val description: String,
-    val confidence: Float,
-    val recommendation: String?
-)
+// Pattern Analysis classes moved to separate file

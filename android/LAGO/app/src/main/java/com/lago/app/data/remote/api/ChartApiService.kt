@@ -254,6 +254,23 @@ interface ChartApiService {
     suspend fun getFavoriteStocks(
         @Header("Authorization") token: String
     ): FavoriteStocksResponse
+    
+    /**
+     * 사용자별 관심종목 목록 조회 (새로운 API)
+     */
+    @GET("api/users/{userId}/interest")
+    suspend fun getUserFavoriteStocks(
+        @Path("userId") userId: Long
+    ): List<UserFavoriteStockDto>
+    
+    /**
+     * 관심종목 토글 (새로운 API)
+     */
+    @POST("api/users/{userId}/interest/toggle")
+    suspend fun toggleFavoriteStock(
+        @Path("userId") userId: Long,
+        @Query("code") stockCode: String
+    ): Unit
 
     /**
      * 계좌 초기화 (신규 가입시 ACCOUNTS 테이블 생성)
@@ -349,4 +366,12 @@ interface ChartApiService {
         @Query("fromDateTime") fromDateTime: String,
         @Query("toDateTime") toDateTime: String
     ): List<StockPriceDataDto>
+    
+    /**
+     * 차트 패턴 분석
+     */
+    @POST("api/charts/pattern-analysis")
+    suspend fun analyzeChartPattern(
+        @Body request: PatternAnalysisRequest
+    ): List<PatternAnalysisResponse>
 }

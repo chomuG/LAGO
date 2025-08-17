@@ -1,6 +1,7 @@
 package com.lago.app.domain.usecase
 
-import com.lago.app.domain.entity.PatternAnalysisResult
+import com.lago.app.data.remote.dto.PatternAnalysisRequest
+import com.lago.app.data.remote.dto.PatternAnalysisResponse
 import com.lago.app.domain.repository.ChartRepository
 import com.lago.app.util.Resource
 import kotlinx.coroutines.flow.Flow
@@ -10,16 +11,8 @@ class AnalyzeChartPatternUseCase @Inject constructor(
     private val chartRepository: ChartRepository
 ) {
     suspend operator fun invoke(
-        stockCode: String,
-        timeFrame: String,
-        startTime: String? = null,
-        endTime: String? = null
-    ): Flow<Resource<PatternAnalysisResult>> {
-        return chartRepository.analyzeChartPattern(
-            stockCode = stockCode,
-            timeFrame = timeFrame,
-            startTime = startTime,
-            endTime = endTime
-        )
+        request: PatternAnalysisRequest
+    ): Flow<Resource<List<PatternAnalysisResponse>>> {
+        return chartRepository.analyzeChartPattern(request)
     }
 }

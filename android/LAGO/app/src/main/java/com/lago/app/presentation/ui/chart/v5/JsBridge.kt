@@ -5,8 +5,6 @@ import android.webkit.JavascriptInterface
 import org.json.JSONObject
 import com.google.gson.Gson
 import java.util.ArrayDeque
-import java.text.SimpleDateFormat
-import java.util.*
 
 // 기존 호환성을 위한 원래 데이터 구조 유지
 data class Candle(val time: Long, val open: Int, var high: Int, var low: Int, var close: Int)
@@ -16,24 +14,31 @@ data class VolumeBar(val time: Long, val value: Long)
 data class CandleData(val time: Long, val open: Float, val high: Float, val low: Float, val close: Float)
 data class VolumeData(val time: Long, val value: Long, val color: String? = null)
 
+// 패턴 분석 리스너 (새 방식)
+interface PatternListener {
+    fun onPatternVisibleRange(fromEpochSec: Long, toEpochSec: Long)
+    fun onPatternVisibleRangeError(msg: String)
+}
+
 // 무한 히스토리 데이터 요청 리스너
 interface HistoricalDataRequestListener {
     fun onRequestHistoricalData(barsToLoad: Int)
 }
 
 class JsBridge(
-    private val webView: WebView, 
+    private val webView: WebView,
     private val gson: Gson = Gson(),
-    private val historicalDataListener: HistoricalDataRequestListener? = null
+    private val historicalDataListener: HistoricalDataRequestListener? = null,
+    private val patternListener: PatternListener? = null
 ) {
     private val queue = ArrayDeque<String>()
     private var ready = false
-    
-    // time 단위 정규화: ms(13자리) → sec(10자리)
-    private fun normalizeSec(t: Long) = if (t > 9_999_999_999L) t / 1000 else t
+    private var version: Long = 0
 
     fun markReady() {
         ready = true
+        version = System.currentTimeMillis()
+        android.util.Log.d("JsBridge", "markReady() called - version: $version, queue size: ${queue.size}")
         while (queue.isNotEmpty()) {
             eval(queue.removeFirst())
         }
@@ -41,143 +46,370 @@ class JsBridge(
 
     /**
      * 차트 초기 데이터 설정 (TradingView 권장: series.setData())
+     * ChartTimeManager를 사용하여 시간 정규화
      */
     fun setInitialData(candles: List<CandleData>, volumes: List<VolumeData> = emptyList()) {
         android.util.Log.d("JsBridge", "🔥 setInitialData 호출: ${candles.size}개 캔들, ${volumes.size}개 거래량")
-        
-        // time 정규화 적용
-        val cc = candles.map { it.copy(time = normalizeSec(it.time)) }
-        val vv = volumes.map { it.copy(time = normalizeSec(it.time)) }
-        
-        if (cc.isNotEmpty()) {
-            android.util.Log.d("JsBridge", "🔥 첫 캔들(정규화): time=${cc.first().time}, close=${cc.first().close}")
-            android.util.Log.d("JsBridge", "🔥 마지막 캔들(정규화): time=${cc.last().time}, close=${cc.last().close}")
+        android.util.Log.d("JsBridge", "🔥 ready 상태: $ready")
+
+        // ChartTimeManager를 사용하여 시간 정규화
+        val normalizedCandles = candles.map { candle ->
+            val normalizedTime = ChartTimeManager.normalizeToEpochSeconds(candle.time)
+            ChartTimeManager.debugTimeInfo("Initial Candle", candle.time)
+            candle.copy(time = normalizedTime)
         }
-        
-        val candlesJson = gson.toJson(cc)
-        val volumesJson = gson.toJson(vv)
-        
+
+        val normalizedVolumes = volumes.map { volume ->
+            val normalizedTime = ChartTimeManager.normalizeToEpochSeconds(volume.time)
+            volume.copy(time = normalizedTime)
+        }
+
+        if (normalizedCandles.isNotEmpty()) {
+            android.util.Log.d("JsBridge", "🔥 첫 캔들(정규화): time=${normalizedCandles.first().time}, close=${normalizedCandles.first().close}")
+            android.util.Log.d("JsBridge", "🔥 마지막 캔들(정규화): time=${normalizedCandles.last().time}, close=${normalizedCandles.last().close}")
+        }
+
+        val candlesJson = gson.toJson(normalizedCandles)
+        val volumesJson = gson.toJson(normalizedVolumes)
+
         android.util.Log.d("JsBridge", "🔥 JSON 변환 완료 - 캔들 JSON 길이: ${candlesJson.length}, 거래량 JSON 길이: ${volumesJson.length}")
-        android.util.Log.v("JsBridge", "🔥 캔들 JSON 샘플: ${candlesJson.take(200)}...")
-        
+
         val jsCommand = """window.setSeriesData(${candlesJson.quote()}, ${volumesJson.quote()})"""
-        android.util.Log.d("JsBridge", "🔥 JavaScript 명령 실행: ${jsCommand.take(100)}...")
-        enqueue(jsCommand)
+        enqueueOrEval(jsCommand)
     }
 
     /**
      * 실시간 데이터 업데이트 (TradingView 권장: series.update())
      * 동일 time = 현재 바 덮어쓰기, 새로운 time = 새 바 추가
+     * ChartTimeManager를 사용하여 버킷 시간 계산
      */
-    fun updateRealTimeBar(bar: CandleData) {
-        val b = bar.copy(time = normalizeSec(bar.time))
-        val barJson = gson.toJson(b)
-        enqueue("""window.updateRealTimeBar(${barJson.quote()})""")
+    fun updateRealTimeBar(bar: CandleData, timeFrame: String) {
+        val normalizedTime = ChartTimeManager.normalizeToEpochSeconds(bar.time)
+        val bucketTime = ChartTimeManager.getBucketStartTime(normalizedTime, timeFrame)
+
+        ChartTimeManager.debugTimeInfo("RealTime Bar", bar.time, timeFrame)
+
+        val bucketBar = bar.copy(time = bucketTime)
+        val barJson = gson.toJson(bucketBar)
+        enqueueOrEval("""window.updateRealTimeBar(${barJson.quote()})""")
     }
 
-    fun updateRealTimeVolume(vol: VolumeData) {
-        val v = vol.copy(time = normalizeSec(vol.time))
-        val volJson = gson.toJson(v)
-        enqueue("""window.updateRealTimeVolume(${volJson.quote()})""")
+    fun updateRealTimeVolume(vol: VolumeData, timeFrame: String) {
+        val normalizedTime = ChartTimeManager.normalizeToEpochSeconds(vol.time)
+        val bucketTime = ChartTimeManager.getBucketStartTime(normalizedTime, timeFrame)
+
+        val bucketVolume = vol.copy(time = bucketTime)
+        val volJson = gson.toJson(bucketVolume)
+        enqueueOrEval("""window.updateRealTimeVolume(${volJson.quote()})""")
     }
 
-    // 기존 호환성을 위한 래퍼 메서드들
+    // 기존 호환성을 위한 래퍼 메서드들 (ChartTimeManager 적용)
     fun setLegacyInitialData(candles: List<Candle>, volumes: List<VolumeBar> = emptyList()) {
-        val cc = candles.map { 
-            CandleData(normalizeSec(it.time), it.open.toFloat(), it.high.toFloat(), it.low.toFloat(), it.close.toFloat()) 
+        val convertedCandles = candles.map { candle ->
+            val normalizedTime = ChartTimeManager.normalizeToEpochSeconds(candle.time)
+            CandleData(normalizedTime, candle.open.toFloat(), candle.high.toFloat(), candle.low.toFloat(), candle.close.toFloat())
         }
-        val vv = volumes.map { VolumeData(normalizeSec(it.time), it.value) }
-        setInitialData(cc, vv)
+        val convertedVolumes = volumes.map { volume ->
+            val normalizedTime = ChartTimeManager.normalizeToEpochSeconds(volume.time)
+            VolumeData(normalizedTime, volume.value)
+        }
+        setInitialData(convertedCandles, convertedVolumes)
     }
 
-    fun updateBar(bar: Candle) {
-        // time을 epoch seconds로 변환 (JavaScript에서 숫자로 받을 수 있도록)
-        val epochSeconds = if (bar.time > 9999999999L) bar.time / 1000 else bar.time
-        updateRealTimeBar(CandleData(epochSeconds, bar.open.toFloat(), bar.high.toFloat(), bar.low.toFloat(), bar.close.toFloat()))
+    fun updateBar(bar: Candle, timeFrame: String = "D") {
+        val normalizedTime = ChartTimeManager.normalizeToEpochSeconds(bar.time)
+        val bucketTime = ChartTimeManager.getBucketStartTime(normalizedTime, timeFrame)
+
+        updateRealTimeBar(
+            CandleData(bucketTime, bar.open.toFloat(), bar.high.toFloat(), bar.low.toFloat(), bar.close.toFloat()),
+            timeFrame
+        )
     }
 
-    fun updateVolume(vol: VolumeBar) {
-        // time을 epoch seconds로 변환 (JavaScript에서 숫자로 받을 수 있도록)
-        val epochSeconds = if (vol.time > 9999999999L) vol.time / 1000 else vol.time
-        updateRealTimeVolume(VolumeData(epochSeconds, vol.value))
+    fun updateVolume(vol: VolumeBar, timeFrame: String = "D") {
+        val normalizedTime = ChartTimeManager.normalizeToEpochSeconds(vol.time)
+        val bucketTime = ChartTimeManager.getBucketStartTime(normalizedTime, timeFrame)
+
+        updateRealTimeVolume(VolumeData(bucketTime, vol.value), timeFrame)
     }
 
     fun updateSymbolName(symbolName: String) {
-        enqueue("""window.updateSymbolName('${symbolName.replace("'", "\\'")}')""")
+        enqueueOrEval("""window.updateSymbolName('${symbolName.replace("'", "\\'")}')""")
     }
-
 
     fun setTradeMarkers(markersJson: String) {
         val escapedJson = markersJson.replace("'", "\\'").replace("\"", "\\\"")
-        enqueue("""window.setTradeMarkers('$escapedJson')""")
+        enqueueOrEval("""window.setTradeMarkers('$escapedJson')""")
     }
 
     fun clearTradeMarkers() {
-        enqueue("""window.clearTradeMarkers()""")
+        enqueueOrEval("""window.clearTradeMarkers()""")
     }
 
-    /**
-     * 메인 패널 오버레이 지표 동적 업데이트 (재생성 없이)
-     * 재생성 방식에서는 불필요하지만 향후 최적화를 위해 유지
-     */
-    fun updateSMA5(data: List<com.lago.app.presentation.ui.chart.v5.ChartData>) {
-        val json = if (data.isEmpty()) "[]" else gson.toJson(data)
-        enqueue("""window.seriesMap.sma5?.setData($json)""")
+    // 메인 패널 오버레이 지표 동적 업데이트
+    fun updateSMA5(data: List<ChartData>) {
+        val normalizedData = data.map { item ->
+            item.copy(time = ChartTimeManager.normalizeToEpochSeconds(item.time))
+        }
+        val json = if (normalizedData.isEmpty()) "[]" else gson.toJson(normalizedData)
+        enqueueOrEval("""window.seriesMap.sma5?.setData($json)""")
     }
 
-    fun updateSMA20(data: List<com.lago.app.presentation.ui.chart.v5.ChartData>) {
-        val json = if (data.isEmpty()) "[]" else gson.toJson(data)
-        enqueue("""window.seriesMap.sma20?.setData($json)""")
+    fun updateSMA20(data: List<ChartData>) {
+        val normalizedData = data.map { item ->
+            item.copy(time = ChartTimeManager.normalizeToEpochSeconds(item.time))
+        }
+        val json = if (normalizedData.isEmpty()) "[]" else gson.toJson(normalizedData)
+        enqueueOrEval("""window.seriesMap.sma20?.setData($json)""")
     }
 
-    fun updateBollingerBands(upperBand: List<com.lago.app.presentation.ui.chart.v5.ChartData>, middleBand: List<com.lago.app.presentation.ui.chart.v5.ChartData>, lowerBand: List<com.lago.app.presentation.ui.chart.v5.ChartData>) {
-        val upperJson = if (upperBand.isEmpty()) "[]" else gson.toJson(upperBand)
-        val middleJson = if (middleBand.isEmpty()) "[]" else gson.toJson(middleBand)
-        val lowerJson = if (lowerBand.isEmpty()) "[]" else gson.toJson(lowerBand)
-        
-        enqueue("""
+    fun updateBollingerBands(upperBand: List<ChartData>, middleBand: List<ChartData>, lowerBand: List<ChartData>) {
+        val normalizedUpper = upperBand.map { item ->
+            item.copy(time = ChartTimeManager.normalizeToEpochSeconds(item.time))
+        }
+        val normalizedMiddle = middleBand.map { item ->
+            item.copy(time = ChartTimeManager.normalizeToEpochSeconds(item.time))
+        }
+        val normalizedLower = lowerBand.map { item ->
+            item.copy(time = ChartTimeManager.normalizeToEpochSeconds(item.time))
+        }
+
+        val upperJson = if (normalizedUpper.isEmpty()) "[]" else gson.toJson(normalizedUpper)
+        val middleJson = if (normalizedMiddle.isEmpty()) "[]" else gson.toJson(normalizedMiddle)
+        val lowerJson = if (normalizedLower.isEmpty()) "[]" else gson.toJson(normalizedLower)
+
+        enqueueOrEval("""
             window.seriesMap.bb_upper?.setData($upperJson);
             window.seriesMap.bb_middle?.setData($middleJson);
             window.seriesMap.bb_lower?.setData($lowerJson);
         """.trimIndent())
     }
-    
+
     // 무한 히스토리 관련 메서드들
     @JavascriptInterface
     fun requestHistoricalData(barsToLoad: Int) {
         historicalDataListener?.onRequestHistoricalData(barsToLoad)
     }
-    
+
+    // ===== 패턴 분석 관련 메서드들 =====
+
+    interface PatternAnalysisListener {
+        fun onAnalyzePatternInRange(fromTime: String, toTime: String)
+        fun onPatternAnalysisError(message: String)
+        fun onPatternAnalysisComplete(patternName: String, description: String)
+    }
+
+    private var patternAnalysisListener: PatternAnalysisListener? = null
+
+    fun setPatternAnalysisListener(listener: PatternAnalysisListener?) {
+        this.patternAnalysisListener = listener
+    }
+
+    @JavascriptInterface
+    fun analyzePatternInRange(fromTime: String, toTime: String) {
+        android.util.Log.d("JsBridge", "📊 패턴 분석 요청: $fromTime ~ $toTime")
+        patternAnalysisListener?.onAnalyzePatternInRange(fromTime, toTime)
+    }
+
+    @JavascriptInterface
+    fun onPatternAnalysisError(message: String) {
+        android.util.Log.w("JsBridge", "📊 패턴 분석 에러: $message")
+        patternAnalysisListener?.onPatternAnalysisError(message)
+    }
+
+    @JavascriptInterface
+    fun onPatternAnalysisComplete(patternName: String, description: String) {
+        android.util.Log.d("JsBridge", "📊 패턴 분석 완료: $patternName - $description")
+        patternAnalysisListener?.onPatternAnalysisComplete(patternName, description)
+    }
+
     /**
-     * 무한 히스토리 데이터 추가 (TradingView 권장: 기존 데이터와 병합 후 setData)
-     * @param historicalCandles 과거 캔들 데이터 (시간순 정렬됨)
-     * @param historicalVolumes 과거 거래량 데이터 (옵션)
+     * 차트에서 보이는 영역의 시간 범위를 요청하는 개선된 메서드
+     * ChartTimeManager를 사용하여 시간 처리 통일화
+     */
+    fun requestVisibleRange(callback: (fromTime: String?, toTime: String?) -> Unit) {
+        val jsCommand = """
+            (function() {
+                try {
+                    const range = window.getVisibleRange();
+                    if (range && range.from && range.to) {
+                        return JSON.stringify(range);
+                    } else {
+                        return null;
+                    }
+                } catch (error) {
+                    console.error('getVisibleRange 실패:', error);
+                    return null;
+                }
+            })();
+        """.trimIndent()
+
+        webView.post {
+            webView.evaluateJavascript(jsCommand) { result ->
+                try {
+                    if (result != null && result != "null" && result.startsWith("{")) {
+                        val cleanResult = result.replace("\"", "")
+                        val jsonObject = org.json.JSONObject(cleanResult)
+                        val fromTime = jsonObject.optString("from")
+                        val toTime = jsonObject.optString("to")
+
+                        if (fromTime.isNotEmpty() && toTime.isNotEmpty()) {
+                            // ChartTimeManager를 사용하여 시간 검증
+                            try {
+                                val fromEpoch = ChartTimeManager.normalizeToEpochSeconds(fromTime.toLong())
+                                val toEpoch = ChartTimeManager.normalizeToEpochSeconds(toTime.toLong())
+                                ChartTimeManager.debugTimeInfo("Visible Range From", fromEpoch)
+                                ChartTimeManager.debugTimeInfo("Visible Range To", toEpoch)
+                                callback(fromEpoch.toString(), toEpoch.toString())
+                            } catch (e: NumberFormatException) {
+                                android.util.Log.e("JsBridge", "시간 파싱 실패: $fromTime, $toTime", e)
+                                callback(null, null)
+                            }
+                        } else {
+                            callback(null, null)
+                        }
+                    } else {
+                        callback(null, null)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("JsBridge", "보이는 영역 파싱 실패", e)
+                    callback(null, null)
+                }
+            }
+        }
+    }
+
+    fun triggerPatternAnalysis() {
+        enqueueOrEval("window.requestPatternAnalysis()")
+    }
+
+    /**
+     * 차트의 보이는 영역에서 패턴 분석을 실행 (개선된 버전)
+     */
+    fun analyzePatternInVisibleRange() {
+        android.util.Log.d("JsBridge", "analyzePatternInVisibleRange() called")
+        android.util.Log.d("JsBridge", "ready state: $ready")
+
+        val jsFunction = """
+            (function() {
+                try {
+                    console.log('LAGO: getVisibleTimeRange 시작');
+                    var c = window.lightweightChart || window.chart; 
+                    if (!c || !c.timeScale) {
+                        console.log('LAGO: 차트 또는 timeScale이 없음');
+                        return null;
+                    }
+                    var r = c.timeScale().getVisibleTimeRange();
+                    if (!r || !r.from || !r.to) {
+                        console.log('LAGO: visible range가 없음');
+                        return null;
+                    }
+                    console.log('LAGO: visible range found:', r.from, r.to);
+                    // 안드로이드 콜백 호출
+                    if (window.ChartBridge && window.ChartBridge.onPatternVisibleRange) {
+                        window.ChartBridge.onPatternVisibleRange(r.from.toString(), r.to.toString());
+                    }
+                    return [r.from, r.to];
+                } catch(e) { 
+                    console.error('LAGO: getVisibleTimeRange 에러:', e);
+                    if (window.ChartBridge && window.ChartBridge.onPatternVisibleRangeError) {
+                        window.ChartBridge.onPatternVisibleRangeError('JavaScript 에러: ' + e.message);
+                    }
+                    return null; 
+                }
+            })();
+        """.trimIndent()
+
+        enqueueOrEval(jsFunction)
+    }
+
+    @JavascriptInterface
+    fun onPatternVisibleRange(fromTime: String, toTime: String) {
+        android.util.Log.d("JsBridge", "onPatternVisibleRange callback: $fromTime ~ $toTime")
+        try {
+            val fromEpoch = ChartTimeManager.normalizeToEpochSeconds(fromTime.toLong())
+            val toEpoch = ChartTimeManager.normalizeToEpochSeconds(toTime.toLong())
+
+            ChartTimeManager.debugTimeInfo("Pattern Analysis From", fromEpoch)
+            ChartTimeManager.debugTimeInfo("Pattern Analysis To", toEpoch)
+
+            patternListener?.onPatternVisibleRange(fromEpoch, toEpoch)
+        } catch (e: Exception) {
+            android.util.Log.e("JsBridge", "시간 파싱 에러", e)
+            patternListener?.onPatternVisibleRangeError("시간 파싱 에러: ${e.message}")
+        }
+    }
+
+    @JavascriptInterface
+    fun onPatternVisibleRangeError(message: String) {
+        android.util.Log.w("JsBridge", "onPatternVisibleRangeError: $message")
+        patternListener?.onPatternVisibleRangeError(message)
+    }
+
+    @JavascriptInterface
+    fun onVisibleRangeAnalysis(fromTime: String, toTime: String) {
+        android.util.Log.d("JsBridge", "📊 [4단계] onVisibleRangeAnalysis 콜백 진입: $fromTime ~ $toTime")
+
+        patternAnalysisListener?.let { listener ->
+            android.util.Log.d("JsBridge", "📊 [4단계] listener 존재 - onAnalyzePatternInRange 호출")
+            listener.onAnalyzePatternInRange(fromTime, toTime)
+        } ?: run {
+            android.util.Log.w("JsBridge", "📊 [4단계] patternAnalysisListener가 null - 분석 진행 불가")
+        }
+    }
+
+    fun displayPatternResult(result: com.lago.app.domain.entity.PatternAnalysisResult) {
+        val resultJson = gson.toJson(mapOf(
+            "stockCode" to result.stockCode,
+            "patterns" to result.patterns,
+            "analysisTime" to result.analysisTime,
+            "chartMode" to result.chartMode,
+            "timeFrame" to result.timeFrame
+        ))
+
+        enqueueOrEval("window.displayPatternResult && window.displayPatternResult(${resultJson.quote()})")
+    }
+
+    /**
+     * 무한 히스토리 데이터 추가 (개선된 버전)
+     * ChartTimeManager를 사용하여 시간 정규화
      */
     fun prependHistoricalData(historicalCandles: List<CandleData>, historicalVolumes: List<VolumeData> = emptyList()) {
-        // time 정규화 적용
-        val cc = historicalCandles.map { it.copy(time = normalizeSec(it.time)) }
-        val vv = historicalVolumes.map { it.copy(time = normalizeSec(it.time)) }
-        
-        val candlesJson = gson.toJson(cc)
-        val volumesJson = gson.toJson(vv)
-        enqueue("""window.prependHistoricalData(${candlesJson.quote()}, ${volumesJson.quote()})""")
+        val normalizedCandles = historicalCandles.map { candle ->
+            val normalizedTime = ChartTimeManager.normalizeToEpochSeconds(candle.time)
+            candle.copy(time = normalizedTime)
+        }
+
+        val normalizedVolumes = historicalVolumes.map { volume ->
+            val normalizedTime = ChartTimeManager.normalizeToEpochSeconds(volume.time)
+            volume.copy(time = normalizedTime)
+        }
+
+        val candlesJson = gson.toJson(normalizedCandles)
+        val volumesJson = gson.toJson(normalizedVolumes)
+        enqueueOrEval("""window.prependHistoricalData(${candlesJson.quote()}, ${volumesJson.quote()})""")
     }
 
     @Deprecated("Use prependHistoricalData instead")
     fun addHistoricalData(historicalDataJson: String) {
         val escapedJson = historicalDataJson.replace("'", "\\'").replace("\"", "\\\"")
-        enqueue("""window.addHistoricalData('$escapedJson')""")
+        enqueueOrEval("""window.addHistoricalData('$escapedJson')""")
     }
 
-    private fun enqueue(script: String) {
+    /**
+     * JS 실행 전 ready 상태 확인 및 큐 관리
+     */
+    private fun enqueueOrEval(script: String) {
         if (!ready) {
             queue.addLast(script)
+            android.util.Log.d("JsBridge", "큐에 저장: ${script.take(50)}... (큐 크기: ${queue.size})")
             return
         }
         eval(script)
     }
 
     private fun eval(script: String) {
+        android.util.Log.v("JsBridge", "JS 실행: ${script.take(100)}...")
         webView.post { webView.evaluateJavascript(script, null) }
     }
 
@@ -185,35 +417,28 @@ class JsBridge(
 
     companion object {
         /**
-         * TradingView 차트 시간 포맷 변환 유틸리티
+         * TradingView 차트 시간 포맷 변환 유틸리티 (Deprecated)
+         * ChartTimeManager 사용 권장
          */
+        @Deprecated("Use ChartTimeManager instead")
         object TimeUtils {
-            private val dailyFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            
-            /**
-             * 일봉용 시간 변환: Unix timestamp → 'YYYY-MM-DD' 문자열
-             */
             fun formatDailyTime(unixTimestamp: Long): String {
-                return dailyFormat.format(Date(unixTimestamp))
+                return ChartTimeManager.formatForDisplay(
+                    ChartTimeManager.normalizeToEpochSeconds(unixTimestamp),
+                    false
+                )
             }
-            
-            /**
-             * 분/초봉용 시간 변환: Unix milliseconds → Unix seconds
-             */
+
             fun formatIntraTime(unixMillis: Long): Long {
-                return unixMillis / 1000
+                return ChartTimeManager.normalizeToEpochSeconds(unixMillis)
             }
-            
-            /**
-             * 타임프레임에 따른 자동 시간 변환
-             * @param timestamp Unix milliseconds
-             * @param timeFrame 차트 타임프레임 ("D", "1", "3", "5" 등)
-             * @return 일봉이면 String, 분/초봉이면 Long
-             */
+
             fun formatTimeForChart(timestamp: Long, timeFrame: String): Any {
-                return when (timeFrame) {
-                    "D", "W", "M", "Y" -> formatDailyTime(timestamp) // 일봉 이상
-                    else -> formatIntraTime(timestamp) // 분/초봉
+                val normalized = ChartTimeManager.normalizeToEpochSeconds(timestamp)
+                return if (ChartTimeManager.isDailyOrAbove(timeFrame)) {
+                    ChartTimeManager.formatForDisplay(normalized, false)
+                } else {
+                    normalized
                 }
             }
         }

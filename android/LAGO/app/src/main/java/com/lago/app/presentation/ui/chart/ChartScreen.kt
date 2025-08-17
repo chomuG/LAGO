@@ -81,7 +81,7 @@ import com.lago.app.domain.entity.ChartStockInfo
 import com.lago.app.domain.entity.MACDResult
 import com.lago.app.domain.entity.BollingerBandsResult
 import com.lago.app.domain.entity.PatternAnalysisResult
-import com.lago.app.domain.entity.PatternItem
+import com.lago.app.data.remote.dto.PatternAnalysisResponse
 import com.lago.app.domain.entity.SignalSource
 // ViewModel imports
 import com.lago.app.presentation.viewmodel.chart.ChartViewModel
@@ -574,10 +574,20 @@ fun ChartScreen(
                     onWebViewReady = { webViewInstance ->
                         chartWebView = webViewInstance
                         
-                        // JsBridge 생성 및 저장
+                        // JsBridge 생성 및 저장 (새 방식: PatternListener 추가)
                         val bridge = com.lago.app.presentation.ui.chart.v5.JsBridge(
                             webView = webViewInstance,
-                            historicalDataListener = viewModel
+                            historicalDataListener = viewModel,
+                            patternListener = object : com.lago.app.presentation.ui.chart.v5.PatternListener {
+                                override fun onPatternVisibleRange(fromEpochSec: Long, toEpochSec: Long) {
+                                    android.util.Log.d("Pattern", "range: $fromEpochSec ~ $toEpochSec")
+                                    viewModel.analyzePatternInRange(fromEpochSec.toString(), toEpochSec.toString())
+                                }
+                                override fun onPatternVisibleRangeError(msg: String) {
+                                    android.util.Log.w("Pattern", "range error: $msg")
+                                    // 필요하면 토스트/스낵바
+                                }
+                            }
                         )
                         chartBridge = bridge
                         viewModel.setChartBridge(bridge)
@@ -1187,7 +1197,10 @@ private fun BottomSheetContent(
                     lastPatternAnalysis = uiState.patternAnalysis,
                     isPatternAnalyzing = uiState.isPatternAnalyzing,
                     patternAnalysisError = uiState.patternAnalysisError,
-                    onAnalyzeClick = { viewModel.onEvent(ChartUiEvent.AnalyzePattern) }
+                    onAnalyzeClick = { 
+                        android.util.Log.d("Pattern", "Analyze button clicked")
+                        viewModel.onEvent(ChartUiEvent.AnalyzePattern) 
+                    }
                 )
             }
         }
@@ -1520,7 +1533,7 @@ private fun PatternAnalysisWithResults(
             Spacer(modifier = Modifier.height(32.dp))
             Button(
                 onClick = onAnalyzeClick,
-                enabled = patternAnalysisCount < maxPatternAnalysisCount,
+                enabled = patternAnalysisCount > 0,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -1570,7 +1583,7 @@ private fun PatternAnalysisEmpty(
         // 분석하기 버튼
         Button(
             onClick = onAnalyzeClick,
-            enabled = patternAnalysisCount < maxPatternAnalysisCount,
+            enabled = patternAnalysisCount > 0,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
@@ -1591,7 +1604,7 @@ private fun PatternAnalysisEmpty(
 
 @Composable
 private fun PatternResultItem(
-    pattern: PatternItem,
+    pattern: PatternAnalysisResponse,
     isLastItem: Boolean = false
 ) {
     Column {
@@ -1610,7 +1623,7 @@ private fun PatternResultItem(
             )
             
             Text(
-                text = pattern.patternName,
+                text = pattern.name,
                 style = TitleB24,
                 color = Gray900
             )
@@ -1618,7 +1631,7 @@ private fun PatternResultItem(
 
         // 패턴 설명 (아이콘 + 간격만큼 들여쓰기)
         Text(
-            text = pattern.description,
+            text = pattern.reason,
             style = BodyR20,
             color = Gray700,
             lineHeight = 28.sp,

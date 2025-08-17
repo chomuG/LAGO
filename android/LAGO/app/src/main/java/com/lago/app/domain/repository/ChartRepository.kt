@@ -97,11 +97,8 @@ interface ChartRepository {
      * 차트 패턴 분석
      */
     suspend fun analyzeChartPattern(
-        stockCode: String,
-        timeFrame: String,
-        startTime: String? = null,
-        endTime: String? = null
-    ): Flow<Resource<PatternAnalysisResult>>
+        request: com.lago.app.data.remote.dto.PatternAnalysisRequest
+    ): Flow<Resource<List<com.lago.app.data.remote.dto.PatternAnalysisResponse>>>
 
     // ===== 역사챌린지 관련 메서드 =====
 

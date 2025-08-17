@@ -1,7 +1,7 @@
 [versions]
 agp = "8.10.1"
 kotlin = "2.0.21"
-ksp = "2.0.21-1.0.28"
+ksp = "2.0.21-1.0.25"
 coreKtx = "1.10.1"
 junit = "4.13.2"
 junitVersion = "1.1.5"
@@ -10,11 +10,13 @@ appcompat = "1.6.1"
 material = "1.10.0"
 activity = "1.8.0"
 constraintlayout = "2.1.4"
-hilt = "2.48"
+hilt = "2.56.1"
+androidx-hilt = "1.2.0"
 cameraCore = "1.4.2"
 firebaseSessions = "3.0.0"
 media3CommonKtx = "1.8.0"
 lifecycleRuntimeComposeAndroid = "2.9.2"
+playServicesAuthBase = "18.3.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -29,6 +31,7 @@ androidx-lifecycle-runtime-compose-android = { group = "androidx.lifecycle", nam
 androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraCore" }
 firebase-sessions = { group = "com.google.firebase", name = "firebase-sessions", version.ref = "firebaseSessions" }
 androidx-media3-common-ktx = { group = "androidx.media3", name = "media3-common-ktx", version.ref = "media3CommonKtx" }
+play-services-auth-base = { group = "com.google.android.gms", name = "play-services-auth-base", version.ref = "playServicesAuthBase" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

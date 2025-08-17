@@ -77,7 +77,7 @@ import com.lago.app.domain.entity.ChartStockInfo
 import com.lago.app.domain.entity.MACDResult
 import com.lago.app.domain.entity.BollingerBandsResult
 import com.lago.app.domain.entity.PatternAnalysisResult
-import com.lago.app.domain.entity.PatternItem
+import com.lago.app.data.remote.dto.PatternAnalysisResponse
 import com.lago.app.domain.entity.SignalSource
 // ViewModel imports
 import com.lago.app.presentation.viewmodel.chart.ChartUiEvent
@@ -149,15 +149,15 @@ fun HistoryChallengeChartScreen(
     val screenHeight = configuration.screenHeightDp.dp
     val screenWidth = configuration.screenWidthDp.dp
     val coroutineScope = rememberCoroutineScope()
-    
+
     // 로딩 진행도 상태
     var loadingProgress by remember { mutableStateOf(0) }
-    
+
     // Device classification
     val isCompactScreen = screenWidth < 400.dp || screenHeight < 700.dp
     val isLargeScreen = screenWidth > 600.dp
     val isTablet = screenWidth > 700.dp && screenHeight > 900.dp
-    
+
     // Screen configuration based on device type - 네비게이션 바 없어서 차트 영역 증가
     val screenConfig = when {
         isCompactScreen -> ScreenConfig(
@@ -201,7 +201,7 @@ fun HistoryChallengeChartScreen(
             timeButtonHeight = 48.dp
         )
     }
-    
+
     // 시스템 바 높이 계산 (먼저 정의)
     val systemNavBarHeight = with(density) {
         WindowInsets.navigationBars.getBottom(density).toDp()
@@ -209,7 +209,7 @@ fun HistoryChallengeChartScreen(
     val statusBarHeight = with(density) {
         WindowInsets.statusBars.getTop(density).toDp()
     }
-    
+
     // Safe zones - 앱바는 원래 위치 유지
     val safeZones = SafeZones(
         top = 60.dp, // AppBar height only (상태표시줄 제외)
@@ -238,7 +238,7 @@ fun HistoryChallengeChartScreen(
     // Y 위치를 픽셀로 계산
     val screenHeightPx = with(density) { screenHeight.toPx() }
     val buttonBarHeightPx = with(density) { buttonBarHeight.toPx() }
-    
+
     // Dynamic chart height calculation
     fun calculateDynamicChartHeight(bottomSheetProgress: Float): Dp {
         val baseHeight = screenHeight * screenConfig.chartBaseHeightRatio
@@ -251,22 +251,22 @@ fun HistoryChallengeChartScreen(
     val sheetPositions = remember(screenHeightPx, density, isCompactScreen, systemNavBarHeight, statusBarHeight) {
         object {
             val tabHeight = if (isCompactScreen) 40.dp else 44.dp
-            
+
             // 정확한 구매/판매 버튼 박스 높이 계산
             val buttonHeight = if (isCompactScreen) 44.dp else 48.dp
             val verticalPadding = if (isCompactScreen) 8.dp else 12.dp // Spacing.sm, Spacing.sm+xs
             val actualBuyButtonBoxHeight = buttonHeight + (verticalPadding * 2)
-            
+
             // 드래그 핸들 영역 높이 (padding + handle)
             val dragHandleAreaHeight = 12.dp + 8.dp + 4.dp // top + bottom + handle = 24dp
-            
+
             // Tab indicator 높이 (선택된 탭 밑줄) + 여유공간
             val tabIndicatorHeight = 2.dp + 2.dp // indicator + 추가 여유공간
-            
+
             // collapsed: 바텀시트 상단이 구매/판매 버튼 바로 위에 위치하도록 (시스템 네비게이션 바 위)
             // 상태표시줄 패딩만큼 위로 올려줌
-            val collapsed = screenHeightPx - with(density) { 
-                (statusBarHeight + systemNavBarHeight + actualBuyButtonBoxHeight + tabHeight + tabIndicatorHeight + dragHandleAreaHeight).toPx() 
+            val collapsed = screenHeightPx - with(density) {
+                (statusBarHeight + systemNavBarHeight + actualBuyButtonBoxHeight + tabHeight + tabIndicatorHeight + dragHandleAreaHeight).toPx()
             }
             val halfExpanded = screenHeightPx - with(density) { (halfExpandedHeight + statusBarHeight).toPx() } - buttonBarHeightPx
             // expanded: 앱바 바로 아래에 완전히 붙이기
@@ -433,7 +433,7 @@ fun HistoryChallengeChartScreen(
             // 현재 바텀시트의 상단 위치 (실시간)
             val currentBottomSheetTop = sheetAnimY.value.toDp()
             val halfExpandedTop = sheetPositions.halfExpanded.toDp()
-            
+
             // 중단 위치보다 위에 있으면 중단 높이로 고정
             if (currentBottomSheetTop <= halfExpandedTop) {
                 // 중단 이상: 중단 위치에서 고정
@@ -443,7 +443,7 @@ fun HistoryChallengeChartScreen(
                 (currentBottomSheetTop - safeZones.top).coerceAtLeast(200.dp)
             }
         }
-        
+
         // Column을 항상 앱바 아래에 고정 (방법 2)
         Column(
             modifier = Modifier
@@ -498,7 +498,7 @@ fun HistoryChallengeChartScreen(
 
             // 차트와 시간버튼 사이 간격
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // 시간버튼 영역
             TimeFrameSelection(
                 selectedTimeFrame = uiState.config.timeFrame,
@@ -1322,19 +1322,19 @@ private fun PatternAnalysisWithResults(
                 modifier = Modifier.padding(bottom = 32.dp)
             )
         }
-        
+
         // 패턴 목록
         itemsIndexed(patternAnalysis.patterns) { index, pattern ->
             PatternResultItem(
                 pattern = pattern,
                 isLastItem = index == patternAnalysis.patterns.size - 1
             )
-            
+
             if (index < patternAnalysis.patterns.size - 1) {
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
-        
+
         item {
             Spacer(modifier = Modifier.height(40.dp))
             // 다시 분석하기 버튼
@@ -1379,7 +1379,7 @@ private fun PatternAnalysisEmpty(
             color = Gray700,
             modifier = Modifier.padding(bottom = 8.dp)
         )
-        
+
         Text(
             text = "차트 패턴을 분석해보세요!",
             style = BodyR16,
@@ -1411,7 +1411,7 @@ private fun PatternAnalysisEmpty(
 
 @Composable
 private fun PatternResultItem(
-    pattern: PatternItem,
+    pattern: PatternAnalysisResponse,
     isLastItem: Boolean = false
 ) {
     Column {
@@ -1428,9 +1428,9 @@ private fun PatternResultItem(
                     .size(20.dp) // 24sp 타이틀의 절반 정도로 크게 조정
                     .padding(end = 12.dp)
             )
-            
+
             Text(
-                text = pattern.patternName,
+                text = pattern.name,
                 style = TitleB24,
                 color = Gray900
             )
@@ -1438,7 +1438,7 @@ private fun PatternResultItem(
 
         // 패턴 설명 (아이콘 + 간격만큼 들여쓰기)
         Text(
-            text = pattern.description,
+            text = pattern.reason,
             style = BodyR20,
             color = Gray700,
             lineHeight = 28.sp,
@@ -1500,7 +1500,7 @@ private fun PatternAnalysisError(
             color = Gray800,
             modifier = Modifier.padding(bottom = 8.dp)
         )
-        
+
         Text(
             text = error,
             style = BodyR14,
