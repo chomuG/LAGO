@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-LAGO는 주식 교육 및 모의투자 Android 앱입니다. 사용자에게 차트 패턴 학습, 퀴즈, 모의투자, AI 매매봇, 뉴스 등의 기능을 제공하며, 커스터마이징된 TradingView 차트 라이브러리를 통합한 고급 차트 분석 시스템을 제공합니다.
+LAGO는 주식 교육 및 모의투자 Android 앱입니다. 
+
+사용자에게 차트 패턴 학습, 퀴즈, 모의투자, AI 매매봇, 뉴스 등의 기능을 제공하며, 커스터마이징된 TradingView 차트 라이브러리를 통합한 고급 차트 분석 시스템을 제공합니다.
 
 ## Development Commands
 

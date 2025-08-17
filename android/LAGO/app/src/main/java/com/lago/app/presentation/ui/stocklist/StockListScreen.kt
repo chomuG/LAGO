@@ -35,6 +35,7 @@ import com.lago.app.presentation.viewmodel.stocklist.SortType
 import com.lago.app.domain.entity.StockItem
 import com.lago.app.domain.entity.News
 import com.lago.app.domain.entity.HistoryChallengeStock
+import com.lago.app.domain.entity.HistoryChallengeNews
 import com.lago.app.presentation.ui.components.NewsCard
 import com.lago.app.presentation.ui.components.SimpleNewsCard
 import com.lago.app.presentation.ui.components.CircularStockLogo
@@ -234,55 +235,54 @@ fun StockListScreen(
                             )
                         }
                         
-                        // 더미 뉴스 데이터
-                        val dummyNews = listOf(
-                            News(
-                                newsId = 1,
-                                title = "삼성전자, 3분기 영업이익 전년 동기 대비 277% 증가",
-                                content = "삼성전자가 3분기 실적을 발표하며...",
-                                summary = "{3분기 실적, 영업이익 증가, 반도체 회복}",
-                                publishedAt = "2024-10-31T10:30:00Z",
-                                sentiment = "호재",
-                                type = "da"
-                            ),
-                            News(
-                                newsId = 2,
-                                title = "SK하이닉스, HBM 시장 확대로 주가 상승 전망",
-                                content = "SK하이닉스가 HBM 메모리 시장에서...",
-                                summary = "{HBM 시장, 주가 상승, 메모리 반도체}",
-                                publishedAt = "2024-10-31T09:15:00Z",
-                                sentiment = "호재",
-                                type = "da"
-                            ),
-                            News(
-                                newsId = 3,
-                                title = "현대차, 전기차 판매 부진으로 실적 우려",
-                                content = "현대차의 전기차 판매량이 예상보다...",
-                                summary = "{전기차 판매, 실적 우려, 자동차 산업}",
-                                publishedAt = "2024-10-31T08:45:00Z",
-                                sentiment = "악재",
-                                type = "da"
-                            )
-                        )
-                        
-                        items(dummyNews.size) { index ->
-                            Box(modifier = Modifier.padding(horizontal = Spacing.md)) {
-                                SimpleNewsCard(
-                                    news = dummyNews[index],
-                                    onClick = { onNewsClick(dummyNews[index].newsId) }
-                                )
+                        // 역사적 챌린지 뉴스 데이터
+                        if (uiState.isNewsLoading) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(Spacing.md),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(color = MainBlue)
+                                }
+                            }
+                        } else if (uiState.historyChallengeNews.isNotEmpty()) {
+                            items(uiState.historyChallengeNews.size) { index ->
+                                val challengeNews = uiState.historyChallengeNews[index]
+                                Box(modifier = Modifier.padding(horizontal = Spacing.md)) {
+                                    HistoryChallengeNewsCard(
+                                        news = challengeNews,
+                                        onClick = { onNewsClick(challengeNews.challengeNewsId) }
+                                    )
+                                }
+                                
+                                // 뉴스 카드 간격
+                                if (index < uiState.historyChallengeNews.size - 1) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
                             }
                             
-                            // 뉴스 카드 간격
-                            if (index < dummyNews.size - 1) {
-                                Spacer(modifier = Modifier.height(12.dp))
+                            // 마지막 뉴스 하단 여백
+                            if (uiState.historyChallengeNews.isNotEmpty()) {
+                                item {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
                             }
-                        }
-                        
-                        // 마지막 뉴스 하단 여백
-                        if (dummyNews.isNotEmpty()) {
+                        } else {
                             item {
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(Spacing.md),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "관련 뉴스가 없습니다",
+                                        style = BodyR14,
+                                        color = Gray600
+                                    )
+                                }
                             }
                         }
                     }
@@ -639,4 +639,28 @@ private fun HistoryChallengeStockItem(
 
         // 역사챌린지에서는 하트 아이콘 없음
     }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+private fun HistoryChallengeNewsCard(
+    news: HistoryChallengeNews,
+    onClick: () -> Unit = {}
+) {
+    // HistoryChallengeNews를 News로 변환하여 기존 NewsCard 재사용
+    val newsItem = News(
+        newsId = news.challengeNewsId,
+        title = news.title,
+        content = news.content,
+        summary = "", // 역사적 챌린지 뉴스에는 summary 없음
+        sentiment = "", // 역사적 챌린지 뉴스에는 sentiment 없음
+        publishedAt = news.publishedAt,
+        type = "history_challenge"
+    )
+    
+    NewsCard(
+        news = newsItem,
+        onClick = onClick,
+        showSentiment = false // 호재/악재 표시 안함
+    )
 }

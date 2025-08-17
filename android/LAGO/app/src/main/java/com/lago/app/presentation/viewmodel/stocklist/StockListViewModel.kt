@@ -7,9 +7,12 @@ import androidx.lifecycle.viewModelScope
 import com.lago.app.domain.entity.StockItem
 import com.lago.app.domain.entity.HistoryChallengeStock
 import com.lago.app.domain.entity.CandlestickData
+import com.lago.app.domain.entity.HistoryChallengeNews
 import com.lago.app.domain.repository.StockListRepository
 import com.lago.app.domain.repository.HistoryChallengeRepository
 import com.lago.app.domain.repository.ChartRepository
+import com.lago.app.domain.repository.NewsRepository
+import com.lago.app.domain.usecase.GetHistoryChallengeNewsUseCase
 import com.lago.app.data.remote.websocket.SmartStockWebSocketService
 import com.lago.app.data.scheduler.SmartUpdateScheduler
 import com.lago.app.domain.entity.ScreenType
@@ -46,7 +49,9 @@ data class StockListUiState(
     val stocks: List<StockItem> = emptyList(),
     val filteredStocks: List<StockItem> = emptyList(),
     val historyChallengeStocks: List<HistoryChallengeStock> = emptyList(),
+    val historyChallengeNews: List<HistoryChallengeNews> = emptyList(),
     val isLoading: Boolean = false,
+    val isNewsLoading: Boolean = false,
     val errorMessage: String? = null,
     val currentPage: Int = 0,
     val hasMoreData: Boolean = true,
@@ -62,7 +67,8 @@ class StockListViewModel @Inject constructor(
     private val chartRepository: com.lago.app.domain.repository.ChartRepository,
     private val smartWebSocketService: SmartStockWebSocketService,
     private val smartUpdateScheduler: SmartUpdateScheduler,
-    private val realTimeCache: com.lago.app.data.cache.RealTimeStockCache
+    private val realTimeCache: com.lago.app.data.cache.RealTimeStockCache,
+    private val getHistoryChallengeNewsUseCase: GetHistoryChallengeNewsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StockListUiState())
@@ -78,6 +84,7 @@ class StockListViewModel @Inject constructor(
         // 3. 초기 데이터 로드
         loadStocks()
         loadHistoryChallengeStocks()
+        loadHistoryChallengeNews()
         
         // 4. 역사챌린지 실시간 데이터 업데이트 관제 (예정)
         // observeHistoryChallengeRealTimeData()
@@ -838,5 +845,50 @@ class StockListViewModel @Inject constructor(
         }
         
         return updatedStocks
+    }
+    
+    private fun loadHistoryChallengeNews() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isNewsLoading = true) }
+            
+            try {
+                // 현재 시간을 timestamp로 사용
+                val currentTime = java.time.LocalDateTime.now()
+                val pastDateTime = currentTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"))
+                
+                android.util.Log.d("StockListViewModel", "📰 역사적 챌린지 뉴스 로드 시작 - challengeId: 1, pastDateTime: $pastDateTime")
+                
+                val result = getHistoryChallengeNewsUseCase(challengeId = 1, pastDateTime = pastDateTime)
+                
+                result.fold(
+                    onSuccess = { newsList ->
+                        android.util.Log.d("StockListViewModel", "📰 역사적 챌린지 뉴스 로드 성공: ${newsList.size}개")
+                        _uiState.update { 
+                            it.copy(
+                                historyChallengeNews = newsList,
+                                isNewsLoading = false
+                            )
+                        }
+                    },
+                    onFailure = { error ->
+                        android.util.Log.e("StockListViewModel", "📰 역사적 챌린지 뉴스 로드 실패: ${error.message}")
+                        _uiState.update { 
+                            it.copy(
+                                isNewsLoading = false,
+                                errorMessage = "뉴스를 불러오는데 실패했습니다"
+                            )
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("StockListViewModel", "📰 역사적 챌린지 뉴스 로드 예외", e)
+                _uiState.update { 
+                    it.copy(
+                        isNewsLoading = false,
+                        errorMessage = "뉴스를 불러오는데 실패했습니다: ${e.message}"
+                    )
+                }
+            }
+        }
     }
 }

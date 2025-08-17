@@ -235,7 +235,7 @@ fun LagoApp(
             }
             else -> currentRoute == route
         }
-    } || currentRoute?.startsWith("news_detail") == true
+    } || currentRoute?.startsWith("news_detail") == true || currentRoute?.startsWith("history_challenge_news_detail") == true
 
     val shouldLogicallyShowBottomBar = !shouldHideBottomBar
 

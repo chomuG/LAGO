@@ -17,14 +17,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.draw.clip
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lago.app.R
@@ -207,46 +212,70 @@ private fun NewsDetailContent(
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
-            // News Image
-            Image(
-                painter = painterResource(id = R.drawable.megaphone_image),
-                contentDescription = "뉴스 이미지",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .shadow(
-                        elevation = 4.dp,
-                        shape = RoundedCornerShape(8.dp)
-                    ),
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Image Caption
-            Text(
-                text = "이재용 삼성전자 회장. (사진=연합뉴스)",
-                style = BodyR12,
-                color = Gray700,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // News Content
-            Text(
-                text = news.content,
-                style = BodyR16,
-                color = Color.Black,
-                lineHeight = 24.sp
-            )
+
+            // News Content with embedded images
+            NewsContentWithImages(content = news.content, skipFirstImage = false)
             
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
+
+@Composable
+fun NewsContentWithImages(content: String, skipFirstImage: Boolean = false) {
+    val context = LocalContext.current
+
+    // {} 안의 URL을 찾아서 분리하는 로직
+    val urlPattern = Regex("\\{([^}]+)\\}")
+    val parts = content.split(urlPattern)
+    val urls = urlPattern.findAll(content).map { it.groupValues[1] }.toList()
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        var urlIndex = 0
+
+        parts.forEachIndexed { index, part ->
+            if (part.isNotBlank()) {
+                Text(
+                    text = part.trim().replace("\n", "\n\n"),
+                    style = BodyR16,
+                    color = Color.Black,
+                    lineHeight = 24.sp
+                )
+            }
+
+            // URL이 있으면 이미지로 표시 (첫 번째 이미지는 skipFirstImage에 따라 건너뛰기)
+            if (urlIndex < urls.size && index < parts.size - 1) {
+                val imageUrl = urls[urlIndex].trim()
+                
+                if (imageUrl.isNotBlank() && !(skipFirstImage && urlIndex == 0)) {
+                    var showImage by remember { mutableStateOf(true) }
+
+                    if (showImage) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(imageUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "뉴스 이미지",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .wrapContentHeight()
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Fit,
+                            onError = {
+                                showImage = false
+                            }
+                        )
+                    }
+                }
+                urlIndex++
+            }
+        }
+    }
+}
 
 @Composable
 fun AiSummaryItem(
@@ -282,6 +311,12 @@ fun formatDateTime(dateTimeStr: String): String {
     } catch (e: Exception) {
         dateTimeStr // 파싱 실패 시 원본 반환
     }
+}
+
+fun extractFirstImageUrl(content: String): String {
+    val urlPattern = Regex("\\{([^}]+)\\}")
+    val urls = urlPattern.findAll(content).map { it.groupValues[1] }.toList()
+    return if (urls.isNotEmpty()) urls[0].trim() else ""
 }
 
 
