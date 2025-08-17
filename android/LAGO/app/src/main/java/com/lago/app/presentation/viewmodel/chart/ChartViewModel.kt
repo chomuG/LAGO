@@ -1085,7 +1085,7 @@ class ChartViewModel @Inject constructor(
                                     type = if (transaction.buySell == "BUY") "구매" else "판매",
                                     quantity = "${transaction.quantity ?: 0}주",
                                     amount = transaction.price,
-                                    date = transaction.tradeAt,
+                                    date = formatTradeDateTime(transaction.tradeAt),
                                     stockCode = transaction.stockId ?: ""
                                 )
                             } ?: emptyList()
@@ -2015,6 +2015,36 @@ class ChartViewModel @Inject constructor(
     fun refreshAccountStatus() {
         loadUserHoldings()
         loadTradingHistory()
+    }
+    
+    /**
+     * 매매내역 날짜 포맷팅: "2025-07-28 오전 10:48" 형식으로 변환
+     * UTC 시간을 KST로 변환하여 표시
+     */
+    private fun formatTradeDateTime(dateTimeString: String): String {
+        return try {
+            // 서버에서 UTC 시간으로 오는 형식에 맞게 파싱
+            val inputFormat = if (dateTimeString.contains("T")) {
+                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.KOREA).apply {
+                    timeZone = java.util.TimeZone.getTimeZone("UTC") // 서버 시간은 UTC
+                }
+            } else {
+                SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).apply {
+                    timeZone = java.util.TimeZone.getTimeZone("UTC") // 서버 시간은 UTC
+                }
+            }
+            
+            // KST로 출력 (년도 포함)
+            val outputFormat = SimpleDateFormat("yyyy년 M월 d일 a h:mm", Locale.KOREA).apply {
+                timeZone = java.util.TimeZone.getTimeZone("Asia/Seoul") // 한국 시간으로 출력
+            }
+            
+            val date = inputFormat.parse(dateTimeString)
+            date?.let { outputFormat.format(it) } ?: dateTimeString
+        } catch (e: Exception) {
+            android.util.Log.w("ChartViewModel", "날짜 포맷팅 실패: $dateTimeString", e)
+            dateTimeString // 원본 그대로 반환
+        }
     }
     
 }

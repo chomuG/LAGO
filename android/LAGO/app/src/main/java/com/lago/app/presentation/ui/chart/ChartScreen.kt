@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.ui.res.painterResource
 import com.lago.app.R
+import com.lago.app.presentation.ui.components.CircularStockLogo
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.LaunchedEffect
@@ -646,8 +647,6 @@ fun ChartScreen(
                 stockInfo = uiState.currentStock,
                 onSettingsClick = { viewModel.onEvent(ChartUiEvent.ToggleIndicatorSettings) },
                 onNavigateToAIDialog = { showCharacterDialog = true },
-                isLoading = uiState.isLoading || uiState.errorMessage != null, // 에러 시에도 로딩으로 표시
-                hasError = false, // 더 이상 에러 상태 표시 안함
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -892,9 +891,7 @@ private fun TopAppBar(
     stockInfo: ChartStockInfo,
     onSettingsClick: () -> Unit = {},
     onNavigateToAIDialog: () -> Unit = {},
-    modifier: Modifier = Modifier,
-    isLoading: Boolean = false,
-    hasError: Boolean = false
+    modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier,
@@ -945,29 +942,6 @@ private fun TopAppBar(
             )
         }
 
-        // 네트워크 상태 표시 (작고 미묘한 인디케이터)
-        if (isLoading || hasError) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(
-                        color = when {
-                            hasError -> Red500.copy(alpha = 0.7f)
-                            isLoading -> MainBlue.copy(alpha = 0.5f)
-                            else -> MainBlue
-                        },
-                        shape = CircleShape
-                    )
-                    .semantics {
-                        contentDescription = when {
-                            hasError -> "네트워크 오류"
-                            isLoading -> "데이터 로딩 중"
-                            else -> "연결됨"
-                        }
-                    }
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-        }
 
         IconButton(
             onClick = onSettingsClick,
@@ -1285,36 +1259,12 @@ private fun HoldingItemRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // 종목별 컬러 아이콘
-            val stockColor = when (item.name) {
-                "삼성전자" -> Color(0xFF1428A0)
-                "GS리테일" -> Color(0xFF00A651)
-                "한화생명" -> Color(0xFFE8501A)
-                "LG전자" -> Color(0xFFA50034)
-                "하이트진로맥주" -> Color(0xFFED1C24)
-                else -> Color(0xFF666666)
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(stockColor, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = when (item.name) {
-                        "삼성전자" -> "삼성"
-                        "GS리테일" -> "GS"
-                        "한화생명" -> "한화"
-                        "LG전자" -> "LG"
-                        "하이트진로맥주" -> "진로"
-                        else -> "종목"
-                    },
-                    color = Color.White,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            // 실제 종목 로고 사용
+            CircularStockLogo(
+                stockCode = item.stockCode,
+                stockName = item.name,
+                size = 40.dp
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 

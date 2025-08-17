@@ -113,11 +113,17 @@ class PurchaseViewModel @Inject constructor(
     private suspend fun loadAccountInfo(stockInfo: StockDisplayInfo, isPurchaseType: Boolean, accountType: Int) {
         // PortfolioRepository를 사용하여 계좌 정보 조회
         val userId = userPreferences.getUserIdLong()
-        if (userId == 0L) return
+        if (userId == 0L) {
+            android.util.Log.e("PurchaseViewModel", "💰 계좌정보 로딩 실패: userId가 0L (로그인 안됨)")
+            return
+        }
         android.util.Log.d("PurchaseViewModel", "💰 계좌정보 로딩 시작: userId=$userId, accountType=$accountType")
         
         portfolioRepository.getUserCurrentStatus(userId, accountType).collect { resource ->
             when (resource) {
+                is Resource.Loading -> {
+                    android.util.Log.d("PurchaseViewModel", "💰 계좌정보 로딩 중...")
+                }
                 is Resource.Success -> {
                     val accountStatus = resource.data!!
                     android.util.Log.d("PurchaseViewModel", "💰 계좌정보 조회 성공: 잔액=${accountStatus.balance}원, 보유종목=${accountStatus.holdings.size}개")
@@ -126,10 +132,10 @@ class PurchaseViewModel @Inject constructor(
                         // 매수: 계좌 잔고 기반으로 최대 구매 가능 금액 설정
                         android.util.Log.d("PurchaseViewModel", "💰 매수 모드: 잔액=${accountStatus.balance}원으로 설정")
                         _uiState.update { state ->
-                            state.copy(
+                            val updatedState = state.copy(
                                 stockCode = stockInfo.code,
-                                stockName = stockInfo.name,
-                                currentPrice = stockInfo.currentPrice,
+                                stockName = if (stockInfo.name.isNotBlank()) stockInfo.name else state.stockName, // 기존 값 보존
+                                currentPrice = if (stockInfo.currentPrice > 0) stockInfo.currentPrice else state.currentPrice, // 기존 값 보존
                                 holdingInfo = "${String.format("%,d", accountStatus.balance)}원",
                                 isPurchaseType = isPurchaseType,
                                 maxAmount = accountStatus.balance.toLong(),
@@ -138,6 +144,8 @@ class PurchaseViewModel @Inject constructor(
                                 accountType = accountType,
                                 isLoading = false
                             )
+                            android.util.Log.d("PurchaseViewModel", "💰 UI 상태 업데이트 완료: stockName=${updatedState.stockName}, currentPrice=${updatedState.currentPrice}, accountBalance=${updatedState.accountBalance}")
+                            updatedState
                         }
                     } else {
                         // 매도: 보유 주식 수량 조회
@@ -145,15 +153,13 @@ class PurchaseViewModel @Inject constructor(
                     }
                 }
                 is Resource.Error -> {
+                    android.util.Log.e("PurchaseViewModel", "💰 계좌정보 조회 실패: ${resource.message}")
                     _uiState.update { 
                         it.copy(
                             isLoading = false,
                             errorMessage = resource.message
                         )
                     }
-                }
-                is Resource.Loading -> {
-                    // 이미 로딩 중
                 }
             }
         }
@@ -166,8 +172,8 @@ class PurchaseViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(
                 stockCode = stockInfo.code,
-                stockName = stockInfo.name,
-                currentPrice = stockInfo.currentPrice,
+                stockName = if (stockInfo.name.isNotBlank()) stockInfo.name else state.stockName, // 기존 값 보존
+                currentPrice = if (stockInfo.currentPrice > 0) stockInfo.currentPrice else state.currentPrice, // 기존 값 보존
                 holdingInfo = if (holding != null) {
                     "${holding.quantity}주 보유 (평균 ${String.format("%,d", holding.totalPurchaseAmount / holding.quantity)}원)"
                 } else {
@@ -492,35 +498,23 @@ class PurchaseViewModel @Inject constructor(
     }
 
     /**
-     * 주식 코드로 주식명 조회 (기본 매핑)
-     * 실제로는 로컬 DB나 캐시에서 조회해야 함
+     * 주식 코드로 주식명 조회 (API 기반)
+     * ChartApiService의 getStockInfo API를 사용하여 종목명 조회
      */
-    private fun getStockNameByCode(stockCode: String): String {
-        return when (stockCode) {
-            "005930" -> "삼성전자"
-            "000660" -> "SK하이닉스"
-            "035420" -> "NAVER"
-            "035720" -> "카카오"
-            "051910" -> "LG화학"
-            "006400" -> "삼성SDI"
-            "028260" -> "삼성물산"
-            "068270" -> "셀트리온"
-            "207940" -> "삼성바이오로직스"
-            "096770" -> "SK이노베이션"
-            "323410" -> "카카오뱅크"
-            "267260" -> "HD현대일렉트릭"
-            "000270" -> "기아"
-            "012330" -> "현대모비스"
-            "030200" -> "KT"
-            "017670" -> "SK텔레콤"
-            "105560" -> "KB금융"
-            "086790" -> "하나금융지주"
-            "003550" -> "LG"
-            "034730" -> "SK"
-            else -> {
-                android.util.Log.w("PurchaseViewModel", "⚠️ 알 수 없는 주식 코드: $stockCode")
-                "" // 빈 문자열 반환하여 에러 처리
-            }
+    private suspend fun getStockNameByCode(stockCode: String): String {
+        // 현재 로드된 주식 정보에서 이름 가져오기 (우선순위)
+        val currentName = _uiState.value.stockName.takeIf { it.isNotEmpty() }
+        if (currentName != null) return currentName
+        
+        try {
+            android.util.Log.d("PurchaseViewModel", "💰 API로 종목명 조회 시도: $stockCode")
+            val stockInfo = chartApiService.getStockInfo(stockCode)
+            android.util.Log.d("PurchaseViewModel", "💰 API로 종목명 조회 성공: ${stockInfo.name}")
+            return stockInfo.name
+        } catch (e: Exception) {
+            android.util.Log.e("PurchaseViewModel", "💰 API로 종목명 조회 실패: ${e.message}", e)
+            // API 실패 시 종목코드 그대로 반환
+            return stockCode
         }
     }
 }
