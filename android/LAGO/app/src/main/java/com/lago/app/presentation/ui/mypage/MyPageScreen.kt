@@ -36,6 +36,13 @@ fun MyPageScreen(
     val isLoggedIn = userPreferences.getAccessToken() != null
     val username = userPreferences.getUsername() ?: "게스트"
     
+    // 마이페이지에 돌아올 때마다 데이터 새로고침
+    LaunchedEffect(Unit) {
+        if (isLoggedIn) {
+            viewModel.refresh()
+        }
+    }
+    
     // 실시간 데이터 또는 기본 데이터 사용
     val portfolioSummary = uiState.portfolioSummary
     // PieChartData로 변환 (기존 UI 컴포넌트와 호환)

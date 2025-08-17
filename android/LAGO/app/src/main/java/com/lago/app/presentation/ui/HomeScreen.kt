@@ -777,9 +777,11 @@ private fun HomeStockItem(
         ) {
             Text(
                 text = if (homeStock.currentPrice != null) {
-                    "${String.format("%,.0f", homeStock.currentPrice)}원"
+                    // 평가금액 = 현재가격 × 보유수량
+                    val evaluationAmount = homeStock.currentPrice * homeStock.quantity
+                    "${String.format("%,.0f", evaluationAmount)}원"
                 } else {
-                    "현재가 없음"
+                    "평가금액 없음"
                 },
                 style = TitleB14
             )

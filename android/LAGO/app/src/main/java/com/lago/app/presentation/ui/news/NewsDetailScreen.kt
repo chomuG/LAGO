@@ -239,7 +239,7 @@ fun NewsContentWithImages(content: String, skipFirstImage: Boolean = false) {
         parts.forEachIndexed { index, part ->
             if (part.isNotBlank()) {
                 Text(
-                    text = part.trim().replace("\n", "\n\n"),
+                    text = part.trim().replace("\n", "\n\n\n"),
                     style = BodyR16,
                     color = Color.Black,
                     lineHeight = 24.sp

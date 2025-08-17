@@ -7,6 +7,7 @@ import com.lago.app.domain.entity.AccountBalance
 import com.lago.app.domain.entity.StockHolding
 import com.lago.app.domain.entity.StockPriority
 import com.lago.app.domain.repository.MockTradeRepository
+import com.lago.app.domain.repository.UserRepository
 import com.lago.app.util.Resource
 import com.lago.app.util.HybridPriceCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,12 +28,14 @@ data class PortfolioUiState(
     val errorMessage: String? = null,
     val totalProfitLoss: Long = 0L,
     val totalProfitLossRate: Double = 0.0,
-    val refreshing: Boolean = false
+    val refreshing: Boolean = false,
+    val userPersonality: String? = null
 )
 
 @HiltViewModel
 class PortfolioViewModel @Inject constructor(
     private val mockTradeRepository: MockTradeRepository,
+    private val userRepository: UserRepository,
     private val realTimeStockCache: RealTimeStockCache,
     private val hybridPriceCalculator: HybridPriceCalculator
 ) : ViewModel() {
@@ -57,7 +60,12 @@ class PortfolioViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             
             try {
-                // 1. 계좌 잔고 조회 (userId가 있으면 해당 유저, 없으면 현재 유저)
+                // 1. 사용자 성향 정보 먼저 가져오기 (userId가 있는 경우에만)
+                if (userId != null) {
+                    loadUserPersonality(userId)
+                }
+                
+                // 2. 계좌 잔고 조회 (userId가 있으면 해당 유저, 없으면 현재 유저)
                 val balanceFlow = if (userId != null) {
                     mockTradeRepository.getAccountBalanceByUserId(userId)
                 } else {
@@ -78,7 +86,7 @@ class PortfolioViewModel @Inject constructor(
                                 )
                             }
                             
-                            // 2. 보유 주식 조회
+                            // 3. 보유 주식 조회
                             loadStockHoldings(userId)
                         }
                         is Resource.Error -> {
@@ -99,6 +107,33 @@ class PortfolioViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    /**
+     * 사용자 성향 정보 로드
+     */
+    private suspend fun loadUserPersonality(userId: Int) {
+        try {
+            userRepository.getUserCurrentStatus(userId, 0).collect { resource ->
+                when (resource) {
+                    is Resource.Success -> {
+                        val userStatus = resource.data!!
+                        _uiState.update { 
+                            it.copy(userPersonality = userStatus.personality)
+                        }
+                        android.util.Log.d("PortfolioViewModel", "사용자 성향 로드 완료: ${userStatus.personality}")
+                    }
+                    is Resource.Error -> {
+                        android.util.Log.e("PortfolioViewModel", "사용자 성향 로드 실패: ${resource.message}")
+                    }
+                    is Resource.Loading -> {
+                        // 로딩 중
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PortfolioViewModel", "사용자 성향 로드 중 오류: ${e.localizedMessage}", e)
         }
     }
 

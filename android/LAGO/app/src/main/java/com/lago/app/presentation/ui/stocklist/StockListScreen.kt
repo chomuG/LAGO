@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.shadow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.res.painterResource
@@ -647,20 +648,81 @@ private fun HistoryChallengeNewsCard(
     news: HistoryChallengeNews,
     onClick: () -> Unit = {}
 ) {
-    // HistoryChallengeNews를 News로 변환하여 기존 NewsCard 재사용
-    val newsItem = News(
-        newsId = news.challengeNewsId,
-        title = news.title,
-        content = news.content,
-        summary = "", // 역사적 챌린지 뉴스에는 summary 없음
-        sentiment = "", // 역사적 챌린지 뉴스에는 sentiment 없음
-        publishedAt = news.publishedAt,
-        type = "history_challenge"
-    )
-    
-    NewsCard(
-        news = newsItem,
-        onClick = onClick,
-        showSentiment = false // 호재/악재 표시 안함
-    )
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .shadow(
+                elevation = 2.dp,
+                shape = RoundedCornerShape(12.dp),
+                spotColor = ShadowColor,
+                ambientColor = ShadowColor
+            ),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 뉴스 이미지
+            if (news.imageUrl.isNotEmpty()) {
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Gray100)
+                ) {
+                    coil.compose.AsyncImage(
+                        model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                            .data(news.imageUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "뉴스 이미지",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        onError = {
+                            // 이미지 로드 실패 시 기본 배경색만 표시
+                        }
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+            
+            // 뉴스 텍스트 정보
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = news.title,
+                    style = TitleB16,
+                    color = Black,
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Text(
+                    text = formatHistoryChallengeDateTime(news.publishedAt),
+                    style = BodyR12,
+                    color = Gray600
+                )
+            }
+        }
+    }
+}
+
+private fun formatHistoryChallengeDateTime(dateTimeStr: String): String {
+    return try {
+        val inputFormatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
+        val outputFormatter = java.time.format.DateTimeFormatter.ofPattern("yyyy년 M월 d일")
+        val dateTime = java.time.LocalDateTime.parse(dateTimeStr, inputFormatter)
+        dateTime.format(outputFormatter)
+    } catch (e: Exception) {
+        dateTimeStr // 파싱 실패 시 원본 반환
+    }
 }

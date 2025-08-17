@@ -98,6 +98,7 @@ private fun HistoryChallengeNewsDto.toDomain(): HistoryChallengeNews {
         challengeId = this.challengeId,
         title = this.title,
         content = this.content,
-        publishedAt = this.publishedAt
+        publishedAt = this.publishedAt,
+        imageUrl = this.imageUrl ?: "" // DTO의 imageUrl을 Entity로 매핑
     )
 }

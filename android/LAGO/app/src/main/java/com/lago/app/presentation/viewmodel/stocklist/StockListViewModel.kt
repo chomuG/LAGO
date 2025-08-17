@@ -913,9 +913,29 @@ class StockListViewModel @Inject constructor(
                 result.fold(
                     onSuccess = { newsList ->
                         android.util.Log.d("StockListViewModel", "📰 역사적 챌린지 뉴스 로드 성공: ${newsList.size}개")
+                        
+                        // 순서대로 이미지 URL 배정
+                        val imageUrls = listOf(
+                            "https://cdn.mkhealth.co.kr/news/photo/202507/74161_81722_246.jpg",
+                            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR-bDIwX9WkNd6uaMY07SxejeVc7BRmYpzw5g&s",
+                            "https://img.biz.sbs.co.kr/upload/2023/08/18/0xd1692311387997.jpg",
+                            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT_bFJT00njJbmoVtvicgKeuCVsmMerJpXZWg&s",
+                            "https://www.medipana.com/upload/editor/20230213234604_EC49B.jpg",
+                            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTPMp1xR_Ig64wDIbPkbczsd2gJ4I16zgIlbw&s",
+                            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTMRyNfinWnwr3_DaKvxYIWqZPwY8ZPBjlIvg&s",
+                            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRe1bDhvqv4rCq8UQ2AcfZvPi44VNLyYVrT3A&s",
+                            "https://img.investchosun.com/site/data/img_dir/2025/04/21/2025042180224_0.png",
+                            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR3Ry23wZWaeJ_yly0mcqtc33-5IQtV57bJbg&s"
+                        )
+                        
+                        val newsWithImages = newsList.map { news ->
+                            val imageIndex = (news.challengeNewsId - 1) % imageUrls.size
+                            news.copy(imageUrl = imageUrls[imageIndex])
+                        }
+                        
                         _uiState.update {
                             it.copy(
-                                historyChallengeNews = newsList,
+                                historyChallengeNews = newsWithImages,
                                 isNewsLoading = false
                             )
                         }

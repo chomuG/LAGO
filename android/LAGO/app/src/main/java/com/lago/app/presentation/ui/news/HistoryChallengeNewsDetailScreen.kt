@@ -124,21 +124,26 @@ private fun HistoryChallengeNewsDetailContent(
             modifier = Modifier.padding(bottom = 16.dp)
         )
         
-        // Main Image (첫 번째 URL)
-        val firstImageUrl = extractFirstImageUrlFromHistoryNews(news.content)
-        if (firstImageUrl.isNotBlank()) {
+        // Main Image (imageUrl 또는 content의 첫 번째 URL)
+        val mainImageUrl = if (news.imageUrl.isNotEmpty()) {
+            news.imageUrl
+        } else {
+            extractFirstImageUrlFromHistoryNews(news.content)
+        }
+        
+        if (mainImageUrl.isNotBlank()) {
             var showMainImage by remember { mutableStateOf(true) }
             
             if (showMainImage) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(firstImageUrl)
+                        .data(mainImageUrl)
                         .crossfade(true)
                         .build(),
                     contentDescription = "뉴스 대표 이미지",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .wrapContentHeight()
+                        .height(200.dp)
                         .clip(RoundedCornerShape(12.dp)),
                     contentScale = ContentScale.Crop,
                     onError = {

@@ -16,5 +16,8 @@ data class HistoryChallengeNewsDto(
     val content: String,
     
     @SerializedName("publishedAt")
-    val publishedAt: String
+    val publishedAt: String,
+    
+    @SerializedName("imageUrl")
+    val imageUrl: String? = null // 이미지 URL 필드 추가 (nullable)
 )

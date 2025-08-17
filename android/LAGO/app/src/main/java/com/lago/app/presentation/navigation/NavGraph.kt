@@ -186,6 +186,15 @@ fun NavGraph(
                     val encodedName = java.net.URLEncoder.encode(stockName, "UTF-8")
                     android.util.Log.d("MYPAGE_NAV", "MyPage 주식 클릭 - stockCode: $stockCode, stockName: $stockName, encodedName: $encodedName")
                     navController.navigate("chart/$stockCode/$encodedName")
+                },
+                onLogoutComplete = {
+                    // 로그아웃 완료 후 홈화면으로 이동
+                    navController.navigate(NavigationItem.Home.route) {
+                        popUpTo(NavigationItem.Home.route) {
+                            inclusive = false
+                        }
+                        launchSingleTop = true
+                    }
                 }
             )
         }

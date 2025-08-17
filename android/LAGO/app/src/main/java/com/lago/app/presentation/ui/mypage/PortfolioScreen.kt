@@ -1,5 +1,6 @@
 package com.lago.app.presentation.ui.mypage
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -86,7 +87,7 @@ fun PortfolioScreen(
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
             // 프로필 섹션
-            item { ProfileSection(userName) }
+            item { ProfileSection(userName, uiState.userPersonality) }
 
             // 자산 현황 타이틀 섹션
             item { AssetTitleSection() }
@@ -111,18 +112,45 @@ fun PortfolioScreen(
 }
 
 @Composable
-fun ProfileSection(userName: String = "박두칠") {
+fun ProfileSection(userName: String = "박두칠", personality: String? = null) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 프로필 사진
-        Box(
-            modifier = Modifier
-                .size(74.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFDEEFFE))
-        )
+        // 성향이 있는 경우에만 캐릭터 이미지, 없으면 기본 원형 배경
+        if (!personality.isNullOrEmpty()) {
+            val characterImage = when (personality) {
+                "공격투자형" -> R.drawable.character_red_circle
+                "적극투자형" -> R.drawable.character_yellow_circle
+                "안정추구형" -> R.drawable.character_green_circle
+                "위험중립형" -> R.drawable.character_blue_circle
+                else -> null
+            }
+            
+            if (characterImage != null) {
+                Image(
+                    painter = painterResource(id = characterImage),
+                    contentDescription = "$personality 캐릭터",
+                    modifier = Modifier.size(74.dp)
+                )
+            } else {
+                // 기본 원형 배경
+                Box(
+                    modifier = Modifier
+                        .size(74.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFDEEFFE))
+                )
+            }
+        } else {
+            // 성향 정보가 없거나 위험중립형인 경우 기본 원형 배경
+            Box(
+                modifier = Modifier
+                    .size(74.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFDEEFFE))
+            )
+        }
         
         Spacer(modifier = Modifier.height(8.dp))
         
