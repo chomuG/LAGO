@@ -20,29 +20,48 @@ from pivot_points import find_all_pivot_points
 logging.basicConfig(level=LOG_LEVEL, format=LOG_FORMAT)
 logger = logging.getLogger(__name__)
 
+# --- Result Check Functions ---
+def check_flag_result(df):
+    return not df[df["flag_point"].notna()].empty
+
+def check_pennant_result(df):
+    return not df[df["pennant_point"].notna()].empty
+
+def check_triangle_result(df):
+    return not df[df["triangle_point"].notna()].empty
+
+def check_hs_result(df):
+    return not df[df["hs_idx"].str.len() > 0].empty
+
+def check_ihs_result(df):
+    return not df[df["ihs_idx"].str.len() > 0].empty
+
+def check_doubles_result(df):
+    return not df[df["chart_type"] == "double"].empty
+
 # --- Pattern Definitions ---
 PATTERNS_CONFIG = [
     {
         "name": "더블 탑 패턴",
         "function": find_doubles_pattern,
         "params": {"double": "tops"},
-        "result_check": lambda df: not df[df["double_idx"].str.len() > 0].empty,
-        "reason": "고점이 두 번 형성되며 상승 추세가 멈추고 하락 반전될 가능성을 나타내는 패턴입니다.",
+        "result_check": check_doubles_result,
+        "reason": "두 개의 고점이 형성되며 넥라인을 돌파하여 하락 반전을 암시하는 패턴입니다.",
         "display_options": {"pattern": "double", "save": True}
     },
     {
         "name": "더블 바텀 패턴",
         "function": find_doubles_pattern,
         "params": {"double": "bottoms"},
-        "result_check": lambda df: not df[df["double_idx"].str.len() > 0].empty,
-        "reason": "저점이 두 번 형성되며 하락 추세가 멈추고 상승 반전될 가능성을 나타내는 패턴입니다.",
+        "result_check": check_doubles_result,
+        "reason": "두 개의 저점이 형성되며 넥라인을 돌파하여 상승 반전을 암시하는 패턴입니다.",
         "display_options": {"pattern": "double", "save": True}
     },
     {
         "name": "플래그 패턴",
         "function": find_flag_pattern,
         "params": {},
-        "result_check": lambda df: not df[df["flag_point"].notna()].empty,
+        "result_check": check_flag_result,
         "reason": "급등락 이후 평행한 추세선 사이에서 가격이 일시적으로 조정되는 패턴으로, 기존 추세의 지속 가능성을 시사합니다.",
         "display_options": {"pattern": "flag", "save": True}
     },
@@ -50,7 +69,7 @@ PATTERNS_CONFIG = [
         "name": "페넌트 패턴",
         "function": find_pennant,
         "params": {},
-        "result_check": lambda df: not df[df["pennant_point"].notna()].empty,
+        "result_check": check_pennant_result,
         "reason": "급등락 후 고점과 저점이 수렴하는 삼각형 형태로, 강한 추세 후 휴식 구간을 나타내는 지속형 패턴입니다.",
         "display_options": {"pattern": "pennant", "save": True}
     },
@@ -58,7 +77,7 @@ PATTERNS_CONFIG = [
         "name": "상승 삼각형",
         "function": find_triangle_pattern,
         "params": {"triangle_type": "ascending"},
-        "result_check": lambda df: not df[df["triangle_point"].notna()].empty,
+        "result_check": check_triangle_result,
         "reason": "고점이 일정하게 유지되고 저점이 점점 높아지는 구조로, 매수세가 점차 강해지는 패턴입니다.",
         "display_options": {"pattern": "triangle", "save": True}
     },
@@ -66,7 +85,7 @@ PATTERNS_CONFIG = [
         "name": "하락 삼각형",
         "function": find_triangle_pattern,
         "params": {"triangle_type": "descending"},
-        "result_check": lambda df: not df[df["triangle_point"].notna()].empty,
+        "result_check": check_triangle_result,
         "reason": "저점이 일정하게 유지되고 고점이 점점 낮아지는 구조로, 매도세가 강해지는 패턴입니다.",
         "display_options": {"pattern": "triangle", "save": True}
     },
@@ -74,7 +93,7 @@ PATTERNS_CONFIG = [
         "name": "대칭 삼각형",
         "function": find_triangle_pattern,
         "params": {"triangle_type": "symmetrical"},
-        "result_check": lambda df: not df[df["triangle_point"].notna()].empty,
+        "result_check": check_triangle_result,
         "reason": "고점과 저점이 점차 수렴하는 구조로, 향후 큰 방향성이 나올 가능성이 높은 패턴입니다.",
         "display_options": {"pattern": "triangle", "save": True}
     },
@@ -82,7 +101,7 @@ PATTERNS_CONFIG = [
         "name": "헤드 앤 숄더 패턴",
         "function": find_head_and_shoulders,
         "params": {},
-        "result_check": lambda df: not df[df["hs_idx"].str.len() > 0].empty,
+        "result_check": check_hs_result,
         "reason": "고점이 세 번 형성되며 가운데 고점이 가장 높아 하락 반전을 암시하는 패턴입니다.",
         "display_options": {"pattern": "hs", "save": True}
     },
@@ -90,7 +109,7 @@ PATTERNS_CONFIG = [
         "name": "역 헤드 앤 숄더 패턴",
         "function": find_inverse_head_and_shoulders,
         "params": {},
-        "result_check": lambda df: not df[df["ihs_idx"].str.len() > 0].empty,
+        "result_check": check_ihs_result,
         "reason": "저점이 세 번 형성되며 가운데 저점이 가장 낮아 상승 반전을 암시하는 패턴입니다.",
         "display_options": {"pattern": "ihs", "save": True, "pivot_name": "short_pivot"}
     }
@@ -139,7 +158,7 @@ def run_pattern_detection(ohlc_df):
                     detected_patterns.append(result)
 
                     # 차트 이미지 생성
-                    display_chart_pattern(ohlc_result_df, **display_options)
+                    # display_chart_pattern(ohlc_result_df, **display_options)
                 else:
                     logger.debug(f"'{pattern_name}' 패턴이 감지되지 않았습니다.")
             except Exception as exc:

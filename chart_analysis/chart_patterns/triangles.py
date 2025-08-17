@@ -6,13 +6,9 @@ Detect Triangle Patterns - Ascending, Descending and Symmetrical
 
 import numpy as np
 import pandas as pd 
-import plotly.graph_objects as go
 import logging
 
-from pivot_points import find_all_pivot_points
-from plotting import display_chart_pattern
 from scipy.stats import linregress
-from tqdm import tqdm
 
 def get_triangle_details(ohlc: pd.DataFrame):
     """
@@ -83,8 +79,6 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
     ohlc["triangle_point"]        = np.nan
     
     candle_iter = reversed(range(lookback, len(ohlc)))
-    if progress:
-        candle_iter = tqdm(candle_iter, desc="Finding triangle patterns")
     
     for candle_idx in candle_iter:
         
@@ -160,4 +154,10 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
         if pattern_found:
             break
 
-    return ohlc, {}
+    # After the loop, check if a pattern was found and extract details
+    if ohlc["chart_type"].str.contains("triangle").any():
+        details = get_triangle_details(ohlc)
+    else:
+        details = {}
+
+    return ohlc, details

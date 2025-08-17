@@ -6,14 +6,11 @@ Function used to detect inverse head and shoulders
 
 import numpy as np
 import pandas as pd 
-import plotly.graph_objects as go
 import logging
 
 from charts_utils import find_points
 from pivot_points import find_all_pivot_points
 from scipy.stats import linregress
-from tqdm import tqdm
-from typing import Tuple
 
 def find_inverse_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivot_interval: int = 10, short_pivot_interval: int = 5,
                                     head_ratio_before: float = 0.98, head_ratio_after: float = 0.98,
@@ -61,9 +58,9 @@ def find_inverse_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivo
     ohlc = find_all_pivot_points(ohlc, left_count=pivot_interval, right_count=pivot_interval)
     ohlc = find_all_pivot_points(ohlc, left_count=short_pivot_interval, right_count=short_pivot_interval, name_pivot="short_pivot")
     
+    details = {}
+
     candle_iter = reversed(range(lookback, len(ohlc)))
-    if progress:
-        candle_iter = tqdm(candle_iter, desc="Finding inverse head and shoulder patterns...")
        
     for candle_idx in candle_iter:
         
@@ -82,10 +79,7 @@ def find_inverse_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivo
         if len(minim) - 1 == headidx:
             continue       
 
-        if minim[headidx-1]-minim[headidx]>0 and (minim[headidx]/minim[headidx-1] < 1 and minim[headidx]/minim[headidx-1] >= head_ratio_before)  and \
-            (minim[headidx]/minim[headidx+1] < 1 and minim[headidx]/minim[headidx+1] >= head_ratio_after) and \
-            minim[headidx+1]-minim[headidx]> 0 and abs(slmax)<=upper_slmax and \
-            xxmax[0]>xxmin[headidx-1] and xxmax[1]<xxmin[headidx+1]: 
+        if minim[headidx-1]-minim[headidx]>0 and (minim[headidx]/minim[headidx-1] < 1 and minim[headidx]/minim[headidx-1] >= head_ratio_before) and (minim[headidx]/minim[headidx+1] < 1 and minim[headidx]/minim[headidx+1] >= head_ratio_after) and  minim[headidx+1]-minim[headidx]> 0 and abs(slmax)<=upper_slmax and xxmax[0]>xxmin[headidx-1] and xxmax[1]<xxmin[headidx+1]: 
 
                 ohlc.loc[candle_idx, "chart_type"] = "ihs"
             
@@ -95,14 +89,22 @@ def find_inverse_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivo
             
                 # Create a tuple of the index and values and sort them by the index
                 list_idx_values = [ (i, v) for i, v in zip(indexes, values)]
-                list_idx_values.sort()
+                list_idx_values.sort() 
                  
                 # Assign the index and values
                 ohlc.at[candle_idx, "ihs_idx"]   = [ t[0] for t in list_idx_values]
                 ohlc.at[candle_idx, "ihs_point"] = [ t[1] for t in list_idx_values]
  
                 # === 판단 근거 출력 ===
+                details = {
+                    "dates": [ohlc.index[idx].strftime('%Y-%m-%d') for idx in indexes], # Example: convert index to date
+                    "pattern_type": "inverse_head_and_shoulders",
+                    "head_index": indexes[2], # Index of the head
+                    "left_shoulder_index": indexes[0],
+                    "right_shoulder_index": indexes[4],
+                    "neckline_slope": slmax
+                }
                 logging.debug("\n=== Inverse head and shoulder Detected ===\nDetails: %s", details)
                 break
 
-    return ohlc
+    return ohlc, details

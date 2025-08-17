@@ -6,12 +6,9 @@ Function used to detect the Flag pattern
 
 import numpy as np
 import pandas as pd 
-import plotly.graph_objects as go
 import logging
 
-from pivot_points import find_all_pivot_points
 from scipy.stats import linregress
-from tqdm import tqdm
 
 def get_flag_details(ohlc: pd.DataFrame):
     """
@@ -91,8 +88,6 @@ def find_flag_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 
     ohlc["flag_intercmax"]    = np.nan
     
     candle_iter = reversed(range(lookback, len(ohlc)))
-    if progress:
-        candle_iter = tqdm(candle_iter, desc="Finding flag patterns...")
     
     for candle_idx in candle_iter:
     

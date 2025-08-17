@@ -6,13 +6,9 @@ Function used to detect Pennant patterns
 
 import numpy as np
 import pandas as pd 
-import plotly.graph_objects as go
 import logging
 
-from charts_utils import find_points
-from pivot_points import find_all_pivot_points
 from scipy.stats import linregress
-from tqdm import tqdm
 
 def get_pennant_details(ohlc: pd.DataFrame):
     """
@@ -92,8 +88,6 @@ def find_pennant(ohlc: pd.DataFrame, lookback: int = 20, min_points: int = 3,
     ohlc["pennant_intercmax"]    = np.nan
     
     candle_iter = reversed(range(lookback, len(ohlc)))
-    if progress:
-        candle_iter = tqdm(candle_iter, desc="Finding pennant patterns...")
         
     for candle_idx in candle_iter:
     
