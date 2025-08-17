@@ -87,6 +87,19 @@ public interface StockHoldingRepository extends JpaRepository<StockHolding, Long
     // @Query("SELECT COALESCE(SUM(sh.currentValue), 0) FROM StockHolding sh WHERE sh.account.accountId = :accountId AND sh.quantity > 0")
     // Long getCurrentValueByAccountId(@Param("accountId") Long accountId);
 
+    /**
+     * 모든 사용자의 주식 보유량 배치 조회 (랭킹용)
+     * @param accountType 계좌 타입 (0: 모의투자, 2: AI봇)
+     * @return 모든 보유 주식 목록
+     */
+    @Query("""
+        SELECT sh FROM StockHolding sh 
+        JOIN sh.account a 
+        WHERE a.type = :accountType 
+        AND sh.quantity > 0
+        """)
+    List<StockHolding> findAllByAccountType(@Param("accountType") Integer accountType);
+
     // TODO: 수익률 정렬은 실시간 계산이 필요하여 서비스 레이어에서 처리
     // @Query("SELECT sh FROM StockHolding sh WHERE sh.account.accountId = :accountId AND sh.quantity > 0 ORDER BY sh.profitLossRate DESC")  
     // List<StockHolding> findTopProfitableStocks(@Param("accountId") Long accountId, @Param("limit") int limit);
