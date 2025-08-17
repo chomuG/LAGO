@@ -6,13 +6,35 @@ Function used to detect Pennant patterns
 
 import numpy as np
 import pandas as pd 
-import plotly.graph_objects as go
 import logging
 
-from charts_utils import find_points
-from pivot_points import find_all_pivot_points
 from scipy.stats import linregress
-from tqdm import tqdm
+
+def get_pennant_details(ohlc: pd.DataFrame):
+    """
+    감지된 페넌트 패턴의 상세 정보를 추출합니다.
+    """
+    pattern_info = ohlc[ohlc['chart_type'] == 'pennant']
+    if pattern_info.empty:
+        return {}
+
+    last_pattern = pattern_info.iloc[-1]
+    
+    # 페넌트 방향 결정 (Bullish or Bearish)
+    # Note: 페넌트 패턴의 방향은 주로 이전 추세에 따라 결정됩니다. 
+    # 여기서는 단순하게 기울기로만 판단하지만, 개선의 여지가 있습니다.
+    direction = "bullish" if last_pattern['pennant_slmin'] > 0 else "bearish"
+    
+    high_idx = last_pattern['pennant_highs_idx']
+    low_idx = last_pattern['pennant_lows_idx']
+    
+    start_date = ohlc.loc[min(high_idx[0], low_idx[0]), 'date'].strftime('%Y-%m-%d')
+    end_date = ohlc.loc[max(high_idx[-1], low_idx[-1]), 'date'].strftime('%Y-%m-%d')
+
+    return {
+        "dates": [start_date, end_date],
+        "direction": direction
+    }
 
 def find_pennant(ohlc: pd.DataFrame, lookback: int = 20, min_points: int = 3,
                 r_max: float = 0.9, r_min: float = 0.9, slope_max: float = -0.0001, slope_min: float = 0.0001, 
@@ -66,8 +88,6 @@ def find_pennant(ohlc: pd.DataFrame, lookback: int = 20, min_points: int = 3,
     ohlc["pennant_intercmax"]    = np.nan
     
     candle_iter = reversed(range(lookback, len(ohlc)))
-    if progress:
-        candle_iter = tqdm(candle_iter, desc="Finding pennant patterns...")
         
     for candle_idx in candle_iter:
     
@@ -128,4 +148,4 @@ def find_pennant(ohlc: pd.DataFrame, lookback: int = 20, min_points: int = 3,
 
                 break
     
-    return ohlc 
+    return ohlc, {}

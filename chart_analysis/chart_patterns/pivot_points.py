@@ -8,66 +8,12 @@ import numpy as np
 import pandas as pd 
 import logging
 
-from utils import check_ohlc_names
-from plotting import display_pivot_points
+from .utils import check_ohlc_names
+from .plotting import display_pivot_points
 from tqdm import tqdm
 from typing import Union
 
 
-
-def find_pivot_point(ohlc: pd.DataFrame, current_row: int, left_count:int = 3, right_count:int =3, 
-                     progress: bool = False) -> int:
-    """
-    Check if the current row (i.e. point) is a pivot point
-    
-    :params ohlc is a dataframe with Open, High, Low, Close data
-    :type :pd.DataFrame
-    
-    :params current_row is the index number of the row 
-    :type :int
-    
-    :params left_count is the number of candles to the left to consider
-    :type :int 
-    
-    :params right_count is the number of candles to right to consider 
-    :type :int
-    
-    :return (int) 
-    """
- 
-    # Check if ohlc dataframe meets certain conditions
-    check_ohlc_names(ohlc)
-    
-    
-    # Check if the length conditions are met
-    if current_row - left_count < 0 or current_row + right_count >= len(ohlc):
-        return 0
-    
-    pivot_low  = 1
-    pivot_high = 1
-
-    if not progress:
-        index_iter = range(current_row - left_count, current_row + right_count + 1)
-    else:
-        index_iter = tqdm(range(current_row - left_count, current_row + right_count + 1), desc="Finding all pivot points...")
-
-    for idx in index_iter:
-        if(ohlc.loc[current_row, "low"] > ohlc.loc[idx, "low"]):
-            pivot_low = 0
-
-        if(ohlc.loc[current_row, "high"] < ohlc.loc[idx, "high"]):
-            pivot_high = 0
-
-    if pivot_low and pivot_high:
-        return 3
-
-    elif pivot_low:
-        return 1
-
-    elif pivot_high:
-        return 2
-    else:
-        return 0
 
 def find_all_pivot_points(ohlc: pd.DataFrame, left_count:int = 3, right_count:int = 3, name_pivot: Union[None, str] = None, 
                           progress: bool = False ) -> pd.DataFrame:
@@ -88,19 +34,41 @@ def find_all_pivot_points(ohlc: pd.DataFrame, left_count:int = 3, right_count:in
      
     :return (pd.DataFrame)
     """
+    check_ohlc_names(ohlc)
 
+    pivot_col_name = name_pivot if name_pivot else "pivot"
+    pivot_pos_col_name = f"{pivot_col_name}_pos"
 
-    if name_pivot != None:
-        ohlc.loc[:,name_pivot] = ohlc.apply(lambda row: find_pivot_point(ohlc, row.name, left_count, right_count), axis=1)
-        ohlc.loc[:,f"{name_pivot}_pos"] =  ohlc.apply(lambda row: find_pivot_point_position(row), axis=1)
-    else:
-        # Get the pivot points 
-        ohlc.loc[:,"pivot"]     = ohlc.apply(lambda row: find_pivot_point(ohlc, row.name, left_count, right_count), axis=1)
-        ohlc.loc[:,'pivot_pos'] = ohlc.apply(lambda row: find_pivot_point_position(row), axis=1)
+    # Initialize pivot column
+    ohlc[pivot_col_name] = 0
 
+    window_size = left_count + right_count + 1
+    
+    # Calculate rolling min and max
+    rolling_min_low = ohlc['low'].rolling(window=window_size, center=True, min_periods=window_size).min()
+    rolling_max_high = ohlc['high'].rolling(window=window_size, center=True, min_periods=window_size).max()
 
-    return ohlc 
+    # Identify potential pivot lows and highs
+    is_pivot_low = (ohlc['low'] == rolling_min_low)
+    is_pivot_high = (ohlc['high'] == rolling_max_high)
 
+    # Assign pivot types based on the original logic
+    # Assign 1 for pivot lows (where it's a low and not a high)
+    ohlc.loc[is_pivot_low & ~is_pivot_high, pivot_col_name] = 1
+
+    # Assign 2 for pivot highs (where it's a high and not a low)
+    ohlc.loc[is_pivot_high & ~is_pivot_low, pivot_col_name] = 2
+
+    # Assign 3 for points that are both pivot low and pivot high
+    ohlc.loc[is_pivot_low & is_pivot_high, pivot_col_name] = 3
+
+    # Calculate pivot positions
+    ohlc[pivot_pos_col_name] = np.nan
+    ohlc.loc[ohlc[pivot_col_name] == 1, pivot_pos_col_name] = ohlc['low'] - 1e-3
+    ohlc.loc[ohlc[pivot_col_name] == 2, pivot_pos_col_name] = ohlc['high'] + 1e-3
+    ohlc.loc[ohlc[pivot_col_name] == 3, pivot_pos_col_name] = ohlc['low'] - 1e-3 # Or high + 1e-3, depending on priority for type 3
+
+    return ohlc
 
 def find_pivot_point_position(row: pd.Series) -> float:
     """

@@ -6,13 +6,36 @@ Detect Triangle Patterns - Ascending, Descending and Symmetrical
 
 import numpy as np
 import pandas as pd 
-import plotly.graph_objects as go
 import logging
 
-from pivot_points import find_all_pivot_points
-from plotting import display_chart_pattern
+from .pivot_points import find_all_pivot_points
+from .plotting import display_chart_pattern
 from scipy.stats import linregress
 from tqdm import tqdm
+
+def get_triangle_details(ohlc: pd.DataFrame):
+    """
+    감지된 삼각형 패턴의 상세 정보를 추출합니다.
+    """
+    pattern_info = ohlc[ohlc['chart_type'] == 'triangle']
+    if pattern_info.empty:
+        return {}
+
+    last_pattern = pattern_info.iloc[-1]
+    
+    high_idx = last_pattern['triangle_high_idx']
+    low_idx = last_pattern['triangle_low_idx']
+    
+    start_date = ohlc.loc[min(high_idx[0], low_idx[0]), 'date'].strftime('%Y-%m-%d')
+    end_date = ohlc.loc[max(high_idx[-1], low_idx[-1]), 'date'].strftime('%Y-%m-%d')
+
+    return {
+        "dates": [start_date, end_date],
+        "slmax": last_pattern['triangle_slmax'],
+        "slmin": last_pattern['triangle_slmin'],
+        "rmax": last_pattern['triangle_r2_high'],
+        "rmin": last_pattern['triangle_r2_low']
+    }
 
 def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: int = 3, rlimit: int = 0.9, 
                           slmax_limit: float = 0.00001, slmin_limit: float = 0.00001,
@@ -59,8 +82,6 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
     ohlc["triangle_point"]        = np.nan
     
     candle_iter = reversed(range(lookback, len(ohlc)))
-    if progress:
-        candle_iter = tqdm(candle_iter, desc="Finding triangle patterns")
     
     for candle_idx in candle_iter:
         
@@ -136,4 +157,10 @@ def find_triangle_pattern(ohlc: pd.DataFrame, lookback: int = 25, min_points: in
         if pattern_found:
             break
 
-    return ohlc
+    # After the loop, check if a pattern was found and extract details
+    if ohlc["chart_type"].str.contains("triangle").any():
+        details = get_triangle_details(ohlc)
+    else:
+        details = {}
+
+    return ohlc, details

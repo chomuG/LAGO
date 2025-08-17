@@ -8,13 +8,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ChartAnalysisService {
-    // 임시 테스트 메서드
-    String testPythonConnection();
 
     /**
      * 주어진 주식 ID에 대한 차트 패턴 분석을 요청합니다.
      *
-     * @param stockId 분석할 주식의 ID
+     * @param stockCode 종목코드
+     * @param chartMode 모의투자/챌린지
+     * @param interval 간격
+     * @param fromTimeDate 분석시작일시
+     * @param toDateTime 분석종료일시
      * @return 감지된 차트 패턴 목록
      */
     List<ChartAnalysisResponse> analyzePatterns(String stockCode, ChartMode chartMode, Interval interval, LocalDateTime fromTimeDate, LocalDateTime toDateTime);

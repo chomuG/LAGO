@@ -6,14 +6,11 @@ Function used to detect the Head and Shoulders pattern
 
 import numpy as np
 import pandas as pd 
-import plotly.graph_objects as go
 import logging
 
-from charts_utils import find_points
-from pivot_points import find_all_pivot_points
+from .charts_utils import find_points
+from .pivot_points import find_all_pivot_points
 from scipy.stats import linregress
-from tqdm import tqdm
-from typing import Tuple
 
 def find_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivot_interval: int = 10, short_pivot_interval: int = 5,
                                     head_ratio_before: float = 1.0002, head_ratio_after: float = 1.0002,
@@ -63,9 +60,9 @@ def find_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivot_interv
     ohlc = find_all_pivot_points(ohlc, left_count=pivot_interval, right_count=pivot_interval)
     ohlc = find_all_pivot_points(ohlc, left_count=short_pivot_interval, right_count=short_pivot_interval, name_pivot="short_pivot")
     
+    details = {} # Initialize details here
+
     candle_iter = reversed(range(lookback, len(ohlc)))
-    if progress:
-        candle_iter = tqdm(candle_iter, desc="Finding head and shoulders patterns...")
     
     for candle_idx in candle_iter:
 
@@ -84,9 +81,7 @@ def find_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivot_interv
         if len(maxim) - 1 == headidx:
             continue
         
-        if maxim[headidx]-maxim[headidx-1] > 0 and maxim[headidx]/maxim[headidx-1] > head_ratio_before and \
-            maxim[headidx]-maxim[headidx+1]>0 and maxim[headidx]/maxim[headidx+1] > head_ratio_after and \
-            abs(slmin)<=upper_slmin  and xxmin[0]>xxmax[headidx-1] and xxmin[1]<xxmax[headidx+1]: 
+        if maxim[headidx]-maxim[headidx-1] > 0 and maxim[headidx]/maxim[headidx-1] > head_ratio_before and maxim[headidx]-maxim[headidx+1]>0 and maxim[headidx]/maxim[headidx+1] > head_ratio_after and abs(slmin)<=upper_slmin  and xxmin[0]>xxmax[headidx-1] and xxmin[1]<xxmax[headidx+1]: 
                  
                 ohlc.loc[candle_idx, "chart_type"] = "hs"
             
@@ -103,21 +98,17 @@ def find_head_and_shoulders(ohlc: pd.DataFrame, lookback: int = 60, pivot_interv
                 ohlc.at[candle_idx, "hs_idx"]   = [ t[0] for t in list_idx_values]
                 ohlc.at[candle_idx, "hs_point"] = [ t[1] for t in list_idx_values]
        
-                # === 판단 근거 출력 ===
-                logging.debug("\n=== Head and shoulder Detected ===")
-                logging.debug(f"candle_idx: {candle_idx}")
-                logging.debug(f"hs_highs: {maxim}")
-                logging.debug(f"hs_lows: {minim}")
-                logging.debug(f"pivot_high_count: {len(xxmax)}")
-                logging.debug(f"pivot_low_count: {len(xxmin)}")
-                logging.debug(f"slope_low: {slmin:.6f}")
-                logging.debug(f"lookback: {lookback}")
-                logging.debug("==============================\n")
-
-                # 추가로 판단 근거를 df에 컬럼으로 저장
-                ohlc.loc[candle_idx, "hs_pivot_high_count"] = len(xxmax)
-                ohlc.loc[candle_idx, "hs_pivot_low_count"] = len(xxmin)
-
+                # === Head and shoulder Detected ===
+                # Populate details here
+                details = {
+                    "dates": [ohlc.index[idx].strftime('%Y-%m-%d') for idx in indexes], # Example: convert index to date
+                    "pattern_type": "head_and_shoulders",
+                    "head_index": indexes[2], # Index of the head
+                    "left_shoulder_index": indexes[0],
+                    "right_shoulder_index": indexes[4],
+                    "neckline_slope": slmin
+                }
+                logging.debug("\n=== Head and shoulder Detected ===\nDetails: %s", details)
                 break
 
-    return ohlc
+    return ohlc, details
