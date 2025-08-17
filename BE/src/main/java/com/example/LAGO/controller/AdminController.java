@@ -30,7 +30,7 @@ public class AdminController {
 
     @PostMapping("/daily-quiz/schedule-today")
     @Operation(summary = "오늘 데일리 퀴즈 수동 스케줄링", description = "테스트용: 오늘 데일리 퀴즈를 수동으로 스케줄링합니다.")
-    public ResponseEntity<String> scheduleToday(@RequestParam Integer quizId) {
+    public ResponseEntity<String> scheduleToday(@RequestParam("quizId") Integer quizId) {
         LocalDate today = LocalDate.now();
         
         if (dailyQuizScheduleRepository.existsByQuizDate(today)) {

@@ -23,11 +23,9 @@ public class PushNotificationService {
         try {
             Message message = Message.builder()
                     .setTopic(DAILY_QUIZ_TOPIC)
-                    .setNotification(Notification.builder()
-                            .setTitle("📚 새로운 데일리 퀴즈!")
-                            .setBody(quizTitle)
-                            .build())
                     .putData("type", "daily_quiz")
+                    .putData("title", "📚 새로운 데일리 퀴즈!")
+                    .putData("body", quizTitle)
                     .putData("quiz_date", LocalDate.now().toString())
                     .putData("action", "open_daily_quiz")
                     .build();
@@ -50,11 +48,9 @@ public class PushNotificationService {
         try {
             Message message = Message.builder()
                     .setTopic(DAILY_QUIZ_TOPIC)
-                    .setNotification(Notification.builder()
-                            .setTitle(title)
-                            .setBody(body)
-                            .build())
                     .putData("type", "test")
+                    .putData("title", title)
+                    .putData("body", body)
                     .build();
 
             String response = FirebaseMessaging.getInstance().send(message);

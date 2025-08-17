@@ -42,6 +42,15 @@ public interface StockHoldingRepository extends JpaRepository<StockHolding, Long
     List<StockHolding> findByUserId(@Param("userId") Long userId);
 
     /**
+     * 사용자별 특정 계좌 타입의 보유 주식 조회
+     * @param userId 사용자 ID
+     * @param accountType 계좌 타입
+     * @return 보유 주식 목록
+     */
+    @Query("SELECT sh FROM StockHolding sh JOIN sh.account a WHERE a.userId = :userId AND a.type = :accountType AND sh.quantity > 0")
+    List<StockHolding> findByUserIdAndAccountType(@Param("userId") Long userId, @Param("accountType") Integer accountType);
+
+    /**
      * 사용자와 종목으로 보유 주식 조회 (AI 봇용)
      * @param userId 사용자 ID
      * @param stockCode 종목 코드
