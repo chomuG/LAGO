@@ -38,7 +38,7 @@ public class RealtimeDataService {
 
     // 생성자: 이 하나만 남기세요
     public RealtimeDataService(
-            RedisTemplate<String, String> redisTemplate,
+            @Qualifier("redisTemplate") RedisTemplate<String, String> redisTemplate,
             @Qualifier("binaryRedisTemplate") RedisTemplate<String, byte[]> binaryRedisTemplate,
             ObjectMapper objectMapper,
             StockIdMapper stockIdMapper,

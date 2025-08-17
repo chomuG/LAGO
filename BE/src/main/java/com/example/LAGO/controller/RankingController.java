@@ -47,7 +47,7 @@ public class RankingController {
     })
     public ResponseEntity<List<RankingResponse>> getTotalAssetRanking(
             @Parameter(description = "조회할 랭킹 수 (1-1000)", example = "100")
-            @RequestParam(defaultValue = "100") 
+            @RequestParam(value = "limit", defaultValue = "100") 
             @Min(value = 1, message = "limit은 1 이상이어야 합니다")
             @Max(value = 1000, message = "limit은 1000 이하여야 합니다")
             Integer limit

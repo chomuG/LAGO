@@ -1,6 +1,7 @@
 package com.example.LAGO.controller;
 
 import com.example.LAGO.domain.DailyQuizSchedule;
+import com.example.LAGO.domain.Quiz;
 import com.example.LAGO.repository.DailyQuizScheduleRepository;
 import com.example.LAGO.repository.QuizRepository;
 import com.example.LAGO.service.PushNotificationService;
@@ -13,6 +14,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 
 @RestController
@@ -28,37 +30,37 @@ public class AdminController {
 
     @PostMapping("/daily-quiz/schedule-today")
     @Operation(summary = "오늘 데일리 퀴즈 수동 스케줄링", description = "테스트용: 오늘 데일리 퀴즈를 수동으로 스케줄링합니다.")
-    public ResponseEntity<String> scheduleToday() {
+    public ResponseEntity<String> scheduleToday(@RequestParam Integer quizId) {
         LocalDate today = LocalDate.now();
         
         if (dailyQuizScheduleRepository.existsByQuizDate(today)) {
             return ResponseEntity.ok("Today's quiz already scheduled");
         }
 
-        List<com.example.LAGO.domain.Quiz> availableQuizzes = quizRepository.findAll();
-        if (availableQuizzes.isEmpty()) {
-            return ResponseEntity.badRequest().body("No quizzes available");
+        Optional<Quiz> selectedQuiz = quizRepository.findById(quizId);
+        if (selectedQuiz.isEmpty()) {
+            return ResponseEntity.badRequest().body("Quiz not found with ID: " + quizId);
         }
-
-        com.example.LAGO.domain.Quiz selectedQuiz = availableQuizzes.get(random.nextInt(availableQuizzes.size()));
+        
+        Quiz quiz = selectedQuiz.get();
         
         DailyQuizSchedule schedule = DailyQuizSchedule.builder()
                 .scheduleId((int) System.currentTimeMillis())
                 .quizDate(today)
-                .quizId(selectedQuiz.getQuizId())
+                .quizId(quiz.getQuizId())
                 .startTime(LocalDateTime.now())
                 .build();
 
         dailyQuizScheduleRepository.save(schedule);
         
         // 수동 생성시 즉시 푸시 알림 발송
-        String notificationTitle = selectedQuiz.getQuestion();
+        String notificationTitle = quiz.getQuestion();
         if (notificationTitle.length() > 50) {
             notificationTitle = notificationTitle.substring(0, 50) + "...";
         }
         pushNotificationService.sendDailyQuizNotificationToAll(notificationTitle);
         
-        return ResponseEntity.ok("Today's quiz scheduled and notification sent: " + selectedQuiz.getQuestion());
+        return ResponseEntity.ok("Today's quiz scheduled and notification sent: " + quiz.getQuestion());
     }
 
     @PostMapping("/test-push")
