@@ -4,8 +4,9 @@ import com.example.LAGO.dto.response.RankingResponse;
 import com.example.LAGO.repository.AccountRepository;
 import com.example.LAGO.repository.MockTradeRepository;
 import com.example.LAGO.repository.StockInfoRepository;
-import com.example.LAGO.repository.StockRepository;
+import com.example.LAGO.repository.Ticks1dRepository;
 import com.example.LAGO.realtime.RealtimeDataService;
+import org.springframework.data.domain.PageRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,7 +34,7 @@ public class RankingService {
     private final AccountRepository accountRepository;
     private final MockTradeRepository mockTradeRepository;
     private final StockInfoRepository stockInfoRepository;
-    private final StockRepository stockRepository;
+    private final Ticks1dRepository ticks1dRepository;
     private final RealtimeDataService realtimeDataService;
 
     /**
@@ -52,7 +53,7 @@ public class RankingService {
         
         List<RankingResponse> rankings = new ArrayList<>();
         
-        // 1. 모든 모의투자 계좌 정보 조회
+        // 1. 모든 모의투자 계좌 및 AI 계좌 정보 조회
         String sql = """
             SELECT 
                 a.account_id,
@@ -63,7 +64,10 @@ public class RankingService {
                 u.is_ai
             FROM accounts a
             INNER JOIN users u ON a.user_id = u.user_id
-            WHERE a.type = 0
+            WHERE (
+                (u.is_ai = false AND a.type = 0) OR 
+                (u.is_ai = true AND a.type = 2 AND a.user_id IN (1, 2, 3, 4))
+            )
             AND u.deleted_at IS NULL
             ORDER BY a.user_id ASC
             """;
@@ -82,11 +86,11 @@ public class RankingService {
                     String personality = rs.getString("personality");
                     boolean isAi = rs.getBoolean("is_ai");
                     
-                    // 2. 각 계좌별 보유 주식 평가금액 실시간 계산
+                    // 2. 각 계좌별 보유 주식 평가금액 실시간 계산 (올바른 계좌 타입으로)
                     Integer stockValue = 0;
                     try {
-                        stockValue = calculateRealtimeStockValue(accountId);
-                        log.info("👤 사용자: {} ({}), 계좌ID: {}, 현금: {}, 주식평가: {}, 총자산: {}", 
+                        stockValue = calculateRealtimeStockValueOptimized(accountId, userId, isAi);
+                        log.debug("👤 사용자: {} ({}), 계좌ID: {}, 현금: {}, 주식평가: {}, 총자산: {}", 
                                 nickname, userId, accountId, balance, stockValue, balance + stockValue);
                     } catch (Exception e) {
                         log.warn("계좌 {} 주식 평가금액 계산 실패, 0으로 설정: {}", accountId, e.getMessage());
@@ -168,7 +172,7 @@ public class RankingService {
      */
     private RankingResponse calculateUserRankingIndividually(Long userId) {
         try {
-            // 1. 해당 사용자의 계좌 정보 조회
+            // 1. 해당 사용자의 계좌 정보 조회 (일반 사용자는 타입 0, AI는 타입 2만)
             String userSql = """
                 SELECT 
                     a.account_id,
@@ -179,7 +183,11 @@ public class RankingService {
                     u.is_ai
                 FROM accounts a
                 INNER JOIN users u ON a.user_id = u.user_id
-                WHERE a.type = 0 AND a.user_id = ? AND u.deleted_at IS NULL
+                WHERE (
+                    (u.is_ai = false AND a.type = 0) OR 
+                    (u.is_ai = true AND a.type = 2 AND a.user_id IN (1, 2, 3, 4))
+                ) 
+                AND a.user_id = ? AND u.deleted_at IS NULL
                 """;
             
             UserAssetInfo userAsset = null;
@@ -199,7 +207,7 @@ public class RankingService {
                         
                         Integer stockValue = 0;
                         try {
-                            stockValue = calculateRealtimeStockValue(accountId);
+                            stockValue = calculateRealtimeStockValueOptimized(accountId, userId, isAi);
                         } catch (Exception e) {
                             log.warn("계좌 {} 주식 평가금액 계산 실패, 0으로 설정: {}", accountId, e.getMessage());
                             stockValue = 0;
@@ -222,7 +230,11 @@ public class RankingService {
                 SELECT COUNT(*) + 1 as user_rank
                 FROM accounts a
                 INNER JOIN users u ON a.user_id = u.user_id
-                WHERE a.type = 0 AND u.deleted_at IS NULL
+                WHERE (
+                    (u.is_ai = false AND a.type = 0) OR 
+                    (u.is_ai = true AND a.type = 2 AND a.user_id IN (1, 2, 3, 4))
+                ) 
+                AND u.deleted_at IS NULL
                 AND a.user_id != ?
                 """;
             
@@ -233,7 +245,8 @@ public class RankingService {
                  PreparedStatement stmt = connection.prepareStatement(
                      "SELECT COUNT(*) + 1 as user_rank FROM accounts a " +
                      "INNER JOIN users u ON a.user_id = u.user_id " +
-                     "WHERE a.type = 0 AND u.deleted_at IS NULL AND a.total_asset > ?")) {
+                     "WHERE ((u.is_ai = false AND a.type = 0) OR (u.is_ai = true AND a.type = 2 AND a.user_id IN (1, 2, 3, 4))) " +
+                     "AND u.deleted_at IS NULL AND a.total_asset > ?")) {
                 
                 stmt.setInt(1, userAsset.totalAsset);
                 
@@ -262,7 +275,70 @@ public class RankingService {
     }
 
     /**
-     * 특정 계좌의 보유 주식 실시간 평가금액 계산
+     * 특정 계좌의 보유 주식 실시간 평가금액 계산 (최적화 버전)
+     * 사용자 타입에 따라 올바른 계좌 타입에서 보유주식 조회
+     * 
+     * @param accountId 계좌 ID
+     * @param userId 사용자 ID
+     * @param isAi AI 여부
+     * @return 총 주식 평가금액
+     */
+    private Integer calculateRealtimeStockValueOptimized(Long accountId, Long userId, boolean isAi) {
+        try {
+            List<Object[]> holdings;
+            
+            if (isAi && (userId == 1L || userId == 2L || userId == 3L || userId == 4L)) {
+                // AI 봇들은 타입 2 계좌에서 조회
+                holdings = mockTradeRepository.findCurrentHoldingsByAccountIdAndType(accountId, 2);
+            } else {
+                // 일반 사용자는 타입 0 계좌에서 조회
+                holdings = mockTradeRepository.findCurrentHoldingsByAccountIdAndType(accountId, 0);
+            }
+            
+            if (holdings.isEmpty()) {
+                return 0;
+            }
+            
+            Integer totalStockValue = 0;
+            
+            for (Object[] holding : holdings) {
+                Integer stockId = (Integer) holding[0];
+                Long currentQuantity = (Long) holding[1];
+                
+                if (currentQuantity <= 0) continue;
+                
+                // 종목 코드 조회
+                String stockCode = getStockCodeById(stockId);
+                if (stockCode == null) continue;
+                
+                // Redis 실시간 가격 우선 조회
+                Integer currentPrice = realtimeDataService.getLatestPrice(stockCode);
+                
+                // Redis에 없으면 ticks_1d에서 최근 종가 조회 (fallback)
+                if (currentPrice == null || currentPrice <= 0) {
+                    currentPrice = ticks1dRepository.findLatestByCode(stockCode, PageRequest.of(0, 1))
+                            .stream()
+                            .findFirst()
+                            .map(ticks1d -> ticks1d.getClosePrice())
+                            .orElse(0);
+                }
+                
+                if (currentPrice > 0) {
+                    Integer stockValue = currentPrice * currentQuantity.intValue();
+                    totalStockValue += stockValue;
+                }
+            }
+            
+            return totalStockValue;
+            
+        } catch (Exception e) {
+            log.warn("계좌 {} 주식 평가금액 최적화 계산 실패: {}", accountId, e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * 특정 계좌의 보유 주식 실시간 평가금액 계산 (기존 버전)
      * Redis 실시간 가격 → DB 종가 → 거래 시점 가격 순으로 폴백
      * 
      * @param accountId 계좌 ID
@@ -275,7 +351,7 @@ public class RankingService {
             
             Integer totalStockValue = 0;
             
-            log.info("📊 계좌 {} 보유 종목 수: {}", accountId, holdings.size());
+            log.debug("📊 계좌 {} 보유 종목 수: {}", accountId, holdings.size());
             
             for (Object[] holding : holdings) {
                 Integer stockId = (Integer) holding[0];
@@ -301,7 +377,7 @@ public class RankingService {
                 Integer stockValue = currentPrice * currentQuantity.intValue();
                 totalStockValue += stockValue;
                 
-                log.info("📈 종목: {} (ID: {}), 보유량: {}, 현재가: {}, 평가금액: {}", 
+                log.debug("📈 종목: {} (ID: {}), 보유량: {}, 현재가: {}, 평가금액: {}", 
                          stockCode, stockId, currentQuantity, currentPrice, stockValue);
             }
             
@@ -328,7 +404,7 @@ public class RankingService {
     }
 
     /**
-     * 현재가 조회 (Redis → DB 종가 → 폴백 순)
+     * 현재가 조회 (Redis → ticks_1d 최근 종가 → 폴백 순)
      */
     private Integer getCurrentPrice(String stockCode, Integer stockId) {
         try {
@@ -339,18 +415,20 @@ public class RankingService {
                 return realtimePrice;
             }
             
-            // 2. DB 종가 조회 (폴백) - Stock 엔티티에서 조회
-            Integer dbPrice = stockRepository.findById(stockCode)
-                    .map(stock -> stock.getCurrentPrice())
+            // 2. ticks_1d 테이블에서 최근 종가 조회 (폴백)
+            Integer latestClosePrice = ticks1dRepository.findLatestByCode(stockCode, PageRequest.of(0, 1))
+                    .stream()
+                    .findFirst()
+                    .map(ticks1d -> ticks1d.getClosePrice())
                     .orElse(null);
             
-            if (dbPrice != null && dbPrice > 0) {
-                log.debug("DB에서 종목 {} 현재가 조회: {}", stockCode, dbPrice);
-                return dbPrice;
+            if (latestClosePrice != null && latestClosePrice > 0) {
+                log.debug("ticks_1d에서 종목 {} 최근 종가 조회: {}", stockCode, latestClosePrice);
+                return latestClosePrice;
             }
             
-            log.warn("종목 {}의 현재가를 찾을 수 없음 (Redis: {}, DB: {})", 
-                    stockCode, realtimePrice, dbPrice);
+            log.warn("종목 {}의 현재가를 찾을 수 없음 (Redis: {}, ticks_1d: {})", 
+                    stockCode, realtimePrice, latestClosePrice);
             return null;
             
         } catch (Exception e) {
