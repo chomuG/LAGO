@@ -4,6 +4,7 @@ import com.lago.app.data.local.prefs.UserPreferences
 import com.lago.app.data.remote.api.ChartApiService
 import com.lago.app.data.remote.ApiService
 import com.lago.app.data.remote.dto.*
+import com.lago.app.data.cache.FavoriteCache
 import com.lago.app.domain.entity.AccountBalance
 import com.lago.app.domain.entity.MockTradeResult
 import com.lago.app.domain.entity.OrderType
@@ -24,7 +25,8 @@ import javax.inject.Singleton
 class MockTradeRepositoryImpl @Inject constructor(
     private val apiService: ChartApiService,
     private val userApiService: ApiService,
-    private val userPreferences: UserPreferences
+    private val userPreferences: UserPreferences,
+    private val favoriteCache: FavoriteCache
 ) : MockTradeRepository {
 
     // =====================================
@@ -664,31 +666,79 @@ class MockTradeRepositoryImpl @Inject constructor(
     }
     
     /**
-     * 주식 코드로 주식명 조회 (기본 매핑)
+     * 주식 코드로 주식명 조회 - API에서 가져오도록 수정 필요
+     * 현재는 임시로 빈 값 반환
      */
     private fun getStockNameByCode(stockCode: String): String {
-        return when (stockCode) {
-            "005930" -> "삼성전자"
-            "000660" -> "SK하이닉스"
-            "035420" -> "NAVER"
-            "035720" -> "카카오"
-            "051910" -> "LG화학"
-            "006400" -> "삼성SDI"
-            "028260" -> "삼성물산"
-            "068270" -> "셀트리온"
-            "207940" -> "삼성바이오로직스"
-            "096770" -> "SK이노베이션"
-            "323410" -> "카카오뱅크"
-            "267260" -> "HD현대일렉트릭"
-            "000270" -> "기아"
-            "012330" -> "현대모비스"
-            "030200" -> "KT"
-            "017670" -> "SK텔레콤"
-            "105560" -> "KB금융"
-            "086790" -> "하나금융지주"
-            "003550" -> "LG"
-            "034730" -> "SK"
-            else -> stockCode // 알 수 없는 코드는 그대로 반환
+        // TODO: 실제 API에서 종목명 조회하도록 수정
+        return ""
+    }
+    
+    // =====================================
+    // 새로운 관심종목 기능 (API 기반)
+    // =====================================
+    
+    override suspend fun toggleFavorite(stockCode: String): Flow<Resource<Boolean>> = flow {
+        try {
+            emit(Resource.Loading())
+            
+            val userId = userPreferences.getUserIdLong()
+            if (userId == 0L) {
+                emit(Resource.Error("로그인이 필요합니다"))
+                return@flow
+            }
+            
+            // Optimistic Update: 즉시 캐시 업데이트
+            val wasAdded = favoriteCache.toggle(stockCode)
+            android.util.Log.d("MockTradeRepository", "💖 관심종목 토글 (캐시): $stockCode → ${if (wasAdded) "추가" else "제거"}")
+            
+            try {
+                // API 호출
+                apiService.toggleFavoriteStock(userId, stockCode)
+                android.util.Log.d("MockTradeRepository", "💖 관심종목 토글 (API 성공): $stockCode")
+                emit(Resource.Success(wasAdded))
+            } catch (e: Exception) {
+                // API 실패 시 캐시 롤백
+                favoriteCache.toggle(stockCode)
+                android.util.Log.e("MockTradeRepository", "💖 관심종목 토글 (API 실패, 캐시 롤백): $stockCode", e)
+                throw e
+            }
+            
+        } catch (e: HttpException) {
+            emit(Resource.Error(handleHttpError(e)))
+        } catch (e: IOException) {
+            emit(Resource.Error("네트워크 연결을 확인해주세요"))
+        } catch (e: Exception) {
+            emit(Resource.Error("관심종목 토글 중 오류가 발생했습니다: ${e.localizedMessage}"))
+        }
+    }
+    
+    override suspend fun loadUserFavorites(): Flow<Resource<Set<String>>> = flow {
+        try {
+            emit(Resource.Loading())
+            
+            val userId = userPreferences.getUserIdLong()
+            if (userId == 0L) {
+                emit(Resource.Error("로그인이 필요합니다"))
+                return@flow
+            }
+            
+            // 새로운 API로 사용자 관심종목 조회
+            val favorites = apiService.getUserFavoriteStocks(userId)
+            val stockCodes = favorites.map { it.stockCode }.toSet()
+            
+            // 캐시 업데이트
+            favoriteCache.updateCache(stockCodes)
+            android.util.Log.d("MockTradeRepository", "💖 사용자 관심종목 로드 완료: ${stockCodes.size}개")
+            
+            emit(Resource.Success(stockCodes))
+            
+        } catch (e: HttpException) {
+            emit(Resource.Error(handleHttpError(e)))
+        } catch (e: IOException) {
+            emit(Resource.Error("네트워크 연결을 확인해주세요"))
+        } catch (e: Exception) {
+            emit(Resource.Error("관심종목 목록 조회 중 오류가 발생했습니다: ${e.localizedMessage}"))
         }
     }
 }
