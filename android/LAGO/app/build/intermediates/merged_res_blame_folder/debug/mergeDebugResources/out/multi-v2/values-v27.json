@@ -1,0 +1,47 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.lago.app-mergeDebugResources-3:/values-v27/values-v27.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\SSAFY\\.gradle\\caches\\8.11.1\\transforms\\c8c7d72c16572d929c4acc97b57c6e91\\transformed\\core-splashscreen-1.0.1\\res\\values-v27\\values-v27.xml",
+                    "from": {
+                        "startLines": "2,3,4,7",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "55,136,229,405",
+                        "endLines": "2,3,6,9",
+                        "endColumns": "80,92,12,12",
+                        "endOffsets": "131,224,400,588"
+                    },
+                    "to": {
+                        "startLines": "8,9,10,13",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "301,382,475,651",
+                        "endLines": "8,9,12,15",
+                        "endColumns": "80,92,12,12",
+                        "endOffsets": "377,470,646,834"
+                    }
+                },
+                {
+                    "source": "C:\\SSAFY\\S13P11D203\\android\\LAGO\\app\\src\\main\\res\\values-v27\\themes.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "57",
+                        "endLines": "7",
+                        "endColumns": "12",
+                        "endOffsets": "409"
+                    },
+                    "to": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "7",
+                        "endColumns": "12",
+                        "endOffsets": "296"
+                    }
+                }
+            ]
+        }
+    ]
+}

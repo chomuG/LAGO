@@ -1,0 +1,16 @@
+Manifest-Version: 1.0
+Implementation-Title: LAGO
+Implementation-Version: 1.0.0-SNAPSHOT
+Built-By: SSAFY
+Build-Timestamp: Sun Aug 17 23:17:00 KST 2025
+Created-By: Gradle 8.14.3
+Build-Jdk: 21.0.8 (Oracle Corporation 21.0.8+12-LTS-250)
+Main-Class: org.springframework.boot.loader.launch.JarLauncher
+Start-Class: com.example.LAGO.LagoApplication
+Spring-Boot-Version: 3.5.4
+Spring-Boot-Classes: BOOT-INF/classes/
+Spring-Boot-Lib: BOOT-INF/lib/
+Spring-Boot-Classpath-Index: BOOT-INF/classpath.idx
+Spring-Boot-Layers-Index: BOOT-INF/layers.idx
+Build-Jdk-Spec: 21
+

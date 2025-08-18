@@ -1,0 +1,1 @@
+-keep,allowobfuscation,allowshrinking class com.lago.app.presentation.viewmodel.LoginViewModel

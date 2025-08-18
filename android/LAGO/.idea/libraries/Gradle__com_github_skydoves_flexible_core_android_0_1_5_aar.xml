@@ -1,0 +1,14 @@
+<component name="libraryTable">
+  <library name="Gradle: com.github.skydoves:flexible-core-android:0.1.5@aar" external-system-id="GRADLE">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/8.11.1/transforms/c55bb7e4c432d59617572a494eb4fbe6/transformed/flexible-core-release/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/8.11.1/transforms/c55bb7e4c432d59617572a494eb4fbe6/transformed/flexible-core-release/AndroidManifest.xml" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.github.skydoves/flexible-core-android/0.1.5/985ee966b22cd222c9696475bf78cb1854cd452c/flexible-core-android-0.1.5-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.github.skydoves/flexible-core-android/0.1.5/470ad7b9c33c84106919c247efe2d71c02129fe6/flexible-core-android-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
