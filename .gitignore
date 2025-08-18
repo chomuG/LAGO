@@ -1,3 +1,22 @@
+# IDE
+*.DS_Store
+
+# Docker/DB/Redis 볼륨(실제 데이터)
+/dbdata/
+/redisdata/
+dbdata/
+redisdata/
+BE/dbdata/
+BE/redisdata/
+
+# 기타 임시/캐시
+*.tmp
+*.temp
+*.cache
+
+# node, frontend 등 추가시
+node_modules/
+
 # Java/Spring Boot 빌드 파일
 /build/
 /BE/build/
@@ -44,28 +63,99 @@ out/
 
 # OS/에디터 불필요 파일
 Thumbs.db
-.DS_Store
 *.bak
 *.swp
 *.swo
 *~
 
-# 환경변수/시크릿
+# 환경변수/시크릿/설정 파일
 .env
 .env.*
+*.properties
+application-*.properties
+application-*.yml
+application-*.yaml
+!application.properties.example
+!application.yml.example
 
-# Docker/DB/Redis 볼륨(실제 데이터)
-dbdata/
-redisdata/
-BE/dbdata/
-BE/redisdata/
+# Python 캐시/빌드 파일 (FinBERT 서비스)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# 기타 임시/캐시
-*.tmp
-*.temp
-*.cache
+# PyTorch/ML 모델 캐시
+.cache/
+models/
+*.pth
+*.pkl
+*.pt
+*.bin
+*.onnx
 
-# node, frontend 등 추가시
-node_modules/
+# Jupyter Notebook
+.ipynb_checkpoints
 
-lightweightlibrary/build
+# Python 가상환경
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+pip-selfcheck.json
+
+# 테스트 파일들
+test_*.py
+*_test.py
+test_*.json
+*_test.json
+*.test.py
+*.test.json
+.pytest_cache/
+pytest_cache/
+test/
+tests/
+!**/src/test/
+
+# 환경변수/시크릿 (템플릿 제외)
+.env
+.env.local
+.env.production
+.env.development
+!.env.example
+
+# Docker Compose Override (EC2 배포용)
+docker-compose.override.yml
+!docker-compose.override.yml
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Gemini
+.gemini/
+
+# properties
+.properties
+*.properties
