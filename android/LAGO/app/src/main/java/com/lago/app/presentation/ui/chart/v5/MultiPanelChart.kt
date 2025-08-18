@@ -149,7 +149,9 @@ enum class IndicatorType {
  * Using timestamp format for maximum compatibility with minutes/hours/days/weeks/months/years
  */
 private fun formatDateForChart(date: Date): Long {
-    return date.time / 1000 // Convert milliseconds to epoch seconds timestamp
+    // ChartTimeManager 정규화와 동일한 로직 적용
+    val timestamp = date.time
+    return if (timestamp > 9999999999L) timestamp / 1000 else timestamp
 }
 
 /**
@@ -702,16 +704,21 @@ private fun generateMultiPanelHtml(
                 
                 console.log('LAGO Multi-Panel Chart v5 initialized successfully');
                 
-                // ✅ 빠른 차트 로딩: 준비되면 호출 (둘 다 지원해 두면 안전)
-                setTimeout(() => {
+                // ✅ 차트 준비 완료 신호 - 통일된 함수로 관리
+                window.notifyChartReady = function() {
+                    if (window._chartReadyCalled) return; // 중복 호출 방지
+                    window._chartReadyCalled = true;
+                    
+                    console.log('LAGO: Chart ready - notifying interface');
                     if (window.ChartInterface && ChartInterface.onChartReady) {
-                        console.log('LAGO: Chart ready - sending ChartInterface.onChartReady signal');
                         ChartInterface.onChartReady();
                     } else if (window.Android && Android.onChartReady) {
-                        console.log('LAGO: Chart ready - sending Android.onChartReady signal');
                         Android.onChartReady();
                     }
-                }, 100); // 로딩 시간 대폭 단축
+                };
+                
+                // 초기화 완료 후 콜백 호출
+                setTimeout(window.notifyChartReady, 100);
                 
             } catch (error) {
                 console.error('LAGO Multi-panel chart initialization error:', error);
@@ -1014,7 +1021,9 @@ private fun generateMultiPanelHtml(
                 if (typeof t === 'number') return t;
                 if (t && typeof t === 'object' && 'year' in t) {
                     const d = new Date(Date.UTC(t.year, (t.month||1)-1, (t.day||1), 0,0,0));
-                    return Math.floor(d.getTime()/1000);
+                    // 시간 정규화 - ChartTimeManager와 동일한 로직
+                    const timestamp = d.getTime();
+                    return timestamp > 9999999999 ? Math.floor(timestamp/1000) : timestamp;
                 }
                 return null;
             }
@@ -1575,7 +1584,7 @@ private fun generateMultiPanelHtml(
         // 초기 데이터 세팅 (2개 파라미터 지원)
         window.setSeriesData = function(candlesJson, volumesJson) {
             try {
-                const normalizeTime = (t) => (t > 10000000000 ? Math.floor(t/1000) : t);
+                const normalizeTime = (t) => (t > 9999999999 ? Math.floor(t/1000) : t);
 
                 if (candlesJson && window.seriesMap.main) {
                     const arr = JSON.parse(candlesJson).map(p => ({ ...p, time: normalizeTime(p.time) }));
@@ -1593,6 +1602,14 @@ private fun generateMultiPanelHtml(
                 }
 
                 chart.timeScale().fitContent();
+                
+                // 데이터 설정 완료 후 차트 준비 신호
+                setTimeout(() => {
+                    if (window.notifyChartReady) {
+                        window.notifyChartReady();
+                    }
+                }, 50);
+                
             } catch (e) {
                 console.error('setSeriesData error', e);
             }
@@ -1601,7 +1618,7 @@ private fun generateMultiPanelHtml(
         window.updateRealTimeBar = function (barJson) {
             try {
                 const bar = JSON.parse(barJson);
-                const normalizeTime = (t) => (t > 10000000000 ? Math.floor(t/1000) : t);
+                const normalizeTime = (t) => (t > 9999999999 ? Math.floor(t/1000) : t);
                 const normalizedBar = { ...bar, time: normalizeTime(bar.time) };
                 
                 if (window.seriesMap.main) {
@@ -1622,7 +1639,7 @@ private fun generateMultiPanelHtml(
         window.updateRealTimeVolume = function (vbarJson) {
             try {
                 const vbar = JSON.parse(vbarJson);
-                const normalizeTime = (t) => (t > 10000000000 ? Math.floor(t/1000) : t);
+                const normalizeTime = (t) => (t > 9999999999 ? Math.floor(t/1000) : t);
                 const normalizedVol = { ...vbar, time: normalizeTime(vbar.time) };
                 
                 if (window.seriesMap.volume) {
@@ -1656,7 +1673,7 @@ private fun generateMultiPanelHtml(
         // 과거 데이터 앞쪽 추가 (브릿지와 시그니처 맞춤)
         window.prependHistoricalData = function(candlesJson, volumesJson) {
             try {
-                const normalizeTime = (t) => (t > 10000000000 ? Math.floor(t/1000) : t);
+                const normalizeTime = (t) => (t > 9999999999 ? Math.floor(t/1000) : t);
 
                 if (candlesJson && window.seriesMap.main) {
                     const older = JSON.parse(candlesJson).map(p => ({ ...p, time: normalizeTime(p.time) }));
@@ -1723,6 +1740,35 @@ private fun generateMultiPanelHtml(
         
         // ChartBridge 객체 생성 (JsBridge와 연결)
         window.ChartBridge = {
+            // 🔥 차트 로딩 관련 콜백들
+            onChartLoadingCompleted: function() {
+                console.log('[ChartBridge] 📞 onChartLoadingCompleted 호출됨');
+                if (window.ChartInterface && window.ChartInterface.onChartLoadingCompleted) {
+                    window.ChartInterface.onChartLoadingCompleted();
+                } else if (window.AndroidInterface && window.AndroidInterface.onChartLoadingCompleted) {
+                    window.AndroidInterface.onChartLoadingCompleted();
+                }
+            },
+            
+            onChartReady: function() {
+                console.log('[ChartBridge] 📞 onChartReady 호출됨');
+                if (window.ChartInterface && window.ChartInterface.onChartReady) {
+                    window.ChartInterface.onChartReady();
+                } else if (window.AndroidInterface && window.AndroidInterface.onChartReady) {
+                    window.AndroidInterface.onChartReady();
+                }
+            },
+            
+            onLoadingProgress: function(progress) {
+                console.log('[ChartBridge] 📞 onLoadingProgress 호출됨:', progress);
+                if (window.ChartInterface && window.ChartInterface.onLoadingProgress) {
+                    window.ChartInterface.onLoadingProgress(progress);
+                } else if (window.AndroidInterface && window.AndroidInterface.onLoadingProgress) {
+                    window.AndroidInterface.onLoadingProgress(progress);
+                }
+            },
+            
+            // 기존 패턴 분석 관련 콜백들
             onVisibleRangeAnalysis: function(fromTime, toTime) {
                 // JsBridge의 analyzePatternInRange 메서드 호출
                 if (window.ChartInterface && window.ChartInterface.analyzePatternInRange) {
@@ -1880,7 +1926,7 @@ private fun generateMultiPanelHtml(
                         followRT = (info.barsAfter ?? 0) < 1;
                     });
 
-                    try { Android?.onChartReady?.(); } catch(e){}
+                    // Chart ready 콜백은 window.notifyChartReady()로 통일 관리
                     return true;
                 }
 

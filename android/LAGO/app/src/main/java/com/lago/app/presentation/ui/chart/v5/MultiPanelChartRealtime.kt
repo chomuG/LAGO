@@ -13,6 +13,7 @@ import com.lago.app.presentation.ui.chart.WebChartScreen
 fun MultiPanelChartRealtime(
     modifier: Modifier = Modifier,
     historicalDataListener: HistoricalDataRequestListener? = null,
+    chartLoadingListener: Any? = null, // 🔥 임시 비활성화
     onReady: (JsBridge) -> Unit
 ) {
     val html = remember { ChartHtmlTemplate.get() }
@@ -23,7 +24,11 @@ fun MultiPanelChartRealtime(
         modifier = modifier.fillMaxSize(),
         onWebViewReady = { webView ->
             // ① WebView 핸들 확보 → 브릿지 생성 (차트 준비는 아직 안됨)
-            bridge = JsBridge(webView, historicalDataListener = historicalDataListener)
+            bridge = JsBridge(
+                webView = webView, 
+                historicalDataListener = historicalDataListener,
+                chartLoadingListener = null // 🔥 임시 비활성화
+            )
         },
         onChartReady = {
             // ② JS가 Android.onChartReady() 호출 후

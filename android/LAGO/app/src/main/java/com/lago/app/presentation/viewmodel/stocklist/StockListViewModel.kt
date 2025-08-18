@@ -136,7 +136,7 @@ class StockListViewModel @Inject constructor(
                         
                         stock.copy(
                             currentPrice = realTimeData.price.toInt(),
-                            priceChange = realTimeData.priceChange.toInt(),
+                            priceChange = realTimeData.previousDay ?: realTimeData.priceChange.toInt(), // 🔥 웹소켓 previousDay 데이터 사용
                             priceChangePercent = realTimeData.priceChangePercent,
                             volume = realTimeData.volume ?: 0L
                         )
@@ -151,7 +151,7 @@ class StockListViewModel @Inject constructor(
                         android.util.Log.v("StockListViewModel", "🔍 ${stock.code}: 캐시에서 마지막 데이터 적용 (${cachedData.price.toInt()}원)")
                         stock.copy(
                             currentPrice = cachedData.price.toInt(),
-                            priceChange = cachedData.priceChange.toInt(),
+                            priceChange = cachedData.previousDay ?: cachedData.priceChange.toInt(), // 🔥 웹소켓 previousDay 데이터 사용
                             priceChangePercent = cachedData.priceChangePercent,
                             volume = cachedData.volume ?: 0L
                         )
@@ -513,7 +513,7 @@ class StockListViewModel @Inject constructor(
                 android.util.Log.d("StockListViewModel", "💾 캐시 적용: ${stock.code} = ${cachedData.price}원 (기존 ${stock.currentPrice}원), 관심종목: $isFavorite")
                 stock.copy(
                     currentPrice = cachedData.price.toInt(),
-                    priceChange = cachedData.priceChange.toInt(),
+                    priceChange = cachedData.previousDay ?: cachedData.priceChange.toInt(), // 🔥 웹소켓 previousDay 데이터 사용
                     priceChangePercent = cachedData.priceChangePercent,
                     volume = cachedData.volume ?: 0L,
                     updatedAt = java.time.Instant.ofEpochMilli(cachedData.timestamp).toString(),
@@ -806,7 +806,7 @@ class StockListViewModel @Inject constructor(
             val realTimeData = quotesMap[historyChallengeKey]
             if (realTimeData != null) {
                 val newCurrentPrice = realTimeData.closePrice?.toFloat() ?: stock.currentPrice
-                val newChangePrice = realTimeData.priceChange.toFloat()
+                val newChangePrice = (realTimeData.previousDay ?: realTimeData.priceChange.toInt()).toFloat() // 🔥 웹소켓 previousDay 데이터 사용
                 val newFluctuationRate = realTimeData.priceChangePercent.toFloat()
                 
                 // 변경 사항이 있는지 체크

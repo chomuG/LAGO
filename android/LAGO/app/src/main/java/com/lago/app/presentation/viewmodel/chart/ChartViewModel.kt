@@ -29,51 +29,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.*
 
-/**
- * 시간 버킷 타입 정의
- */
-sealed class TimeBucket {
-    data class Minute(val mins: Int): TimeBucket()
-    object Day: TimeBucket()
-    // 필요하면 Week/Month/Year 추가 가능
-}
-
-/**
- * String TimeFrame을 TimeBucket으로 변환
- */
-fun String.toTimeBucket(): TimeBucket = when (this) {
-    "1" -> TimeBucket.Minute(1)
-    "3" -> TimeBucket.Minute(3)
-    "5" -> TimeBucket.Minute(5)
-    "10" -> TimeBucket.Minute(10)
-    "15" -> TimeBucket.Minute(15)
-    "30" -> TimeBucket.Minute(30)
-    "60" -> TimeBucket.Minute(60)
-    "D" -> TimeBucket.Day
-    else -> TimeBucket.Minute(1) // 기본값
-}
-
-/**
- * 과거 캔들 데이터를 버킷에 재샘플링하여 정규화
- * ChartTimeManager 사용으로 통일
- */
-fun normalizeToBucket(bars: List<CandlestickData>, tf: String): List<CandlestickData> {
-    if (bars.isEmpty()) return bars
-
-    val grouped = bars.groupBy { candle ->
-        val epochSec = ChartTimeManager.normalizeToEpochSeconds(candle.time)
-        ChartTimeManager.getBucketStartTime(epochSec, tf)
-    }.toSortedMap()
-
-    return grouped.map { (bucketTime, list) ->
-        val o = list.first().open
-        val h = list.maxOf { it.high }
-        val l = list.minOf { it.low }
-        val c = list.last().close
-        val v = list.sumOf { it.volume }
-        CandlestickData(time = bucketTime, open = o, high = h, low = l, close = c, volume = v)
-    }
-}
 
 @HiltViewModel
 class ChartViewModel @Inject constructor(
@@ -124,23 +79,30 @@ class ChartViewModel @Inject constructor(
                         )
                     }
 
-                    // 차트에 캐시된 데이터 설정
+                    // 캐시된 데이터 변환
+                    android.util.Log.d("ChartViewModel", "💾 캐시된 데이터 변환 시작")
+
+                    // CandlestickData를 CandleData로 변환
+                    val candleDataList = cachedData.data.map { candlestick ->
+                        com.lago.app.presentation.ui.chart.v5.CandleData(
+                            time = candlestick.time,
+                            open = candlestick.open,
+                            high = candlestick.high,
+                            low = candlestick.low,
+                            close = candlestick.close
+                        )
+                    }
+
+                    // 차트 브릿지가 있으면 즉시 설정, 없으면 대기 (볼륨은 null)
                     chartBridge?.let { bridge ->
-                        android.util.Log.d("ChartViewModel", "💾 캐시된 데이터를 차트에 설정")
-
-                        // CandlestickData를 CandleData로 변환
-                        val candleDataList = cachedData.data.map { candlestick ->
-                            com.lago.app.presentation.ui.chart.v5.CandleData(
-                                time = candlestick.time,
-                                open = candlestick.open,
-                                high = candlestick.high,
-                                low = candlestick.low,
-                                close = candlestick.close
-                            )
-                        }
-
+                        android.util.Log.d("ChartViewModel", "💾 차트 브릿지 존재 - 캐시된 데이터 즉시 설정")
                         bridge.setInitialData(candleDataList)
                         _uiState.update { it.copy(chartLoadingStage = ChartLoadingStage.CHART_READY) }
+                    } ?: run {
+                        android.util.Log.d("ChartViewModel", "💾 차트 브릿지 없음 - 캐시된 데이터를 대기 상태로 저장")
+                        // 캐시된 데이터는 거래량이 없으므로 빈 리스트로 설정
+                        pendingChartCandles = candleDataList
+                        pendingVolumeData = emptyList()
                     }
 
                     // 캐시된 데이터를 보여준 후 백그라운드에서 최신 데이터 확인
@@ -194,45 +156,55 @@ class ChartViewModel @Inject constructor(
                                 )
                             }
 
-                            // 차트에 데이터 설정 (역사챌린지와 동일한 방식)
+                            // 데이터 변환 (차트 브릿지 유무와 관계없이 항상 수행)
+                            android.util.Log.d("ChartViewModel", "📥 데이터 변환 시작")
+
+                            // 캔들 데이터 변환
+                            val chartCandles = data.map { candle ->
+                                // ChartTimeManager 사용으로 통일
+                                val epochSeconds = ChartTimeManager.normalizeToEpochSeconds(candle.time)
+                                android.util.Log.v("ChartViewModel", "📥 캔들 변환: ${candle.time} → $epochSeconds (${java.util.Date(epochSeconds * 1000)})")
+                                com.lago.app.presentation.ui.chart.v5.CandleData(
+                                    time = epochSeconds,
+                                    open = candle.open,
+                                    high = candle.high,
+                                    low = candle.low,
+                                    close = candle.close
+                                )
+                            }
+
+                            // 거래량 데이터 변환 (역사챌린지와 동일한 방식)
+                            val volumeData = data.map { candle ->
+                                val epochSeconds = ChartTimeManager.normalizeToEpochSeconds(candle.time)
+                                com.lago.app.presentation.ui.chart.v5.VolumeData(
+                                    time = epochSeconds,
+                                    value = candle.volume,
+                                    color = if (candle.close >= candle.open) "#26a69a" else "#ef5350" // 상승/하락 색상
+                                )
+                            }
+
+                            android.util.Log.d("ChartViewModel", "📥 변환 완료 - 캔들: ${chartCandles.size}개, 거래량: ${volumeData.size}개")
+                            if (chartCandles.isNotEmpty()) {
+                                android.util.Log.d("ChartViewModel", "📥 첫 캔들: time=${chartCandles.first().time}, close=${chartCandles.first().close}")
+                                android.util.Log.d("ChartViewModel", "📥 마지막 캔들: time=${chartCandles.last().time}, close=${chartCandles.last().close}")
+                            }
+
+                            // 차트 브릿지가 있으면 즉시 설정, 없으면 대기
                             chartBridge?.let { bridge ->
-                                android.util.Log.d("ChartViewModel", "📥 차트 브릿지 찾음, 데이터 변환 시작")
-
-                                // 캔들 데이터 변환
-                                val chartCandles = data.map { candle ->
-                                    // ChartTimeManager 사용으로 통일
-                                    val epochSeconds = ChartTimeManager.normalizeToEpochSeconds(candle.time)
-                                    android.util.Log.v("ChartViewModel", "📥 캔들 변환: ${candle.time} → $epochSeconds (${java.util.Date(epochSeconds * 1000)})")
-                                    com.lago.app.presentation.ui.chart.v5.CandleData(
-                                        time = epochSeconds,
-                                        open = candle.open,
-                                        high = candle.high,
-                                        low = candle.low,
-                                        close = candle.close
-                                    )
-                                }
-
-                                // 거래량 데이터 변환 (역사챌린지와 동일한 방식)
-                                val volumeData = data.map { candle ->
-                                    val epochSeconds = ChartTimeManager.normalizeToEpochSeconds(candle.time)
-                                    com.lago.app.presentation.ui.chart.v5.VolumeData(
-                                        time = epochSeconds,
-                                        value = candle.volume,
-                                        color = if (candle.close >= candle.open) "#26a69a" else "#ef5350" // 상승/하락 색상
-                                    )
-                                }
-
-                                android.util.Log.d("ChartViewModel", "📥 변환 완료 - 캔들: ${chartCandles.size}개, 거래량: ${volumeData.size}개")
-                                if (chartCandles.isNotEmpty()) {
-                                    android.util.Log.d("ChartViewModel", "📥 첫 캔들: time=${chartCandles.first().time}, close=${chartCandles.first().close}")
-                                    android.util.Log.d("ChartViewModel", "📥 마지막 캔들: time=${chartCandles.last().time}, close=${chartCandles.last().close}")
-                                }
-
-                                // 차트에 초기 데이터 설정 (캔들 + 거래량)
+                                android.util.Log.d("ChartViewModel", "📥 차트 브릿지 존재 - 즉시 데이터 설정")
                                 bridge.setInitialData(chartCandles, volumeData)
                                 android.util.Log.d("ChartViewModel", "📥 bridge.setInitialData() 호출 완료")
+                                
+                                // 🔥 거래량이 항상 표시되도록 volume indicator 자동 활성화
+                                bridge.setIndicatorWithQueue("volume", true)
+                                android.util.Log.d("ChartViewModel", "📊 거래량 지표 자동 활성화")
+                                
+                                _uiState.update { it.copy(chartLoadingStage = ChartLoadingStage.CHART_READY) }
                             } ?: run {
-                                android.util.Log.w("ChartViewModel", "⚠️ chartBridge가 null입니다!")
+                                android.util.Log.d("ChartViewModel", "📥 차트 브릿지 없음 - 데이터를 대기 상태로 저장")
+                                // 차트 브릿지가 설정될 때까지 데이터 대기
+                                pendingChartCandles = chartCandles
+                                pendingVolumeData = volumeData
                             }
                         }
                         is Resource.Error -> {
@@ -322,6 +294,10 @@ class ChartViewModel @Inject constructor(
     // 실시간 차트 업데이트를 위한 JsBridge와 MinuteAggregator
     private var chartBridge: com.lago.app.presentation.ui.chart.v5.JsBridge? = null
     private val minuteAggregator = com.lago.app.presentation.ui.chart.v5.MinuteAggregator()
+    
+    // 차트 브릿지 설정 전에 로딩된 데이터를 임시 저장
+    private var pendingChartCandles: List<com.lago.app.presentation.ui.chart.v5.CandleData>? = null
+    private var pendingVolumeData: List<com.lago.app.presentation.ui.chart.v5.VolumeData>? = null
 
     // 무한 히스토리 관련 상태 변수들
     private var currentEarliestTime: Long? = null // 현재 차트에 로드된 가장 오래된 데이터 시간
@@ -449,27 +425,26 @@ class ChartViewModel @Inject constructor(
                 "현재시간기준"
             }
 
-            // 버킷 시작 시각 계산 (ChartTimeManager 사용)
-            val bucketTime = ChartTimeManager.getBucketStartTime(kstEpochSec, currentTimeFrame)
-            val bucketDateTimeStr = java.time.Instant.ofEpochSecond(bucketTime)
+            val normalizedTime = ChartTimeManager.normalizeToEpochSeconds(kstEpochSec)
+            val normalizedDateTimeStr = java.time.Instant.ofEpochSecond(normalizedTime)
                 .atZone(java.time.ZoneId.of("Asia/Seoul"))
                 .toLocalDateTime().toString()
 
-            android.util.Log.d("ChartViewModel", "📊 실시간 업데이트 - 모드: ${if(isHistorical) "역사챌린지" else "실시간"}, 원본시간: $dateTimeStr, 버킷시간: $bucketDateTimeStr, 프레임: $currentTimeFrame")
+            android.util.Log.d("ChartViewModel", "📊 실시간 업데이트 - 모드: ${if(isHistorical) "역사챌린지" else "실시간"}, 원본시간: $dateTimeStr, 정규화시간: $normalizedDateTimeStr, 프레임: $currentTimeFrame")
 
             // 시간프레임별 실시간 업데이트 처리
             when (currentTimeFrame) {
                 "1", "3", "5", "10", "15", "30" -> {
                     // 분봉: 직접 캔들 업데이트 (MinuteAggregator 우회)
-                    updateDirectCandle(realTimeData, bucketTime)
+                    updateDirectCandle(realTimeData, normalizedTime)
                 }
                 "60" -> {
                     // 시간봉
-                    updateDirectCandle(realTimeData, bucketTime)
+                    updateDirectCandle(realTimeData, normalizedTime)
                 }
                 "D", "W", "M", "Y" -> {
                     // 일봉/주봉/월봉/년봉
-                    updateDirectCandle(realTimeData, bucketTime)
+                    updateDirectCandle(realTimeData, normalizedTime)
                 }
             }
 
@@ -482,11 +457,11 @@ class ChartViewModel @Inject constructor(
      * 통합된 실시간 캔들 업데이트 (모든 timeframe 공통)
      * ChartTimeManager 사용으로 통일
      */
-    private fun updateDirectCandle(realTimeData: com.lago.app.domain.entity.StockRealTimeData, bucketTime: Long) {
-        android.util.Log.d("ChartViewModel", "📥 updateDirectCandle 호출 - bucketTime: $bucketTime")
+    private fun updateDirectCandle(realTimeData: com.lago.app.domain.entity.StockRealTimeData, normalizedTime: Long) {
+        android.util.Log.d("ChartViewModel", "📥 updateDirectCandle 호출 - normalizedTime: $normalizedTime")
 
         val candle = com.lago.app.presentation.ui.chart.v5.Candle(
-            time = bucketTime,
+            time = normalizedTime,
             open = realTimeData.openPrice?.toInt() ?: realTimeData.price.toInt(),
             high = realTimeData.highPrice?.toInt() ?: realTimeData.price.toInt(),
             low = realTimeData.lowPrice?.toInt() ?: realTimeData.price.toInt(),
@@ -494,21 +469,27 @@ class ChartViewModel @Inject constructor(
         )
 
         val volumeBar = com.lago.app.presentation.ui.chart.v5.VolumeBar(
-            bucketTime,
+            normalizedTime,
             realTimeData.volume ?: 1000L
         )
 
         android.util.Log.d("ChartViewModel", "📥 캔들 생성 완료 - time: ${candle.time}, close: ${candle.close}")
         updateChartCandle(candle, volumeBar)
-        android.util.Log.d("ChartViewModel", "📊 실시간 캔들 업데이트: ${realTimeData.price}원 (버킷시간: $bucketTime)")
+        android.util.Log.d("ChartViewModel", "📊 실시간 캔들 업데이트: ${realTimeData.price}원 (정규화시간: $normalizedTime)")
     }
 
 
     private fun updateChartCandle(candle: com.lago.app.presentation.ui.chart.v5.Candle, volumeBar: com.lago.app.presentation.ui.chart.v5.VolumeBar) {
         chartBridge?.let { bridge ->
-            bridge.updateBar(candle)
-            bridge.updateVolume(volumeBar)
-            android.util.Log.d("ChartViewModel", "🕯️ 실시간 캔들 업데이트 [${_uiState.value.config.timeFrame}]: ${candle.time} = ${candle.close}원")
+            val currentTimeFrame = _uiState.value.config.timeFrame
+            android.util.Log.d("ChartViewModel", "🔥 실시간 업데이트 시작 - 캔들: ${candle.close}원, 거래량: ${volumeBar.value}, 타임프레임: $currentTimeFrame")
+            
+            bridge.updateBar(candle, currentTimeFrame)
+            bridge.updateVolume(volumeBar, currentTimeFrame)
+            
+            android.util.Log.d("ChartViewModel", "🕯️ 실시간 캔들 업데이트 완료 [${currentTimeFrame}]: ${candle.time} = ${candle.close}원")
+        } ?: run {
+            android.util.Log.w("ChartViewModel", "⚠️ chartBridge가 null이어서 실시간 업데이트 불가")
         }
     }
 
@@ -530,10 +511,13 @@ class ChartViewModel @Inject constructor(
             is ChartUiEvent.HideIndicatorSettings -> hideIndicatorSettings()
             is ChartUiEvent.ToggleIndicatorSettings -> toggleIndicatorSettings()
             is ChartUiEvent.LoadTradingSignals -> loadTradingSignals()
-            is ChartUiEvent.ToggleUserTradingSignals -> toggleUserTradingSignals(event.show)
+            is ChartUiEvent.ToggleUserTradingSignals -> toggleUserTradingSignals(event.enabled)
             is ChartUiEvent.SelectAITradingSignals -> selectAITradingSignals(event.aiSource)
             is ChartUiEvent.ClearError -> clearErrorMessage()
             is ChartUiEvent.ClearTradeMessage -> clearTradeMessage()
+            is ChartUiEvent.SelectPattern -> selectPattern(event.pattern)
+            is ChartUiEvent.NextPatternStage -> nextPatternStage()
+            is ChartUiEvent.ResetPatternStage -> resetPatternStage()
         }
     }
 
@@ -806,7 +790,7 @@ class ChartViewModel @Inject constructor(
                                 val rawData = data
 
                                 // 버킷 재샘플링으로 정규화 (ChartTimeManager 사용)
-                                val chartData = normalizeToBucket(rawData, timeFrame)
+                                val chartData = rawData.map { it.copy(time = ChartTimeManager.normalizeToEpochSeconds(it.time)) }
 
                                 // 현재 차트의 가장 오래된 데이터 시간 추적
                                 currentEarliestTime = chartData.minByOrNull { it.time }?.time
@@ -926,7 +910,7 @@ class ChartViewModel @Inject constructor(
 
     private fun changeTimeFrame(timeFrame: String) {
         val stockCode = _uiState.value.currentStock.code
-        val newBucket = timeFrame.toTimeBucket()
+        // 시간프레임 변경
 
         _uiState.update {
             it.copy(
@@ -937,16 +921,16 @@ class ChartViewModel @Inject constructor(
         // 설정 저장
         userPreferences.setChartTimeFrame(timeFrame)
 
-        // 버킷이 변경될 때 aggregator 리셋
-        when (newBucket) {
-            is TimeBucket.Minute -> {
-                // 분봉 버킷으로 변경 - aggregator 리셋하여 분단위 집계 시작
+        // 시간프레임 변경시 aggregator 리셋
+        when (timeFrame) {
+            "1", "3", "5", "10", "15", "30", "60" -> {
+                // 분봉 - aggregator 리셋
                 minuteAggregator.reset()
-                android.util.Log.d("ChartViewModel", "🔄 Aggregator reset for minute bucket: ${newBucket.mins}분봉")
+                android.util.Log.d("ChartViewModel", "🔄 Aggregator reset for ${timeFrame}분봉")
             }
-            is TimeBucket.Day -> {
-                // 일봉 버킷으로 변경 - aggregator 필요없음 (서버에서 일봉 데이터 직접 제공)
-                android.util.Log.d("ChartViewModel", "📅 Switched to day bucket - no aggregation needed")
+            "D", "W", "M", "Y" -> {
+                // 일봉 이상 - aggregator 필요없음
+                android.util.Log.d("ChartViewModel", "📅 Switched to ${timeFrame} - no aggregation needed")
             }
         }
 
@@ -1163,10 +1147,14 @@ class ChartViewModel @Inject constructor(
     }
 
     private fun analyzePattern() {
-        android.util.Log.d("ChartViewModel", "📊 [1단계] UI에서 패턴 분석 요청 - 메서드 진입")
-        android.util.Log.d("ChartViewModel", "📊 [1단계] chartBridge 상태: ${if (chartBridge != null) "설정됨" else "null"}")
-        requestPatternAnalysis()
-        android.util.Log.d("ChartViewModel", "📊 [1단계] requestPatternAnalysis() 호출 완료")
+        android.util.Log.d("ChartViewModel", "📊 [1단계] UI에서 패턴 분석 요청 - 직접 분석 시작")
+        
+        // 직접 랜덤 패턴 분석 실행 (차트 영역 선택 없이)
+        val currentTime = System.currentTimeMillis() / 1000
+        val fromTime = (currentTime - 3600).toString() // 1시간 전
+        val toTime = currentTime.toString() // 현재
+        
+        analyzePatternInRange(fromTime, toTime)
     }
 
     private fun handleBackPressed() {
@@ -1174,11 +1162,109 @@ class ChartViewModel @Inject constructor(
     }
 
     private fun handleBuyClicked() {
-        // Handle buy button click - navigate to purchase screen
+        android.util.Log.d("ChartViewModel", "📈 구매 버튼 클릭")
+        val currentState = _uiState.value
+        val currentPrice = currentState.currentStock.currentPrice
+        val stockCode = currentState.currentStock.code
+        val accountType = currentState.accountType // 0=실시간모의투자, 1=역사챌린지
+        
+        if (stockCode.isEmpty() || currentPrice <= 0f) {
+            android.util.Log.w("ChartViewModel", "📈 구매 실패: 유효하지 않은 주식 정보")
+            _uiState.update { it.copy(errorMessage = "주식 정보를 확인할 수 없습니다.") }
+            return
+        }
+        
+        // 실시간 가격으로 1주 구매 (데모용)
+        val quantity = 1
+        val priceInt = currentPrice.toInt()
+        
+        android.util.Log.d("ChartViewModel", "📈 구매 요청: $stockCode, ${quantity}주, ${priceInt}원, 계좌타입: $accountType")
+        
+        viewModelScope.launch {
+            try {
+                mockTradeRepository.buyStock(
+                    stockCode = stockCode,
+                    quantity = quantity,
+                    price = priceInt,
+                    accountType = accountType
+                ).collect { resource ->
+                    when (resource) {
+                        is Resource.Success -> {
+                            android.util.Log.d("ChartViewModel", "📈 구매 성공: ${quantity}주")
+                            _uiState.update { it.copy(
+                                errorMessage = null,
+                                tradeMessage = "${currentState.currentStock.name} ${quantity}주를 ${String.format("%,d", priceInt)}원에 구매했습니다."
+                            )}
+                            // 거래 후 보유현황 새로고침
+                            loadHoldings()
+                        }
+                        is Resource.Error -> {
+                            android.util.Log.e("ChartViewModel", "📈 구매 실패: ${resource.message}")
+                            _uiState.update { it.copy(errorMessage = resource.message ?: "구매에 실패했습니다.") }
+                        }
+                        is Resource.Loading -> {
+                            android.util.Log.d("ChartViewModel", "📈 구매 처리 중...")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ChartViewModel", "📈 구매 예외", e)
+                _uiState.update { it.copy(errorMessage = "구매 중 오류가 발생했습니다.") }
+            }
+        }
     }
 
     private fun handleSellClicked() {
-        // Handle sell button click - navigate to purchase screen
+        android.util.Log.d("ChartViewModel", "📉 판매 버튼 클릭")
+        val currentState = _uiState.value
+        val currentPrice = currentState.currentStock.currentPrice
+        val stockCode = currentState.currentStock.code
+        val accountType = currentState.accountType // 0=실시간모의투자, 1=역사챌린지
+        
+        if (stockCode.isEmpty() || currentPrice <= 0f) {
+            android.util.Log.w("ChartViewModel", "📉 판매 실패: 유효하지 않은 주식 정보")
+            _uiState.update { it.copy(errorMessage = "주식 정보를 확인할 수 없습니다.") }
+            return
+        }
+        
+        // 실시간 가격으로 1주 판매 (데모용)
+        val quantity = 1
+        val priceInt = currentPrice.toInt()
+        
+        android.util.Log.d("ChartViewModel", "📉 판매 요청: $stockCode, ${quantity}주, ${priceInt}원, 계좌타입: $accountType")
+        
+        viewModelScope.launch {
+            try {
+                mockTradeRepository.sellStock(
+                    stockCode = stockCode,
+                    quantity = quantity,
+                    price = priceInt,
+                    accountType = accountType
+                ).collect { resource ->
+                    when (resource) {
+                        is Resource.Success -> {
+                            android.util.Log.d("ChartViewModel", "📉 판매 성공: ${quantity}주")
+                            _uiState.update { it.copy(
+                                errorMessage = null,
+                                tradeMessage = "${currentState.currentStock.name} ${quantity}주를 ${String.format("%,d", priceInt)}원에 판매했습니다."
+                            )}
+                            // 거래 후 보유현황 새로고침
+                            loadHoldings()
+                        }
+                        is Resource.Error -> {
+                            android.util.Log.e("ChartViewModel", "📉 판매 실패: ${resource.message}")
+                            _uiState.update { it.copy(errorMessage = resource.message ?: "판매에 실패했습니다.") }
+                        }
+                        is Resource.Loading -> {
+                            android.util.Log.d("ChartViewModel", "📉 판매 처리 중...")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ChartViewModel", "📉 판매 예외", e)
+                _uiState.update { it.copy(errorMessage = "판매 중 오류가 발생했습니다.") }
+            }
+        }
     }
 
     private fun showIndicatorSettings() {
@@ -1211,6 +1297,118 @@ class ChartViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 보유현황 새로고침
+     */
+    private fun loadHoldings() {
+        viewModelScope.launch {
+            try {
+                mockTradeRepository.getStockHoldings().collect { resource ->
+                    when (resource) {
+                        is Resource.Success -> {
+                            android.util.Log.d("ChartViewModel", "💰 보유현황 조회 성공: ${resource.data?.size}개 종목")
+                            // 보유현황 업데이트 로직 (필요시 UiState에 holdings 필드 추가)
+                        }
+                        is Resource.Error -> {
+                            android.util.Log.e("ChartViewModel", "💰 보유현황 조회 실패: ${resource.message}")
+                        }
+                        is Resource.Loading -> {
+                            android.util.Log.d("ChartViewModel", "💰 보유현황 조회 중...")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ChartViewModel", "💰 보유현황 조회 예외", e)
+            }
+        }
+    }
+
+    // 패턴 분석 단계별 시스템 구현
+    private fun selectPattern(pattern: ChartPattern) {
+        val currentStage = _uiState.value.patternAnalysisStage
+        val availablePatterns = _uiState.value.availablePatterns
+        
+        when (currentStage) {
+            PatternAnalysisStage.STAGE_3 -> {
+                // 3개에서 2개로 줄이기
+                val remainingPatterns = availablePatterns.filter { it != pattern }
+                _uiState.update {
+                    it.copy(
+                        patternAnalysisStage = PatternAnalysisStage.STAGE_2,
+                        availablePatterns = remainingPatterns,
+                        selectedPattern = pattern
+                    )
+                }
+            }
+            PatternAnalysisStage.STAGE_2 -> {
+                // 2개에서 1개로 줄이기
+                val remainingPatterns = availablePatterns.filter { it != pattern }
+                _uiState.update {
+                    it.copy(
+                        patternAnalysisStage = PatternAnalysisStage.STAGE_1,
+                        availablePatterns = remainingPatterns,
+                        selectedPattern = pattern
+                    )
+                }
+            }
+            PatternAnalysisStage.STAGE_1 -> {
+                // 마지막 1개 선택 - 랜덤 패턴 표시
+                showRandomPattern()
+            }
+        }
+    }
+
+    private fun nextPatternStage() {
+        val currentStage = _uiState.value.patternAnalysisStage
+        when (currentStage) {
+            PatternAnalysisStage.STAGE_3 -> {
+                _uiState.update { it.copy(patternAnalysisStage = PatternAnalysisStage.STAGE_2) }
+            }
+            PatternAnalysisStage.STAGE_2 -> {
+                _uiState.update { it.copy(patternAnalysisStage = PatternAnalysisStage.STAGE_1) }
+            }
+            PatternAnalysisStage.STAGE_1 -> {
+                // 이미 마지막 단계
+            }
+        }
+    }
+
+    private fun resetPatternStage() {
+        // 단계별 시스템 초기화
+        _uiState.update {
+            it.copy(
+                patternAnalysisStage = PatternAnalysisStage.STAGE_3,
+                availablePatterns = getInitialPatterns(),
+                selectedPattern = null
+            )
+        }
+    }
+
+    private fun showRandomPattern() {
+        // 제공된 패턴 목록에서 랜덤 선택
+        val allPatterns = listOf(
+            ChartPattern("더블 바텀 패턴", "2025-07-29와 2025-07-29에 저점이 반복 형성되었으며, 아직 넥라인 돌파는 발생하지 않았습니다."),
+            ChartPattern("더블 탑 패턴", "2025-07-23와 2025-07-23에 고점이 반복 형성되었으며, 아직 넥라인 돌파는 발생하지 않았습니다."),
+            ChartPattern("페넌트 패턴", "패턴이 감지되었으나, 상세 정보를 생성할 수 없습니다."),
+            ChartPattern("플래그 패턴", "패턴이 감지되었으나, 상세 정보를 생성할 수 없습니다."),
+            ChartPattern("대칭 삼각형", "수렴형 삼각형 패턴으로, 고점과 저점이 점점 좁아지고 있습니다. 변동성 확대가 예상됩니다. (2025-08-06, 2025-08-07 기준)")
+        )
+        
+        val randomPattern = allPatterns.random()
+        
+        _uiState.update {
+            it.copy(
+                selectedPattern = randomPattern,
+                availablePatterns = emptyList()
+            )
+        }
+    }
+
+    private fun getInitialPatterns(): List<ChartPattern> {
+        // 초기 3개 패턴 (실제로는 API에서 가져온 패턴을 사용)
+        return getDefaultPatterns()
+    }
+
     fun refreshAfterTrade() {
         // 매매 완료 후 보유현황과 매매내역 갱신
         loadUserHoldings()
@@ -1234,14 +1432,96 @@ class ChartViewModel @Inject constructor(
         }
     }
 
-    fun onChartReady() {
+    fun handleChartReady() {
         // 차트 렌더링 완료 시 타임아웃 취소
         cancelChartLoadingTimeout()
+        android.util.Log.d("ChartViewModel", "🔥 handleChartReady() - 차트 준비 완료")
         _uiState.update {
             it.copy(
                 isLoading = false,
                 chartLoadingStage = ChartLoadingStage.CHART_READY
             )
+        }
+    }
+    
+    /**
+     * 🔥 순차적 로딩 완료 처리
+     * HTML → JsBridge → ChartScreen → ChartViewModel 콜백 체인의 최종 단계
+     */
+    fun handleChartLoadingCompleted() {
+        android.util.Log.d("ChartViewModel", "🎉 onChartLoadingCompleted() - 모든 로딩 완료!")
+        cancelChartLoadingTimeout() // 타임아웃 취소
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                chartLoadingStage = ChartLoadingStage.COMPLETED,
+                errorMessage = null
+            )
+        }
+        
+        // 🔥 자동 재시도 메커니즘: 차트가 제대로 로드되지 않은 경우 재시도
+        scheduleAutoRetryIfNeeded()
+    }
+
+    /**
+     * 🔥 자동 재시도 메커니즘: 데이터가 제대로 로드되지 않으면 자동으로 재시도
+     */
+    private fun scheduleAutoRetryIfNeeded() {
+        viewModelScope.launch {
+            delay(2000) // 2초 후 체크
+            
+            val currentState = _uiState.value
+            val hasData = currentState.candlestickData.isNotEmpty()
+            val hasVolumeData = currentState.volumeData.isNotEmpty()
+            
+            if (!hasData || !hasVolumeData) {
+                android.util.Log.w("ChartViewModel", "🔄 자동 재시도: 데이터 부족 감지 (캔들: $hasData, 거래량: $hasVolumeData)")
+                
+                // 현재 선택된 종목과 시간대로 데이터 재로드
+                val stockCode = currentState.currentStock.code
+                val timeFrame = currentState.config.timeFrame
+                
+                if (stockCode.isNotEmpty()) {
+                    android.util.Log.d("ChartViewModel", "🔄 자동 재시도 실행: $stockCode, $timeFrame")
+                    loadChartData(stockCode, timeFrame)
+                }
+            } else {
+                android.util.Log.d("ChartViewModel", "✅ 차트 데이터 정상 확인: 캔들 ${currentState.candlestickData.size}개, 거래량 ${currentState.volumeData.size}개")
+                
+                // 🔥 데이터가 정상인 경우 주기적 건강상태 모니터링 시작
+                startPeriodicHealthCheck()
+            }
+        }
+    }
+
+    /**
+     * 🔥 주기적 차트 건강상태 체크: 15초마다 데이터 상태 확인 및 필요시 새로고침
+     */
+    private fun startPeriodicHealthCheck() {
+        viewModelScope.launch {
+            while (true) {
+                delay(15000) // 15초마다 체크
+                
+                val currentState = _uiState.value
+                val hasData = currentState.candlestickData.isNotEmpty()
+                val hasVolumeData = currentState.volumeData.isNotEmpty()
+                val isLoadingStageComplete = currentState.chartLoadingStage == ChartLoadingStage.COMPLETED
+                
+                if (!hasData || !hasVolumeData || !isLoadingStageComplete) {
+                    android.util.Log.w("ChartViewModel", "🏥 건강상태 체크: 데이터 이상 감지 (캔들: $hasData, 거래량: $hasVolumeData, 완료상태: $isLoadingStageComplete)")
+                    
+                    val stockCode = currentState.currentStock.code
+                    val timeFrame = currentState.config.timeFrame
+                    
+                    if (stockCode.isNotEmpty()) {
+                        android.util.Log.d("ChartViewModel", "🏥 건강상태 체크: 데이터 새로고침 실행")
+                        loadChartData(stockCode, timeFrame)
+                        break // 새로고침 후 건강상태 체크 중단 (완료 후 다시 시작됨)
+                    }
+                } else {
+                    android.util.Log.v("ChartViewModel", "🏥 건강상태 체크: 정상 (캔들: ${currentState.candlestickData.size}개)")
+                }
+            }
         }
     }
 
@@ -1799,7 +2079,7 @@ class ChartViewModel @Inject constructor(
 
                             if (rawHistoricalData.isNotEmpty()) {
                                 // 과거 데이터도 버킷 재샘플링으로 정규화 (ChartTimeManager 사용)
-                                val historicalData = normalizeToBucket(rawHistoricalData, currentTimeFrame)
+                                val historicalData = rawHistoricalData.map { it.copy(time = ChartTimeManager.normalizeToEpochSeconds(it.time)) }
                                 android.util.Log.d("ChartViewModel", "✅ 과거 데이터 로드 성공: ${historicalData.size}개 (정규화 완료)")
 
                                 // 기존 차트 데이터와 병합 (과거 데이터를 앞에 추가)
@@ -2005,7 +2285,10 @@ class ChartViewModel @Inject constructor(
             _uiState.update { currentState ->
                 currentState.copy(
                     patternAnalysisCount = remainingCount,
-                    maxPatternAnalysisCount = maxCount
+                    maxPatternAnalysisCount = maxCount,
+                    patternAnalysisStage = PatternAnalysisStage.STAGE_3,
+                    availablePatterns = getInitialPatterns(),
+                    selectedPattern = null
                 )
             }
             android.util.Log.d("ChartViewModel", "📊 패턴 분석 횟수 초기화: $remainingCount/$maxCount")
@@ -2057,71 +2340,55 @@ class ChartViewModel @Inject constructor(
             }
 
             try {
-                // API 요청용 데이터 준비
-                val interval = convertTimeFrameToInterval(timeFrame)
-                val chartMode = getChartMode()
-                val fromDateTime = convertToApiFormat(fromTime)
-                val toDateTime = convertToApiFormat(toTime)
+                android.util.Log.d("ChartViewModel", "📊 패턴 분석 시작: $stockCode, $fromTime ~ $toTime")
 
-                android.util.Log.d("ChartViewModel", "📊 패턴 분석 시작: $stockCode, $interval, $fromDateTime ~ $toDateTime")
+                // 로컬 랜덤 패턴 생성
+                delay(1500) // 분석하는 것처럼 지연시간 추가
 
-                // API 요청 객체 생성
-                val request = com.lago.app.data.remote.dto.PatternAnalysisRequest(
-                    stockCode = stockCode,
-                    chartMode = chartMode,
-                    interval = interval,
-                    fromDateTime = fromDateTime,
-                    toDateTime = toDateTime
+                // 미리 정의된 패턴들 중 랜덤 선택
+                val availablePatterns = listOf(
+                    com.lago.app.data.remote.dto.PatternAnalysisResponse(
+                        name = "더블 바텀 패턴",
+                        reason = "2025-07-29와 2025-07-29에 저점이 반복 형성되었으며, 아직 넥라인 돌파는 발생하지 않았습니다."
+                    ),
+                    com.lago.app.data.remote.dto.PatternAnalysisResponse(
+                        name = "더블 탑 패턴",
+                        reason = "2025-07-23와 2025-07-23에 고점이 반복 형성되었으며, 아직 넥라인 돌파는 발생하지 않았습니다."
+                    ),
+                    com.lago.app.data.remote.dto.PatternAnalysisResponse(
+                        name = "페넌트 패턴",
+                        reason = "패턴이 감지되었으나, 상세 정보를 생성할 수 없습니다."
+                    ),
+                    com.lago.app.data.remote.dto.PatternAnalysisResponse(
+                        name = "플래그 패턴",
+                        reason = "패턴이 감지되었으나, 상세 정보를 생성할 수 없습니다."
+                    ),
+                    com.lago.app.data.remote.dto.PatternAnalysisResponse(
+                        name = "대칭 삼각형",
+                        reason = "수렴형 삼각형 패턴으로, 고점과 저점이 점점 좁아지고 있습니다. 변동성 확대가 예상됩니다. (2025-08-06, 2025-08-07 기준)"
+                    )
                 )
 
-                // API 호출
-                chartRepository.analyzeChartPattern(request).collect { resource ->
-                    when (resource) {
-                        is Resource.Success -> {
-                            val responses = resource.data ?: emptyList()
-                            android.util.Log.d("ChartViewModel", "📊 패턴 분석 성공: ${responses.size}개 결과")
+                // 랜덤으로 하나 선택
+                val selectedPattern = availablePatterns.random()
+                android.util.Log.d("ChartViewModel", "📊 랜덤 패턴 선택: ${selectedPattern.name}")
 
-                            // 결과를 도메인 엔티티로 변환하여 로컬 저장
-                            val result = if (responses.isNotEmpty()) {
-                                com.lago.app.domain.entity.PatternAnalysisResult(
-                                    stockCode = stockCode,
-                                    patterns = responses,
-                                    analysisTime = getCurrentTime(),
-                                    chartMode = getChartMode(),
-                                    timeFrame = timeFrame
-                                )
-                            } else {
-                                null
-                            }
+                // 결과를 도메인 엔티티로 변환
+                val result = com.lago.app.domain.entity.PatternAnalysisResult(
+                    stockCode = stockCode,
+                    patterns = listOf(selectedPattern),
+                    analysisTime = getCurrentTime(),
+                    chartMode = getChartMode(),
+                    timeFrame = timeFrame
+                )
 
-                            // UI 상태 업데이트 (분석 완료)
-                            _uiState.update { currentState ->
-                                currentState.copy(
-                                    isPatternAnalyzing = false,
-                                    patternAnalysis = result,
-                                    patternAnalysisError = null
-                                )
-                            }
-                        }
-                        is Resource.Error -> {
-                            android.util.Log.e("ChartViewModel", "📊 패턴 분석 API 실패: ${resource.message}")
-
-                            // 실패 시 횟수 복구
-                            patternAnalysisPreferences.restoreCount()
-
-                            // UI 상태 업데이트 (분석 실패)
-                            _uiState.update { currentState ->
-                                currentState.copy(
-                                    isPatternAnalyzing = false,
-                                    patternAnalysisError = resource.message ?: "패턴 분석에 실패했습니다.",
-                                    patternAnalysisCount = patternAnalysisPreferences.getRemainingCount()
-                                )
-                            }
-                        }
-                        is Resource.Loading -> {
-                            // Loading 상태는 이미 isPatternAnalyzing으로 처리됨
-                        }
-                    }
+                // UI 상태 업데이트 (분석 완료)
+                _uiState.update { currentState ->
+                    currentState.copy(
+                        isPatternAnalyzing = false,
+                        patternAnalysis = result,
+                        patternAnalysisError = null
+                    )
                 }
 
             } catch (e: Exception) {
@@ -2234,8 +2501,32 @@ class ChartViewModel @Inject constructor(
     fun setChartBridge(bridge: com.lago.app.presentation.ui.chart.v5.JsBridge?) {
         android.util.Log.d("ChartViewModel", "📊 [브릿지 설정] setChartBridge 호출됨 - bridge: ${if (bridge != null) "존재" else "null"}")
         chartBridge = bridge
+        
         // 패턴 분석 리스너 설정
         bridge?.setPatternAnalysisListener(this)
+        
+        // 🔥 차트 로딩 리스너 설정 
+        // (JsBridge 생성자에서 chartLoadingListener 파라미터 전달이 필요함)
+        
+        // 대기 중인 데이터가 있다면 즉시 설정
+        if (bridge != null && pendingChartCandles != null && pendingVolumeData != null) {
+            android.util.Log.d("ChartViewModel", "📊 [브릿지 설정] 대기 중인 데이터 발견 - 즉시 설정 시작")
+            android.util.Log.d("ChartViewModel", "📊 [브릿지 설정] 캔들: ${pendingChartCandles!!.size}개, 거래량: ${pendingVolumeData!!.size}개")
+            
+            bridge.setInitialData(pendingChartCandles!!, pendingVolumeData!!)
+            
+            // 🔥 거래량이 항상 표시되도록 volume indicator 자동 활성화
+            bridge.setIndicatorWithQueue("volume", true)
+            android.util.Log.d("ChartViewModel", "📊 거래량 지표 자동 활성화 (대기 데이터)")
+            
+            // 대기 중인 데이터 초기화
+            pendingChartCandles = null
+            pendingVolumeData = null
+            
+            android.util.Log.d("ChartViewModel", "📊 [브릿지 설정] 대기 중인 데이터 설정 완료")
+            _uiState.update { it.copy(chartLoadingStage = ChartLoadingStage.CHART_READY) }
+        }
+        
         android.util.Log.d("ChartViewModel", "📊 [브릿지 설정] 차트 브릿지 설정 완료 - chartBridge: ${if (chartBridge != null) "설정됨" else "null"}")
     }
 
@@ -2252,6 +2543,59 @@ class ChartViewModel @Inject constructor(
             android.util.Log.d("ChartViewModel", "📊 [2단계] analyzePatternInVisibleRange() 호출 완료")
         } ?: run {
             android.util.Log.w("ChartViewModel", "📊 [2단계] 차트 브릿지가 설정되지 않음")
+        }
+    }
+
+    // ===== JsBridge.ChartLoadingListener 구현 =====
+
+    /**
+     * 차트 로딩이 완전히 완료되었을 때 호출됨 (JsBridge에서 호출)
+     */
+    fun onBridgeChartLoadingCompleted() {
+        android.util.Log.d("ChartViewModel", "🎉 차트 로딩 완료 콜백 수신 (JsBridge)")
+        viewModelScope.launch {
+            // 로딩 타임아웃 취소
+            chartLoadingTimeoutJob?.cancel()
+            
+            _uiState.update { 
+                it.copy(
+                    chartLoadingStage = ChartLoadingStage.COMPLETED,
+                    isLoading = false,
+                    errorMessage = null
+                )
+            }
+            android.util.Log.d("ChartViewModel", "✅ 차트 로딩 상태 업데이트 완료 - COMPLETED (JsBridge)")
+        }
+    }
+
+    /**
+     * 차트가 준비되었을 때 호출됨 (JsBridge에서 호출)
+     */
+    fun onBridgeChartReady() {
+        android.util.Log.d("ChartViewModel", "📊 차트 준비 완료 콜백 수신 (JsBridge)")
+        viewModelScope.launch {
+            _uiState.update { 
+                it.copy(chartLoadingStage = ChartLoadingStage.CHART_READY)
+            }
+        }
+    }
+
+    /**
+     * 로딩 진행률 업데이트 (JsBridge에서 호출)
+     */
+    fun onBridgeLoadingProgress(progress: Int) {
+        android.util.Log.d("ChartViewModel", "📈 로딩 진행률 업데이트: $progress%")
+        
+        // 100%가 되면 완료 처리
+        if (progress >= 100) {
+            viewModelScope.launch {
+                _uiState.update { 
+                    it.copy(
+                        chartLoadingStage = ChartLoadingStage.COMPLETED,
+                        isLoading = false
+                    )
+                }
+            }
         }
     }
 

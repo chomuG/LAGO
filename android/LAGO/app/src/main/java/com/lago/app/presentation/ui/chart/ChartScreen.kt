@@ -89,6 +89,8 @@ import com.lago.app.presentation.viewmodel.chart.ChartUiEvent
 import com.lago.app.presentation.viewmodel.chart.HoldingItem
 import com.lago.app.presentation.viewmodel.chart.TradingItem
 import com.lago.app.presentation.viewmodel.chart.ChartLoadingStage
+import com.lago.app.presentation.viewmodel.chart.PatternAnalysisStage
+import com.lago.app.presentation.viewmodel.chart.ChartPattern
 import com.skydoves.flexible.core.pxToDp
 // Chart imports - v5 Multi-Panel Chart
 import com.lago.app.presentation.ui.chart.v5.MultiPanelChart
@@ -569,12 +571,13 @@ fun ChartScreen(
                     onChartReady = {
                         // ✅ 여기서 큐 flush - JavaScript 차트 초기화 완료 시점
                         chartBridge?.markReady()
-                        viewModel.onChartReady()
+                        android.util.Log.d("ChartScreen", "🔥 Chart Ready - 순차적 로딩 시작")
+                        viewModel.handleChartReady()
                     },
                     onWebViewReady = { webViewInstance ->
                         chartWebView = webViewInstance
                         
-                        // JsBridge 생성 및 저장 (새 방식: PatternListener 추가)
+                        // JsBridge 생성 및 저장 (새 방식: PatternListener + ChartLoadingListener 추가)
                         val bridge = com.lago.app.presentation.ui.chart.v5.JsBridge(
                             webView = webViewInstance,
                             historicalDataListener = viewModel,
@@ -587,7 +590,8 @@ fun ChartScreen(
                                     android.util.Log.w("Pattern", "range error: $msg")
                                     // 필요하면 토스트/스낵바
                                 }
-                            }
+                            },
+                            chartLoadingListener = null // 🔥 일시적으로 비활성화
                         )
                         chartBridge = bridge
                         viewModel.setChartBridge(bridge)
@@ -597,8 +601,15 @@ fun ChartScreen(
                         viewModel.onChartLoadingChanged(isLoading)
                     },
                     onLoadingProgress = { progress ->
-                        // 로딩 진행도 콜백
+                        // 🔥 순차적 로딩 진행도 콜백
                         loadingProgress = progress
+                        android.util.Log.d("ChartScreen", "📊 Loading Progress: $progress%")
+                        
+                        // 100% 완료 시 최종 확인
+                        if (progress >= 100) {
+                            android.util.Log.d("ChartScreen", "🎉 차트 로딩 완전 완료!")
+                            viewModel.handleChartLoadingCompleted()
+                        }
                     },
                     onDataPointClick = { time, value, panelId ->
                         // Handle data point click
@@ -1197,9 +1208,18 @@ private fun BottomSheetContent(
                     lastPatternAnalysis = uiState.patternAnalysis,
                     isPatternAnalyzing = uiState.isPatternAnalyzing,
                     patternAnalysisError = uiState.patternAnalysisError,
+                    patternAnalysisStage = uiState.patternAnalysisStage,
+                    availablePatterns = uiState.availablePatterns,
+                    selectedPattern = uiState.selectedPattern,
                     onAnalyzeClick = { 
                         android.util.Log.d("Pattern", "Analyze button clicked")
                         viewModel.onEvent(ChartUiEvent.AnalyzePattern) 
+                    },
+                    onPatternClick = { pattern ->
+                        viewModel.onEvent(ChartUiEvent.SelectPattern(pattern))
+                    },
+                    onResetClick = {
+                        viewModel.onEvent(ChartUiEvent.ResetPatternStage)
                     }
                 )
             }
@@ -1422,10 +1442,6 @@ private fun TradingItemRow(item: TradingItem) {
     }
 }
 
-data class ChartPattern(
-    val name: String,
-    val description: String
-)
 
 @Composable
 private fun PatternAnalysisContent(
@@ -1434,7 +1450,12 @@ private fun PatternAnalysisContent(
     lastPatternAnalysis: PatternAnalysisResult?,
     isPatternAnalyzing: Boolean,
     patternAnalysisError: String?,
-    onAnalyzeClick: () -> Unit
+    patternAnalysisStage: PatternAnalysisStage,
+    availablePatterns: List<ChartPattern>,
+    selectedPattern: ChartPattern?,
+    onAnalyzeClick: () -> Unit,
+    onPatternClick: (ChartPattern) -> Unit,
+    onResetClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -1455,7 +1476,7 @@ private fun PatternAnalysisContent(
                 )
             }
             lastPatternAnalysis != null -> {
-                // 분석 결과가 있을 때
+                // 분석 결과가 있을 때 - PatternAnalysisWithResults만 사용
                 PatternAnalysisWithResults(
                     patternAnalysis = lastPatternAnalysis,
                     patternAnalysisCount = patternAnalysisCount,
@@ -1476,7 +1497,7 @@ private fun PatternAnalysisContent(
 }
 
 @Composable
-private fun PatternAnalysisWithResults(
+internal fun PatternAnalysisWithResults(
     patternAnalysis: PatternAnalysisResult,
     patternAnalysisCount: Int,
     maxPatternAnalysisCount: Int,
@@ -1555,7 +1576,7 @@ private fun PatternAnalysisWithResults(
 }
 
 @Composable
-private fun PatternAnalysisEmpty(
+internal fun PatternAnalysisEmpty(
     patternAnalysisCount: Int,
     maxPatternAnalysisCount: Int,
     onAnalyzeClick: () -> Unit
@@ -1652,7 +1673,7 @@ private fun PatternResultItem(
 }
 
 @Composable
-private fun PatternAnalysisLoading() {
+internal fun PatternAnalysisLoading() {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1678,7 +1699,7 @@ private fun PatternAnalysisLoading() {
 }
 
 @Composable
-private fun PatternAnalysisError(
+internal fun PatternAnalysisError(
     error: String,
     onRetryClick: () -> Unit
 ) {
@@ -1716,6 +1737,233 @@ private fun PatternAnalysisError(
                 text = "다시 시도",
                 style = TitleB16,
                 color = BlueNormalHover
+            )
+        }
+    }
+}
+
+@Composable
+private fun StagePatternSelection(
+    stage: PatternAnalysisStage,
+    availablePatterns: List<ChartPattern>,
+    selectedPattern: ChartPattern?,
+    onPatternClick: (ChartPattern) -> Unit,
+    onResetClick: () -> Unit,
+    patternAnalysisCount: Int,
+    maxPatternAnalysisCount: Int
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // 단계 표시
+        val stageText = when (stage) {
+            PatternAnalysisStage.STAGE_3 -> "3개 중 1개를 선택하세요"
+            PatternAnalysisStage.STAGE_2 -> "2개 중 1개를 선택하세요"
+            PatternAnalysisStage.STAGE_1 -> "마지막 1개를 선택하세요"
+        }
+        
+        Text(
+            text = stageText,
+            style = HeadEb24,
+            color = BlueNormalHover,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        // 패턴 목록
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(availablePatterns) { pattern ->
+                PatternSelectionCard(
+                    pattern = pattern,
+                    onClick = { onPatternClick(pattern) }
+                )
+            }
+        }
+
+        // 초기화 버튼
+        Button(
+            onClick = onResetClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .padding(top = 16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Gray300
+            ),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(
+                text = "처음부터 다시",
+                style = TitleB16,
+                color = Gray700
+            )
+        }
+    }
+}
+
+@Composable
+private fun PatternSelectionCard(
+    pattern: ChartPattern,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 4.dp
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            // 패턴 이름
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 12.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.glowing_blue),
+                    contentDescription = null,
+                    tint = Color.Unspecified,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .padding(end = 12.dp)
+                )
+                
+                Text(
+                    text = pattern.name,
+                    style = TitleB20,
+                    color = Gray900
+                )
+            }
+
+            // 패턴 설명
+            Text(
+                text = pattern.reason,
+                style = BodyR16,
+                color = Gray700,
+                lineHeight = 24.sp,
+                modifier = Modifier.padding(start = 32.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun FinalPatternResult(
+    pattern: ChartPattern,
+    onResetClick: () -> Unit,
+    patternAnalysisCount: Int,
+    maxPatternAnalysisCount: Int,
+    onAnalyzeClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // 선택된 패턴 표시
+        Text(
+            text = "🎉 선택된 패턴",
+            style = HeadEb24,
+            color = MainPink,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        // 패턴 카드
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MainPink.copy(alpha = 0.1f)
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 8.dp
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                // 패턴 이름
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.glowing_blue),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .padding(end = 16.dp)
+                    )
+                    
+                    Text(
+                        text = pattern.name,
+                        style = HeadEb24,
+                        color = Gray900
+                    )
+                }
+
+                // 패턴 설명
+                Text(
+                    text = pattern.reason,
+                    style = BodyR18,
+                    color = Gray700,
+                    lineHeight = 26.sp,
+                    modifier = Modifier.padding(start = 40.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // 다시 분석하기 버튼
+        Button(
+            onClick = {
+                onResetClick()
+                onAnalyzeClick()
+            },
+            enabled = patternAnalysisCount > 0,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = BlueLightHover,
+                disabledContainerColor = Gray300
+            ),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(
+                text = "다시 분석하기 ($patternAnalysisCount/$maxPatternAnalysisCount)",
+                style = TitleB16,
+                color = BlueNormalHover
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 초기화 버튼
+        TextButton(
+            onClick = onResetClick,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "처음부터 다시",
+                style = BodyR16,
+                color = Gray600
             )
         }
     }

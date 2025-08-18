@@ -15,10 +15,13 @@ import com.lago.app.data.remote.api.ChartApiService
 import com.lago.app.util.KoreanStockMarketUtils
 import com.lago.app.util.ChartInterval
 import com.lago.app.util.Resource
+import com.lago.app.data.cache.RealTimeStockCache
+import com.lago.app.domain.entity.StockRealTimeData
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -47,11 +50,15 @@ class PurchaseViewModel @Inject constructor(
     private val mockTradeRepository: MockTradeRepository,
     private val portfolioRepository: PortfolioRepository,
     private val userPreferences: UserPreferences,
-    private val chartApiService: ChartApiService
+    private val chartApiService: ChartApiService,
+    private val realTimeStockCache: RealTimeStockCache
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PurchaseUiState())
     val uiState: StateFlow<PurchaseUiState> = _uiState
+    
+    // 실시간 가격 구독 추적
+    private var currentPriceSubscriptionJob: kotlinx.coroutines.Job? = null
 
     fun loadStockInfo(stockCode: String, isPurchaseType: Boolean = true, accountType: Int = 0) {
         android.util.Log.d("PurchaseViewModel", "💰 주식정보 로딩 시작: stockCode=$stockCode, isPurchaseType=$isPurchaseType, accountType=$accountType")
@@ -87,6 +94,9 @@ class PurchaseViewModel @Inject constructor(
                             launch {
                                 loadAccountInfo(stockInfo, isPurchaseType, accountType)
                             }
+                            
+                            // 3. 실시간 가격 구독 시작
+                            startRealTimePriceSubscription(stockCode, accountType)
                         }
                         is Resource.Error -> {
                             android.util.Log.e("PurchaseViewModel", "💰 주식정보 조회 실패: ${resource.message}")
@@ -434,6 +444,9 @@ class PurchaseViewModel @Inject constructor(
                 // 계좌 정보 로드
                 loadAccountInfo(stockInfo, isPurchaseType, accountType)
                 
+                // 실시간 가격 구독 시작
+                startRealTimePriceSubscription(stockCode, accountType)
+                
             } else {
                 android.util.Log.e("PurchaseViewModel", "💰 일봉 데이터도 없음: $stockCode")
                 // 정말 마지막 수단으로 기본 정보 사용
@@ -498,6 +511,68 @@ class PurchaseViewModel @Inject constructor(
     }
 
     /**
+     * 실시간 가격 구독 시작
+     * 역사챌린지의 경우 "HISTORY_CHALLENGE_" 접두사가 붙은 캐시 키 사용
+     */
+    private fun startRealTimePriceSubscription(stockCode: String, accountType: Int) {
+        // 기존 구독 취소
+        currentPriceSubscriptionJob?.cancel()
+        
+        android.util.Log.d("PurchaseViewModel", "💰 실시간 가격 구독 시작: $stockCode, accountType=$accountType")
+        
+        currentPriceSubscriptionJob = viewModelScope.launch {
+            // 역사챌린지인 경우와 일반 모의투자인 경우 구분
+            val cacheKey = if (accountType == 1) {
+                "HISTORY_CHALLENGE_$stockCode"
+            } else {
+                stockCode
+            }
+            
+            // 실시간 캐시에서 해당 종목의 데이터 변화를 구독
+            realTimeStockCache.symbolFlow(cacheKey).collectLatest { realTimeData ->
+                android.util.Log.d("PurchaseViewModel", "💰 실시간 가격 업데이트: ${realTimeData.stockCode} = ${realTimeData.price.toInt()}원")
+                
+                // UI 상태의 현재 가격 업데이트
+                val newPrice = realTimeData.price.toInt()
+                val currentState = _uiState.value
+                
+                if (currentState.currentPrice != newPrice) {
+                    _uiState.update { state ->
+                        val updatedState = state.copy(currentPrice = newPrice)
+                        
+                        // 구매/판매 금액이 설정되어 있으면 수량과 총액도 다시 계산
+                        if (state.purchaseAmount > 0) {
+                            val newQuantity = if (newPrice > 0) {
+                                (state.purchaseAmount / newPrice).toInt()
+                            } else 0
+                            
+                            val newTotalPrice = newQuantity * newPrice.toLong()
+                            
+                            android.util.Log.d("PurchaseViewModel", "💰 가격 변경으로 수량 재계산: ${state.purchaseAmount}원 → ${newQuantity}주 (${newPrice}원/주)")
+                            
+                            updatedState.copy(
+                                purchaseQuantity = newQuantity,
+                                totalPrice = newTotalPrice
+                            )
+                        } else {
+                            updatedState
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * 실시간 가격 구독 중지
+     */
+    private fun stopRealTimePriceSubscription() {
+        currentPriceSubscriptionJob?.cancel()
+        currentPriceSubscriptionJob = null
+        android.util.Log.d("PurchaseViewModel", "💰 실시간 가격 구독 중지")
+    }
+
+    /**
      * 주식 코드로 주식명 조회 (API 기반)
      * ChartApiService의 getStockInfo API를 사용하여 종목명 조회
      */
@@ -516,5 +591,11 @@ class PurchaseViewModel @Inject constructor(
             // API 실패 시 종목코드 그대로 반환
             return stockCode
         }
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        stopRealTimePriceSubscription()
+        android.util.Log.d("PurchaseViewModel", "💰 ViewModel 정리 완료")
     }
 }

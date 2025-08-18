@@ -107,10 +107,10 @@ object DataConverter {
     }
     
     /**
-     * Convert milliseconds timestamp to epoch seconds
+     * Convert timestamp to epoch seconds using ChartTimeManager
      */
     private fun convertTimestamp(timestamp: Long): Long {
-        return timestamp / 1000 // Convert milliseconds to epoch seconds
+        return ChartTimeManager.normalizeToEpochSeconds(timestamp)
     }
     
     /**

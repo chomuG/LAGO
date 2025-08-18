@@ -19,8 +19,11 @@ sealed class ChartUiEvent {
     object HideIndicatorSettings : ChartUiEvent()
     object ToggleIndicatorSettings : ChartUiEvent()
     object LoadTradingSignals : ChartUiEvent()
-    data class ToggleUserTradingSignals(val show: Boolean) : ChartUiEvent()
+    data class ToggleUserTradingSignals(val enabled: Boolean) : ChartUiEvent()
     data class SelectAITradingSignals(val aiSource: SignalSource?) : ChartUiEvent()
     object ClearTradeMessage : ChartUiEvent()
     // UpdatePanelSizes 이벤트 제거 - 단순화된 구조에서는 불필요
+    data class SelectPattern(val pattern: ChartPattern) : ChartUiEvent()
+    object NextPatternStage : ChartUiEvent()
+    object ResetPatternStage : ChartUiEvent()
 }

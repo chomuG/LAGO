@@ -37,55 +37,6 @@ object ChartTimeManager {
         }
     }
 
-    /**
-     * 시간프레임에 따른 버킷 시작 시간 계산 (KST 기준)
-     * @param epochSeconds epoch seconds
-     * @param timeFrame 시간프레임 ("1", "3", "5", "15", "30", "60", "D", "W", "M", "Y")
-     * @return 버킷 시작 시간 (epoch seconds)
-     */
-    fun getBucketStartTime(epochSeconds: Long, timeFrame: String): Long {
-        val zonedDateTime = Instant.ofEpochSecond(epochSeconds).atZone(KST_ZONE)
-
-        return when (timeFrame) {
-            "1", "3", "5", "10", "15", "30", "60" -> {
-                val minutes = timeFrame.toInt()
-                val adjustedMinute = (zonedDateTime.minute / minutes) * minutes
-                zonedDateTime
-                    .withMinute(adjustedMinute)
-                    .withSecond(0)
-                    .withNano(0)
-                    .toEpochSecond()
-            }
-            "D" -> {
-                zonedDateTime
-                    .toLocalDate()
-                    .atStartOfDay(KST_ZONE)
-                    .toEpochSecond()
-            }
-            "W" -> {
-                zonedDateTime
-                    .toLocalDate()
-                    .with(java.time.DayOfWeek.MONDAY)
-                    .atStartOfDay(KST_ZONE)
-                    .toEpochSecond()
-            }
-            "M" -> {
-                zonedDateTime
-                    .withDayOfMonth(1)
-                    .toLocalDate()
-                    .atStartOfDay(KST_ZONE)
-                    .toEpochSecond()
-            }
-            "Y" -> {
-                zonedDateTime
-                    .withDayOfYear(1)
-                    .toLocalDate()
-                    .atStartOfDay(KST_ZONE)
-                    .toEpochSecond()
-            }
-            else -> epochSeconds // 알 수 없는 프레임은 원본 반환
-        }
-    }
 
     /**
      * JavaScript 차트용 시간 포맷 (항상 epoch seconds)
@@ -152,18 +103,6 @@ object ChartTimeManager {
         return pastTime.toEpochSecond()
     }
 
-    /**
-     * 두 시간이 같은 버킷에 속하는지 확인
-     * @param time1 첫 번째 시간 (epoch seconds)
-     * @param time2 두 번째 시간 (epoch seconds)
-     * @param timeFrame 시간프레임
-     * @return 같은 버킷 여부
-     */
-    fun isSameBucket(time1: Long, time2: Long, timeFrame: String): Boolean {
-        val bucket1 = getBucketStartTime(time1, timeFrame)
-        val bucket2 = getBucketStartTime(time2, timeFrame)
-        return bucket1 == bucket2
-    }
 
     /**
      * 시간프레임이 분봉인지 확인
@@ -180,23 +119,137 @@ object ChartTimeManager {
     }
 
     /**
+     * 날짜 문자열을 epoch seconds로 파싱 (yyyy-MM-dd 형식)
+     */
+    fun parseDate(dateString: String): Long {
+        val format = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+        return try {
+            normalizeToEpochSeconds(format.parse(dateString)?.time ?: 0L)
+        } catch (e: Exception) {
+            0L
+        }
+    }
+
+    /**
+     * 날짜시간 문자열을 epoch seconds로 파싱 (yyyy-MM-ddTHH:mm:ss 형식)
+     */
+    fun parseDateTime(dateTimeString: String): Long {
+        val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+        return try {
+            normalizeToEpochSeconds(format.parse(dateTimeString)?.time ?: 0L)
+        } catch (e: Exception) {
+            0L
+        }
+    }
+
+    /**
+     * 월 정수를 epoch seconds로 변환 (YYYYMM 형식)
+     */
+    fun parseMonthDate(monthInt: Int): Long {
+        val year = monthInt / 100
+        val month = (monthInt % 100) - 1
+        val calendar = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.YEAR, year)
+            set(java.util.Calendar.MONTH, month)
+            set(java.util.Calendar.DAY_OF_MONTH, 1)
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        return normalizeToEpochSeconds(calendar.timeInMillis)
+    }
+
+    /**
+     * 년도를 epoch seconds로 변환
+     */
+    fun parseYearDate(year: Int): Long {
+        val calendar = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.YEAR, year)
+            set(java.util.Calendar.MONTH, java.util.Calendar.JANUARY)
+            set(java.util.Calendar.DAY_OF_MONTH, 1)
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        return normalizeToEpochSeconds(calendar.timeInMillis)
+    }
+
+    /**
+     * 역사챌린지 날짜시간 문자열을 milliseconds로 파싱
+     * 여러 형식을 지원 (yyyy-MM-ddTHH:mm:ss, yyyy-MM-dd HH:mm:ss)
+     */
+    fun parseHistoryChallengeDateTime(dateTimeString: String): Long {
+        return try {
+            val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+            format.parse(dateTimeString)?.time ?: 0L
+        } catch (e: Exception) {
+            try {
+                val format2 = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                format2.parse(dateTimeString)?.time ?: 0L
+            } catch (e2: Exception) {
+                0L
+            }
+        }
+    }
+
+    /**
+     * 내부 시간프레임을 API 시간프레임으로 변환
+     * @param timeFrame 내부 시간프레임 ("1", "3", "5", "15", "30", "60", "D", "W", "M", "Y")
+     * @return API 시간프레임 ("MINUTE", "MINUTE3", "MINUTE5", "MINUTE15", "MINUTE30", "MINUTE60", "DAY", "WEEK", "MONTH", "YEAR")
+     */
+    fun toApiTimeFrame(timeFrame: String): String {
+        return when (timeFrame) {
+            "1" -> "MINUTE"
+            "3" -> "MINUTE3"
+            "5" -> "MINUTE5"
+            "10" -> "MINUTE10"
+            "15" -> "MINUTE15"
+            "30" -> "MINUTE30"
+            "60" -> "MINUTE60"
+            "D" -> "DAY"
+            "W" -> "WEEK"
+            "M" -> "MONTH"
+            "Y" -> "YEAR"
+            else -> "MINUTE" // 기본값
+        }
+    }
+
+    /**
+     * API 시간프레임을 내부 시간프레임으로 변환
+     * @param apiTimeFrame API 시간프레임 ("MINUTE", "MINUTE3", "DAY" 등)
+     * @return 내부 시간프레임 ("1", "3", "D" 등)
+     */
+    fun fromApiTimeFrame(apiTimeFrame: String): String {
+        return when (apiTimeFrame.uppercase()) {
+            "MINUTE" -> "1"
+            "MINUTE3" -> "3"
+            "MINUTE5" -> "5"
+            "MINUTE10" -> "10"
+            "MINUTE15" -> "15"
+            "MINUTE30" -> "30"
+            "MINUTE60" -> "60"
+            "DAY" -> "D"
+            "WEEK" -> "W"
+            "MONTH" -> "M"
+            "YEAR" -> "Y"
+            else -> "1" // 기본값
+        }
+    }
+
+    /**
      * 디버깅용 시간 정보 출력
      */
-    fun debugTimeInfo(label: String, timestamp: Long, timeFrame: String? = null) {
+    fun debugTimeInfo(label: String, timestamp: Long) {
         val normalized = normalizeToEpochSeconds(timestamp)
         val kstTime = formatForDisplay(normalized)
-        val bucketTime = timeFrame?.let {
-            formatForDisplay(getBucketStartTime(normalized, it))
-        }
 
         android.util.Log.d("ChartTimeManager", buildString {
             append("$label: ")
             append("original=$timestamp, ")
             append("normalized=$normalized, ")
             append("KST=$kstTime")
-            if (bucketTime != null) {
-                append(", bucket($timeFrame)=$bucketTime")
-            }
         })
     }
 }
