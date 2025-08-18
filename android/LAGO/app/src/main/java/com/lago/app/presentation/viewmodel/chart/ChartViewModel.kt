@@ -195,9 +195,9 @@ class ChartViewModel @Inject constructor(
                                 bridge.setInitialData(chartCandles, volumeData)
                                 android.util.Log.d("ChartViewModel", "📥 bridge.setInitialData() 호출 완료")
                                 
-                                // 🔥 거래량이 항상 표시되도록 volume indicator 자동 활성화
-                                bridge.setIndicatorWithQueue("volume", true)
-                                android.util.Log.d("ChartViewModel", "📊 거래량 지표 자동 활성화")
+                                // 🔥 모의투자 전용 보조지표 자동 활성화 (역사챌린지와 동일한 설정)
+                                applyDefaultIndicators(bridge)
+                                android.util.Log.d("ChartViewModel", "📊 모의투자 전용 보조지표 자동 활성화 완료")
                                 
                                 _uiState.update { it.copy(chartLoadingStage = ChartLoadingStage.CHART_READY) }
                             } ?: run {
@@ -1000,9 +1000,14 @@ class ChartViewModel @Inject constructor(
                                     HoldingItem(
                                         name = holding.stockName,
                                         quantity = "${holding.quantity}주",
+                                        quantityNum = holding.quantity, // 🔥 수량 (숫자)
                                         value = holding.totalPurchaseAmount,
                                         change = 0f, // 현재 수익률은 실시간 계산 필요
-                                        stockCode = holding.stockCode
+                                        stockCode = holding.stockCode,
+                                        currentPrice = null, // 🔥 실시간 가격 (초기값)
+                                        totalPurchaseAmount = holding.totalPurchaseAmount.toLong(), // 🔥 총 매수 금액
+                                        profitLoss = 0L, // 🔥 평가손익 (초기값)
+                                        profitRate = 0.0 // 🔥 수익률 (초기값)
                                     )
                                 }
 
@@ -2515,9 +2520,9 @@ class ChartViewModel @Inject constructor(
             
             bridge.setInitialData(pendingChartCandles!!, pendingVolumeData!!)
             
-            // 🔥 거래량이 항상 표시되도록 volume indicator 자동 활성화
-            bridge.setIndicatorWithQueue("volume", true)
-            android.util.Log.d("ChartViewModel", "📊 거래량 지표 자동 활성화 (대기 데이터)")
+            // 🔥 모의투자 전용 보조지표 자동 활성화 (대기 데이터)
+            applyDefaultIndicators(bridge)
+            android.util.Log.d("ChartViewModel", "📊 모의투자 전용 보조지표 자동 활성화 완료 (대기 데이터)")
             
             // 대기 중인 데이터 초기화
             pendingChartCandles = null
@@ -2597,6 +2602,68 @@ class ChartViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    // ===== 수익률 표시 관련 유틸리티 함수들 (홈화면과 동일) =====
+
+    /**
+     * 수익률과 수익금액을 포맷팅
+     */
+    fun formatProfitLoss(profitLoss: Long, profitRate: Double): String {
+        val sign = if (profitLoss > 0) "+" else ""
+        return "${sign}${formatAmount(profitLoss)} (${sign}${String.format("%.2f", profitRate)}%)"
+    }
+    
+    /**
+     * 수익률에 따른 색상 반환
+     */
+    fun getProfitLossColor(profitLoss: Long): androidx.compose.ui.graphics.Color {
+        return when {
+            profitLoss > 0 -> com.lago.app.presentation.theme.MainPink
+            profitLoss < 0 -> com.lago.app.presentation.theme.MainBlue
+            else -> androidx.compose.ui.graphics.Color.Gray
+        }
+    }
+
+    /**
+     * 금액 포맷팅
+     */
+    fun formatAmount(amount: Long): String {
+        return String.format("%,d원", amount)
+    }
+
+    /**
+     * 기본 보조지표 자동 활성화 (역사챌린지와 모의투자 공통)
+     * 초기 진입 시 유용한 지표들을 자동으로 활성화하여 차트 분석 편의성 증대
+     */
+    private fun applyDefaultIndicators(bridge: com.lago.app.presentation.ui.chart.v5.JsBridge) {
+        // 거래량 (필수): 주식 거래 분석의 기본 - 상시 표시
+        bridge.setIndicatorWithQueue("volume", true)
+        
+        // 볼린저 밴드: 변동성과 추세 파악에 유용
+        bridge.setIndicatorWithQueue("bollingerBands", true)
+        
+        // SMA5: 단기 이동평균선으로 추세 확인에 유용
+        bridge.setIndicatorWithQueue("sma5", true)
+        
+        // SMA20: 중기 이동평균선으로 주가 지지/저항 확인
+        bridge.setIndicatorWithQueue("sma20", true)
+        
+        // UI 상태도 동기화 (사용자가 설정 화면에서 확인할 수 있도록)
+        _uiState.update { state ->
+            state.copy(
+                config = state.config.copy(
+                    indicators = state.config.indicators.copy(
+                        volume = true,
+                        bollingerBands = true,
+                        sma5 = true,
+                        sma20 = true
+                    )
+                )
+            )
+        }
+        
+        android.util.Log.d("ChartViewModel", "📊 기본 지표 활성화: 거래량, 볼린저밴드, SMA5, SMA20")
     }
 
 }

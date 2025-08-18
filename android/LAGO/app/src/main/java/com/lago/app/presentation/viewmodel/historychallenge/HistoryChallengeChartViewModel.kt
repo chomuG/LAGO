@@ -168,9 +168,9 @@ class HistoryChallengeChartViewModel @Inject constructor(
             bridge.setInitialData(chartCandles, volumeData)
             android.util.Log.d("HistoryChallengeChart", "🔥 차트 초기 데이터 설정 완료: ${chartCandles.size}개 캔들")
             
-            // 🔥 거래량이 항상 표시되도록 volume indicator 자동 활성화
-            bridge.setIndicatorWithQueue("volume", true)
-            android.util.Log.d("HistoryChallengeChart", "📊 거래량 지표 자동 활성화")
+            // 🔥 역사챌린지 전용 보조지표 자동 활성화
+            applyHistoryChallengeDefaultIndicators(bridge)
+            android.util.Log.d("HistoryChallengeChart", "📊 역사챌린지 전용 보조지표 자동 활성화 완료")
         }
     }
 
@@ -179,6 +179,40 @@ class HistoryChallengeChartViewModel @Inject constructor(
      */
     private fun getCurrentTimeFrame(): String {
         return _uiState.value.config.timeFrame
+    }
+
+    /**
+     * 역사챌린지 전용 기본 보조지표 자동 활성화
+     * 초기 진입 시 유용한 지표들을 자동으로 활성화하여 차트 분석 편의성 증대
+     */
+    private fun applyHistoryChallengeDefaultIndicators(bridge: com.lago.app.presentation.ui.chart.v5.JsBridge) {
+        // 거래량 (필수): 주식 거래 분석의 기본
+        bridge.setIndicatorWithQueue("volume", true)
+        
+        // 볼린저 밴드: 변동성과 추세 파악에 유용
+        bridge.setIndicatorWithQueue("bollingerBands", true)
+        
+        // SMA5: 단기 이동평균선으로 추세 확인에 유용
+        bridge.setIndicatorWithQueue("sma5", true)
+        
+        // SMA20: 중기 이동평균선으로 주가 지지/저항 확인
+        bridge.setIndicatorWithQueue("sma20", true)
+        
+        // UI 상태도 동기화 (사용자가 설정 화면에서 확인할 수 있도록)
+        _uiState.update { state ->
+            state.copy(
+                config = state.config.copy(
+                    indicators = state.config.indicators.copy(
+                        volume = true,
+                        bollingerBands = true,
+                        sma5 = true,
+                        sma20 = true
+                    )
+                )
+            )
+        }
+        
+        android.util.Log.d("HistoryChallengeChart", "📊 기본 지표 활성화: 거래량, 볼린저밴드, SMA5, SMA20")
     }
 
     /**
@@ -441,17 +475,25 @@ class HistoryChallengeChartViewModel @Inject constructor(
                 close = candleData.close
             )
 
-            // series.update() 방식: 동일 time = 덮어쓰기, 새 time = 새 바 추가
-            //bridge.updateRealTimeBar(realTimeCandle)
-            android.util.Log.d("HistoryChallengeChart", "📊 차트 업데이트 완료: ${Date(normalizedTime * 1000)}")
+            // 🔥 실시간 캔들 업데이트 활성화: series.update() 방식
+            // 동일 time = 기존 캔들 덮어쓰기, 새 time = 새 캔들 추가
+            bridge.updateRealTimeBar(realTimeCandle, getCurrentTimeFrame())
+            android.util.Log.d("HistoryChallengeChart", "📊 실시간 캔들 업데이트: ${Date(normalizedTime * 1000)} - ${candleData.close}원")
 
-            // 거래량도 업데이트
+            // 🔥 실시간 거래량 업데이트 활성화
             val realTimeVolume = com.lago.app.presentation.ui.chart.v5.VolumeData(
                 time = normalizedTime,
                 value = candleData.volume,
                 color = if (candleData.close >= candleData.open) "#26a69a" else "#ef5350"
             )
-            //bridge.updateRealTimeVolume(realTimeVolume)
+            bridge.updateRealTimeVolume(realTimeVolume, getCurrentTimeFrame())
+            android.util.Log.d("HistoryChallengeChart", "📊 실시간 거래량 업데이트: ${candleData.volume}")
+
+            // 🔥 새로운 캔들이 추가된 경우 실시간으로 스크롤 (예제와 동일한 방식)
+            if (normalizedTime > (_uiState.value.candlestickData.lastOrNull()?.time ?: 0L)) {
+                bridge.scrollToRealTime()
+                android.util.Log.d("HistoryChallengeChart", "📊 새 캔들 추가로 실시간 스크롤 활성화")
+            }
         }
     }
 

@@ -1193,7 +1193,8 @@ private fun BottomSheetContent(
                     onStockClick = onStockClick,
                     listState = holdingsListState,
                     nestedScrollConnection = nestedScrollConnection,
-                    bottomSheetState = bottomSheetState
+                    bottomSheetState = bottomSheetState,
+                    viewModel = viewModel
                 )
                 1 -> TradingHistoryContent(
                     history = uiState.tradingHistory,
@@ -1234,7 +1235,8 @@ private fun HoldingsContent(
     onStockClick: (String, String) -> Unit,
     listState: LazyListState,
     nestedScrollConnection: NestedScrollConnection,
-    bottomSheetState: BottomSheetState
+    bottomSheetState: BottomSheetState,
+    viewModel: ChartViewModel
 ) {
     if (holdings.isEmpty()) {
         Box(
@@ -1262,7 +1264,8 @@ private fun HoldingsContent(
                 HoldingItemRow(
                     item = holding,
                     currentStockCode = currentStockCode,
-                    onStockClick = onStockClick
+                    onStockClick = onStockClick,
+                    viewModel = viewModel
                 )
             }
         }
@@ -1273,7 +1276,8 @@ private fun HoldingsContent(
 private fun HoldingItemRow(
     item: HoldingItem,
     currentStockCode: String,
-    onStockClick: (String, String) -> Unit
+    onStockClick: (String, String) -> Unit,
+    viewModel: ChartViewModel
 ) {
     Row(
         modifier = Modifier
@@ -1316,24 +1320,42 @@ private fun HoldingItemRow(
         }
 
         Column(horizontalAlignment = Alignment.End) {
+            // 🔥 실시간 평가금액 표시 (홈화면처럼)
             Text(
-                text = "${String.format("%,d", item.value)}원",
+                text = if (item.currentPrice != null && item.quantityNum > 0) {
+                    // 평가금액 = 현재가격 × 보유수량
+                    val evaluationAmount = item.currentPrice * item.quantityNum
+                    "${String.format("%,.0f", evaluationAmount)}원"
+                } else {
+                    "${String.format("%,d", item.value)}원" // 기존 방식 폴백
+                },
                 style = TitleB18,
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            val isPositive = item.change >= 0
-            val changeAmount = (item.value * item.change / 100).toInt()
-            val changeText = if (isPositive) {
-                "+${String.format("%,d", changeAmount)}원 (${String.format("%.2f", item.change)}%)"
-            } else {
-                "${String.format("%,d", changeAmount)}원 (${String.format("%.2f", item.change)}%)"
-            }
-
+            // 🔥 실시간 수익률/수익금액 표시 (홈화면처럼)
             Text(
-                text = changeText,
+                text = if (item.profitLoss != 0L || item.profitRate != 0.0) {
+                    // 새로운 실시간 데이터 사용
+                    viewModel.formatProfitLoss(item.profitLoss, item.profitRate)
+                } else {
+                    // 기존 방식 폴백
+                    val isPositive = item.change >= 0
+                    val changeAmount = (item.value * item.change / 100).toInt()
+                    if (isPositive) {
+                        "+${String.format("%,d", changeAmount)}원 (${String.format("%.2f", item.change)}%)"
+                    } else {
+                        "${String.format("%,d", changeAmount)}원 (${String.format("%.2f", item.change)}%)"
+                    }
+                },
                 style = BodyR14,
-                color = if (isPositive) MainPink else MainBlue
+                color = if (item.profitLoss != 0L || item.profitRate != 0.0) {
+                    // 새로운 실시간 데이터 색상
+                    viewModel.getProfitLossColor(item.profitLoss)
+                } else {
+                    // 기존 방식 폴백
+                    if (item.change >= 0) MainPink else MainBlue
+                }
             )
         }
     }

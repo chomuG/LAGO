@@ -539,6 +539,36 @@ class JsBridge(
         enqueueOrEval("""window.prependHistoricalData(${candlesJson.quote()}, ${volumesJson.quote()})""")
     }
 
+    /**
+     * 🔥 실시간 스크롤 기능 - 차트를 최신 시간으로 자동 스크롤
+     * TradingView 예제와 동일한 방식으로 구현
+     */
+    fun scrollToRealTime() {
+        android.util.Log.d("JsBridge", "📊 scrollToRealTime 호출 - 차트를 최신 시간으로 스크롤")
+        
+        val jsCommand = """
+            (function() {
+                try {
+                    var chart = window.__chart || window.chart || window.lightweightChart;
+                    if (chart && chart.timeScale) {
+                        chart.timeScale().scrollToRealTime();
+                        console.log('LAGO: scrollToRealTime 실행 완료');
+                        return true;
+                    } else {
+                        console.warn('LAGO: 차트 또는 timeScale이 없음');
+                        return false;
+                    }
+                } catch(e) {
+                    console.error('LAGO: scrollToRealTime 에러:', e);
+                    return false;
+                }
+            })();
+        """.trimIndent()
+        
+        enqueueOrEval(jsCommand)
+        android.util.Log.d("JsBridge", "✅ scrollToRealTime JavaScript 명령 전송 완료")
+    }
+
     @Deprecated("Use prependHistoricalData instead")
     fun addHistoricalData(historicalDataJson: String) {
         val escapedJson = historicalDataJson.replace("'", "\\'").replace("\"", "\\\"")
