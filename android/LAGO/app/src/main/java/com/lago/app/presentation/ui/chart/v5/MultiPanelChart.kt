@@ -149,7 +149,9 @@ enum class IndicatorType {
  * Using timestamp format for maximum compatibility with minutes/hours/days/weeks/months/years
  */
 private fun formatDateForChart(date: Date): Long {
-    return date.time / 1000 // Convert milliseconds to epoch seconds timestamp
+    // ChartTimeManager 정규화와 동일한 로직 적용
+    val timestamp = date.time
+    return if (timestamp > 9999999999L) timestamp / 1000 else timestamp
 }
 
 /**
@@ -429,6 +431,13 @@ private fun generateMultiPanelHtml(
                 console.log('LAGO Price data:', priceData);
                 console.log('LAGO Indicators:', indicators);
                 
+                // 🔥 거래량 자동 활성화 보장
+                if (!indicators.some(ind => ind.type === 'volume')) {
+                    console.log('LAGO: 거래량 지표가 없어 자동 추가');
+                    indicators.push({ type: 'volume', enabled: true, options: {} });
+                    console.log('LAGO: 거래량 지표 자동 추가 완료');
+                }
+                
                 // LAGO 테마 색상 적용
                 chart = LightweightCharts.createChart(
                     document.getElementById('chart-container'),
@@ -660,12 +669,24 @@ private fun generateMultiPanelHtml(
                     'macd', !!JSON.parse(decodeBase64('$macdDataBase64'))
                 );
                 
-                // 안전한 type 파싱 + 인디케이터별 try-catch
+                // 🔥 빈 패널 방지: 데이터가 있고 활성화된 지표만 패널 생성
+                let validPaneIndex = 1; // 메인 패널(0) 다음부터
                 indicators.forEach((indicator, index) => {
                     try {
-                        const type = (indicator?.type ?? '').toString().toLowerCase(); // ✅ 안전
-                        console.log('🔍 indicator:', type, indicator?.name, 'points:', indicator?.data?.length ?? 0);
-                        createLAGOIndicatorPane({ ...indicator, type }, index + 1, priceData);
+                        const type = (indicator?.type ?? '').toString().toLowerCase();
+                        const hasData = indicator?.data?.length > 0;
+                        const isEnabled = indicator?.enabled !== false; // 명시적으로 false가 아니면 활성화
+                        
+                        console.log('🔍 indicator:', type, 'hasData:', hasData, 'enabled:', isEnabled, 'points:', indicator?.data?.length ?? 0);
+                        
+                        // 🔥 데이터가 있고 활성화된 지표만 패널 생성
+                        if (hasData && isEnabled && type) {
+                            console.log('✅ Creating pane for valid indicator:', type);
+                            createLAGOIndicatorPane({ ...indicator, type }, validPaneIndex, priceData);
+                            validPaneIndex++; // 다음 유효한 패널 인덱스
+                        } else {
+                            console.log('🚫 Skipping empty/disabled indicator:', type, 'hasData:', hasData, 'enabled:', isEnabled);
+                        }
                     } catch (e) {
                         console.error('❌ Indicator pane failed:', indicator?.type, e);
                     }
@@ -702,16 +723,21 @@ private fun generateMultiPanelHtml(
                 
                 console.log('LAGO Multi-Panel Chart v5 initialized successfully');
                 
-                // ✅ 빠른 차트 로딩: 준비되면 호출 (둘 다 지원해 두면 안전)
-                setTimeout(() => {
+                // ✅ 차트 준비 완료 신호 - 통일된 함수로 관리
+                window.notifyChartReady = function() {
+                    if (window._chartReadyCalled) return; // 중복 호출 방지
+                    window._chartReadyCalled = true;
+                    
+                    console.log('LAGO: Chart ready - notifying interface');
                     if (window.ChartInterface && ChartInterface.onChartReady) {
-                        console.log('LAGO: Chart ready - sending ChartInterface.onChartReady signal');
                         ChartInterface.onChartReady();
                     } else if (window.Android && Android.onChartReady) {
-                        console.log('LAGO: Chart ready - sending Android.onChartReady signal');
                         Android.onChartReady();
                     }
-                }, 100); // 로딩 시간 대폭 단축
+                };
+                
+                // 초기화 완료 후 콜백 호출
+                setTimeout(window.notifyChartReady, 100);
                 
             } catch (error) {
                 console.error('LAGO Multi-panel chart initialization error:', error);
@@ -1014,7 +1040,9 @@ private fun generateMultiPanelHtml(
                 if (typeof t === 'number') return t;
                 if (t && typeof t === 'object' && 'year' in t) {
                     const d = new Date(Date.UTC(t.year, (t.month||1)-1, (t.day||1), 0,0,0));
-                    return Math.floor(d.getTime()/1000);
+                    // 시간 정규화 - ChartTimeManager와 동일한 로직
+                    const timestamp = d.getTime();
+                    return timestamp > 9999999999 ? Math.floor(timestamp/1000) : timestamp;
                 }
                 return null;
             }
@@ -1465,19 +1493,77 @@ private fun generateMultiPanelHtml(
         
         // (mainSeries와 chart가 생성된 "이후"에 실제 구현으로 덮어쓰기)
         
-        // 2) 초기 데이터 세팅 (한 번만)
-        window.setInitialData = function(seriesId, jsonArray) {
+        // 🔥 차트 준비 완료 - onChartReady 콜백 호출
+        console.log('LAGO: Chart initialization completed');
+        try {
+            if (window.ChartInterface && ChartInterface.onChartReady) {
+                console.log('LAGO: 📞 ChartInterface.onChartReady() 호출');
+                ChartInterface.onChartReady();
+            }
+            if (window.Android && Android.onChartReady) {
+                console.log('LAGO: 📞 Android.onChartReady() 호출');
+                Android.onChartReady();
+            }
+        } catch(e) {
+            console.error('LAGO: ❌ onChartReady 콜백 호출 중 오류:', e);
+        }
+        
+        // 2) 초기 데이터 세팅 - 기존 JsBridge 호출과 호환
+        window.setInitialData = function(candlesJsonOrSeriesId, volumesJsonOrArray) {
             try {
-                const arr = JSON.parse(jsonArray); // [{time,open,high,low,close}, ...]
-                const s = window.seriesMap[seriesId];
-                if (s) {
-                    s.setData(arr);
+                // 🔥 기존 방식: setInitialData(candlesJson, volumesJson) 
+                if (typeof candlesJsonOrSeriesId === 'string' && candlesJsonOrSeriesId.charAt(0) === '[') {
+                    console.log('LAGO: setInitialData (legacy format) called');
+                    
+                    // 캔들 데이터 설정
+                    const candles = JSON.parse(candlesJsonOrSeriesId || '[]');
+                    if (candles.length > 0 && window.seriesMap.main) {
+                        window.seriesMap.main.setData(candles);
+                        console.log('LAGO: Main candles loaded -', candles.length, 'items');
+                    }
+                    
+                    // 거래량 데이터 설정
+                    const volumes = JSON.parse(volumesJsonOrArray || '[]');
+                    if (volumes.length > 0 && window.seriesMap.volume) {
+                        window.seriesMap.volume.setData(volumes);
+                        console.log('LAGO: Volume data loaded -', volumes.length, 'items');
+                    }
+                    
                     chart.timeScale().fitContent();
-                    console.log('LAGO: setInitialData for', seriesId, arr.length);
+                    console.log('LAGO: setInitialData completed (legacy format)');
+                    
+                    // 🔥 로딩 완료 콜백 호출
+                    if (window.ChartInterface && ChartInterface.onChartLoadingCompleted) {
+                        console.log('LAGO: 📞 ChartInterface.onChartLoadingCompleted() 호출');
+                        ChartInterface.onChartLoadingCompleted();
+                    }
+                    if (window.Android && Android.onChartLoadingCompleted) {
+                        console.log('LAGO: 📞 Android.onChartLoadingCompleted() 호출');
+                        Android.onChartLoadingCompleted();
+                    }
+                    
                 } else {
-                    console.warn('LAGO: unknown seriesId in setInitialData', seriesId);
+                    // 🔥 새로운 방식: setInitialData(seriesId, jsonArray)
+                    const seriesId = candlesJsonOrSeriesId;
+                    const jsonArray = volumesJsonOrArray;
+                    
+                    console.log('LAGO: setInitialData (new format) for seriesId:', seriesId);
+                    
+                    const arr = JSON.parse(jsonArray);
+                    const s = window.seriesMap[seriesId];
+                    if (s) {
+                        s.setData(arr);
+                        chart.timeScale().fitContent();
+                        console.log('LAGO: setInitialData for', seriesId, arr.length);
+                    } else {
+                        console.warn('LAGO: unknown seriesId in setInitialData', seriesId);
+                        console.log('LAGO: Available seriesIds:', Object.keys(window.seriesMap || {}));
+                    }
                 }
-            } catch (e) { console.error('LAGO setInitialData error', e); }
+            } catch (e) { 
+                console.error('LAGO setInitialData error', e);
+                console.log('LAGO: Available seriesIds:', Object.keys(window.seriesMap || {}));
+            }
         };
         
         // 3) 실시간 캔들 업데이트 - 단순화 (Kotlin이 정답 time을 내려줌)
@@ -1537,6 +1623,55 @@ private fun generateMultiPanelHtml(
             } catch (e) { console.error('LAGO updateVolume error', e); }
         };
         
+        // 🔥 JsBridge 호환성을 위한 실시간 업데이트 함수들
+        window.updateRealTimeBar = function(jsonBar) {
+            try {
+                console.log('LAGO: updateRealTimeBar called:', jsonBar);
+                
+                if (!window.seriesMap.main) {
+                    console.warn('LAGO: 메인 시리즈가 없어 실시간 캔들 업데이트 불가');
+                    return;
+                }
+                
+                const bar = JSON.parse(jsonBar);
+                console.log('LAGO: 파싱된 실시간 캔들:', bar);
+                
+                window.seriesMap.main.update(bar);
+                
+                // 실시간 따라가기
+                const sp = chart.timeScale().scrollPosition();
+                if (sp <= 0.1) chart.timeScale().scrollToRealTime();
+                
+                console.log('LAGO: ✅ 실시간 캔들 업데이트 완료');
+            } catch (e) {
+                console.error('LAGO: updateRealTimeBar 오류:', e);
+            }
+        };
+        
+        window.updateRealTimeVolume = function(jsonVol) {
+            try {
+                console.log('LAGO: updateRealTimeVolume called:', jsonVol);
+                
+                if (!window.seriesMap.volume) {
+                    console.warn('LAGO: 거래량 시리즈가 없어 실시간 거래량 업데이트 불가');
+                    return;
+                }
+                
+                const vol = JSON.parse(jsonVol);
+                console.log('LAGO: 파싱된 실시간 거래량:', vol);
+                
+                // 색상 추가 (필요시)
+                if (!vol.color) {
+                    vol.color = '#FF99C5'; // 기본 상승 색상
+                }
+                
+                window.seriesMap.volume.update(vol);
+                console.log('LAGO: ✅ 실시간 거래량 업데이트 완료');
+            } catch (e) {
+                console.error('LAGO: updateRealTimeVolume 오류:', e);
+            }
+        };
+        
         // 5) 종목명 업데이트 (TradingView 레전드 연동)
         window.updateSymbolName = function(symbolName) {
             try {
@@ -1575,7 +1710,7 @@ private fun generateMultiPanelHtml(
         // 초기 데이터 세팅 (2개 파라미터 지원)
         window.setSeriesData = function(candlesJson, volumesJson) {
             try {
-                const normalizeTime = (t) => (t > 10000000000 ? Math.floor(t/1000) : t);
+                const normalizeTime = (t) => (t > 9999999999 ? Math.floor(t/1000) : t);
 
                 if (candlesJson && window.seriesMap.main) {
                     const arr = JSON.parse(candlesJson).map(p => ({ ...p, time: normalizeTime(p.time) }));
@@ -1593,6 +1728,14 @@ private fun generateMultiPanelHtml(
                 }
 
                 chart.timeScale().fitContent();
+                
+                // 데이터 설정 완료 후 차트 준비 신호
+                setTimeout(() => {
+                    if (window.notifyChartReady) {
+                        window.notifyChartReady();
+                    }
+                }, 50);
+                
             } catch (e) {
                 console.error('setSeriesData error', e);
             }
@@ -1601,7 +1744,7 @@ private fun generateMultiPanelHtml(
         window.updateRealTimeBar = function (barJson) {
             try {
                 const bar = JSON.parse(barJson);
-                const normalizeTime = (t) => (t > 10000000000 ? Math.floor(t/1000) : t);
+                const normalizeTime = (t) => (t > 9999999999 ? Math.floor(t/1000) : t);
                 const normalizedBar = { ...bar, time: normalizeTime(bar.time) };
                 
                 if (window.seriesMap.main) {
@@ -1622,7 +1765,7 @@ private fun generateMultiPanelHtml(
         window.updateRealTimeVolume = function (vbarJson) {
             try {
                 const vbar = JSON.parse(vbarJson);
-                const normalizeTime = (t) => (t > 10000000000 ? Math.floor(t/1000) : t);
+                const normalizeTime = (t) => (t > 9999999999 ? Math.floor(t/1000) : t);
                 const normalizedVol = { ...vbar, time: normalizeTime(vbar.time) };
                 
                 if (window.seriesMap.volume) {
@@ -1656,7 +1799,7 @@ private fun generateMultiPanelHtml(
         // 과거 데이터 앞쪽 추가 (브릿지와 시그니처 맞춤)
         window.prependHistoricalData = function(candlesJson, volumesJson) {
             try {
-                const normalizeTime = (t) => (t > 10000000000 ? Math.floor(t/1000) : t);
+                const normalizeTime = (t) => (t > 9999999999 ? Math.floor(t/1000) : t);
 
                 if (candlesJson && window.seriesMap.main) {
                     const older = JSON.parse(candlesJson).map(p => ({ ...p, time: normalizeTime(p.time) }));
@@ -1723,6 +1866,35 @@ private fun generateMultiPanelHtml(
         
         // ChartBridge 객체 생성 (JsBridge와 연결)
         window.ChartBridge = {
+            // 🔥 차트 로딩 관련 콜백들
+            onChartLoadingCompleted: function() {
+                console.log('[ChartBridge] 📞 onChartLoadingCompleted 호출됨');
+                if (window.ChartInterface && window.ChartInterface.onChartLoadingCompleted) {
+                    window.ChartInterface.onChartLoadingCompleted();
+                } else if (window.AndroidInterface && window.AndroidInterface.onChartLoadingCompleted) {
+                    window.AndroidInterface.onChartLoadingCompleted();
+                }
+            },
+            
+            onChartReady: function() {
+                console.log('[ChartBridge] 📞 onChartReady 호출됨');
+                if (window.ChartInterface && window.ChartInterface.onChartReady) {
+                    window.ChartInterface.onChartReady();
+                } else if (window.AndroidInterface && window.AndroidInterface.onChartReady) {
+                    window.AndroidInterface.onChartReady();
+                }
+            },
+            
+            onLoadingProgress: function(progress) {
+                console.log('[ChartBridge] 📞 onLoadingProgress 호출됨:', progress);
+                if (window.ChartInterface && window.ChartInterface.onLoadingProgress) {
+                    window.ChartInterface.onLoadingProgress(progress);
+                } else if (window.AndroidInterface && window.AndroidInterface.onLoadingProgress) {
+                    window.AndroidInterface.onLoadingProgress(progress);
+                }
+            },
+            
+            // 기존 패턴 분석 관련 콜백들
             onVisibleRangeAnalysis: function(fromTime, toTime) {
                 // JsBridge의 analyzePatternInRange 메서드 호출
                 if (window.ChartInterface && window.ChartInterface.analyzePatternInRange) {
@@ -1880,7 +2052,7 @@ private fun generateMultiPanelHtml(
                         followRT = (info.barsAfter ?? 0) < 1;
                     });
 
-                    try { Android?.onChartReady?.(); } catch(e){}
+                    // Chart ready 콜백은 window.notifyChartReady()로 통일 관리
                     return true;
                 }
 

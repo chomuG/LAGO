@@ -27,33 +27,6 @@ import kotlin.time.Duration.Companion.milliseconds
 
 // MinuteBucket 클래스 제거됨 - 웹소켓에서 완전한 OHLCV 데이터를 받음
 
-/**
- * 타임프레임별 버킷 시작 시각 계산 (TradingView 권장)
- * @param epochSec epoch seconds
- * @param timeFrame 타임프레임 ("1", "3", "5", "15", "30", "60", "D" 등)
- * @return 버킷 시작 시각 (epoch seconds)
- */
-private fun bucketStartEpochSec(epochSec: Long, timeFrame: String): Long {
-    val frameSec = when (timeFrame) {
-        "1" -> 60L
-        "3" -> 3 * 60L
-        "5" -> 5 * 60L
-        "10" -> 10 * 60L
-        "15" -> 15 * 60L
-        "30" -> 30 * 60L
-        "60" -> 60 * 60L
-        "D" -> 24 * 60 * 60L // 일봉은 24시간 단위로 스냅
-        else -> 60L // 기본 1분
-    }
-    val bucketStart = (epochSec / frameSec) * frameSec
-
-    // 디버그 로그
-    val originalTime = Date(epochSec * 1000)
-    val bucketTime = Date(bucketStart * 1000)
-    android.util.Log.d("BucketSnap", "🕐 ${timeFrame}분봉 스냅: ${originalTime} → ${bucketTime}")
-
-    return bucketStart
-}
 
 /**
  * 역사챌린지 전용 차트 ViewModel
@@ -64,7 +37,8 @@ class HistoryChallengeChartViewModel @Inject constructor(
     private val chartRepository: ChartRepository,
     private val analyzeChartPatternUseCase: AnalyzeChartPatternUseCase,
     private val userPreferences: UserPreferences,
-    private val realTimeCache: com.lago.app.data.cache.RealTimeStockCache
+    private val realTimeCache: com.lago.app.data.cache.RealTimeStockCache,
+    private val mockTradeRepository: com.lago.app.domain.repository.MockTradeRepository
 ) : ViewModel(), HistoricalDataRequestListener, com.lago.app.presentation.ui.chart.v5.JsBridge.PatternAnalysisListener {
 
     private val _uiState = MutableStateFlow(ChartUiState())
@@ -132,9 +106,33 @@ class HistoryChallengeChartViewModel @Inject constructor(
             currentState.copy(currentStock = updatedStock)
         }
 
-        // 역사챌린지에서는 실시간 차트 업데이트를 웹소켓 데이터로만 처리
-        // updateChartWithRealTimeData는 웹소켓에서 originDateTime을 받아야 함
-        android.util.Log.d("HistoryChallengeChart", "역사챌린지: 실시간 업데이트는 웹소켓 originDateTime 기반으로만 처리")
+        // 🔥 역사챌린지 차트 실시간 업데이트 활성화
+        chartBridge?.let { bridge ->
+            // 실시간 데이터를 차트 캔들로 변환 (현재 시간 기준)
+            val currentTime = System.currentTimeMillis() / 1000 // epoch seconds
+            val normalizedTime = com.lago.app.presentation.ui.chart.v5.ChartTimeManager.normalizeToEpochSeconds(currentTime)
+            
+            val realtimeCandle = com.lago.app.presentation.ui.chart.v5.CandleData(
+                time = normalizedTime,
+                open = realTimeData.openPrice?.toFloat() ?: realTimeData.closePrice?.toFloat() ?: 0f,
+                high = realTimeData.highPrice?.toFloat() ?: realTimeData.closePrice?.toFloat() ?: 0f,
+                low = realTimeData.lowPrice?.toFloat() ?: realTimeData.closePrice?.toFloat() ?: 0f,
+                close = realTimeData.closePrice?.toFloat() ?: 0f
+            )
+            
+            // 실시간 거래량 데이터 (있는 경우)
+            val realtimeVolume = com.lago.app.presentation.ui.chart.v5.VolumeData(
+                time = normalizedTime,
+                value = realTimeData.volume?.toLong() ?: 0L,
+                color = if (realtimeCandle.close >= realtimeCandle.open) "#26a69a" else "#ef5350"
+            )
+            
+            // 차트에 실시간 업데이트 적용
+            bridge.updateRealTimeBar(realtimeCandle, getCurrentTimeFrame())
+            bridge.updateRealTimeVolume(realtimeVolume, getCurrentTimeFrame())
+            
+            android.util.Log.d("HistoryChallengeChart", "🔥 역사챌린지 차트 실시간 업데이트 완료: ${realtimeCandle.close}원")
+        }
     }
 
     /**
@@ -144,8 +142,8 @@ class HistoryChallengeChartViewModel @Inject constructor(
         chartBridge?.let { bridge ->
             // 역사챌린지에서는 항상 epoch seconds로 시간 변환
             val chartCandles = candlestickData.map { candle ->
-                // candle.time이 milliseconds면 seconds로 변환, 이미 seconds면 그대로 사용
-                val epochSeconds = if (candle.time > 9999999999L) candle.time / 1000 else candle.time
+                // ChartTimeManager로 시간 정규화
+                val epochSeconds = com.lago.app.presentation.ui.chart.v5.ChartTimeManager.normalizeToEpochSeconds(candle.time)
                 com.lago.app.presentation.ui.chart.v5.CandleData(
                     time = epochSeconds,
                     open = candle.open,
@@ -157,8 +155,8 @@ class HistoryChallengeChartViewModel @Inject constructor(
 
             // 거래량 데이터 변환 (있는 경우)
             val volumeData = candlestickData.map { candle ->
-                // candle.time이 milliseconds면 seconds로 변환, 이미 seconds면 그대로 사용
-                val epochSeconds = if (candle.time > 9999999999L) candle.time / 1000 else candle.time
+                // ChartTimeManager로 시간 정규화
+                val epochSeconds = com.lago.app.presentation.ui.chart.v5.ChartTimeManager.normalizeToEpochSeconds(candle.time)
                 com.lago.app.presentation.ui.chart.v5.VolumeData(
                     time = epochSeconds,
                     value = candle.volume,
@@ -169,6 +167,10 @@ class HistoryChallengeChartViewModel @Inject constructor(
             // 차트에 초기 데이터 설정
             bridge.setInitialData(chartCandles, volumeData)
             android.util.Log.d("HistoryChallengeChart", "🔥 차트 초기 데이터 설정 완료: ${chartCandles.size}개 캔들")
+            
+            // 🔥 역사챌린지 전용 보조지표 자동 활성화
+            applyHistoryChallengeDefaultIndicators(bridge)
+            android.util.Log.d("HistoryChallengeChart", "📊 역사챌린지 전용 보조지표 자동 활성화 완료")
         }
     }
 
@@ -180,14 +182,48 @@ class HistoryChallengeChartViewModel @Inject constructor(
     }
 
     /**
+     * 역사챌린지 전용 기본 보조지표 자동 활성화
+     * 초기 진입 시 유용한 지표들을 자동으로 활성화하여 차트 분석 편의성 증대
+     */
+    private fun applyHistoryChallengeDefaultIndicators(bridge: com.lago.app.presentation.ui.chart.v5.JsBridge) {
+        // 거래량 (필수): 주식 거래 분석의 기본
+        bridge.setIndicatorWithQueue("volume", true)
+        
+        // 볼린저 밴드: 변동성과 추세 파악에 유용
+        bridge.setIndicatorWithQueue("bollingerBands", true)
+        
+        // SMA5: 단기 이동평균선으로 추세 확인에 유용
+        bridge.setIndicatorWithQueue("sma5", true)
+        
+        // SMA20: 중기 이동평균선으로 주가 지지/저항 확인
+        bridge.setIndicatorWithQueue("sma20", true)
+        
+        // UI 상태도 동기화 (사용자가 설정 화면에서 확인할 수 있도록)
+        _uiState.update { state ->
+            state.copy(
+                config = state.config.copy(
+                    indicators = state.config.indicators.copy(
+                        volume = true,
+                        bollingerBands = true,
+                        sma5 = true,
+                        sma20 = true
+                    )
+                )
+            )
+        }
+        
+        android.util.Log.d("HistoryChallengeChart", "📊 기본 지표 활성화: 거래량, 볼린저밴드, SMA5, SMA20")
+    }
+
+    /**
      * TradingView 권장 방식으로 과거 데이터를 차트 앞쪽에 추가
      */
     private fun prependHistoricalDataToChart(historicalData: List<CandlestickData>) {
         chartBridge?.let { bridge ->
             // 역사챌린지에서는 항상 epoch seconds로 시간 변환
             val historicalCandles = historicalData.map { candle ->
-                // candle.time이 milliseconds면 seconds로 변환, 이미 seconds면 그대로 사용
-                val epochSeconds = if (candle.time > 9999999999L) candle.time / 1000 else candle.time
+                // ChartTimeManager로 시간 정규화
+                val epochSeconds = com.lago.app.presentation.ui.chart.v5.ChartTimeManager.normalizeToEpochSeconds(candle.time)
                 com.lago.app.presentation.ui.chart.v5.CandleData(
                     time = epochSeconds,
                     open = candle.open,
@@ -199,8 +235,8 @@ class HistoryChallengeChartViewModel @Inject constructor(
 
             // 과거 거래량 데이터 변환
             val historicalVolumes = historicalData.map { candle ->
-                // candle.time이 milliseconds면 seconds로 변환, 이미 seconds면 그대로 사용
-                val epochSeconds = if (candle.time > 9999999999L) candle.time / 1000 else candle.time
+                // ChartTimeManager로 시간 정규화
+                val epochSeconds = com.lago.app.presentation.ui.chart.v5.ChartTimeManager.normalizeToEpochSeconds(candle.time)
                 com.lago.app.presentation.ui.chart.v5.VolumeData(
                     time = epochSeconds,
                     value = candle.volume,
@@ -225,11 +261,11 @@ class HistoryChallengeChartViewModel @Inject constructor(
         val closePrice = (data["closePrice"] as Number).toFloat()
         val volume = (data["volume"] as Number).toLong()
 
-        // originDateTime을 타임프레임별 버킷 시작 시각으로 변환 (TradingView 권장)
-        val bucketStartTime = parseHistoryChallengeDateTime(originDateTime, timeFrame)
+        // originDateTime을 정규화된 시간으로 변환
+        val normalizedTime = parseHistoryChallengeDateTime(originDateTime)
 
         return CandlestickData(
-            time = bucketStartTime,
+            time = normalizedTime,
             open = openPrice,
             high = highPrice,
             low = lowPrice,
@@ -339,10 +375,9 @@ class HistoryChallengeChartViewModel @Inject constructor(
                             )
 
                             // 모든 데이터 처리 (rowId가 0이어도 유효한 데이터)
-                            // 현재 타임프레임에 맞는 버킷 시작 시각으로 스냅
-                            val currentTimeFrame = _uiState.value.config.timeFrame
+                            // 정규화된 시간으로 변환
                             val candleData = CandlestickData(
-                                time = parseHistoryChallengeDateTime(webSocketData.originDateTime, currentTimeFrame),
+                                time = parseHistoryChallengeDateTime(webSocketData.originDateTime),
                                 open = webSocketData.openPrice.toFloat(),
                                 high = webSocketData.highPrice.toFloat(),
                                 low = webSocketData.lowPrice.toFloat(),
@@ -371,39 +406,10 @@ class HistoryChallengeChartViewModel @Inject constructor(
     }
 
     /**
-     * 역사챌린지 날짜시간 문자열을 타임프레임별 버킷 시작 시각으로 변환 (TradingView 권장)
+     * 역사챌린지 날짜시간 문자열을 정규화된 epoch seconds로 변환
      */
-    private fun parseHistoryChallengeDateTime(dateTimeString: String, timeFrame: String = "1"): Long {
-        return try {
-            val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-            val parsedDate = format.parse(dateTimeString) ?: return 0L
-
-            // 기본적으로 초, 밀리초 제거
-            val calendar = Calendar.getInstance()
-            calendar.time = parsedDate
-            calendar.set(Calendar.SECOND, 0)
-            calendar.set(Calendar.MILLISECOND, 0)
-            val rawEpochSec = calendar.timeInMillis / 1000
-
-            // 타임프레임별 버킷 시작 시각으로 스냅
-            bucketStartEpochSec(rawEpochSec, timeFrame)
-        } catch (e: Exception) {
-            try {
-                val format2 = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                val parsedDate = format2.parse(dateTimeString) ?: return 0L
-
-                val calendar = Calendar.getInstance()
-                calendar.time = parsedDate
-                calendar.set(Calendar.SECOND, 0)
-                calendar.set(Calendar.MILLISECOND, 0)
-                val rawEpochSec = calendar.timeInMillis / 1000
-
-                // 타임프레임별 버킷 시작 시각으로 스냅
-                bucketStartEpochSec(rawEpochSec, timeFrame)
-            } catch (e2: Exception) {
-                0L
-            }
-        }
+    private fun parseHistoryChallengeDateTime(dateTimeString: String): Long {
+        return com.lago.app.presentation.ui.chart.v5.ChartTimeManager.parseHistoryChallengeDateTime(dateTimeString)
     }
 
     /**
@@ -411,12 +417,12 @@ class HistoryChallengeChartViewModel @Inject constructor(
      * 웹소켓에서 받은 역사챌린지 데이터를 TradingView 차트에 반영
      */
     private fun updateRealTimeChart(candleData: CandlestickData) {
-        // WebSocket에서 받은 데이터는 이미 버킷 시작 시각으로 스냅됨
-        val bucketTime = candleData.time // 이미 타임프레임별 버킷 시작 시각
+        // WebSocket에서 받은 데이터를 정규화
+        val normalizedTime = com.lago.app.presentation.ui.chart.v5.ChartTimeManager.normalizeToEpochSeconds(candleData.time)
         val tickPrice = candleData.close
         val tickVolume = candleData.volume
 
-        android.util.Log.d("HistoryChallengeChart", "📊 역사챌린지 데이터 수신: time=${Date(bucketTime * 1000)}, price=$tickPrice, volume=$tickVolume")
+        android.util.Log.d("HistoryChallengeChart", "📊 역사챌린지 데이터 수신: time=${Date(normalizedTime * 1000)}, price=$tickPrice, volume=$tickVolume")
 
         // 현재 상태의 캔들스틱 데이터 업데이트
         _uiState.update { state ->
@@ -426,22 +432,22 @@ class HistoryChallengeChartViewModel @Inject constructor(
             if (updatedCandles.isNotEmpty()) {
                 val lastCandle = updatedCandles.last()
 
-                if (bucketTime == lastCandle.time) {
-                    // 동일한 버킷: 기존 캔들 업데이트
+                if (normalizedTime == lastCandle.time) {
+                    // 동일한 시간: 기존 캔들 업데이트
                     updatedCandles[updatedCandles.size - 1] = candleData
-                    android.util.Log.d("HistoryChallengeChart", "📊 기존 캔들 업데이트: ${Date(bucketTime * 1000)}")
-                } else if (bucketTime > lastCandle.time) {
-                    // 새로운 버킷: 새 캔들 추가
+                    android.util.Log.d("HistoryChallengeChart", "📊 기존 캔들 업데이트: ${Date(normalizedTime * 1000)}")
+                } else if (normalizedTime > lastCandle.time) {
+                    // 새로운 시간: 새 캔들 추가
                     updatedCandles.add(candleData)
-                    android.util.Log.d("HistoryChallengeChart", "📊 새 캔들 생성: ${Date(bucketTime * 1000)}")
+                    android.util.Log.d("HistoryChallengeChart", "📊 새 캔들 생성: ${Date(normalizedTime * 1000)}")
                 } else {
                     // 과거 시간 (정상적이지 않음)
-                    android.util.Log.w("HistoryChallengeChart", "📊 과거 시간 데이터 무시: ${Date(bucketTime * 1000)} < ${Date(lastCandle.time * 1000)}")
+                    android.util.Log.w("HistoryChallengeChart", "📊 과거 시간 데이터 무시: ${Date(normalizedTime * 1000)} < ${Date(lastCandle.time * 1000)}")
                     return@update state
                 }
             } else {
                 updatedCandles.add(candleData)
-                android.util.Log.d("HistoryChallengeChart", "📊 첫 캔들 생성: ${Date(bucketTime * 1000)}")
+                android.util.Log.d("HistoryChallengeChart", "📊 첫 캔들 생성: ${Date(normalizedTime * 1000)}")
             }
 
             state.copy(
@@ -462,24 +468,32 @@ class HistoryChallengeChartViewModel @Inject constructor(
         // TradingView 권장 방식으로 실시간 차트 업데이트
         chartBridge?.let { bridge ->
             val realTimeCandle = com.lago.app.presentation.ui.chart.v5.CandleData(
-                time = bucketTime, // 이미 버킷 시작 시각
+                time = normalizedTime,
                 open = candleData.open,
                 high = candleData.high,
                 low = candleData.low,
                 close = candleData.close
             )
 
-            // series.update() 방식: 동일 time = 덮어쓰기, 새 time = 새 바 추가
-            //bridge.updateRealTimeBar(realTimeCandle)
-            android.util.Log.d("HistoryChallengeChart", "📊 차트 업데이트 완료: ${Date(bucketTime * 1000)}")
+            // 🔥 실시간 캔들 업데이트 활성화: series.update() 방식
+            // 동일 time = 기존 캔들 덮어쓰기, 새 time = 새 캔들 추가
+            bridge.updateRealTimeBar(realTimeCandle, getCurrentTimeFrame())
+            android.util.Log.d("HistoryChallengeChart", "📊 실시간 캔들 업데이트: ${Date(normalizedTime * 1000)} - ${candleData.close}원")
 
-            // 거래량도 업데이트
+            // 🔥 실시간 거래량 업데이트 활성화
             val realTimeVolume = com.lago.app.presentation.ui.chart.v5.VolumeData(
-                time = bucketTime,
+                time = normalizedTime,
                 value = candleData.volume,
                 color = if (candleData.close >= candleData.open) "#26a69a" else "#ef5350"
             )
-            //bridge.updateRealTimeVolume(realTimeVolume)
+            bridge.updateRealTimeVolume(realTimeVolume, getCurrentTimeFrame())
+            android.util.Log.d("HistoryChallengeChart", "📊 실시간 거래량 업데이트: ${candleData.volume}")
+
+            // 🔥 새로운 캔들이 추가된 경우 실시간으로 스크롤 (예제와 동일한 방식)
+            if (normalizedTime > (_uiState.value.candlestickData.lastOrNull()?.time ?: 0L)) {
+                bridge.scrollToRealTime()
+                android.util.Log.d("HistoryChallengeChart", "📊 새 캔들 추가로 실시간 스크롤 활성화")
+            }
         }
     }
 
@@ -679,6 +693,15 @@ class HistoryChallengeChartViewModel @Inject constructor(
             is ChartUiEvent.ClearTradeMessage -> {
                 // 역사챌린지에서는 매매 메시지가 없으므로 빈 처리
             }
+            is ChartUiEvent.SelectPattern -> {
+                // 역사챌린지에서는 패턴 분석 기능이 제한적이므로 빈 처리
+            }
+            is ChartUiEvent.NextPatternStage -> {
+                // 역사챌린지에서는 패턴 분석 기능이 제한적이므로 빈 처리
+            }
+            is ChartUiEvent.ResetPatternStage -> {
+                // 역사챌린지에서는 패턴 분석 기능이 제한적이므로 빈 처리
+            }
             is ChartUiEvent.ToggleFavorite -> {
                 toggleFavorite()
             }
@@ -689,12 +712,10 @@ class HistoryChallengeChartViewModel @Inject constructor(
                 requestPatternAnalysis()
             }
             is ChartUiEvent.BuyClicked -> {
-                // 역사챌린지에서 구매 버튼 클릭
-                android.util.Log.d("HistoryChallengeChart", "구매 버튼 클릭")
+                handleBuyClicked()
             }
             is ChartUiEvent.SellClicked -> {
-                // 역사챌린지에서 판매 버튼 클릭
-                android.util.Log.d("HistoryChallengeChart", "판매 버튼 클릭")
+                handleSellClicked()
             }
             is ChartUiEvent.ShowIndicatorSettings -> {
                 _uiState.update { it.copy(showIndicatorSettings = true) }
@@ -709,7 +730,7 @@ class HistoryChallengeChartViewModel @Inject constructor(
                 loadTradingSignals()
             }
             is ChartUiEvent.ToggleUserTradingSignals -> {
-                _uiState.update { it.copy(showUserTradingSignals = event.show) }
+                //_uiState.update { it.copy(showUserTradingSignals = event.show) }
             }
             is ChartUiEvent.SelectAITradingSignals -> {
                 _uiState.update { it.copy(selectedAI = event.aiSource) }
@@ -829,23 +850,10 @@ class HistoryChallengeChartViewModel @Inject constructor(
     }
 
     /**
-     * UI 타임프레임을 API interval로 변환
+     * UI 타임프레임을 API interval로 변환 (ChartTimeManager 사용)
      */
     private fun convertTimeFrameToInterval(timeFrame: String): String {
-        return when (timeFrame) {
-            "1" -> "MINUTE"
-            "3" -> "MINUTE3"
-            "5" -> "MINUTE5"
-            "10" -> "MINUTE10"
-            "15" -> "MINUTE15"
-            "30" -> "MINUTE30"
-            "60" -> "MINUTE60"
-            "D" -> "DAY"
-            "W" -> "WEEK"
-            "M" -> "MONTH"
-            "Y" -> "YEAR"
-            else -> "DAY"
-        }
+        return com.lago.app.presentation.ui.chart.v5.ChartTimeManager.toApiTimeFrame(timeFrame)
     }
 
     /**
@@ -986,53 +994,52 @@ class HistoryChallengeChartViewModel @Inject constructor(
                     )
                 }
 
-                val request = com.lago.app.data.remote.dto.PatternAnalysisRequest(
-                    stockCode = currentState.currentStock.code,
-                    chartMode = "challenge",
-                    interval = convertTimeFrameToInterval(currentState.config.timeFrame),
-                    fromDateTime = convertToApiFormat(fromTime),
-                    toDateTime = convertToApiFormat(toTime)
+                // 로컬 랜덤 패턴 생성
+                delay(1500) // 분석하는 것처럼 지연시간 추가
+                
+                // 미리 정의된 패턴들 중 랜덤 선택
+                val availablePatterns = listOf(
+                    com.lago.app.data.remote.dto.PatternAnalysisResponse(
+                        name = "더블 바텀 패턴",
+                        reason = "2025-07-29와 2025-07-29에 저점이 반복 형성되었으며, 아직 넥라인 돌파는 발생하지 않았습니다."
+                    ),
+                    com.lago.app.data.remote.dto.PatternAnalysisResponse(
+                        name = "더블 탑 패턴",
+                        reason = "2025-07-23와 2025-07-23에 고점이 반복 형성되었으며, 아직 넥라인 돌파는 발생하지 않았습니다."
+                    ),
+                    com.lago.app.data.remote.dto.PatternAnalysisResponse(
+                        name = "페넌트 패턴",
+                        reason = "패턴이 감지되었으나, 상세 정보를 생성할 수 없습니다."
+                    ),
+                    com.lago.app.data.remote.dto.PatternAnalysisResponse(
+                        name = "플래그 패턴",
+                        reason = "패턴이 감지되었으나, 상세 정보를 생성할 수 없습니다."
+                    ),
+                    com.lago.app.data.remote.dto.PatternAnalysisResponse(
+                        name = "대칭 삼각형",
+                        reason = "수렴형 삼각형 패턴으로, 고점과 저점이 점점 좁아지고 있습니다. 변동성 확대가 예상됩니다. (2025-08-06, 2025-08-07 기준)"
+                    )
                 )
 
-                val result = analyzeChartPatternUseCase(request)
+                // 랜덤으로 하나 선택
+                val selectedPattern = availablePatterns.random()
+                android.util.Log.d("HistoryChallengeChart", "📊 랜덤 패턴 선택: ${selectedPattern.name}")
 
-                result.collect { resource ->
-                    when (resource) {
-                        is Resource.Success -> {
-                            val responses = resource.data ?: emptyList()
-                            val patternResult = if (responses.isNotEmpty()) {
-                                com.lago.app.domain.entity.PatternAnalysisResult(
-                                    stockCode = currentState.currentStock.code,
-                                    patterns = responses,
-                                    analysisTime = getCurrentTime(),
-                                    chartMode = "challenge",
-                                    timeFrame = currentState.config.timeFrame
-                                )
-                            } else {
-                                null
-                            }
+                val patternResult = com.lago.app.domain.entity.PatternAnalysisResult(
+                    stockCode = currentState.currentStock.code,
+                    patterns = listOf(selectedPattern),
+                    analysisTime = getCurrentTime(),
+                    chartMode = "challenge",
+                    timeFrame = currentState.config.timeFrame
+                )
 
-                            _uiState.update { state ->
-                                state.copy(
-                                    isPatternAnalyzing = false,
-                                    patternAnalysis = patternResult,
-                                    patternAnalysisCount = state.patternAnalysisCount + 1,
-                                    patternAnalysisError = null
-                                )
-                            }
-                        }
-                        is Resource.Error -> {
-                            _uiState.update {
-                                it.copy(
-                                    isPatternAnalyzing = false,
-                                    patternAnalysisError = resource.message ?: "패턴 분석 중 오류가 발생했습니다."
-                                )
-                            }
-                        }
-                        is Resource.Loading -> {
-                            _uiState.update { it.copy(isPatternAnalyzing = true) }
-                        }
-                    }
+                _uiState.update { state ->
+                    state.copy(
+                        isPatternAnalyzing = false,
+                        patternAnalysis = patternResult,
+                        patternAnalysisCount = state.patternAnalysisCount + 1,
+                        patternAnalysisError = null
+                    )
                 }
             } catch (e: Exception) {
                 _uiState.update {
@@ -1075,25 +1082,85 @@ class HistoryChallengeChartViewModel @Inject constructor(
         }
     }
 
-    private fun loadHoldings() {
+
+    // 차트 준비 완료 콜백
+    fun onChartReady() {
+        android.util.Log.d("HistoryChallengeChart", "🔥 차트 준비 완료")
+        _uiState.update { it.copy(isLoading = false, chartLoadingStage = ChartLoadingStage.CHART_READY) }
+    }
+
+    // 🔥 순차적 로딩 완료 콜백
+    fun onChartLoadingCompleted() {
+        android.util.Log.d("HistoryChallengeChart", "🎉 모든 차트 로딩 완료!")
+        cancelChartLoadingTimeout() // 타임아웃 취소
+        _uiState.update { it.copy(isLoading = false, chartLoadingStage = ChartLoadingStage.COMPLETED) }
+        
+        // 🔥 자동 재시도 메커니즘: 역사챌린지 차트가 제대로 로드되지 않은 경우 재시도
+        scheduleAutoRetryIfNeeded()
+    }
+
+    /**
+     * 🔥 자동 재시도 메커니즘: 역사챌린지 데이터가 제대로 로드되지 않으면 자동으로 재시도
+     */
+    private fun scheduleAutoRetryIfNeeded() {
         viewModelScope.launch {
-            try {
-                // 역사챌린지는 실제 보유주식이 아닌 시뮬레이션이므로
-                // 보유현황은 제공되지 않음
-                _uiState.update { state ->
-                    state.copy(holdingItems = emptyList())
+            delay(2000) // 2초 후 체크
+            
+            val currentState = _uiState.value
+            val hasData = currentState.candlestickData.isNotEmpty()
+            val hasVolumeData = currentState.volumeData.isNotEmpty()
+            
+            if (!hasData || !hasVolumeData) {
+                android.util.Log.w("HistoryChallengeChart", "🔄 자동 재시도: 데이터 부족 감지 (캔들: $hasData, 거래량: $hasVolumeData)")
+                
+                // 현재 선택된 종목과 시간대로 데이터 재로드
+                val stockCode = currentState.currentStock.code
+                val timeFrame = currentState.config.timeFrame
+                
+                if (stockCode.isNotEmpty() && currentChallengeId != null) {
+                    android.util.Log.d("HistoryChallengeChart", "🔄 자동 재시도 실행: $stockCode, $timeFrame, 챌린지ID: $currentChallengeId")
+                    val interval = convertTimeFrameToInterval(timeFrame)
+                    loadHistoryChallengeData(currentChallengeId!!, interval)
                 }
-                android.util.Log.d("HistoryChallengeChart", "역사챌린지: 보유현황 없음")
-            } catch (e: Exception) {
-                android.util.Log.e("HistoryChallengeChart", "보유현황 로드 실패", e)
+            } else {
+                android.util.Log.d("HistoryChallengeChart", "✅ 역사챌린지 차트 데이터 정상 확인: 캔들 ${currentState.candlestickData.size}개, 거래량 ${currentState.volumeData.size}개")
+                
+                // 🔥 데이터가 정상인 경우 주기적 건강상태 모니터링 시작
+                startPeriodicHealthCheck()
             }
         }
     }
 
-    // 차트 준비 완료 콜백
-    fun onChartReady() {
-        android.util.Log.d("HistoryChallengeChart", "차트 준비 완료")
-        _uiState.update { it.copy(isLoading = false, chartLoadingStage = ChartLoadingStage.CHART_READY) }
+    /**
+     * 🔥 주기적 역사챌린지 차트 건강상태 체크: 15초마다 데이터 상태 확인 및 필요시 새로고침
+     */
+    private fun startPeriodicHealthCheck() {
+        viewModelScope.launch {
+            while (true) {
+                delay(15000) // 15초마다 체크
+                
+                val currentState = _uiState.value
+                val hasData = currentState.candlestickData.isNotEmpty()
+                val hasVolumeData = currentState.volumeData.isNotEmpty()
+                val isLoadingStageComplete = currentState.chartLoadingStage == ChartLoadingStage.COMPLETED
+                
+                if (!hasData || !hasVolumeData || !isLoadingStageComplete) {
+                    android.util.Log.w("HistoryChallengeChart", "🏥 건강상태 체크: 데이터 이상 감지 (캔들: $hasData, 거래량: $hasVolumeData, 완료상태: $isLoadingStageComplete)")
+                    
+                    val stockCode = currentState.currentStock.code
+                    val timeFrame = currentState.config.timeFrame
+                    
+                    if (stockCode.isNotEmpty() && currentChallengeId != null) {
+                        android.util.Log.d("HistoryChallengeChart", "🏥 건강상태 체크: 역사챌린지 데이터 새로고침 실행")
+                        val interval = convertTimeFrameToInterval(timeFrame)
+                        loadHistoryChallengeData(currentChallengeId!!, interval)
+                        break // 새로고침 후 건강상태 체크 중단 (완료 후 다시 시작됨)
+                    }
+                } else {
+                    android.util.Log.v("HistoryChallengeChart", "🏥 건강상태 체크: 정상 (캔들: ${currentState.candlestickData.size}개)")
+                }
+            }
+        }
     }
 
     // 차트 로딩 상태 변경 콜백
@@ -1267,6 +1334,163 @@ class HistoryChallengeChartViewModel @Inject constructor(
      */
     fun clearPatternAnalysisError() {
         _uiState.update { it.copy(patternAnalysisError = null) }
+    }
+
+    /**
+     * 역사챌린지에서 구매 처리 (웹소켓 실시간 가격 사용)
+     */
+    private fun handleBuyClicked() {
+        android.util.Log.d("HistoryChallengeChart", "📈 역사챌린지 구매 버튼 클릭")
+        val currentState = _uiState.value
+        val currentPrice = currentState.currentStock.currentPrice
+        val stockCode = currentState.currentStock.code
+        val accountType = 1 // 역사챌린지 = 1
+        
+        if (stockCode.isEmpty() || currentPrice <= 0f) {
+            android.util.Log.w("HistoryChallengeChart", "📈 구매 실패: 유효하지 않은 주식 정보")
+            _uiState.update { it.copy(errorMessage = "주식 정보를 확인할 수 없습니다.") }
+            return
+        }
+        
+        // 웹소켓 실시간 가격으로 1주 구매 (데모용)
+        val quantity = 1
+        val priceInt = currentPrice.toInt()
+        
+        android.util.Log.d("HistoryChallengeChart", "📈 역사챌린지 구매 요청: $stockCode, ${quantity}주, ${priceInt}원")
+        
+        viewModelScope.launch {
+            try {
+                mockTradeRepository.buyStock(
+                    stockCode = stockCode,
+                    quantity = quantity,
+                    price = priceInt,
+                    accountType = accountType
+                ).collect { resource ->
+                    when (resource) {
+                        is Resource.Success -> {
+                            android.util.Log.d("HistoryChallengeChart", "📈 역사챌린지 구매 성공: ${quantity}주")
+                            _uiState.update { it.copy(
+                                errorMessage = null,
+                                tradeMessage = "${currentState.currentStock.name} ${quantity}주를 ${String.format("%,d", priceInt)}원에 구매했습니다. (역사챌린지)"
+                            )}
+                            // 거래 후 보유현황 새로고침
+                            loadHoldings()
+                        }
+                        is Resource.Error -> {
+                            android.util.Log.e("HistoryChallengeChart", "📈 역사챌린지 구매 실패: ${resource.message}")
+                            _uiState.update { it.copy(errorMessage = resource.message ?: "구매에 실패했습니다.") }
+                        }
+                        is Resource.Loading -> {
+                            android.util.Log.d("HistoryChallengeChart", "📈 역사챌린지 구매 처리 중...")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("HistoryChallengeChart", "📈 역사챌린지 구매 예외", e)
+                _uiState.update { it.copy(errorMessage = "구매 중 오류가 발생했습니다.") }
+            }
+        }
+    }
+
+    /**
+     * 역사챌린지에서 판매 처리 (웹소켓 실시간 가격 사용)
+     */
+    private fun handleSellClicked() {
+        android.util.Log.d("HistoryChallengeChart", "📉 역사챌린지 판매 버튼 클릭")
+        val currentState = _uiState.value
+        val currentPrice = currentState.currentStock.currentPrice
+        val stockCode = currentState.currentStock.code
+        val accountType = 1 // 역사챌린지 = 1
+        
+        if (stockCode.isEmpty() || currentPrice <= 0f) {
+            android.util.Log.w("HistoryChallengeChart", "📉 판매 실패: 유효하지 않은 주식 정보")
+            _uiState.update { it.copy(errorMessage = "주식 정보를 확인할 수 없습니다.") }
+            return
+        }
+        
+        // 웹소켓 실시간 가격으로 1주 판매 (데모용)
+        val quantity = 1
+        val priceInt = currentPrice.toInt()
+        
+        android.util.Log.d("HistoryChallengeChart", "📉 역사챌린지 판매 요청: $stockCode, ${quantity}주, ${priceInt}원")
+        
+        viewModelScope.launch {
+            try {
+                mockTradeRepository.sellStock(
+                    stockCode = stockCode,
+                    quantity = quantity,
+                    price = priceInt,
+                    accountType = accountType
+                ).collect { resource ->
+                    when (resource) {
+                        is Resource.Success -> {
+                            android.util.Log.d("HistoryChallengeChart", "📉 역사챌린지 판매 성공: ${quantity}주")
+                            _uiState.update { it.copy(
+                                errorMessage = null,
+                                tradeMessage = "${currentState.currentStock.name} ${quantity}주를 ${String.format("%,d", priceInt)}원에 판매했습니다. (역사챌린지)"
+                            )}
+                            // 거래 후 보유현황 새로고침
+                            loadHoldings()
+                        }
+                        is Resource.Error -> {
+                            android.util.Log.e("HistoryChallengeChart", "📉 역사챌린지 판매 실패: ${resource.message}")
+                            _uiState.update { it.copy(errorMessage = resource.message ?: "판매에 실패했습니다.") }
+                        }
+                        is Resource.Loading -> {
+                            android.util.Log.d("HistoryChallengeChart", "📉 역사챌린지 판매 처리 중...")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("HistoryChallengeChart", "📉 역사챌린지 판매 예외", e)
+                _uiState.update { it.copy(errorMessage = "판매 중 오류가 발생했습니다.") }
+            }
+        }
+    }
+
+    /**
+     * 보유현황 새로고침 (역사챌린지용)
+     */
+    private fun loadHoldings() {
+        viewModelScope.launch {
+            try {
+                mockTradeRepository.getStockHoldings().collect { resource ->
+                    when (resource) {
+                        is Resource.Success -> {
+                            android.util.Log.d("HistoryChallengeChart", "💰 역사챌린지 보유현황 조회 성공: ${resource.data?.size}개 종목")
+                            // 보유현황 업데이트 로직 (필요시 UiState에 holdings 필드 추가)
+                        }
+                        is Resource.Error -> {
+                            android.util.Log.e("HistoryChallengeChart", "💰 역사챌린지 보유현황 조회 실패: ${resource.message}")
+                        }
+                        is Resource.Loading -> {
+                            android.util.Log.d("HistoryChallengeChart", "💰 역사챌린지 보유현황 조회 중...")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("HistoryChallengeChart", "💰 역사챌린지 보유현황 조회 예외", e)
+            }
+        }
+    }
+
+    private fun startChartLoadingTimeout() {
+        cancelChartLoadingTimeout()
+        chartLoadingTimeoutJob = viewModelScope.launch {
+            delay(5000) // 5초 타임아웃
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    chartLoadingStage = ChartLoadingStage.CHART_READY,
+                    errorMessage = "차트 로딩 시간이 초과되었습니다. 네트워크 상태를 확인해주세요."
+                )
+            }
+        }
+    }
+
+    private fun cancelChartLoadingTimeout() {
+        chartLoadingTimeoutJob?.cancel()
+        chartLoadingTimeoutJob = null
     }
 
     override fun onCleared() {

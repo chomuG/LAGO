@@ -140,10 +140,15 @@ fun AnimatedHeaderBox(
                         
                         Spacer(modifier = Modifier.width(Spacing.sm))
                         
-                        val priceChange = stockInfo.priceChange.toInt()
-                        val isPositive = priceChange >= 0  // priceChange로 색상 판단
+                        // 🔥 웹소켓 previousDay 데이터 사용
+                        val previousDayChange = stockInfo.previousDay ?: stockInfo.priceChange.toInt()
+                        val isPositive = previousDayChange >= 0
                         val changeSign = if (isPositive) "+" else ""
-                        val changeText = "${changeSign}${String.format("%,d", priceChange)}(${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%)"
+                        
+                        // 🔥 등락률에서 abs 제거하고 자연스러운 부호 표시
+                        val priceChangePercent = stockInfo.priceChangePercent
+                        val percentSign = if (priceChangePercent >= 0) "+" else ""
+                        val changeText = "${changeSign}${String.format("%,d", previousDayChange)}(${percentSign}${String.format("%.2f", priceChangePercent)}%)"
                         
                         Text(
                             text = changeText,
@@ -208,10 +213,14 @@ fun AnimatedHeaderBox(
 
                         Spacer(modifier = Modifier.width(Spacing.xs + 2.dp))
 
-                        val priceChange = stockInfo.priceChange.toInt()
-                        val isPositive = priceChange >= 0  // priceChange로 색상 판단
-                        val changeSign = if (isPositive) "+" else ""
-                        val percentText = "${changeSign}${String.format("%.2f", kotlin.math.abs(stockInfo.priceChangePercent))}%"
+                        // 🔥 웹소켓 previousDay 데이터 사용
+                        val previousDayChange = stockInfo.previousDay ?: stockInfo.priceChange.toInt()
+                        val isPositive = previousDayChange >= 0
+                        
+                        // 🔥 등락률에서 abs 제거하고 자연스러운 부호 표시
+                        val priceChangePercent = stockInfo.priceChangePercent
+                        val percentSign = if (priceChangePercent >= 0) "+" else ""
+                        val percentText = "${percentSign}${String.format("%.2f", priceChangePercent)}%"
                         
                         Text(
                             text = percentText,

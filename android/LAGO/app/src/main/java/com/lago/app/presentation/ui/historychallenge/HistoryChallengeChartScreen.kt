@@ -91,6 +91,11 @@ import com.lago.app.presentation.ui.chart.v5.DataConverter
 import com.lago.app.presentation.ui.chart.v5.toEnabledIndicators
 import com.lago.app.presentation.ui.chart.v5.MinuteAggregator
 import com.lago.app.presentation.ui.chart.v5.Tick
+// Import ChartScreen 패턴분석 컴포넌트들
+import com.lago.app.presentation.ui.chart.PatternAnalysisWithResults
+import com.lago.app.presentation.ui.chart.PatternAnalysisEmpty
+import com.lago.app.presentation.ui.chart.PatternAnalysisLoading
+import com.lago.app.presentation.ui.chart.PatternAnalysisError
 import kotlin.math.absoluteValue
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -488,7 +493,15 @@ fun HistoryChallengeChartScreen(
                 StableChartComponent(
                     viewModel = viewModel,
                     onLoadingProgress = { progress ->
+                        // 🔥 순차적 로딩 진행도 콜백
                         loadingProgress = progress
+                        android.util.Log.d("HistoryChallengeChartScreen", "📊 Loading Progress: $progress%")
+                        
+                        // 100% 완료 시 최종 확인
+                        if (progress >= 100) {
+                            android.util.Log.d("HistoryChallengeChartScreen", "🎉 역사챌린지 차트 로딩 완전 완료!")
+                            viewModel.onChartLoadingCompleted()
+                        }
                     }
                 )
             }

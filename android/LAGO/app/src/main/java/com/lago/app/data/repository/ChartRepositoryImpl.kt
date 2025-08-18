@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import retrofit2.HttpException
 import java.io.IOException
+import com.lago.app.presentation.ui.chart.v5.ChartTimeManager
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
@@ -121,7 +122,7 @@ class ChartRepositoryImpl @Inject constructor(
                     val response = apiService.getStockDayData(stockId, startDate, endDate)
                     response.map { dto ->
                         CandlestickData(
-                            time = parseDate(dto.date) * 1000,
+                            time = ChartTimeManager.parseDate(dto.date),
                             open = dto.openPrice.toFloat(),
                             high = dto.highPrice.toFloat(),
                             low = dto.lowPrice.toFloat(),
@@ -140,7 +141,7 @@ class ChartRepositoryImpl @Inject constructor(
                     val response = apiService.getStockMinuteData(stockId, startDateTime, endDateTime)
                     response.map { dto ->
                         CandlestickData(
-                            time = parseDateTime(dto.date) * 1000,
+                            time = ChartTimeManager.parseDateTime(dto.date),
                             open = dto.openPrice.toFloat(),
                             high = dto.highPrice.toFloat(),
                             low = dto.lowPrice.toFloat(),
@@ -158,7 +159,7 @@ class ChartRepositoryImpl @Inject constructor(
                     val response = apiService.getStockMonthData(stockId, startMonth, endMonth)
                     response.map { dto ->
                         CandlestickData(
-                            time = parseMonthDate(dto.date) * 1000,
+                            time = ChartTimeManager.parseMonthDate(dto.date),
                             open = dto.openPrice.toFloat(),
                             high = dto.highPrice.toFloat(),
                             low = dto.lowPrice.toFloat(),
@@ -189,14 +190,6 @@ class ChartRepositoryImpl @Inject constructor(
         }
     }
     
-    private fun parseDate(dateString: String): Long {
-        val format = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        return try {
-            format.parse(dateString)?.time?.div(1000) ?: 0L
-        } catch (e: Exception) {
-            0L
-        }
-    }
     
     override suspend fun getIntervalChartData(
         stockCode: String,
@@ -226,7 +219,7 @@ class ChartRepositoryImpl @Inject constructor(
             // IntervalChartDataDto를 CandlestickData로 변환
             val candlestickData = response.map { dto ->
                 // bucket 필드를 epoch seconds로 변환 (이미 버킷 시작 시각임)
-                val bucketEpochSec = parseDateTime(dto.bucket)
+                val bucketEpochSec = ChartTimeManager.parseDateTime(dto.bucket)
                 
                 android.util.Log.v("ChartRepositoryImpl", "🔥 변환: ${dto.bucket} → $bucketEpochSec (${java.util.Date(bucketEpochSec * 1000)})")
                 
@@ -264,29 +257,7 @@ class ChartRepositoryImpl @Inject constructor(
         }
     }
     
-    private fun parseDateTime(dateTimeString: String): Long {
-        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-        return try {
-            format.parse(dateTimeString)?.time?.div(1000) ?: 0L
-        } catch (e: Exception) {
-            0L
-        }
-    }
     
-    private fun parseMonthDate(monthInt: Int): Long {
-        val year = monthInt / 100
-        val month = (monthInt % 100) - 1 // Calendar.MONTH는 0부터 시작
-        val calendar = Calendar.getInstance().apply {
-            set(Calendar.YEAR, year)
-            set(Calendar.MONTH, month)
-            set(Calendar.DAY_OF_MONTH, 1)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        return calendar.timeInMillis / 1000
-    }
 
     override suspend fun getVolumeData(
         stockCode: String,
@@ -598,7 +569,7 @@ class ChartRepositoryImpl @Inject constructor(
                     response.reversed() // 최신순 -> 과거순 정렬
                         .map { dto ->
                             CandlestickData(
-                                time = parseDate(dto.date) * 1000,
+                                time = ChartTimeManager.parseDate(dto.date),
                                 open = dto.openPrice.toFloat(),
                                 high = dto.highPrice.toFloat(),
                                 low = dto.lowPrice.toFloat(),
@@ -620,7 +591,7 @@ class ChartRepositoryImpl @Inject constructor(
                     response.reversed() // 최신순 -> 과거순 정렬
                         .map { dto ->
                             CandlestickData(
-                                time = parseDateTime(dto.date) * 1000,
+                                time = ChartTimeManager.parseDateTime(dto.date),
                                 open = dto.openPrice.toFloat(),
                                 high = dto.highPrice.toFloat(),
                                 low = dto.lowPrice.toFloat(),
@@ -640,7 +611,7 @@ class ChartRepositoryImpl @Inject constructor(
                     response.reversed() // 최신순 -> 과거순 정렬
                         .map { dto ->
                             CandlestickData(
-                                time = parseMonthDate(dto.date) * 1000,
+                                time = ChartTimeManager.parseMonthDate(dto.date),
                                 open = dto.openPrice.toFloat(),
                                 high = dto.highPrice.toFloat(),
                                 low = dto.lowPrice.toFloat(),
@@ -659,7 +630,7 @@ class ChartRepositoryImpl @Inject constructor(
                     response.reversed() // 최신순 -> 과거순 정렬
                         .map { dto ->
                             CandlestickData(
-                                time = parseYearDate(dto.date) * 1000,
+                                time = ChartTimeManager.parseYearDate(dto.date),
                                 open = dto.openPrice.toFloat(),
                                 high = dto.highPrice.toFloat(),
                                 low = dto.lowPrice.toFloat(),
@@ -685,18 +656,6 @@ class ChartRepositoryImpl @Inject constructor(
         }
     }
     
-    private fun parseYearDate(year: Int): Long {
-        val calendar = Calendar.getInstance().apply {
-            set(Calendar.YEAR, year)
-            set(Calendar.MONTH, Calendar.JANUARY)
-            set(Calendar.DAY_OF_MONTH, 1)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        return calendar.timeInMillis / 1000
-    }
 
     // ===== 역사챌린지 관련 메서드 구현 =====
 
@@ -749,10 +708,14 @@ class ChartRepositoryImpl @Inject constructor(
 
             android.util.Log.d("ChartRepositoryImpl", "🔥 역사챌린지 차트 API 호출: $fromDateTime ~ $toDateTime")
 
+            // 내부 시간프레임을 API 시간프레임으로 변환
+            val apiInterval = ChartTimeManager.toApiTimeFrame(interval)
+            android.util.Log.d("ChartRepositoryImpl", "🔥 시간프레임 변환: $interval → $apiInterval")
+
             // 역사챌린지는 인증 없이 호출
             val response = apiService.getHistoryChallengeChart(
                 challengeId = challengeId,
-                interval = interval,
+                interval = apiInterval,
                 fromDateTime = fromDateTime,
                 toDateTime = toDateTime
             )
@@ -760,7 +723,7 @@ class ChartRepositoryImpl @Inject constructor(
             // Convert HistoryChallengeDataResponse to CandlestickData
             val candlestickData = response.map { dto ->
                 CandlestickData(
-                    time = parseHistoryChallengeDateTime(dto.originDateTime),
+                    time = ChartTimeManager.parseHistoryChallengeDateTime(dto.originDateTime),
                     open = dto.openPrice.toFloat(),
                     high = dto.highPrice.toFloat(),
                     low = dto.lowPrice.toFloat(),
@@ -793,14 +756,17 @@ class ChartRepositoryImpl @Inject constructor(
         try {
             emit(Resource.Loading())
 
+            // 내부 시간프레임을 API 시간프레임으로 변환
+            val apiInterval = ChartTimeManager.toApiTimeFrame(interval)
+            
             android.util.Log.d("ChartRepositoryImpl", "🔥 역사챌린지 무한 히스토리 API 호출")
-            android.util.Log.d("ChartRepositoryImpl", "🔥 파라미터: challengeId=$challengeId, interval=$interval")
+            android.util.Log.d("ChartRepositoryImpl", "🔥 파라미터: challengeId=$challengeId, interval=$interval → $apiInterval")
             android.util.Log.d("ChartRepositoryImpl", "🔥 beforeDateTime=$beforeDateTime, limit=$limit")
 
             // 역사챌린지 무한 히스토리 API 호출 (인증 없음)
             val response = apiService.getHistoryChallengeHistoricalData(
                 challengeId = challengeId,
-                interval = interval,
+                interval = apiInterval,
                 beforeDateTime = beforeDateTime,
                 limit = limit
             )
@@ -808,7 +774,7 @@ class ChartRepositoryImpl @Inject constructor(
             // Convert HistoryChallengeDataResponse to CandlestickData
             val candlestickData = response.map { dto ->
                 CandlestickData(
-                    time = parseHistoryChallengeDateTime(dto.originDateTime),
+                    time = ChartTimeManager.parseHistoryChallengeDateTime(dto.originDateTime),
                     open = dto.openPrice.toFloat(),
                     high = dto.highPrice.toFloat(),
                     low = dto.lowPrice.toFloat(),
@@ -872,24 +838,5 @@ class ChartRepositoryImpl @Inject constructor(
     }
 
 
-    /**
-     * 역사챌린지 날짜시간 문자열을 timestamp로 변환
-     * originDateTime이나 eventDateTime 형태를 처리
-     */
-    private fun parseHistoryChallengeDateTime(dateTimeString: String): Long {
-        return try {
-            // LocalDateTime 형태의 문자열을 처리 (2020-07-08T15:10:00 형태)
-            val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-            format.parse(dateTimeString)?.time ?: 0L
-        } catch (e: Exception) {
-            try {
-                // 다른 형태의 날짜 문자열 처리 시도
-                val format2 = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                format2.parse(dateTimeString)?.time ?: 0L
-            } catch (e2: Exception) {
-                0L
-            }
-        }
-    }
 
 }
