@@ -1,0 +1,14 @@
+<component name="libraryTable">
+  <library name="Gradle: com.github.skydoves:flexible-bottomsheet-material3-android:0.1.5@aar" external-system-id="GRADLE">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/8.11.1/transforms/516ffd1500fd2b34129a05632ee80590/transformed/flexible-bottomsheet-material3-release/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/8.11.1/transforms/516ffd1500fd2b34129a05632ee80590/transformed/flexible-bottomsheet-material3-release/AndroidManifest.xml" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.github.skydoves/flexible-bottomsheet-material3-android/0.1.5/acf292b6ee5065a78e4e7afc0bb1f07e6ec7150/flexible-bottomsheet-material3-android-0.1.5-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.github.skydoves/flexible-bottomsheet-material3-android/0.1.5/c4c75b6967a96e8ccc132c9b92a8dadd63dfbcfe/flexible-bottomsheet-material3-android-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

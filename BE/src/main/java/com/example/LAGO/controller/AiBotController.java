@@ -1,7 +1,7 @@
 package com.example.LAGO.controller;
 
-import com.example.LAGO.dto.AiBotAccountResponse;
-import com.example.LAGO.dto.AiBotListResponse;
+import com.example.LAGO.dto.response.AiBotAccountResponse;
+import com.example.LAGO.dto.response.AiBotListResponse;
 import com.example.LAGO.service.AiBotService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -66,7 +66,7 @@ public class AiBotController {
         @ApiResponse(responseCode = "500", description = "서버 에러")
     })
     public ResponseEntity<AiBotAccountResponse> getAiBotAccount(
-            @Parameter(description = "AI 봇 식별자 (1-10)", required = true, example = "1")
+            @Parameter(description = "AI 봇 식별자 (1-4)", required = true, example = "1")
             @PathVariable 
             @NotNull(message = "AI ID는 필수입니다") 
             @Positive(message = "AI ID는 양수여야 합니다") 
@@ -78,8 +78,7 @@ public class AiBotController {
 
     /**
      * AI 매매봇 상태 조회 (기존 메서드 - 호환성 유지)
-     * 
-     * @param ai_id AI 봇 식별자
+     *
      * @return AI 봇 상태 정보
      * @deprecated /api/ai-bots/{aiId}/account 사용 권장
      */

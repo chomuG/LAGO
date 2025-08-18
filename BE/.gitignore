@@ -35,3 +35,16 @@ out/
 
 ### VS Code ###
 .vscode/
+
+.env
+.env.*
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# properties
+.properties
+*.properties

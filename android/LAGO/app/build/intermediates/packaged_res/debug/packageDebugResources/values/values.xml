@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="main_blue">#4A90E2</color>
+    <color name="white">#FFFFFFFF</color>
+    <string name="app_name">LAGO</string>
+    <string name="default_web_client_id" translatable="false">641435048942-va9dhns7ghn2404k4gmsar6h02batoeh.apps.googleusercontent.com</string>
+    <string name="gcm_defaultSenderId" translatable="false">641435048942</string>
+    <string name="google_api_key" translatable="false">AIzaSyB9sF-oSc9m3G9CgcS7RIJL8b7FYKZbUrk</string>
+    <string name="google_app_id" translatable="false">1:641435048942:android:4315f4e827df77539c8cff</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyB9sF-oSc9m3G9CgcS7RIJL8b7FYKZbUrk</string>
+    <string name="google_storage_bucket" translatable="false">lago-c8844.firebasestorage.app</string>
+    <string name="project_id" translatable="false">lago-c8844</string>
+    <style name="Base.Theme.LAGO" parent="Theme.Material3.DayNight.NoActionBar">
+        
+        
+        <item name="android:navigationBarColor">@color/white</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+    <style name="Theme.LAGO" parent="Base.Theme.LAGO"/>
+    <style name="Theme.LAGO.Splash" parent="Theme.SplashScreen">
+        
+        <item name="windowSplashScreenBackground">@color/white</item>
+        
+        <item name="windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+        
+        <item name="postSplashScreenTheme">@style/Theme.LAGO</item>
+    </style>
+</resources>
