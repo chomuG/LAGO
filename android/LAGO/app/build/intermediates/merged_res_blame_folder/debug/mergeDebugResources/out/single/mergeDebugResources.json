@@ -1,0 +1,450 @@
+[
+    {
+        "merged": "com.lago.app-debug-5:/drawable_troph.png.flat",
+        "source": "com.lago.app-main-7:/drawable/troph.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_wordbook_image.png.flat",
+        "source": "com.lago.app-main-7:/drawable/wordbook_image.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_money_bag.png.flat",
+        "source": "com.lago.app-main-7:/drawable/money_bag.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_third_place_medal.png.flat",
+        "source": "com.lago.app-main-7:/drawable/third_place_medal.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_bronze.png.flat",
+        "source": "com.lago.app-main-7:/drawable/bronze.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-xxhdpi_ic_launcher_round.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-xxhdpi/ic_launcher_round.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_order_arrowup_black.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/order_arrowup_black.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_order_arrowdown_gray.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/order_arrowdown_gray.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/font_pretendard_extralight.ttf.flat",
+        "source": "com.lago.app-main-7:/font/pretendard_extralight.ttf"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_splash_background.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/splash_background.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_main_icon.png.flat",
+        "source": "com.lago.app-main-7:/drawable/main_icon.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-hdpi_ic_launcher_round.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-hdpi/ic_launcher_round.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_school.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/school.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_robot_icon.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/robot_icon.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_character_yellow_circle.png.flat",
+        "source": "com.lago.app-main-7:/drawable/character_yellow_circle.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_scholar.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/scholar.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_character_green.png.flat",
+        "source": "com.lago.app-main-7:/drawable/character_green.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_ic_check_circle_dark.png.flat",
+        "source": "com.lago.app-main-7:/drawable/ic_check_circle_dark.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_double_top_chart.png.flat",
+        "source": "com.lago.app-main-7:/drawable/double_top_chart.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_news.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/news.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_calendar.png.flat",
+        "source": "com.lago.app-main-7:/drawable/calendar.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_top3.png.flat",
+        "source": "com.lago.app-main-7:/drawable/top3.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/layout_activity_main.xml.flat",
+        "source": "com.lago.app-main-7:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_home.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/home.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_character_blue.png.flat",
+        "source": "com.lago.app-main-7:/drawable/character_blue.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_megaphone_image.png.flat",
+        "source": "com.lago.app-main-7:/drawable/megaphone_image.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_profile_green.png.flat",
+        "source": "com.lago.app-main-7:/drawable/profile_green.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_login_screen.png.flat",
+        "source": "com.lago.app-main-7:/drawable/login_screen.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.lago.app-main-7:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_right_arrow.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/right_arrow.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_order_arrowup_gray.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/order_arrowup_gray.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-xhdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-xhdpi/ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_ic_launcher_background.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/ic_launcher_background.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_character_red_circle.png.flat",
+        "source": "com.lago.app-main-7:/drawable/character_red_circle.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_character_green_main.png.flat",
+        "source": "com.lago.app-main-7:/drawable/character_green_main.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-hdpi_ic_launcher.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-hdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_humbleicons_search.png.flat",
+        "source": "com.lago.app-main-7:/drawable/humbleicons_search.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_sad_face.png.flat",
+        "source": "com.lago.app-main-7:/drawable/sad_face.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_character_red.png.flat",
+        "source": "com.lago.app-main-7:/drawable/character_red.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_rank.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/rank.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_silver.png.flat",
+        "source": "com.lago.app-main-7:/drawable/silver.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_chart_study_image.png.flat",
+        "source": "com.lago.app-main-7:/drawable/chart_study_image.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_gold.png.flat",
+        "source": "com.lago.app-main-7:/drawable/gold.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_splash_image.png.flat",
+        "source": "com.lago.app-main-7:/drawable/splash_image.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_yes.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/yes.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_character_blue_circle.png.flat",
+        "source": "com.lago.app-main-7:/drawable/character_blue_circle.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_no.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/no.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_glowing_white.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/glowing_white.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-xxxhdpi_ic_launcher_round.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-xxxhdpi/ic_launcher_round.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_character_yellow_main.png.flat",
+        "source": "com.lago.app-main-7:/drawable/character_yellow_main.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_profile_blue.png.flat",
+        "source": "com.lago.app-main-7:/drawable/profile_blue.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.lago.app-main-7:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-xxxhdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-xxxhdpi/ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-xhdpi_ic_launcher_round.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-xhdpi/ic_launcher_round.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_second_place_medal.png.flat",
+        "source": "com.lago.app-main-7:/drawable/second_place_medal.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_bracket.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/bracket.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/font_pretendard_semibold.ttf.flat",
+        "source": "com.lago.app-main-7:/font/pretendard_semibold.ttf"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_ic_chevron_right.png.flat",
+        "source": "com.lago.app-main-7:/drawable/ic_chevron_right.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_kakao_login_button.png.flat",
+        "source": "com.lago.app-main-7:/drawable/kakao_login_button.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/font_pretendard_thin.ttf.flat",
+        "source": "com.lago.app-main-7:/font/pretendard_thin.ttf"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_glowing_blue.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/glowing_blue.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_order_arrowdown_black.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/order_arrowdown_black.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_lock_image.png.flat",
+        "source": "com.lago.app-main-7:/drawable/lock_image.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_main_home_blue.png.flat",
+        "source": "com.lago.app-main-7:/drawable/main_home_blue.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/xml_data_extraction_rules.xml.flat",
+        "source": "com.lago.app-main-7:/xml/data_extraction_rules.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_stock.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/stock.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/font_pretendard_light.ttf.flat",
+        "source": "com.lago.app-main-7:/font/pretendard_light.ttf"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-mdpi_ic_launcher.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-mdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_correct.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/correct.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_ellipse_104.png.flat",
+        "source": "com.lago.app-main-7:/drawable/ellipse_104.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_wrong.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/wrong.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/xml_network_security_config.xml.flat",
+        "source": "com.lago.app-main-7:/xml/network_security_config.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_ic_chevron_left.png.flat",
+        "source": "com.lago.app-main-7:/drawable/ic_chevron_left.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_news_sum_icon.png.flat",
+        "source": "com.lago.app-main-7:/drawable/news_sum_icon.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_first_place_medal.png.flat",
+        "source": "com.lago.app-main-7:/drawable/first_place_medal.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_ic_check_circle_light.png.flat",
+        "source": "com.lago.app-main-7:/drawable/ic_check_circle_light.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/font_pretendard_extrabold.ttf.flat",
+        "source": "com.lago.app-main-7:/font/pretendard_extrabold.ttf"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_dropdown_button.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/dropdown_button.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_random_quiz_image.png.flat",
+        "source": "com.lago.app-main-7:/drawable/random_quiz_image.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/font_pretendard_medium.ttf.flat",
+        "source": "com.lago.app-main-7:/font/pretendard_medium.ttf"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/font_pretendard_regular.ttf.flat",
+        "source": "com.lago.app-main-7:/font/pretendard_regular.ttf"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-mdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-mdpi/ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_cancel.png.flat",
+        "source": "com.lago.app-main-7:/drawable/cancel.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_down_triangle.png.flat",
+        "source": "com.lago.app-main-7:/drawable/down_triangle.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_profile_yellow.png.flat",
+        "source": "com.lago.app-main-7:/drawable/profile_yellow.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-xxhdpi_ic_launcher.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-xxhdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/font_pretendard_black.ttf.flat",
+        "source": "com.lago.app-main-7:/font/pretendard_black.ttf"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_up_triangle.png.flat",
+        "source": "com.lago.app-main-7:/drawable/up_triangle.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_login_text_image.png.flat",
+        "source": "com.lago.app-main-7:/drawable/login_text_image.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_ai_button.png.flat",
+        "source": "com.lago.app-main-7:/drawable/ai_button.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-hdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-hdpi/ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_character_green_circle.png.flat",
+        "source": "com.lago.app-main-7:/drawable/character_green_circle.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_tree.png.flat",
+        "source": "com.lago.app-main-7:/drawable/tree.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_profile_red.png.flat",
+        "source": "com.lago.app-main-7:/drawable/profile_red.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_pink_heart.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/pink_heart.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-xxxhdpi_ic_launcher.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-xxxhdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_cloud.png.flat",
+        "source": "com.lago.app-main-7:/drawable/cloud.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_my.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/my.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-mdpi_ic_launcher_round.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-mdpi/ic_launcher_round.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/font_pretendard_bold.ttf.flat",
+        "source": "com.lago.app-main-7:/font/pretendard_bold.ttf"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_character_yellow.png.flat",
+        "source": "com.lago.app-main-7:/drawable/character_yellow.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_hand_clap.png.flat",
+        "source": "com.lago.app-main-7:/drawable/hand_clap.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-xxhdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-xxhdpi/ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_setting.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/setting.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_character_red_main.png.flat",
+        "source": "com.lago.app-main-7:/drawable/character_red_main.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/mipmap-xhdpi_ic_launcher.webp.flat",
+        "source": "com.lago.app-main-7:/mipmap-xhdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_character_blue_home.png.flat",
+        "source": "com.lago.app-main-7:/drawable/character_blue_home.png"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_google_login.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/google_login.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_chart_setting.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/chart_setting.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/xml_backup_rules.xml.flat",
+        "source": "com.lago.app-main-7:/xml/backup_rules.xml"
+    },
+    {
+        "merged": "com.lago.app-debug-5:/drawable_blank_heart.xml.flat",
+        "source": "com.lago.app-main-7:/drawable/blank_heart.xml"
+    }
+]

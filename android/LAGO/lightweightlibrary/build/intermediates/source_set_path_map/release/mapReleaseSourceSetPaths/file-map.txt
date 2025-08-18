@@ -1,0 +1,9 @@
+com.tradingview.lightweightcharts.lightweightlibrary-pngs-0 C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build\generated\res\pngs\release
+com.tradingview.lightweightcharts.lightweightlibrary-resValues-1 C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build\generated\res\resValues\release
+com.tradingview.lightweightcharts.lightweightlibrary-mergeReleaseResources-2 C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build\intermediates\incremental\release\mergeReleaseResources\merged.dir
+com.tradingview.lightweightcharts.lightweightlibrary-mergeReleaseResources-3 C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build\intermediates\incremental\release\mergeReleaseResources\stripped.dir
+com.tradingview.lightweightcharts.lightweightlibrary-release-4 C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\build\intermediates\merged_res\release\mergeReleaseResources
+com.tradingview.lightweightcharts.lightweightlibrary-main-5 C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\src\main\res
+com.tradingview.lightweightcharts.lightweightlibrary-release-6 C:\SSAFY\S13P11D203\android\LAGO\lightweightlibrary\src\release\res
+com.tradingview.lightweightcharts.lightweightlibrary-webkit-1.11.0-7 C:\Users\SSAFY\.gradle\caches\8.11.1\transforms\6862118139f2dd46db89e710d451096a\transformed\webkit-1.11.0\res
+com.tradingview.lightweightcharts.lightweightlibrary-core-1.1.0-8 C:\Users\SSAFY\.gradle\caches\8.11.1\transforms\846dc259e709d8b874c7311e6d0b50c2\transformed\core-1.1.0\res
