@@ -106,9 +106,33 @@ class HistoryChallengeChartViewModel @Inject constructor(
             currentState.copy(currentStock = updatedStock)
         }
 
-        // 역사챌린지에서는 실시간 차트 업데이트를 웹소켓 데이터로만 처리
-        // updateChartWithRealTimeData는 웹소켓에서 originDateTime을 받아야 함
-        android.util.Log.d("HistoryChallengeChart", "역사챌린지: 실시간 업데이트는 웹소켓 originDateTime 기반으로만 처리")
+        // 🔥 역사챌린지 차트 실시간 업데이트 활성화
+        chartBridge?.let { bridge ->
+            // 실시간 데이터를 차트 캔들로 변환 (현재 시간 기준)
+            val currentTime = System.currentTimeMillis() / 1000 // epoch seconds
+            val normalizedTime = com.lago.app.presentation.ui.chart.v5.ChartTimeManager.normalizeToEpochSeconds(currentTime)
+            
+            val realtimeCandle = com.lago.app.presentation.ui.chart.v5.CandleData(
+                time = normalizedTime,
+                open = realTimeData.openPrice?.toFloat() ?: realTimeData.closePrice?.toFloat() ?: 0f,
+                high = realTimeData.highPrice?.toFloat() ?: realTimeData.closePrice?.toFloat() ?: 0f,
+                low = realTimeData.lowPrice?.toFloat() ?: realTimeData.closePrice?.toFloat() ?: 0f,
+                close = realTimeData.closePrice?.toFloat() ?: 0f
+            )
+            
+            // 실시간 거래량 데이터 (있는 경우)
+            val realtimeVolume = com.lago.app.presentation.ui.chart.v5.VolumeData(
+                time = normalizedTime,
+                value = realTimeData.volume?.toLong() ?: 0L,
+                color = if (realtimeCandle.close >= realtimeCandle.open) "#26a69a" else "#ef5350"
+            )
+            
+            // 차트에 실시간 업데이트 적용
+            bridge.updateRealTimeBar(realtimeCandle, getCurrentTimeFrame())
+            bridge.updateRealTimeVolume(realtimeVolume, getCurrentTimeFrame())
+            
+            android.util.Log.d("HistoryChallengeChart", "🔥 역사챌린지 차트 실시간 업데이트 완료: ${realtimeCandle.close}원")
+        }
     }
 
     /**
