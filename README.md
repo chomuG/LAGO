@@ -205,103 +205,100 @@
 ![시스템 아키텍처](images/LAGO_architecture.png)
 
 ## Android 패키지 구조
+```markdown
+com.lago.app/
+├── data/                          # 데이터 레이어
+│   ├── cache/                     # 캐시 관리 (차트, 관심종목, 실시간 데이터)
+│   ├── local/                     # 로컬 데이터
+│   │   ├── dao/                   # Room DAO
+│   │   ├── entity/                # Room Entity
+│   │   └── prefs/                 # SharedPreferences
+│   ├── remote/                    # 원격 데이터
+│   │   ├── api/                   # API 서비스 인터페이스
+│   │   ├── dto/                   # 데이터 전송 객체
+│   │   └── websocket/             # WebSocket 연결
+│   ├── repository/                # Repository 구현체
+│   ├── scheduler/                 # 스케줄러
+│   └── service/                   # 데이터 서비스
+│
+├── di/                           # 의존성 주입 모듈
+│
+├── domain/                       # 도메인 레이어
+│   ├── entity/                   # 도메인 엔티티
+│   ├── repository/               # Repository 인터페이스
+│   └── usecase/                  # 비즈니스 로직 UseCase
+│
+├── fcm/                         # Firebase 메시징
+│
+└── presentation/                 # 프레젠테이션 레이어
+    ├── ui/                       # UI 컴포넌트
+    │   ├── chart/                # 차트 관련 UI
+    │   │   ├── state/            # 차트 상태 관리
+    │   │   └── v5/               # 차트 v5 구현 (TradingView 커스터마이징)
+    │   ├── components/           # 공통 UI 컴포넌트
+    │   ├── historychallenge/     # 역사 챌린지 화면
+    │   ├── home/                 # 홈 화면
+    │   ├── login/                # 로그인 화면
+    │   ├── news/                 # 뉴스 화면
+    │   ├── personalitytest/      # 성향 테스트 화면
+    │   └── study/                # 학습 관련 화면
+    │       └── Screen/           # 학습 세부 화면
+    └── viewmodel/               # ViewModel
+        └── history/             # 거래 이력 관련 ViewModel
+```
 
 
 ## BackEnd 패키지 구조
 ```markdown
-  
   BE/src/main/java/com/example/LAGO/
   ├── LagoApplication.java                    # Spring Boot 메인 클래스
   │
   ├── ai/                                    # AI 서비스 모듈
   │   ├── sentiment/                         # FinBERT 감정분석
-  │   │   ├── FinBertSentimentService.java
-  │   │   ├── SentimentAnalysisClient.java
   │   │   └── dto/
   │   └── strategy/                          # AI 매매 전략
-  │       ├── TradingStrategyService.java    # 4개 캐릭터별 전략
   │       └── dto/
   │
   ├── config/                               # 설정 클래스
-  │   ├── SecurityConfig.java               # Spring Security
-  │   ├── WebSocketConfig.java              # WebSocket 설정
-  │   ├── RedisConfig.java                  # Redis 연결
-  │   ├── KisConfig.java                    # 한국투자증권 API
-  │   └── AiConfiguration.java              # AI 서비스 설정
+  │   # Spring Security, WebSocket, Redis, KIS API 등
   │
   ├── controller/                           # REST API 컨트롤러
-  │   ├── AuthController.java               # 인증/로그인
-  │   ├── StockController.java              # 주식 매매
-  │   ├── AiBotController.java              # AI 봇 관리
-  │   ├── AccountController.java            # 계좌 관리
-  │   ├── ChartController.java              # 차트 데이터
-  │   ├── NewsController.java               # 뉴스 API
-  │   └── PortfolioController.java          # 포트폴리오
+  │   # 인증, 주식매매, AI봇, 계좌, 차트, 뉴스, 포트폴리오 등
   │
   ├── domain/                               # JPA 엔티티
-  │   ├── User.java                         # 사용자
-  │   ├── Account.java                      # 계좌
-  │   ├── Stock.java                        # 주식 정보
-  │   ├── MockTrade.java                    # 모의거래
-  │   ├── AiStrategy.java                   # AI 전략
-  │   ├── News.java                         # 뉴스
-  │   └── Ticks*.java                       # 시계열 데이터 (1m, 3m, 5m,
-  15m, 30m, 1h, 1d, 1w, 1mon, 1y)
+  │   ├── converter/                        # 엔티티 변환기
+  │   # 사용자, 계좌, 주식, 매매, AI전략, 뉴스, 시계열 데이터 등
   │
   ├── dto/                                  # 데이터 전송 객체
   │   ├── request/                          # 요청 DTO
-  │   │   ├── TradeRequest.java
-  │   │   ├── MockTradeRequest.java
-  │   │   └── ChartAnalysisRequest.java
   │   └── response/                         # 응답 DTO
-  │       ├── TradeResponse.java
-  │       ├── AiBotAccountResponse.java
-  │       └── TechnicalAnalysisResult.java
   │
   ├── repository/                           # JPA 리포지토리
-  │   ├── UserRepository.java
-  │   ├── AccountRepository.java
-  │   ├── StockRepository.java
-  │   ├── TicksRepository.java              # TimescaleDB 연동
-  │   └── AiStrategyRepository.java
+  │   # 각 도메인별 데이터 접근 계층
   │
-  ├── realtime/                             # 실시간 데이터 처리
-  │   ├── KisWebSocketClient.java           # KIS WebSocket 연결
-  │   ├── RealTimeDataBroadcaster.java      # 데이터 브로드캐스트
-  │   ├── MinuteCandleService.java          # 분봉 데이터 처리
-  │   ├── RedisStreamConsumer.java          # Redis Stream 소비
-  │   └── TimescaleOhlcIngestService.java   # TimescaleDB 데이터 삽입
+  ├── realtime/                            # 실시간 데이터 처리
+  │   └── dto/                             # 실시간 데이터 DTO
+  │   # KIS WebSocket, Redis Stream, 분봉처리, TimescaleDB 등
   │
-  ├── service/                              # 비즈니스 로직
-  │   ├── AutoTradingBotService.java        # AI 자동매매봇
-  │   ├── TechnicalAnalysisService.java     # 기술적분석 엔진
-  │   ├── TradeService.java                 # 매매 서비스
-  │   ├── AiBotService.java                 # AI 봇 관리
-  │   ├── AccountService.java               # 계좌 서비스
-  │   └── PortfolioService.java             # 포트폴리오 관리
+  ├── service/                             # 비즈니스 로직
+  │   # 자동매매봇, 기술적분석, 매매, 계좌, 포트폴리오 등
   │
-  ├── kis/                                  # 한국투자증권 연동
-  │   ├── KisAuthClient.java                # KIS 인증
-  │   ├── KisWebSocketService.java          # KIS WebSocket
-  │   └── KisRealtimeBootstrap.java         # 실시간 연결 부트스트랩
+  ├── kis/                                 # 한국투자증권 연동
+  │   # KIS 인증, WebSocket, 실시간 연결 등
   │
-  ├── scheduler/                            # 스케줄링 작업
-  │   ├── DailyQuizScheduler.java           # 데일리 퀴즈
-  │   ├── NewsScheduler.java                # 뉴스 수집
-  │   └── AssetUpdateScheduler.java         # 자산 업데이트
+  ├── scheduler/                           # 스케줄링 작업
+  │   # 데일리 퀴즈, 뉴스 수집, 자산 업데이트 등
   │
-  ├── utils/                                # 유틸리티
-  │   ├── TechnicalAnalysisUtils.java       # 기술적분석 계산
-  │   └── TradingUtils.java                 # 매매 관련 유틸
+  ├── utils/                               # 유틸리티
+  │   # 기술적분석 계산, 매매 관련 유틸 등
   │
-  ├── exception/                            # 예외 처리
-  │   ├── GlobalExceptionHandler.java
-  │   └── NoContentException.java
+  ├── exception/                           # 예외 처리
+  │   # 글로벌 예외 핸들러, 커스텀 예외 등
   │
-  └── converter/                            # 데이터 변환
-      ├── LocalDateTimeConverter.java
-      └── StringListConverter.java
-
+  ├── converter/                           # 데이터 변환
+  │   # 날짜/시간, 문자열 변환기 등
+  │
+  └── constants/                           # 상수 정의
 ```
 
 ## 프로젝트 산출물 및 메뉴얼
@@ -327,9 +324,9 @@
     <th>최혜림</th>
   </tr>
   <tr>
-    <td><img src="![증명2 추가.jpg](attachment:2133777f-edbf-40a2-987e-2e161886cb85:증명2_추가.jpg)" width="120"/></td>
+    <td><img src="![김수진진]](images\kimsujin.jpg)" width="120"/></td>
     <td><img src="이미지URL" width="120"/></td>
-    <td><img src="![증명사진.jpg](attachment:6d12fe58-8166-41b7-8f34-60ec6df67905:증명사진.jpg)" width="120"/></td>
+    <td><img src="![박경찬](images\parkgyungchan.jpg)" width="120"/></td>
     <td><img src="![image.png](attachment:8f5857f5-07fd-4c86-9e3d-5b16c406b554:image.png)" width="120"/></td>
     <td><img src="이미지URL" width="120"/></td>
     <td><img src="이미지URL" width="120"/></td>
