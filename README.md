@@ -36,6 +36,9 @@
 
 ### 3️⃣ 차트 패턴 분석
 
+<img src="images/analyze/analyze_1.jpg" alt="분석1" height="500"/>
+<img src="images/analyze/analyze_1.png" alt="분석2" height="500"/>
+
 ### 4️⃣ 학습
 
 ### 5️⃣ 역사 챌린지
