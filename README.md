@@ -3,7 +3,7 @@
 # 📈 라고할때 - 모의투자 학습 서비스
 주식투자 초보자를 위한 모의투자 학습 어플리케이션
 
-![썸네일](images/LAGO_thumbnail.JPG)
+<img src="images/LAGO_thumbnail.JPG" alt="썸네일" width="80%"/>
 
 </div>
 
@@ -324,9 +324,9 @@ com.lago.app/
     <th>최혜림</th>
   </tr>
   <tr>
-    <td><img src="![김수진진]](images\kimsujin.jpg)" width="120"/></td>
+    <td><img src="images/kimsujin.jpg" width="120"/></td>
     <td><img src="이미지URL" width="120"/></td>
-    <td><img src="![박경찬](images\parkgyungchan.jpg)" width="120"/></td>
+    <td><img src="images/parkgyungchan.jpg" width="120"/></td>
     <td><img src="![image.png](attachment:8f5857f5-07fd-4c86-9e3d-5b16c406b554:image.png)" width="120"/></td>
     <td><img src="이미지URL" width="120"/></td>
     <td><img src="이미지URL" width="120"/></td>
