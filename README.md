@@ -20,6 +20,33 @@
 
 ## 📽️ 주요 기능 시연
 
+### 1️⃣ 메인 화면
+
+### 2️⃣ 모의투자
+
+<img src="images/trade/list_1.png" alt="리스트1" height="500"/>
+<img src="images/trade/list_2.jpg" alt="리스트2" height="500"/>
+<br>
+<img src="images/trade/chart_1.png" alt="차트1" height="500"/>
+<img src="images/trade/chart_2.png" alt="차트2" height="500"/>
+<img src="images/trade/chart_3.jpg" alt="차트3" height="500"/>
+<br>
+<img src="images/trade/trade_1.jpg" alt="거래1" height="500"/>
+<img src="images/trade/trade_2.jpg" alt="거래2" height="500"/>
+
+### 3️⃣ 차트 패턴 분석
+
+### 4️⃣ 학습
+
+### 5️⃣ 역사 챌린지
+
+### 6️⃣ 뉴스
+
+### 7️⃣ 성향별 매매봇 
+
+### 8️⃣ 마이페이지
+
+
 ## ✨기술적 특징
 ### 1. 웹소켓 구독 기능을 사용한 부하 방지
 
