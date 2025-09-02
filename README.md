@@ -3,7 +3,7 @@
 # 📈 라고할때 - 모의투자 학습 서비스
 주식투자 초보자를 위한 모의투자 학습 어플리케이션
 
-![슬라이드1.JPG](attachment:56f77bd2-0a32-4515-aa7f-2d2165824fd8:슬라이드1.jpg)
+![썸네일](images/LAGO_thumbnail.JPG)
 
 </div>
 
@@ -23,19 +23,35 @@
 ## ✨기술적 특징
 ### 1. 웹소켓 구독 기능을 사용한 부하 방지
 
-![슬라이드12.JPG](attachment:e8f8c8f8-8528-4a33-ac78-fb84bef1a7e4:슬라이드12.jpg)
+![웹소켓](images/LAGO_websocket.JPG)
 
 - 한국 투자 증권 API를 이용해 실제 주가 정보를 연동하고 웹소켓을 통해 사용자 화면에 지연 없이 전달 → 한 번에 많은 양의 데이터를 실시간으로 전달하게 되면 네트워크와 렌더링에 부하 발생
 - 웹소켓 구독 기능을 활용해 보이는 종목은 구독하고 스크롤 되어 화면 밖으로 사라진 종목은 구독 해제하는 방식으로 렌더링 최적화 → 자원을 효율적으로 사용하고 매끄러운 사용 흐름 제공
 
 ### 2. PostgreSQL + TimescaleDB 활용
 
-![슬라이드20.JPG](attachment:888541c5-b839-4fb9-a87b-cacdbab80089:슬라이드20.jpg)
+![PostgreSQL](images/LAGO_postgreSQL.JPG)
 
-- 소규모(18만건) 부하 테스트
-    - MySQL Insert : 26분
-    - PosetgreSQL : 7초
-    - 생산성 + 성능 향상
+- 시계열 데이터 최적화
+    - TimescaleDB: PostgreSQL 기반 시계열 데이터베이스 확장
+    - Hypertable: 주가 데이터를 시간 기준으로 자동 파티셔닝
+    - Continuous Aggregates: 실시간 OHLCV 집계로 차트 성능 극대화
+    - 성능 비교 테스트 (18만건 부하 테스트)
+        - MySQL Insert: 26분
+        - PostgreSQL: 7초 (222배 성능 향상)
+        - 생산성 + 성능 동시 향상
+    - 시계열 데이터 처리 최적화
+        - 자동 압축: 오래된 데이터 자동 압축으로 스토리지 효율성
+        - 병렬 처리: 다중 종목 동시 데이터 삽입
+        - 인덱스 최적화: 시간 기반 쿼리 성능 극대화
+    - 실시간 집계 기능
+        - 1분/3분/5분/15분/30분/1시간/1일 단위 자동 집계
+        - Materialized View: 복잡한 기술적 분석 쿼리 사전 계산
+        - 메모리 효율: 대용량 틱 데이터를 효율적으로 처리
+    
+    이를 통해 대용량 실시간 주가 데이터를 안정적이고 빠르게 처리할 수 있는
+    시스템을 구축했습니다.
+    
 
 ### 3. 차트 패턴 분석
 
@@ -47,20 +63,47 @@
 
 ### 5. 뉴스
 
-- 국내 금융 특화 모델인 KR-FinBERT를 사용해 호재악재 분석
-- 로컬에서는 잘 실행 됐지만 서버로 통합하면서 타임아웃 + 성능 저하 문제 (여러 서버 동시 실행으로 인한 과도한 리소스 사용) → 도커 컨테이너별로 메모리에 제한을 두고 서버를 분리 하여 최적화
-- 서버 메모리 사용량 개선
-    - 스프링 : 8.1GB → 3.4GB
-    - 시스템 부하 : 47% → 21%
+- KR-FinBERT 감정분석
+    - 국내 금융 특화 모델인 KR-FinBERT를 활용한 호재/악재 분석
+    - 실시간 뉴스 크롤링 (구글 RSS + Selenium) → 감정점수 도출 (-1.0 ~ 1.0)
+    - AI 자동매매봇의 핵심 판단 지표로 활용
+    - 마이크로서비스 아키텍처 도입
+        - 문제상황: 로컬 환경에서는 정상 동작했으나, 배포 서버 통합 시 타임아웃
+        및 성능 저하 발생
+        - 원인: 여러 서버 동시 실행으로 인한 과도한 리소스 사용
+        - 해결책: Spring 서버 내장 방식 → 독립 Flask 서버로 분리
+    - 성능 최적화 결과
+        - Spring 서버 메모리: 8.1GB → 3.4GB (58% 절약)
+        - 시스템 부하: 47% → 21% (55% 감소)
+        - 응답속도: 타임아웃 해결 및 안정적 서비스 제공
+    - 서비스 분리 아키텍처
+        - Spring Boot: 메인 API 서버 (Port 8081)
+        - Flask: FinBERT 감정분석 전용 서버 (Port 5000)
+        - 통신: HTTP REST API로 마이크로서비스 간 연동
+        - Docker Compose: 통합 컨테이너 관리로 배포 자동화
 
 ### 6. 성향별 매매봇
 
 - 매매로직
-    - 뉴스 : 구글 RSS + Selenium + Finbert
-        - 호재/악재 점수 산출 → 점수 정규화
-    - 기술적 분석
+    - 뉴스 감정분석: 구글 RSS + Selenium + FinBERT
+        - 실시간 뉴스 크롤링으로 호재/악재 점수 산출 → 점수 정규화 (-1.0 ~
+        1.0)
+    - 기술적 분석: 다중 지표 통합 분석
         - RSI, MACD, 볼린저밴드, 이동평균선, 골든/데드 크로스
-- 뉴스 감정 점수 + 기술적 분석 점수 + 실시간 가격 변동으로 종합 매매 신호를 생성하고 캐릭터 별 다른 가중치를 두어 매매 신호 생성
+        - Java 21 Virtual Thread 활용 병렬 계산으로 고성능 처리
+- 통합 매매 신호 생성
+    - 뉴스 감정 점수 + 기술적 분석 점수 + 실시간 가격 변동을 종합
+    - 캐릭터별 차별화된 가중치로 개성있는 매매 신호 생성
+    - Redis Stream 기반 비동기 매매 실행으로 지연 없는 거래
+- 캐릭터별 전략
+    - 화끈이 (공격형): 뉴스 감정분석 1.3배 가중 → 긍정 신호에 강한 반응
+    - 적극이 (성장형): 기술적분석 1.2배 가중 → RSI, MACD 중심 매매
+    - 균형이 (중립형): 뉴스/기술 동등 비중 → 안정적 포트폴리오
+    - 조심이 (보수형): 부정 신호 1.5배 가중 → 위험 회피 중심 매매
+- 매분 자동 실행
+    - Spring 스케줄러로 매분마다 전체 AI 봇 매매 실행
+    - 실시간 KIS WebSocket 가격 연동으로 정확한 매매가 적용
+
 
 # ⚙️ 기술 스택
 
@@ -163,13 +206,107 @@
 </table>
 
 # ⚒️ 시스템 아키텍처
-![image.png](attachment:a0020bc6-978d-4b8f-98c3-f326462bc699:image.png)
+![시스템 아키텍처](images/LAGO_architecture.png)
 
 ## Android 패키지 구조
 
 
 ## BackEnd 패키지 구조
+```markdown
+  
+  BE/src/main/java/com/example/LAGO/
+  ├── LagoApplication.java                    # Spring Boot 메인 클래스
+  │
+  ├── ai/                                    # AI 서비스 모듈
+  │   ├── sentiment/                         # FinBERT 감정분석
+  │   │   ├── FinBertSentimentService.java
+  │   │   ├── SentimentAnalysisClient.java
+  │   │   └── dto/
+  │   └── strategy/                          # AI 매매 전략
+  │       ├── TradingStrategyService.java    # 4개 캐릭터별 전략
+  │       └── dto/
+  │
+  ├── config/                               # 설정 클래스
+  │   ├── SecurityConfig.java               # Spring Security
+  │   ├── WebSocketConfig.java              # WebSocket 설정
+  │   ├── RedisConfig.java                  # Redis 연결
+  │   ├── KisConfig.java                    # 한국투자증권 API
+  │   └── AiConfiguration.java              # AI 서비스 설정
+  │
+  ├── controller/                           # REST API 컨트롤러
+  │   ├── AuthController.java               # 인증/로그인
+  │   ├── StockController.java              # 주식 매매
+  │   ├── AiBotController.java              # AI 봇 관리
+  │   ├── AccountController.java            # 계좌 관리
+  │   ├── ChartController.java              # 차트 데이터
+  │   ├── NewsController.java               # 뉴스 API
+  │   └── PortfolioController.java          # 포트폴리오
+  │
+  ├── domain/                               # JPA 엔티티
+  │   ├── User.java                         # 사용자
+  │   ├── Account.java                      # 계좌
+  │   ├── Stock.java                        # 주식 정보
+  │   ├── MockTrade.java                    # 모의거래
+  │   ├── AiStrategy.java                   # AI 전략
+  │   ├── News.java                         # 뉴스
+  │   └── Ticks*.java                       # 시계열 데이터 (1m, 3m, 5m,
+  15m, 30m, 1h, 1d, 1w, 1mon, 1y)
+  │
+  ├── dto/                                  # 데이터 전송 객체
+  │   ├── request/                          # 요청 DTO
+  │   │   ├── TradeRequest.java
+  │   │   ├── MockTradeRequest.java
+  │   │   └── ChartAnalysisRequest.java
+  │   └── response/                         # 응답 DTO
+  │       ├── TradeResponse.java
+  │       ├── AiBotAccountResponse.java
+  │       └── TechnicalAnalysisResult.java
+  │
+  ├── repository/                           # JPA 리포지토리
+  │   ├── UserRepository.java
+  │   ├── AccountRepository.java
+  │   ├── StockRepository.java
+  │   ├── TicksRepository.java              # TimescaleDB 연동
+  │   └── AiStrategyRepository.java
+  │
+  ├── realtime/                             # 실시간 데이터 처리
+  │   ├── KisWebSocketClient.java           # KIS WebSocket 연결
+  │   ├── RealTimeDataBroadcaster.java      # 데이터 브로드캐스트
+  │   ├── MinuteCandleService.java          # 분봉 데이터 처리
+  │   ├── RedisStreamConsumer.java          # Redis Stream 소비
+  │   └── TimescaleOhlcIngestService.java   # TimescaleDB 데이터 삽입
+  │
+  ├── service/                              # 비즈니스 로직
+  │   ├── AutoTradingBotService.java        # AI 자동매매봇
+  │   ├── TechnicalAnalysisService.java     # 기술적분석 엔진
+  │   ├── TradeService.java                 # 매매 서비스
+  │   ├── AiBotService.java                 # AI 봇 관리
+  │   ├── AccountService.java               # 계좌 서비스
+  │   └── PortfolioService.java             # 포트폴리오 관리
+  │
+  ├── kis/                                  # 한국투자증권 연동
+  │   ├── KisAuthClient.java                # KIS 인증
+  │   ├── KisWebSocketService.java          # KIS WebSocket
+  │   └── KisRealtimeBootstrap.java         # 실시간 연결 부트스트랩
+  │
+  ├── scheduler/                            # 스케줄링 작업
+  │   ├── DailyQuizScheduler.java           # 데일리 퀴즈
+  │   ├── NewsScheduler.java                # 뉴스 수집
+  │   └── AssetUpdateScheduler.java         # 자산 업데이트
+  │
+  ├── utils/                                # 유틸리티
+  │   ├── TechnicalAnalysisUtils.java       # 기술적분석 계산
+  │   └── TradingUtils.java                 # 매매 관련 유틸
+  │
+  ├── exception/                            # 예외 처리
+  │   ├── GlobalExceptionHandler.java
+  │   └── NoContentException.java
+  │
+  └── converter/                            # 데이터 변환
+      ├── LocalDateTimeConverter.java
+      └── StringListConverter.java
 
+```
 
 ## 프로젝트 산출물 및 메뉴얼
 
