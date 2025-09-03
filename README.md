@@ -66,7 +66,7 @@
 
 ### 5️⃣ 역사 챌린지
 
-<img src="images/challenge_home/challenge_home.png" alt="역사챌린지홈홈" height="400"/>
+<img src="images/challenge/challenge_home.png" alt="역사챌린지홈홈" height="400"/>
 
 ### 6️⃣ 뉴스
 
