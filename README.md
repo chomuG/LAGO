@@ -22,67 +22,69 @@
 
 ### 1️⃣ 메인 화면
 
-<img src="images/main/agree_conditions.jpg" alt="약관동의" height="500"/>
-<img src="images/main/personality_result.png" alt="성향검사사" height="500"/>
+<img src="images/main/agree_conditions.jpg" alt="약관동의" height="400"/>
+<img src="images/main/personality_result.png" alt="성향검사사" height="400"/>
 <br>
 <br>
-<img src="images/main/home_top.jpg" alt="홈화면2" height="500"/>
-<img src="images/main/home_bottom.png" alt="홈화면1" height="500"/>
-<img src="images/main/transaction_history.jpg" alt="거래내역역" height="500"/>
+<img src="images/main/home_top.jpg" alt="홈화면2" height="400"/>
+<img src="images/main/home_bottom.png" alt="홈화면1" height="400"/>
+<img src="images/main/transaction_history.jpg" alt="거래내역역" height="400"/>
 
 ### 2️⃣ 모의투자
 
-<img src="images/trade/list_1.png" alt="리스트1" height="500"/>
-<img src="images/trade/list_2.jpg" alt="리스트2" height="500"/>
+<img src="images/trade/list_1.png" alt="리스트1" height="400"/>
+<img src="images/trade/list_2.jpg" alt="리스트2" height="400"/>
 <br>
 <br>
-<img src="images/trade/chart_1.png" alt="차트1" height="500"/>
-<img src="images/trade/chart_2.png" alt="차트2" height="500"/>
-<img src="images/trade/chart_3.jpg" alt="차트3" height="500"/>
+<img src="images/trade/chart_1.png" alt="차트1" height="400"/>
+<img src="images/trade/chart_2.png" alt="차트2" height="400"/>
+<img src="images/trade/chart_3.jpg" alt="차트3" height="400"/>
 <br>
 <br>
-<img src="images/trade/trade_1.jpg" alt="거래1" height="500"/>
-<img src="images/trade/trade_2.jpg" alt="거래2" height="500"/>
+<img src="images/trade/trade_1.jpg" alt="거래1" height="400"/>
+<img src="images/trade/trade_2.jpg" alt="거래2" height="400"/>
 
 ### 3️⃣ 차트 패턴 분석
 
-<img src="images/analyze/analyze_1.jpg" alt="분석1" height="500"/>
-<img src="images/analyze/analyze_2.png" alt="분석2" height="500"/>
+<img src="images/analyze/analyze_1.jpg" alt="분석1" height="400"/>
+<img src="images/analyze/analyze_2.png" alt="분석2" height="400"/>
 
 ### 4️⃣ 학습
 
-<img src="images/study/study_home.png" alt="학습홈" height="500"/>
-<img src="images/study/chart_learn.png" alt="차트패턴학습" height="500"/>
-<img src="images/study/terms.png" alt="단어장" height="500"/>
+<img src="images/study/study_home.png" alt="학습홈" height="400"/>
+<img src="images/study/chart_learn.png" alt="차트패턴학습" height="400"/>
+<img src="images/study/terms.png" alt="단어장" height="400"/>
 <br>
 <br>
-<img src="images/study/quiz_daily.jpg" alt="데일리퀴즈" height="500"/>
-<img src="images/study/quiz_result_daily.jpg" alt="데일리퀴즈결과" height="500"/>
+<img src="images/study/quiz_daily.jpg" alt="데일리퀴즈" height="400"/>
+<img src="images/study/quiz_result_daily.jpg" alt="데일리퀴즈결과" height="400"/>
 <br>
 <br>
-<img src="images/study/quiz_random.jpg" alt="랜덤퀴즈" height="500"/>
-<img src="images/study/quiz_result_random.jpg" alt="랜덤퀴즈결과" height="500"/>
+<img src="images/study/quiz_random.jpg" alt="랜덤퀴즈" height="400"/>
+<img src="images/study/quiz_result_random.jpg" alt="랜덤퀴즈결과" height="400"/>
 
 
 ### 5️⃣ 역사 챌린지
 
+<img src="images/challenge_home/challenge_home.png" alt="역사챌린지홈홈" height="400"/>
+
 ### 6️⃣ 뉴스
 
-<img src="images/news/news1.jpg" alt="뉴스1" height="500"/>
-<img src="images/news/news2.jpg" alt="뉴스2" height="500"/>
-<img src="images/news/news3_detail.jpg" alt="뉴스상세화면면" height="500"/>
+<img src="images/news/news1.jpg" alt="뉴스1" height="400"/>
+<img src="images/news/news2.jpg" alt="뉴스2" height="400"/>
+<img src="images/news/news3_detail.jpg" alt="뉴스상세화면면" height="400"/>
 
 
 ### 7️⃣ 성향별 매매봇 
 
-<img src="images/trade_bot/trade_bot1.png" alt="매매봇1" height="500"/>
-<img src="images/trade_bot/trade_bot2.jpg" alt="매매봇2" height="500"/>
+<img src="images/trade_bot/trade_bot1.png" alt="매매봇1" height="400"/>
+<img src="images/trade_bot/trade_bot2.jpg" alt="매매봇2" height="400"/>
 
 ### 8️⃣ 마이페이지
 
-<img src="images/mypage/mypage1.jpg" alt="마이페이지1" height="500"/>
-<img src="images/mypage/mypage2.jpg" alt="마이페이지2" height="500"/>
-<img src="images/mypage/mypage3_ranking.jpg" alt="마이페이지3" height="500"/>
+<img src="images/mypage/mypage1.jpg" alt="마이페이지1" height="400"/>
+<img src="images/mypage/mypage2.jpg" alt="마이페이지2" height="400"/>
+<img src="images/mypage/mypage3_ranking.jpg" alt="마이페이지3" height="400"/>
 
 ## ✨기술적 특징
 ### 1. 웹소켓 구독 기능을 사용한 부하 방지
