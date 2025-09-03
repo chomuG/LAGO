@@ -25,6 +25,7 @@
 <img src="images/main/agree_conditions.jpg" alt="약관동의" height="500"/>
 <img src="images/main/personality_result.png" alt="성향검사사" height="500"/>
 <br>
+<br>
 <img src="images/main/home_top.jpg" alt="홈화면2" height="500"/>
 <img src="images/main/home_bottom.png" alt="홈화면1" height="500"/>
 <img src="images/main/transaction_history.jpg" alt="거래내역역" height="500"/>
@@ -34,9 +35,11 @@
 <img src="images/trade/list_1.png" alt="리스트1" height="500"/>
 <img src="images/trade/list_2.jpg" alt="리스트2" height="500"/>
 <br>
+<br>
 <img src="images/trade/chart_1.png" alt="차트1" height="500"/>
 <img src="images/trade/chart_2.png" alt="차트2" height="500"/>
 <img src="images/trade/chart_3.jpg" alt="차트3" height="500"/>
+<br>
 <br>
 <img src="images/trade/trade_1.jpg" alt="거래1" height="500"/>
 <img src="images/trade/trade_2.jpg" alt="거래2" height="500"/>
@@ -52,8 +55,11 @@
 <img src="images/study/chart_learn.png" alt="차트패턴학습" height="500"/>
 <img src="images/study/terms.png" alt="단어장" height="500"/>
 <br>
+<br>
 <img src="images/study/quiz_daily.jpg" alt="데일리퀴즈" height="500"/>
 <img src="images/study/quiz_result_daily.jpg" alt="데일리퀴즈결과" height="500"/>
+<br>
+<br>
 <img src="images/study/quiz_random.jpg" alt="랜덤퀴즈" height="500"/>
 <img src="images/study/quiz_result_random.jpg" alt="랜덤퀴즈결과" height="500"/>
 
