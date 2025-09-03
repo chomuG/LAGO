@@ -45,10 +45,21 @@
 
 ### 6️⃣ 뉴스
 
+<img src="images/news/news1.jpg" alt="뉴스1" height="500"/>
+<img src="images/news/news2.jpg" alt="뉴스2" height="500"/>
+<img src="images/news/news3_detail.jpg" alt="뉴스상세화면면" height="500"/>
+
+
 ### 7️⃣ 성향별 매매봇 
+
+<img src="images/trade_bot/trade_bot1.png" alt="매매봇1" height="500"/>
+<img src="images/trade_bot/trade_bot2.jpg" alt="매매봇2" height="500"/>
 
 ### 8️⃣ 마이페이지
 
+<img src="images/mypage/mypage1.png" alt="마이페이지1" height="500"/>
+<img src="images/mypage/mypage2.jpg" alt="마이페이지2" height="500"/>
+<img src="images/mypage/mypage3_ranking.jpg" alt="마이페이지3" height="500"/>
 
 ## ✨기술적 특징
 ### 1. 웹소켓 구독 기능을 사용한 부하 방지
