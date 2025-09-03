@@ -22,6 +22,13 @@
 
 ### 1️⃣ 메인 화면
 
+<img src="images/main/agree_conditions.jpg" alt="약관동의" height="500"/>
+<img src="images/main/personality_result.png" alt="성향검사사" height="500"/>
+<br>
+<img src="images/main/home_top.jpg" alt="홈화면2" height="500"/>
+<img src="images/main/home_bottom.png" alt="홈화면1" height="500"/>
+<img src="images/main/transaction_history.jpg" alt="거래내역역" height="500"/>
+
 ### 2️⃣ 모의투자
 
 <img src="images/trade/list_1.png" alt="리스트1" height="500"/>
@@ -41,6 +48,16 @@
 
 ### 4️⃣ 학습
 
+<img src="images/study/study_home.png" alt="학습홈" height="500"/>
+<img src="images/study/chart_learn.png" alt="차트패턴학습" height="500"/>
+<img src="images/study/terms.png" alt="단어장" height="500"/>
+<br>
+<img src="images/study/quiz_daily.jpg" alt="데일리퀴즈" height="500"/>
+<img src="images/study/quiz_result_daily.jpg" alt="데일리퀴즈결과" height="500"/>
+<img src="images/study/quiz_random.jpg" alt="랜덤퀴즈" height="500"/>
+<img src="images/study/quiz_result_random.jpg" alt="랜덤퀴즈결과" height="500"/>
+
+
 ### 5️⃣ 역사 챌린지
 
 ### 6️⃣ 뉴스
@@ -57,7 +74,7 @@
 
 ### 8️⃣ 마이페이지
 
-<img src="images/mypage/mypage1.png" alt="마이페이지1" height="500"/>
+<img src="images/mypage/mypage1.jpg" alt="마이페이지1" height="500"/>
 <img src="images/mypage/mypage2.jpg" alt="마이페이지2" height="500"/>
 <img src="images/mypage/mypage3_ranking.jpg" alt="마이페이지3" height="500"/>
 
